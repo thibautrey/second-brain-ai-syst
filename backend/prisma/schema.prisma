@@ -1,0 +1,165 @@
+// Prisma schema for Second Brain AI System Backend
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==================== User Model ====================
+
+model User {
+  id       String  @id @default(cuid())
+  email    String  @unique
+  password String
+  name     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  processedInputs        ProcessedInput[]
+  speakerProfiles        SpeakerProfile[]
+  audioStreamSessions    AudioStreamSession[]
+  audioBatches           AudioBatch[]
+  inputProcessingMetrics InputProcessingMetrics[]
+
+  @@map("users")
+}
+
+// ==================== Input Ingestion Models ====================
+
+model ProcessedInput {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  format          String // 'text', 'audio_stream', 'audio_batch'
+  content         String @db.Text
+  originalContent Bytes? // Raw audio data if applicable
+
+  speakerId         String
+  speakerConfidence Float  @default(1.0) // 0.0 - 1.0
+  speakerMethod     String @default("assumed") // 'assumed', 'identified', 'uncertain'
+
+  status          String  @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  durationSeconds Float?
+
+  metadata        Json   @default("{}")
+  errorMessage    String?
+  retryCount      Int    @default(0)
+  processedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  audioStream      AudioStreamSession? @relation(fields: [audioStreamId], references: [id], onDelete: SetNull)
+  audioStreamId    String?
+  batchResults     BatchProcessingResult[]
+  metricsSnapshot  InputProcessingMetrics?  @relation("MetricsSnapshot")
+
+  @@index([userId])
+  @@index([status])
+  @@map("processed_inputs")
+}
+
+model SpeakerProfile {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name              String
+  voiceCharacteristics Json @default("{}")
+  identificationMethod String @default("manual") // 'manual', 'ml_model', 'confirmed'
+  confidence        Float  @default(1.0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("speaker_profiles")
+}
+
+model AudioStreamSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sessionName   String
+  format        String @default("wav") // 'wav', 'mp3', 'aac', 'flac'
+  sampleRate    Int    @default(16000)
+  channelCount  Int    @default(1)
+  duration      Float?
+
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+  status        String   @default("active") // 'active', 'completed', 'error'
+
+  processedInputs ProcessedInput[]
+  metadata        Json   @default("{}")
+
+  @@index([userId])
+  @@map("audio_stream_sessions")
+}
+
+model AudioBatch {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  batchName     String
+  fileCount     Int
+  totalDuration Float?
+  uploadedAt    DateTime @default(now())
+  processedAt   DateTime?
+  status        String   @default("pending") // 'pending', 'processing', 'completed', 'error'
+
+  batchResults  BatchProcessingResult[]
+  metadata      Json   @default("{}")
+
+  @@index([userId])
+  @@index([status])
+  @@map("audio_batches")
+}
+
+model BatchProcessingResult {
+  id           String @id @default(cuid())
+  batchId      String
+  batch        AudioBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  processedInputId String
+  processedInput   ProcessedInput @relation(fields: [processedInputId], references: [id], onDelete: Cascade)
+
+  fileIndex    Int
+  fileName     String
+  processingTime Float?
+  success      Boolean @default(true)
+  errorMessage String?
+
+  @@unique([batchId, fileIndex])
+  @@map("batch_processing_results")
+}
+
+model InputProcessingMetrics {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  snapshotId       String? @unique
+  processedInput   ProcessedInput? @relation("MetricsSnapshot", fields: [snapshotId], references: [id], onDelete: SetNull)
+
+  totalInputs      Int
+  successfulInputs Int
+  failedInputs     Int
+  averageProcessingTime Float?
+  lastProcessedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("input_processing_metrics")
+}
