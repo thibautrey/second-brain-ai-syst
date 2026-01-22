@@ -107,8 +107,8 @@ export async function startServer(port: number = 3000) {
     console.log("✓ Database connected");
 
     // Start server
-    app.listen(port, () => {
-      console.log(`✓ API server running on http://localhost:${port}`);
+    app.listen(port, "0.0.0.0", () => {
+      console.log(`✓ API server running on http://0.0.0.0:${port}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
