@@ -1,5 +1,9 @@
-import { hashPassword, comparePassword, generateToken } from '../services/auth.js';
-import { PrismaClient } from '@prisma/client';
+import {
+  hashPassword,
+  comparePassword,
+  generateToken,
+} from "../services/auth.js";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -13,12 +17,12 @@ export async function signup(email: string, password: string, name?: string) {
   });
 
   if (existingUser) {
-    throw new Error('User already exists');
+    throw new Error("User already exists");
   }
 
   // Validate password
   if (!password || password.length < 6) {
-    throw new Error('Password must be at least 6 characters');
+    throw new Error("Password must be at least 6 characters");
   }
 
   // Hash password
@@ -29,7 +33,7 @@ export async function signup(email: string, password: string, name?: string) {
     data: {
       email,
       password: hashedPassword,
-      name: name || email.split('@')[0],
+      name: name || email.split("@")[0],
     },
     select: {
       id: true,
@@ -58,14 +62,14 @@ export async function signin(email: string, password: string) {
   });
 
   if (!user) {
-    throw new Error('Invalid email or password');
+    throw new Error("Invalid email or password");
   }
 
   // Compare password
   const isPasswordValid = await comparePassword(password, user.password);
 
   if (!isPasswordValid) {
-    throw new Error('Invalid email or password');
+    throw new Error("Invalid email or password");
   }
 
   // Generate token
@@ -98,7 +102,7 @@ export async function getUserProfile(userId: string) {
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   return user;

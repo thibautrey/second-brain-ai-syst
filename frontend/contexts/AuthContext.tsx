@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 interface User {
   id: string;
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize from localStorage on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('authToken');
+    const savedToken = localStorage.getItem("authToken");
     if (savedToken) {
       setToken(savedToken);
       // Optionally verify token by fetching user profile
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function fetchUserProfile(authToken: string) {
     try {
-      const response = await fetch('http://localhost:3000/api/auth/me', {
+      const response = await fetch("http://localhost:3000/api/auth/me", {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
@@ -49,12 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(userData);
       } else {
         // Token is invalid, clear it
-        localStorage.removeItem('authToken');
+        localStorage.removeItem("authToken");
         setToken(null);
       }
     } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-      localStorage.removeItem('authToken');
+      console.error("Failed to fetch user profile:", error);
+      localStorage.removeItem("authToken");
       setToken(null);
     } finally {
       setIsLoading(false);
@@ -64,23 +64,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(email: string, password: string) {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/auth/signin', {
-        method: 'POST',
+      const response = await fetch("http://localhost:3000/api/auth/signin", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Login failed');
+        throw new Error(error.error || "Login failed");
       }
 
       const data = await response.json();
       setUser(data.user);
       setToken(data.token);
-      localStorage.setItem('authToken', data.token);
+      localStorage.setItem("authToken", data.token);
     } finally {
       setIsLoading(false);
     }
@@ -89,23 +89,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signup(email: string, password: string, name?: string) {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/auth/signup', {
-        method: 'POST',
+      const response = await fetch("http://localhost:3000/api/auth/signup", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, name }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Signup failed');
+        throw new Error(error.error || "Signup failed");
       }
 
       const data = await response.json();
       setUser(data.user);
       setToken(data.token);
-      localStorage.setItem('authToken', data.token);
+      localStorage.setItem("authToken", data.token);
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function logout() {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('authToken');
+    localStorage.removeItem("authToken");
   }
 
   return (
@@ -137,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

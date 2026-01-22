@@ -1,8 +1,16 @@
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/ui/button';
-import { Menu, LogOut, Settings, Home, Brain, FileText, BarChart3 } from 'lucide-react';
-import { useState } from 'react';
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { Button } from "../components/ui/button";
+import {
+  Menu,
+  LogOut,
+  Settings,
+  Home,
+  Brain,
+  FileText,
+  BarChart3,
+} from "lucide-react";
+import { useState } from "react";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -11,7 +19,7 @@ export function DashboardPage() {
 
   function handleLogout() {
     logout();
-    navigate('/login');
+    navigate("/login");
   }
 
   return (
@@ -19,7 +27,7 @@ export function DashboardPage() {
       {/* Sidebar */}
       <div
         className={`${
-          sidebarOpen ? 'w-64' : 'w-0'
+          sidebarOpen ? "w-64" : "w-0"
         } bg-slate-900 text-white transition-all duration-300 flex flex-col overflow-hidden`}
       >
         <div className="p-6 border-b border-slate-800">
@@ -32,7 +40,10 @@ export function DashboardPage() {
         <nav className="flex-1 p-4 space-y-2">
           <NavItem icon={<Home className="w-5 h-5" />} label="Dashboard" />
           <NavItem icon={<Brain className="w-5 h-5" />} label="Memories" />
-          <NavItem icon={<FileText className="w-5 h-5" />} label="Interactions" />
+          <NavItem
+            icon={<FileText className="w-5 h-5" />}
+            label="Interactions"
+          />
           <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Analytics" />
           <NavItem icon={<Settings className="w-5 h-5" />} label="Settings" />
         </nav>
@@ -64,7 +75,9 @@ export function DashboardPage() {
 
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">{user?.name || user?.email}</p>
+              <p className="text-sm font-medium text-slate-900">
+                {user?.name || user?.email}
+              </p>
               <p className="text-xs text-slate-500">{user?.email}</p>
             </div>
             <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -76,9 +89,12 @@ export function DashboardPage() {
         {/* Content Area */}
         <div className="flex-1 p-8 overflow-auto">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">Welcome back, {user?.name}!</h2>
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">
+              Welcome back, {user?.name}!
+            </h2>
             <p className="text-slate-600 mb-8">
-              Your personal cognitive operating system is ready to enhance your memory and reasoning.
+              Your personal cognitive operating system is ready to enhance your
+              memory and reasoning.
             </p>
 
             {/* Dashboard Grid */}
@@ -105,7 +121,9 @@ export function DashboardPage() {
 
               {/* Quick Start */}
               <div className="md:col-span-3 bg-white rounded-lg shadow p-6 border border-slate-200">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Start</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                  Quick Start
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <QuickStartButton
                     title="Record Thought"
@@ -132,7 +150,9 @@ export function DashboardPage() {
 
               {/* Recent Activity */}
               <div className="md:col-span-3 bg-white rounded-lg shadow p-6 border border-slate-200">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                  Recent Activity
+                </h3>
                 <div className="space-y-3">
                   <ActivityItem
                     title="System Initialized"

@@ -1,8 +1,9 @@
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRE = '7d';
+const JWT_SECRET =
+  process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const JWT_EXPIRE = "7d";
 const SALT_ROUNDS = 10;
 
 /**
@@ -15,7 +16,10 @@ export async function hashPassword(password: string): Promise<string> {
 /**
  * Compare password with hash
  */
-export async function comparePassword(password: string, hash: string): Promise<boolean> {
+export async function comparePassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }
 
@@ -41,7 +45,7 @@ export function verifyToken(token: string): { userId: string } | null {
  * Extract token from Authorization header
  */
 export function extractToken(authHeader?: string): string | null {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
   }
   return authHeader.slice(7);

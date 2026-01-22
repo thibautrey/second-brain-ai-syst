@@ -1,16 +1,16 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
   });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -19,15 +19,15 @@ export function LoginPage() {
 
     // Validation
     if (!formData.email || !formData.password) {
-      setError('Email and password are required');
+      setError("Email and password are required");
       return;
     }
 
     try {
       await login(formData.email, formData.password);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : "Login failed");
     }
   }
 
@@ -42,8 +42,12 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8">
-        <h1 className="text-3xl font-bold text-center mb-2 text-slate-900">Welcome Back</h1>
-        <p className="text-center text-slate-600 mb-8">Sign in to your Second Brain</p>
+        <h1 className="text-3xl font-bold text-center mb-2 text-slate-900">
+          Welcome Back
+        </h1>
+        <p className="text-center text-slate-600 mb-8">
+          Sign in to your Second Brain
+        </p>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
@@ -53,7 +57,10 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-slate-700 mb-1"
+            >
               Email Address
             </label>
             <Input
@@ -70,7 +77,10 @@ export function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-slate-700 mb-1"
+            >
               Password
             </label>
             <Input
@@ -85,18 +95,17 @@ export function LoginPage() {
             />
           </div>
 
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full mt-6"
-          >
-            {isLoading ? 'Signing In...' : 'Sign In'}
+          <Button type="submit" disabled={isLoading} className="w-full mt-6">
+            {isLoading ? "Signing In..." : "Sign In"}
           </Button>
         </form>
 
         <p className="text-center text-slate-600 mt-6">
-          Don't have an account?{' '}
-          <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+          Don't have an account?{" "}
+          <Link
+            to="/signup"
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
             Create one
           </Link>
         </p>

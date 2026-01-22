@@ -1,18 +1,18 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 export function SignupPage() {
   const navigate = useNavigate();
   const { signup, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -21,25 +21,25 @@ export function SignupPage() {
 
     // Validation
     if (!formData.email || !formData.password) {
-      setError('Email and password are required');
+      setError("Email and password are required");
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError("Password must be at least 6 characters");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
 
     try {
       await signup(formData.email, formData.password, formData.name);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Signup failed');
+      setError(err instanceof Error ? err.message : "Signup failed");
     }
   }
 
@@ -54,8 +54,12 @@ export function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8">
-        <h1 className="text-3xl font-bold text-center mb-2 text-slate-900">Create Account</h1>
-        <p className="text-center text-slate-600 mb-8">Join Second Brain AI System</p>
+        <h1 className="text-3xl font-bold text-center mb-2 text-slate-900">
+          Create Account
+        </h1>
+        <p className="text-center text-slate-600 mb-8">
+          Join Second Brain AI System
+        </p>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
@@ -65,7 +69,10 @@ export function SignupPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-slate-700 mb-1"
+            >
               Full Name (Optional)
             </label>
             <Input
@@ -80,7 +87,10 @@ export function SignupPage() {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-slate-700 mb-1"
+            >
               Email Address
             </label>
             <Input
@@ -96,7 +106,10 @@ export function SignupPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-slate-700 mb-1"
+            >
               Password
             </label>
             <Input
@@ -113,7 +126,10 @@ export function SignupPage() {
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1">
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-slate-700 mb-1"
+            >
               Confirm Password
             </label>
             <Input
@@ -128,18 +144,17 @@ export function SignupPage() {
             />
           </div>
 
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full mt-6"
-          >
-            {isLoading ? 'Creating Account...' : 'Sign Up'}
+          <Button type="submit" disabled={isLoading} className="w-full mt-6">
+            {isLoading ? "Creating Account..." : "Sign Up"}
           </Button>
         </form>
 
         <p className="text-center text-slate-600 mt-6">
-          Already have an account?{' '}
-          <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
             Sign In
           </Link>
         </p>
