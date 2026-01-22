@@ -77,7 +77,7 @@ export async function uploadSample(
   const response = await fetch(`${API_BASE_URL}/api/training/samples`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
+      Authorization: `Bearer ${localStorage.getItem("authToken")}`,
     },
     body: formData,
   });
@@ -111,7 +111,7 @@ export async function listSamples(
     {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
       },
     },
   );
@@ -128,13 +128,15 @@ export async function listSamples(
 /**
  * Get a specific voice sample
  */
-export async function getSample(sampleId: string): Promise<VoiceSampleResponse> {
+export async function getSample(
+  sampleId: string,
+): Promise<VoiceSampleResponse> {
   const response = await fetch(
     `${API_BASE_URL}/api/training/samples/${sampleId}`,
     {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
       },
     },
   );
@@ -161,7 +163,7 @@ export async function deleteSample(sampleId: string): Promise<void> {
     {
       method: "DELETE",
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
       },
     },
   );
@@ -182,7 +184,7 @@ export async function startTraining(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
+      Authorization: `Bearer ${localStorage.getItem("authToken")}`,
     },
     body: JSON.stringify({
       speakerProfileId,
@@ -208,12 +210,15 @@ export async function startTraining(
 export async function getTrainingStatus(
   sessionId: string,
 ): Promise<TrainingSessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/training/status/${sessionId}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
+  const response = await fetch(
+    `${API_BASE_URL}/api/training/status/${sessionId}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     const error = await response.json();
@@ -243,10 +248,7 @@ export async function pollTrainingStatus(
       try {
         const session = await getTrainingStatus(sessionId);
 
-        if (
-          session.status === "completed" ||
-          session.status === "failed"
-        ) {
+        if (session.status === "completed" || session.status === "failed") {
           clearInterval(pollInterval);
           resolve(session);
           return;
@@ -255,9 +257,7 @@ export async function pollTrainingStatus(
         if (Date.now() - startTime > maxDuration) {
           clearInterval(pollInterval);
           reject(
-            new Error(
-              `Training session timed out after ${maxDuration}ms`,
-            ),
+            new Error(`Training session timed out after ${maxDuration}ms`),
           );
           return;
         }
