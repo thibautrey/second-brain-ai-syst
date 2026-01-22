@@ -1,0 +1,190 @@
+{
+  "input_system": {
+    "version": "1.0.0",
+    "supported_formats": ["text", "audio_stream", "audio_batch"],
+
+    "speaker_recognition": {
+      "enabled": true,
+      "model": "ecapa-tdnn",
+      "options": {
+        "ecapa-tdnn": {
+          "description": "SpeechBrain ECAPA-TDNN - Strong accuracy, reliable open-source baseline",
+          "embedding_dim": 192,
+          "recommended_threshold_high": 0.85,
+          "recommended_threshold_low": 0.7,
+          "latency_ms": "500-2000",
+          "device_compatibility": ["cpu", "gpu"]
+        },
+        "wespeaker": {
+          "description": "WeSpeaker - Production-oriented, flexible speaker embedding",
+          "embedding_dim": 256,
+          "recommended_threshold_high": 0.82,
+          "recommended_threshold_low": 0.68,
+          "latency_ms": "400-1500",
+          "device_compatibility": ["cpu", "gpu"]
+        },
+        "pyannote": {
+          "description": "pyannote.audio - Multi-speaker diarization support",
+          "embedding_dim": 512,
+          "recommended_threshold_high": 0.85,
+          "recommended_threshold_low": 0.7,
+          "latency_ms": "2000-5000",
+          "device_compatibility": ["gpu"],
+          "features": ["diarization", "multi_speaker_detection"]
+        },
+        "resemblyzer": {
+          "description": "Resemblyzer - Lightweight, quick to integrate",
+          "embedding_dim": 256,
+          "recommended_threshold_high": 0.75,
+          "recommended_threshold_low": 0.6,
+          "latency_ms": "200-500",
+          "device_compatibility": ["cpu"]
+        }
+      },
+
+      "config": {
+        "model": "ecapa-tdnn",
+        "threshold_high": 0.85,
+        "threshold_low": 0.7,
+        "window_seconds": 3,
+        "use_vad": true,
+        "use_diarization": false,
+        "multi_speaker_mode": false,
+        "device": "auto"
+      },
+
+      "enrollment": {
+        "min_samples": 3,
+        "min_sample_duration_seconds": 3,
+        "recommended_samples": 5,
+        "recommended_sample_duration_seconds": 5,
+        "profile_recompute_interval_days": 7
+      }
+    },
+
+    "text_input": {
+      "enabled": true,
+      "max_length_chars": 10000,
+      "normalization": {
+        "trim_whitespace": true,
+        "normalize_unicode": true
+      },
+      "default_speaker": "user",
+      "latency_target_ms": 100
+    },
+
+    "audio_stream": {
+      "enabled": true,
+      "protocol": "websocket",
+      "supported_sample_rates": [8000, 16000, 44100, 48000],
+      "supported_channels": [1, 2],
+      "supported_encodings": ["pcm16", "opus", "aac"],
+      "buffer_size_seconds": 5,
+      "chunk_size_ms": 100,
+      "vad": {
+        "enabled": true,
+        "engine": "webrtc",
+        "silence_threshold_db": -40,
+        "voice_threshold_db": -20
+      },
+      "transcription": {
+        "engine": "openai_whisper",
+        "model": "base",
+        "language": "auto",
+        "streaming_enabled": true
+      }
+    },
+
+    "audio_batch": {
+      "enabled": true,
+      "protocol": "http",
+      "chunk_size_seconds_min": 3,
+      "chunk_size_seconds_max": 10,
+      "max_total_size_mb": 100,
+      "buffer_accumulation": true,
+      "buffer_timeout_seconds": 30,
+      "vad": {
+        "enabled": true,
+        "engine": "webrtc"
+      }
+    },
+
+    "processing": {
+      "max_concurrent_streams": 10,
+      "max_concurrent_batches": 20,
+      "processing_timeout_seconds": 60,
+      "retry_policy": {
+        "max_retries": 3,
+        "backoff_ms": 1000,
+        "backoff_multiplier": 2
+      }
+    },
+
+    "storage": {
+      "embeddings": {
+        "format": "float32_array",
+        "compression": "none",
+        "encryption": "aes-256-gcm"
+      },
+      "speaker_profiles": {
+        "retention_days": 3650,
+        "backup_enabled": true,
+        "backup_frequency": "weekly"
+      },
+      "audio_data": {
+        "retention_days": 30,
+        "compression": "opus",
+        "delete_after_transcription": true
+      }
+    },
+
+    "performance": {
+      "targets": {
+        "text_latency_ms": 100,
+        "audio_batch_latency_ms": 3000,
+        "audio_stream_latency_ms": 2000,
+        "speaker_identification_accuracy_percent": 95,
+        "speaker_identification_latency_ms": 1000
+      },
+      "caching": {
+        "enabled": true,
+        "ttl_seconds": 3600,
+        "max_size_mb": 500
+      }
+    },
+
+    "monitoring": {
+      "enabled": true,
+      "metrics": [
+        "input_processing_time",
+        "speaker_identification_confidence",
+        "speaker_identification_latency",
+        "error_rate",
+        "buffer_usage",
+        "stream_duration"
+      ],
+      "logging": {
+        "level": "info",
+        "log_sensitive_data": false
+      }
+    },
+
+    "security": {
+      "input_validation": true,
+      "max_input_size_mb": 50,
+      "rate_limiting": {
+        "enabled": true,
+        "requests_per_minute": 60,
+        "requests_per_hour": 1000
+      },
+      "speaker_enrollment": {
+        "require_verification": true,
+        "verification_methods": ["multi_sample_matching"]
+      },
+      "encryption": {
+        "at_rest": "aes-256-gcm",
+        "in_transit": "tls-1.3"
+      }
+    }
+  }
+}

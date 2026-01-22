@@ -1,0 +1,215 @@
+// This is a migration file structure documentation for the input ingestion tables
+// Apply with: npx prisma migrate dev --name add_input_ingestion_tables
+
+datasource db {
+    provider = "postgresql"
+}
+
+generator client {
+    provider = "prisma-client"
+    output   = "../../generated/prisma"
+}
+
+// ==================== User Model ====================
+
+model User {
+    id       String  @id @default(cuid())
+    email    String  @unique
+    password String
+    name     String?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    processedInputs        ProcessedInput[]
+    speakerProfiles        SpeakerProfile[]
+    audioStreamSessions    AudioStreamSession[]
+    audioBatches           AudioBatch[]
+    inputProcessingMetrics InputProcessingMetrics[]
+
+    @@map("users")
+}
+
+// ==================== Input Ingestion Models ====================
+
+model ProcessedInput {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    format          String // 'text', 'audio_stream', 'audio_batch'
+    content         String @db.Text
+    originalContent Bytes? // Raw audio data if applicable
+
+    speakerId         String
+    speakerConfidence Float  @default(1.0) // 0.0 - 1.0
+    speakerMethod     String @default("assumed") // 'assumed', 'identified', 'uncertain'
+
+    status           String  @default("pending") // 'pending', 'processing', 'completed', 'failed'
+    durationSeconds  Float?
+    processingTimeMs Int
+    error            String?
+
+    metadata  Json     @default("{}")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    audioStream       AudioStreamSession?
+    audioBatches      AudioBatch[]
+    memoryIntegration MemoryIntegration?
+
+    @@index([userId])
+    @@index([status])
+    @@index([createdAt])
+    @@map("processed_inputs")
+}
+
+model SpeakerProfile {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    speakerId      String
+    name           String
+    enrollmentDate DateTime @default(now())
+
+    modelVersion      String
+    centroidEmbedding String // Stored as JSON string of float array
+
+    confidenceMean Float
+    confidenceStd  Float
+    confidenceMin  Float
+    confidenceMax  Float
+
+    active   Boolean @default(true)
+    metadata Json    @default("{}")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    embeddings SpeakerEmbedding[]
+
+    @@unique([userId, speakerId])
+    @@index([userId])
+    @@index([active])
+    @@map("speaker_profiles")
+}
+
+model SpeakerEmbedding {
+    id        String         @id @default(cuid())
+    profileId String
+    profile   SpeakerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+    embedding  String // Stored as JSON string of float array
+    source     String // e.g., 'daily_note_20260122', 'enrollment_sample_1'
+    confidence Float?
+
+    createdAt DateTime @default(now())
+
+    @@index([profileId])
+    @@map("speaker_embeddings")
+}
+
+model AudioStreamSession {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    sessionId String         @unique
+    inputId   String         @unique
+    input     ProcessedInput @relation(fields: [inputId], references: [id], onDelete: Cascade)
+
+    startTime DateTime  @default(now())
+    endTime   DateTime?
+
+    totalChunks          Int     @default(0)
+    totalDurationSeconds Float?
+    finalTranscription   String? @db.Text
+
+    status   String @default("active") // 'active', 'completed', 'failed'
+    metadata Json   @default("{}")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([status])
+    @@map("audio_stream_sessions")
+}
+
+model AudioBatch {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    inputId String
+    input   ProcessedInput @relation(fields: [inputId], references: [id], onDelete: Cascade)
+
+    batchId        String
+    sequenceNumber Int
+
+    chunkSize Int
+    isFinal   Boolean @default(false)
+
+    transcodedContent String? @db.Text
+    status            String  @default("pending") // 'pending', 'completed', 'failed'
+
+    createdAt DateTime @default(now())
+
+    @@index([userId])
+    @@index([batchId])
+    @@index([status])
+    @@map("audio_batches")
+}
+
+model InputProcessingMetrics {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    inputFormat      String
+    processingTimeMs Int
+    success          Boolean
+    errorType        String?
+
+    speakerIdentified Boolean @default(false)
+    speakerConfidence Float?
+
+    createdAt DateTime @default(now())
+
+    @@index([userId])
+    @@index([createdAt])
+    @@map("input_processing_metrics")
+}
+
+// ==================== Integration with existing models ====================
+
+model MemoryIntegration {
+    id      String         @id @default(cuid())
+    inputId String         @unique
+    input   ProcessedInput @relation(fields: [inputId], references: [id], onDelete: Cascade)
+
+    memoryId String
+    // Assuming Memory model exists, add relation if needed
+
+    integrated   Boolean   @default(false)
+    integratedAt DateTime?
+
+    createdAt DateTime @default(now())
+
+    @@index([inputId])
+    @@map("memory_integrations")
+}
+
+// Extend User model if it exists
+// model User {
+//   // ... existing fields
+//   processedInputs       ProcessedInput[]
+//   speakerProfiles       SpeakerProfile[]
+//   audioStreamSessions   AudioStreamSession[]
+//   audioBatches          AudioBatch[]
+//   inputMetrics          InputProcessingMetrics[]
+// }

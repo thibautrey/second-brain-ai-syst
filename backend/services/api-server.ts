@@ -1,59 +1,102 @@
-// Backend Entry Point
-// API Server setup and request routing
+import express, { Express, Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import { PrismaClient } from '@prisma/client';
+import { signup, signin, getUserProfile } from '../controllers/auth.controller.js';
+import { authMiddleware, AuthRequest } from '../middlewares/auth.middleware.js';
 
-export async function setupBackend() {
-  // TODO: Initialize Express/Fastify server
-  // TODO: Setup middleware (auth, logging, error handling)
-  // TODO: Register API routes
-  // TODO: Connect to PostgreSQL
-  // TODO: Connect to Weaviate
-  // TODO: Initialize services
+const app: Express = express();
+const prisma = new PrismaClient();
 
-  console.log("Backend initialization started...");
-}
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Error handling middleware
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error(err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
+});
+
+// ==================== Auth Routes ====================
 
 /**
- * Main API route handlers
+ * POST /api/auth/signup
+ * Create a new user account
  */
-export const routes = {
-  memory: {
-    // GET /api/memories
-    list: "List all memories for user",
-    // POST /api/memories
-    create: "Create new memory entry",
-    // GET /api/memories/:id
-    get: "Get specific memory",
-    // PUT /api/memories/:id
-    update: "Update memory",
-    // DELETE /api/memories/:id
-    delete: "Delete memory",
-  },
+app.post('/api/auth/signup', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, password, name } = req.body;
 
-  interactions: {
-    // POST /api/interactions
-    submit: "Submit new user interaction",
-    // GET /api/interactions/history
-    history: "Get interaction history",
-  },
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
 
-  search: {
-    // POST /api/search
-    hybrid: "Search memories (vector + keyword + temporal)",
-    // POST /api/search/semantic
-    semantic: "Semantic similarity search",
-  },
+    const result = await signup(email, password, name);
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
 
-  tools: {
-    // GET /api/tools
-    list: "List available tools",
-    // POST /api/tools/:id/execute
-    execute: "Execute tool",
-  },
+/**
+ * POST /api/auth/signin
+ * Authenticate user and return token
+ */
+app.post('/api/auth/signin', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, password } = req.body;
 
-  config: {
-    // GET /api/config
-    get: "Get user configuration",
-    // PUT /api/config
-    update: "Update configuration",
-  },
-};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const result = await signin(email, password);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/auth/me
+ * Get current user profile (protected)
+ */
+app.get('/api/auth/me', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await getUserProfile(req.userId);
+    res.json(user);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== Health Check ====================
+
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({ status: 'ok' });
+});
+
+/**
+ * Initialize and start the API server
+ */
+export async function startServer(port: number = 3000) {
+  try {
+    // Test database connection
+    await prisma.$connect();
+    console.log('✓ Database connected');
+
+    // Start server
+    app.listen(port, () => {
+      console.log(`✓ API server running on http://localhost:${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+export default app;
