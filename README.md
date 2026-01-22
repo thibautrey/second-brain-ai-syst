@@ -1,23 +1,34 @@
-# ✨ Welcome to Your Spark Template!
-You've just launched your brand-new Spark Template Codespace — everything’s fired up and ready for you to explore, build, and create with Spark!
+# Second Brain AI System
 
-This template is your blank canvas. It comes with a minimal setup to help you get started quickly with Spark development.
+An AI-powered personal cognitive operating system that captures, organizes, summarizes, and recalls information to augment human memory and decision-making.
 
-🚀 What's Inside?
-- A clean, minimal Spark environment
-- Pre-configured for local development
-- Ready to scale with your ideas
-  
-🧠 What Can You Do?
+## Features
 
-Right now, this is just a starting point — the perfect place to begin building and testing your Spark applications.
+- **Continuous Memory**: Captures interactions and structures them automatically
+- **Multi-scale Summaries**: Generates summaries from daily to yearly timescales
+- **Semantic Search**: Find memories by meaning, not just keywords
+- **Autonomous Agents**: Background processes for reflection, goals, habits
+- **Privacy-First**: Self-hosted, encrypted storage, zero telemetry
+- **Tool Integration**: Browser automation, APIs, custom tools
 
-🧹 Just Exploring?
-No problem! If you were just checking things out and don’t need to keep this code:
+## Quick Start
 
-- Simply delete your Spark.
-- Everything will be cleaned up — no traces left behind.
+```bash
+# Install dependencies
+npm install
 
-📄 License For Spark Template Resources 
+# Setup environment
+cp .env.example .env
+
+# Run development
+npm run dev
+```
+
+## Documentation
+
+- [Architecture & Agents](./agents.md) - Complete system design
+- [Development Roadmap](./agents.md#-development-phases) - Phase-by-phase plan
+
+📄 License For Spark Template Resources
 
 The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.

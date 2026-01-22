@@ -1,3 +1,8 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
 # Logs
 logs
 *.log
@@ -13,11 +18,26 @@ dist-ssr
 *-dist
 *.local
 
+# Backend
+backend/dist/
+backend/node_modules/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Database
+*.db
+*.sqlite
+pgdata/
+weaviate_data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
