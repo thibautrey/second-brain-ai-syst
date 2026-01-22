@@ -455,6 +455,161 @@ export class SpeakerManagementController {
  */
 export class VoiceTrainingController {
   /**
+   * GET /api/speaker-profiles
+   * List all speaker profiles for current user
+   */
+  async listSpeakerProfiles(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const profiles = await prisma.speakerProfile.findMany({
+        where: { userId: req.userId },
+        include: {
+          voiceSamples: {
+            select: {
+              id: true,
+              phraseText: true,
+              phraseCategory: true,
+              status: true,
+              durationSeconds: true,
+              createdAt: true,
+            },
+          },
+          trainingSessions: {
+            select: {
+              id: true,
+              status: true,
+              progress: true,
+              confidenceScore: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      res.status(200).json({
+        success: true,
+        count: profiles.length,
+        profiles,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/speaker-profiles
+   * Create a new speaker profile
+   */
+  async createSpeakerProfile(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { name } = req.body;
+
+      if (!name || typeof name !== "string") {
+        res.status(400).json({ error: "Profile name is required" });
+        return;
+      }
+
+      const profile = await prisma.speakerProfile.create({
+        data: {
+          userId: req.userId,
+          name: name.trim(),
+          identificationMethod: "manual",
+          confidence: 1.0,
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        profile,
+        message: "Speaker profile created",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/speaker-profiles/:profileId
+   * Get a specific speaker profile with samples
+   */
+  async getSpeakerProfile(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { profileId } = req.params;
+
+      const profile = await prisma.speakerProfile.findUnique({
+        where: { id: profileId },
+        include: {
+          voiceSamples: {
+            select: {
+              id: true,
+              phraseText: true,
+              phraseCategory: true,
+              status: true,
+              durationSeconds: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          },
+          trainingSessions: {
+            select: {
+              id: true,
+              status: true,
+              progress: true,
+              confidenceScore: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+        },
+      });
+
+      if (!profile || profile.userId !== req.userId) {
+        res.status(404).json({ error: "Speaker profile not found" });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        profile,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/training/samples
    * Upload a voice sample for training
    */
@@ -652,6 +807,43 @@ export class VoiceTrainingController {
       res.status(200).json({
         success: true,
         trainingSession: session,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/training/active
+   * Get active training sessions for the current user
+   */
+  async getActiveTrainingSessions(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const sessions = await prisma.trainingSession.findMany({
+        where: {
+          speakerProfile: {
+            userId: req.userId,
+          },
+          status: {
+            in: ["pending", "in-progress"],
+          },
+        },
+        include: { speakerProfile: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      res.status(200).json({
+        success: true,
+        activeTrainingSessions: sessions,
       });
     } catch (error) {
       next(error);

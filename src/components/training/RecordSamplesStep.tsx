@@ -69,7 +69,7 @@ export function RecordSamplesStep({
     }
   };
 
-  const canContinue = totalRecordings >= 5 && uniquePhrases >= 3;
+  const canContinue = totalRecordings >= 1;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -114,8 +114,7 @@ export function RecordSamplesStep({
 
         {!canContinue && (
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
-            Record at least 5 samples from at least 3 different phrases to
-            continue.
+            Record at least 1 sample to continue.
           </div>
         )}
 

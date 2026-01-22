@@ -35,14 +35,26 @@ export class AudioUploadService {
     mimeType: string,
     options: AudioUploadOptions = {},
   ): Promise<UploadedAudioSample> {
-    // Validate speaker profile if provided
+    // Validate and get or create speaker profile
     let speakerProfileId = options.speakerProfileId;
     if (speakerProfileId) {
       const profile = await prisma.speakerProfile.findUnique({
         where: { id: speakerProfileId, userId },
       });
       if (!profile) {
-        throw new Error(`Speaker profile not found: ${speakerProfileId}`);
+        // Auto-create the speaker profile if it doesn't exist
+        // This handles the case where the frontend generates a profile ID
+        // but it hasn't been created in the database yet
+        const newProfile = await prisma.speakerProfile.create({
+          data: {
+            id: speakerProfileId,
+            userId,
+            name: `Profile (${new Date().toLocaleString()})`,
+            identificationMethod: "manual",
+            confidence: 1.0,
+          },
+        });
+        speakerProfileId = newProfile.id;
       }
     } else {
       // Create default speaker profile if none exists

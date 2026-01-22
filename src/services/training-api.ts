@@ -49,6 +49,7 @@ export interface ApiResponse<T> {
   samples?: T[];
   sample?: T;
   trainingSession?: TrainingSessionResponse;
+  activeTrainingSessions?: TrainingSessionResponse[];
   error?: string;
 }
 
@@ -240,6 +241,7 @@ export async function pollTrainingStatus(
   sessionId: string,
   interval: number = 2000,
   maxDuration: number = 300000, // 5 minutes
+  onProgress?: (session: TrainingSessionResponse) => void,
 ): Promise<TrainingSessionResponse> {
   const startTime = Date.now();
 
@@ -247,6 +249,11 @@ export async function pollTrainingStatus(
     const pollInterval = setInterval(async () => {
       try {
         const session = await getTrainingStatus(sessionId);
+
+        // Call progress callback if provided
+        if (onProgress) {
+          onProgress(session);
+        }
 
         if (session.status === "completed" || session.status === "failed") {
           clearInterval(pollInterval);
@@ -267,4 +274,94 @@ export async function pollTrainingStatus(
       }
     }, interval);
   });
+}
+/**
+ * Get active training sessions for current user
+ */
+export async function getActiveTrainingSessions(): Promise<
+  TrainingSessionResponse[]
+> {
+  const response = await fetch(`${API_BASE_URL}/api/training/active`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to get active training sessions");
+  }
+
+  const data: ApiResponse<TrainingSessionResponse> = await response.json();
+  if (!data.activeTrainingSessions) {
+    return [];
+  }
+
+  return data.activeTrainingSessions;
+}
+
+/**
+ * List all speaker profiles for current user
+ */
+export async function listSpeakerProfiles(): Promise<any[]> {
+  const response = await fetch(`${API_BASE_URL}/api/speaker-profiles`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to list speaker profiles");
+  }
+
+  const data = await response.json();
+  return data.profiles || [];
+}
+
+/**
+ * Create a new speaker profile
+ */
+export async function createSpeakerProfile(name: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/api/speaker-profiles`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to create speaker profile");
+  }
+
+  const data = await response.json();
+  return data.profile;
+}
+
+/**
+ * Get a specific speaker profile with samples
+ */
+export async function getSpeakerProfile(profileId: string): Promise<any> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/speaker-profiles/${profileId}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to get speaker profile");
+  }
+
+  const data = await response.json();
+  return data.profile;
 }

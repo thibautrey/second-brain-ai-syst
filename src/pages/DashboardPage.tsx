@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
+import { TrainingProgressWidget } from "../components/ui/training-progress-widget";
 import {
   Menu,
   LogOut,
@@ -109,6 +110,9 @@ export function DashboardPage() {
           <div className="flex-1" />
 
           <div className="flex items-center gap-4">
+            {/* Training Progress Widget */}
+            <TrainingProgressWidget />
+
             <div className="text-right">
               <p className="text-sm font-medium text-slate-900">
                 {user?.name || user?.email}

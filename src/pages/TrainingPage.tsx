@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { AlertCircle, ChevronLeft } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { ProfileSelectionStep } from "../components/training/ProfileSelectionStep";
 import { RecordSamplesStep } from "../components/training/RecordSamplesStep";
 import { VerificationResults } from "../components/training/VerificationResults";
 import * as trainingAPI from "../services/training-api";
@@ -16,15 +17,15 @@ interface Recording {
   uploadStatus: "pending" | "uploading" | "completed" | "failed";
 }
 
-type Step = "recording" | "training" | "verification";
+type Step = "profile-selection" | "recording" | "training" | "verification";
 
 export function TrainingPage() {
   const { user } = useAuth();
 
   // Step management
-  const [currentStep, setCurrentStep] = useState<Step>("recording");
+  const [currentStep, setCurrentStep] = useState<Step>("profile-selection");
 
-  // Profile setup state - auto-generated based on user ID
+  // Profile setup state
   const [speakerProfileId, setSpeakerProfileId] = useState<string | null>(null);
 
   // Recording state
@@ -52,13 +53,18 @@ export function TrainingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const currentSessionIdRef = useRef<string | null>(null);
 
-  // Initialize speaker profile on component mount
-  useEffect(() => {
-    if (user?.id && !speakerProfileId) {
-      const generatedId = `profile-${user.id}-${Date.now()}`;
-      setSpeakerProfileId(generatedId);
+  // Handle profile selection
+  const handleProfileSelected = (profileId: string) => {
+    setSpeakerProfileId(profileId);
+  };
+
+  const handleProfileSelectionContinue = async () => {
+    if (!speakerProfileId) {
+      setError("Please select or create a profile");
+      return;
     }
-  }, [user?.id, speakerProfileId]);
+    setCurrentStep("recording");
+  };
 
   // Step 2: Record samples
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
@@ -183,12 +189,16 @@ export function TrainingPage() {
       const session = await trainingAPI.startTraining(speakerProfileId);
       currentSessionIdRef.current = session.id;
 
-      // Poll for completion
+      // Poll for completion with progress callback
       const startTime = Date.now();
       const completedSession = await trainingAPI.pollTrainingStatus(
         session.id,
         2000,
         600000,
+        (session) => {
+          // Update progress on each poll
+          setTrainingProgress(session.progress);
+        },
       );
 
       const trainingDuration = (Date.now() - startTime) / 1000;
@@ -244,6 +254,11 @@ export function TrainingPage() {
     label: string;
     completed: boolean;
   }> = [
+    {
+      key: "profile-selection",
+      label: "Profile",
+      completed: speakerProfileId !== null,
+    },
     { key: "recording", label: "Record", completed: recordings.length >= 5 },
     { key: "training", label: "Train", completed: trainingResult !== null },
     {
@@ -329,6 +344,15 @@ export function TrainingPage() {
         )}
         {/* Step Content */}
         <div className="bg-white rounded-xl shadow-lg p-8">
+          {currentStep === "profile-selection" && (
+            <ProfileSelectionStep
+              onProfileSelected={handleProfileSelected}
+              onContinue={handleProfileSelectionContinue}
+              isLoading={isLoading}
+              error={error}
+            />
+          )}
+
           {currentStep === "recording" && speakerProfileId && (
             <RecordSamplesStep
               recordings={recordings}

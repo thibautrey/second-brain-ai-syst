@@ -29,13 +29,17 @@ export function ProfileSetupStep({
       return;
     }
 
-    if (!email.trim()) {
-    
+    try {
+      await onContinue();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "An error occurred");
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">
+        <h2 className="mb-2 text-2xl font-bold text-slate-900">
           Create Your Speaker Profile
         </h2>
         <p className="text-slate-600">
@@ -44,12 +48,12 @@ export function ProfileSetupStep({
         </p>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-8 space-y-6">
+      <div className="p-8 space-y-6 bg-white border rounded-lg shadow-sm border-slate-200">
         {/* Profile Name Input */}
         <div>
           <label
             htmlFor="profile-name"
-            className="block text-sm font-medium text-slate-900 mb-2"
+            className="block mb-2 text-sm font-medium text-slate-900"
           >
             Profile Name
           </label>
@@ -59,7 +63,7 @@ export function ProfileSetupStep({
             value={profileName}
             onChange={(e) => onProfileNameChange(e.target.value)}
             placeholder="e.g., My Work Voice, Personal"
-            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border rounded-lg border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={isLoading}
           />
           <p className="mt-1 text-xs text-slate-500">
@@ -67,46 +71,36 @@ export function ProfileSetupStep({
           </p>
         </div>
 
-        {/* Email Input */}
+        {/* Email Display */}
         <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-slate-900 mb-2"
-          >
+          <label className="block mb-2 text-sm font-medium text-slate-900">
             Email Address
           </label>
-          <input
-            id="email"
-            type="Display */}
-        <div>
-          <label className="block text-sm font-medium text-slate-900 mb-2">
-            Email Address
-          </label>
-          <div className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700">
+          <div className="w-full px-4 py-3 border rounded-lg border-slate-300 bg-slate-50 text-slate-700">
             {userEmail}
           </div>
           <p className="mt-1 text-xs text-slate-500">
             Your account email (linked to your voice profile)
-              </p>
+          </p>
+        </div>
+
+        {/* Error Message */}
+        {(error || formError) && (
+          <div className="flex gap-3 p-4 border border-red-200 rounded-lg bg-red-50">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-red-900">Error</p>
+              <p className="mt-1 text-sm text-red-800">{error || formError}</p>
             </div>
           </div>
         )}
 
-        {/* Info Box */}
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-900">
-            <strong>💡 Tip:</strong> You can create multiple profiles if you
-            want to train different voices (e.g., in different languages or with
-            different speakers).
-          </p>
-        </div>
-
-        {/* Continue Button */}
+        {/* Actions */}
         <div className="flex gap-3 pt-4">
           <Button
             onClick={handleContinue}
-            disabled={isLoading || !profileName.trim() || !email.trim()}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 font-medium"
+            disabled={isLoading || !profileName.trim()}
+            className="flex-1 py-3 font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
             {isLoading ? "Creating Profile..." : "Continue to Recording"}
           </Button>
@@ -114,9 +108,9 @@ export function ProfileSetupStep({
       </div>
 
       {/* Info Section */}
-      <div className="mt-8 grid grid-cols-1 md:grid-co
-        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-          <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+      <div className="grid grid-cols-1 gap-4 mt-8 md:grid-cols-2">
+        <div className="p-4 border rounded-lg bg-slate-50 border-slate-200">
+          <h3 className="flex items-center gap-2 mb-3 font-semibold text-slate-900">
             <CheckCircle2 className="w-5 h-5 text-green-600" />
             What happens next
           </h3>
@@ -128,8 +122,8 @@ export function ProfileSetupStep({
           </ul>
         </div>
 
-        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-          <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+        <div className="p-4 border rounded-lg bg-slate-50 border-slate-200">
+          <h3 className="flex items-center gap-2 mb-3 font-semibold text-slate-900">
             <CheckCircle2 className="w-5 h-5 text-green-600" />
             Time estimate
           </h3>

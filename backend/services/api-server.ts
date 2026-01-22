@@ -8,6 +8,7 @@ import {
 import { audioUploadService } from "./audio-upload.js";
 import { speakerRecognitionService } from "./speaker-recognition.js";
 import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
+import { TrainingProcessorService } from "./training-processor.js";
 
 import cors from "cors";
 import prisma from "./prisma.js";
@@ -139,6 +140,42 @@ app.post(
 );
 
 /**
+ * GET /api/speaker-profiles
+ * List all speaker profiles for current user
+ */
+app.get(
+  "/api/speaker-profiles",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.listSpeakerProfiles(req, res, next);
+  },
+);
+
+/**
+ * POST /api/speaker-profiles
+ * Create a new speaker profile for current user
+ */
+app.post(
+  "/api/speaker-profiles",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.createSpeakerProfile(req, res, next);
+  },
+);
+
+/**
+ * GET /api/speaker-profiles/:profileId
+ * Get a specific speaker profile with samples
+ */
+app.get(
+  "/api/speaker-profiles/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.getSpeakerProfile(req, res, next);
+  },
+);
+
+/**
  * GET /api/training/samples
  * List voice samples for a speaker profile
  */
@@ -198,6 +235,18 @@ app.get(
   },
 );
 
+/**
+ * GET /api/training/active
+ * Get active training sessions for current user
+ */
+app.get(
+  "/api/training/active",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.getActiveTrainingSessions(req, res, next);
+  },
+);
+
 // ==================== Health Check ====================
 
 app.get("/api/health", (req: Request, res: Response) => {
@@ -212,6 +261,13 @@ export async function startServer(port: number = 3000) {
     // Test database connection
     await prisma.$connect();
     console.log("✓ Database connected");
+
+    // Start training processor service
+    const trainingProcessor = new TrainingProcessorService(
+      speakerRecognitionService,
+    );
+    trainingProcessor.startProcessor(5000); // Process every 5 seconds
+    console.log("✓ Training processor started");
 
     // Start server
     app.listen(port, "0.0.0.0", () => {
