@@ -5,11 +5,40 @@ import {
   signin,
   signup,
 } from "../controllers/auth.controller.js";
+import { audioUploadService } from "./audio-upload.js";
+import { speakerRecognitionService } from "./speaker-recognition.js";
+import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
 
 import cors from "cors";
 import prisma from "./prisma.js";
+import multer from "multer";
 
 const app: Express = express();
+
+// Multer configuration for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "audio/wav",
+      "audio/wave",
+      "audio/x-wav",
+      "audio/mp3",
+      "audio/mpeg",
+      "audio/ogg",
+      "audio/webm",
+      "audio/flac",
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only audio files are allowed."));
+    }
+  },
+});
 
 // Middleware
 app.use(cors());
@@ -89,6 +118,83 @@ app.get(
     } catch (error) {
       next(error);
     }
+  },
+);
+
+// ==================== Voice Training Routes ====================
+
+const voiceTrainingController = new VoiceTrainingController();
+
+/**
+ * POST /api/training/samples
+ * Upload a voice sample for training
+ */
+app.post(
+  "/api/training/samples",
+  authMiddleware,
+  upload.single("audio"),
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.uploadVoiceSample(req, res, next);
+  },
+);
+
+/**
+ * GET /api/training/samples
+ * List voice samples for a speaker profile
+ */
+app.get(
+  "/api/training/samples",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.listVoiceSamples(req, res, next);
+  },
+);
+
+/**
+ * GET /api/training/samples/:sampleId
+ * Get a specific voice sample
+ */
+app.get(
+  "/api/training/samples/:sampleId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.getVoiceSample(req, res, next);
+  },
+);
+
+/**
+ * DELETE /api/training/samples/:sampleId
+ * Delete a voice sample
+ */
+app.delete(
+  "/api/training/samples/:sampleId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.deleteVoiceSample(req, res, next);
+  },
+);
+
+/**
+ * POST /api/training/start
+ * Start a training session for a speaker profile
+ */
+app.post(
+  "/api/training/start",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.startTrainingSession(req, res, next);
+  },
+);
+
+/**
+ * GET /api/training/status/:sessionId
+ * Get the status of a training session
+ */
+app.get(
+  "/api/training/status/:sessionId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.getTrainingStatus(req, res, next);
   },
 );
 

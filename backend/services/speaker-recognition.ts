@@ -547,3 +547,19 @@ export class SpeakerRecognitionService {
     }
   }
 }
+
+// Create a default instance of the service
+const defaultConfig: SpeakerRecognitionConfig = {
+  model: SpeakerRecognitionModel.ECAPA_TDNN,
+  threshold_high: 0.85,
+  threshold_low: 0.7,
+  window_seconds: 3,
+  use_vad: true,
+  use_diarization: false,
+  multi_speaker_mode: false,
+  device: "auto",
+};
+
+export const speakerRecognitionService = new SpeakerRecognitionService(
+  defaultConfig,
+);

@@ -6,15 +6,19 @@
  * - Audio stream management
  * - Audio batch submission
  * - Speaker profile management
+ * - Voice training & sample management
  */
 
 import { NextFunction, Request, Response } from "express";
+import { AuthRequest } from "../middlewares/auth.middleware.js";
 import {
   SpeakerRecognitionConfig,
   SpeakerRecognitionService,
-} from "../services/speaker-recognition";
+} from "../services/speaker-recognition.js";
 
-import { InputIngestionService } from "../services/input-ingestion";
+import { InputIngestionService } from "../services/input-ingestion.js";
+import { audioUploadService } from "../services/audio-upload.js";
+import prisma from "../services/prisma.js";
 
 export class InputIngestionController {
   constructor(
@@ -436,6 +440,254 @@ export class SpeakerManagementController {
       res.status(200).json({
         success: true,
         message: `Imported ${Object.keys(profiles).length} speaker profiles`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+
+/**
+ * Voice Training Controller
+ *
+ * Manages voice sample uploads, training sessions, and model generation
+ * for speaker enrollment and recognition
+ */
+export class VoiceTrainingController {
+  /**
+   * POST /api/training/samples
+   * Upload a voice sample for training
+   */
+  async uploadVoiceSample(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { speakerProfileId, phraseText, phraseCategory } = req.body;
+
+      if (!req.file) {
+        res.status(400).json({ error: "No audio file provided" });
+        return;
+      }
+
+      // Use audio upload service
+      const uploaded = await audioUploadService.uploadFromRequest(
+        req,
+        req.userId,
+        {
+          speakerProfileId,
+          phraseText,
+          phraseCategory,
+        },
+      );
+
+      res.status(201).json({
+        success: true,
+        voiceSample: uploaded.voiceSample,
+        message: "Voice sample uploaded successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/training/samples
+   * List voice samples for a speaker profile
+   */
+  async listVoiceSamples(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { speakerProfileId } = req.query;
+
+      const samples = await audioUploadService.getUserVoiceSamples(
+        req.userId,
+        speakerProfileId as string | undefined,
+      );
+
+      res.status(200).json({
+        success: true,
+        count: samples.length,
+        samples,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/training/samples/:sampleId
+   * Delete a voice sample
+   */
+  async deleteVoiceSample(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { sampleId } = req.params;
+
+      await audioUploadService.deleteVoiceSample(sampleId, req.userId);
+
+      res.status(200).json({
+        success: true,
+        message: `Voice sample deleted: ${sampleId}`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/training/start
+   * Start a training session for a speaker profile
+   */
+  async startTrainingSession(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { speakerProfileId } = req.body;
+
+      if (!speakerProfileId) {
+        res.status(400).json({ error: "speakerProfileId is required" });
+        return;
+      }
+
+      // Verify speaker profile belongs to user
+      const speakerProfile = await prisma.speakerProfile.findUnique({
+        where: { id: speakerProfileId },
+        include: { voiceSamples: true },
+      });
+
+      if (!speakerProfile || speakerProfile.userId !== req.userId) {
+        res.status(404).json({ error: "Speaker profile not found" });
+        return;
+      }
+
+      if (speakerProfile.voiceSamples.length === 0) {
+        res
+          .status(400)
+          .json({ error: "No voice samples available for training" });
+        return;
+      }
+
+      // Create training session
+      const trainingSession = await prisma.trainingSession.create({
+        data: {
+          speakerProfileId,
+          modelType: "ecapa-tdnn",
+          sampleCount: speakerProfile.voiceSamples.length,
+          totalDuration: speakerProfile.voiceSamples.reduce(
+            (sum, sample) => sum + sample.durationSeconds,
+            0,
+          ),
+          status: "pending",
+          progress: 0,
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        trainingSession,
+        message: "Training session started",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/training/status/:sessionId
+   * Get the status of a training session
+   */
+  async getTrainingStatus(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { sessionId } = req.params;
+
+      const session = await prisma.trainingSession.findUnique({
+        where: { id: sessionId },
+        include: { speakerProfile: true },
+      });
+
+      if (!session || session.speakerProfile.userId !== req.userId) {
+        res.status(404).json({ error: "Training session not found" });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        trainingSession: session,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/training/samples/:sampleId
+   * Get a specific voice sample
+   */
+  async getVoiceSample(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { sampleId } = req.params;
+
+      const sample = await audioUploadService.getVoiceSample(
+        sampleId,
+        req.userId,
+      );
+
+      if (!sample) {
+        res.status(404).json({ error: "Voice sample not found" });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        sample,
       });
     } catch (error) {
       next(error);

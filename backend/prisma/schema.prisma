@@ -77,11 +77,91 @@ model SpeakerProfile {
     identificationMethod String @default("manual") // 'manual', 'ml_model', 'confirmed'
     confidence           Float  @default(1.0)
 
+    // Embedding data
+    centroidEmbedding Json? // Average of all voice sample embeddings
+    embeddingModel    String @default("ecapa-tdnn") // Model used for embeddings
+    embeddingVersion  String @default("1.0")
+
+    // Training state
+    isEnrolled       Boolean   @default(false) // Has completed initial enrollment
+    enrollmentDate   DateTime?
+    lastTrainingDate DateTime?
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    // Relations
+    voiceSamples     VoiceSample[]
+    trainingSessions TrainingSession[]
+
     @@index([userId])
     @@map("speaker_profiles")
+}
+
+// ==================== Voice Training Models ====================
+
+model VoiceSample {
+    id               String         @id @default(cuid())
+    speakerProfileId String
+    speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+
+    // File storage
+    storagePath     String // Local path to audio file
+    originalName    String // Original filename
+    mimeType        String @default("audio/wav")
+    fileSizeBytes   Int
+    durationSeconds Float
+
+    // Training phrase info
+    phraseText     String? // The phrase that was spoken
+    phraseCategory String? // 'passphrase', 'sentence', 'numeric'
+
+    // Embedding data
+    embedding      Json? // Vector embedding extracted from this sample
+    embeddingModel String? // Model used for this embedding
+
+    // Processing state
+    status       String    @default("pending") // 'pending', 'processing', 'completed', 'failed'
+    errorMessage String?
+    processedAt  DateTime?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([speakerProfileId])
+    @@index([status])
+    @@map("voice_samples")
+}
+
+model TrainingSession {
+    id               String         @id @default(cuid())
+    speakerProfileId String
+    speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+
+    // Training configuration
+    modelType     String @default("ecapa-tdnn")
+    sampleCount   Int // Number of samples used
+    totalDuration Float // Total audio duration in seconds
+
+    // Progress tracking
+    status       String  @default("pending") // 'pending', 'processing', 'completed', 'failed'
+    progress     Float   @default(0) // 0-100
+    currentStep  String? // Current processing step description
+    errorMessage String?
+
+    // Results
+    centroidEmbedding  Json? // Computed centroid from all samples
+    confidenceScore    Float? // Quality/consistency score
+    intraClassVariance Float? // Variance between samples (lower = more consistent)
+
+    startedAt   DateTime?
+    completedAt DateTime?
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    @@index([speakerProfileId])
+    @@index([status])
+    @@map("training_sessions")
 }
 
 model AudioStreamSession {

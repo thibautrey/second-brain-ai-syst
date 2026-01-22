@@ -3,6 +3,7 @@ import { extractToken, verifyToken } from "../services/auth.js";
 
 export interface AuthRequest extends Request {
   userId?: string;
+  file?: Express.Multer.File;
 }
 
 /**
