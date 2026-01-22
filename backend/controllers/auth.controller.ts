@@ -3,9 +3,7 @@ import {
   comparePassword,
   generateToken,
 } from "../services/auth.js";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../services/prisma.js";
 
 /**
  * Signup controller

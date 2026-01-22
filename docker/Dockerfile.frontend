@@ -1,18 +1,20 @@
 # Frontend Dockerfile
 FROM node:22-alpine
 
-WORKDIR /app
+# Set working directory to frontend folder
+WORKDIR /app/frontend
 
-# Copy package files
-COPY package*.json ./
+# Copy package files from root
+COPY package*.json /app/
 
 # Install dependencies
-RUN npm install
+RUN cd /app && npm install
 
-# Copy frontend code
-COPY frontend/ ./frontend/
-COPY vite.config.ts tsconfig.json tailwind.config.js ./
+# Copy all necessary files
+COPY index.html vite.config.ts tsconfig.json tailwind.config.js components.json /app/
+COPY frontend/ /app/frontend/
+COPY config/ /app/config/
 
 EXPOSE 5173
 
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

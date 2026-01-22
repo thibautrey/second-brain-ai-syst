@@ -1,15 +1,14 @@
 import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
-import { PrismaClient } from "@prisma/client";
 import {
   signup,
   signin,
   getUserProfile,
 } from "../controllers/auth.controller.js";
 import { authMiddleware, AuthRequest } from "../middlewares/auth.middleware.js";
+import prisma from "./prisma.js";
 
 const app: Express = express();
-const prisma = new PrismaClient();
 
 // Middleware
 app.use(cors());

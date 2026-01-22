@@ -1,6 +1,9 @@
 # Backend Dockerfile
 FROM node:22-alpine
 
+# Install OpenSSL for Prisma compatibility
+RUN apk add --no-cache openssl ca-certificates
+
 WORKDIR /app
 
 # Copy package files
