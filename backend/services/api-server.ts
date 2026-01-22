@@ -1,11 +1,12 @@
-import express, { Express, Request, Response, NextFunction } from "express";
-import cors from "cors";
+import { AuthRequest, authMiddleware } from "../middlewares/auth.middleware.js";
+import express, { Express, NextFunction, Request, Response } from "express";
 import {
-  signup,
-  signin,
   getUserProfile,
+  signin,
+  signup,
 } from "../controllers/auth.controller.js";
-import { authMiddleware, AuthRequest } from "../middlewares/auth.middleware.js";
+
+import cors from "cors";
 import prisma from "./prisma.js";
 
 const app: Express = express();
@@ -117,3 +118,6 @@ export async function startServer(port: number = 3000) {
 }
 
 export default app;
+// Start the server when this file is run directly
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+startServer(PORT);
