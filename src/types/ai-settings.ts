@@ -28,7 +28,10 @@ export type ModelCapability =
   | "routing"
   | "reflection"
   | "image-generation"
-  | "embeddings";
+  | "embeddings"
+  | "chat"
+  | "summarization"
+  | "analysis";
 
 export interface AITaskConfig {
   taskType: ModelCapability;
@@ -44,18 +47,44 @@ export interface AISettings {
 }
 
 export const DEFAULT_OPENAI_MODELS: Omit<AIModel, "providerId">[] = [
-  { id: "gpt-4o", name: "GPT-4o", capabilities: ["routing", "reflection"] },
+  {
+    id: "gpt-4o",
+    name: "GPT-4o",
+    capabilities: [
+      "routing",
+      "reflection",
+      "chat",
+      "summarization",
+      "analysis",
+    ],
+  },
   {
     id: "gpt-4o-mini",
     name: "GPT-4o Mini",
-    capabilities: ["routing", "reflection"],
+    capabilities: [
+      "routing",
+      "reflection",
+      "chat",
+      "summarization",
+      "analysis",
+    ],
   },
   {
     id: "gpt-4-turbo",
     name: "GPT-4 Turbo",
-    capabilities: ["routing", "reflection"],
+    capabilities: [
+      "routing",
+      "reflection",
+      "chat",
+      "summarization",
+      "analysis",
+    ],
   },
-  { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", capabilities: ["routing"] },
+  {
+    id: "gpt-3.5-turbo",
+    name: "GPT-3.5 Turbo",
+    capabilities: ["routing", "chat", "summarization"],
+  },
   { id: "whisper-1", name: "Whisper", capabilities: ["speech-to-text"] },
   { id: "dall-e-3", name: "DALL-E 3", capabilities: ["image-generation"] },
   { id: "dall-e-2", name: "DALL-E 2", capabilities: ["image-generation"] },
@@ -105,6 +134,21 @@ export const TASK_LABELS: Record<
     description: "Vectorisation pour la recherche sémantique",
     icon: "📊",
   },
+  chat: {
+    label: "Chat",
+    description: "Conversations et réponses générales",
+    icon: "💬",
+  },
+  summarization: {
+    label: "Résumés",
+    description: "Génération de résumés et synthèses",
+    icon: "📝",
+  },
+  analysis: {
+    label: "Analyse",
+    description: "Analyse et insight de données",
+    icon: "🔬",
+  },
 };
 
 export const DEFAULT_AI_SETTINGS: AISettings = {
@@ -140,6 +184,27 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
     },
     {
       taskType: "embeddings",
+      providerId: null,
+      modelId: null,
+      fallbackProviderId: null,
+      fallbackModelId: null,
+    },
+    {
+      taskType: "chat",
+      providerId: null,
+      modelId: null,
+      fallbackProviderId: null,
+      fallbackModelId: null,
+    },
+    {
+      taskType: "summarization",
+      providerId: null,
+      modelId: null,
+      fallbackProviderId: null,
+      fallbackModelId: null,
+    },
+    {
+      taskType: "analysis",
       providerId: null,
       modelId: null,
       fallbackProviderId: null,

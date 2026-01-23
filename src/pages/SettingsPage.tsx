@@ -297,7 +297,7 @@ function ProviderForm({
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute -translate-y-1/2 right-3 top-1/2 text-slate-400 hover:text-slate-600"
               >
                 {showApiKey ? (
                   <EyeOff className="w-4 h-4" />
@@ -428,12 +428,12 @@ function ProviderCard({
       <CardContent className="pt-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden">
+            <div className="flex items-center justify-center w-12 h-12 overflow-hidden rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
               {faviconUrl && !faviconError ? (
                 <img
                   src={faviconUrl}
                   alt={`${provider.name} favicon`}
-                  className="w-full h-full object-cover"
+                  className="object-cover w-full h-full"
                   onError={() => setFaviconError(true)}
                 />
               ) : (
@@ -509,8 +509,8 @@ function ProviderCard({
 
         {/* Models Preview */}
         {provider.models.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-xs font-medium text-slate-500 mb-2">Modèles:</p>
+          <div className="pt-4 mt-4 border-t border-slate-100">
+            <p className="mb-2 text-xs font-medium text-slate-500">Modèles:</p>
             <div className="flex flex-wrap gap-1">
               {provider.models.slice(0, 5).map((model) => (
                 <span
@@ -542,9 +542,12 @@ function ModelsConfigSection() {
     isSaving,
   } = useAISettings();
   const taskTypes: ModelCapability[] = [
-    "speech-to-text",
+    "chat",
     "routing",
     "reflection",
+    "speech-to-text",
+    "summarization",
+    "analysis",
     "image-generation",
     "embeddings",
   ];
@@ -806,8 +809,8 @@ function TaskConfigCard({
             <p className="text-sm text-slate-500">{taskInfo.description}</p>
 
             {/* Primary Configuration */}
-            <div className="mt-4 p-3 bg-slate-50 rounded-lg">
-              <h5 className="text-sm font-medium text-slate-700 mb-3">
+            <div className="p-3 mt-4 rounded-lg bg-slate-50">
+              <h5 className="mb-3 text-sm font-medium text-slate-700">
                 Configuration Primaire
               </h5>
               <div className="grid gap-4 md:grid-cols-2">
@@ -865,11 +868,11 @@ function TaskConfigCard({
             </div>
 
             {/* Fallback Configuration */}
-            <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-dashed border-slate-300">
-              <h5 className="text-sm font-medium text-slate-700 mb-3">
+            <div className="p-3 mt-4 border border-dashed rounded-lg bg-slate-50 border-slate-300">
+              <h5 className="mb-3 text-sm font-medium text-slate-700">
                 ⚡ Configuration de Secours
               </h5>
-              <p className="text-xs text-slate-500 mb-3">
+              <p className="mb-3 text-xs text-slate-500">
                 Utilisé automatiquement en cas d'échec du provider primaire
               </p>
               <div className="grid gap-4 md:grid-cols-2">
@@ -1018,7 +1021,7 @@ function ContinuousListeningSection() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+        <div className="flex items-center gap-2 p-3 border border-red-200 rounded-lg bg-red-50">
           <AlertCircle className="w-5 h-5 text-red-500" />
           <p className="text-sm text-red-700">{error}</p>
         </div>
@@ -1069,7 +1072,7 @@ function ContinuousListeningSection() {
                     wakeWordSensitivity: parseInt(e.target.value) / 100,
                   })
                 }
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
               />
               <p className="text-xs text-slate-500">
                 Augmentez pour détecter plus de variations du mot d'activation
@@ -1078,7 +1081,7 @@ function ContinuousListeningSection() {
           </div>
 
           {/* Test Wake Word */}
-          <div className="p-4 bg-slate-50 rounded-lg space-y-3">
+          <div className="p-4 space-y-3 rounded-lg bg-slate-50">
             <Label>Tester le mot d'activation</Label>
             <div className="flex gap-2">
               <Input
@@ -1156,7 +1159,7 @@ function ContinuousListeningSection() {
                     vadSensitivity: parseInt(e.target.value) / 100,
                   })
                 }
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
               />
               <p className="text-xs text-slate-500">
                 Détection d'activité vocale : plus sensible = détecte les voix
@@ -1178,7 +1181,7 @@ function ContinuousListeningSection() {
                     silenceDetectionMs: parseInt(e.target.value),
                   })
                 }
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
               />
               <p className="text-xs text-slate-500">
                 Durée de silence avant de considérer la phrase terminée
@@ -1216,7 +1219,7 @@ function ContinuousListeningSection() {
                   speakerConfidenceThreshold: parseInt(e.target.value) / 100,
                 })
               }
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
             />
             <p className="text-xs text-slate-500">
               Niveau de certitude requis pour confirmer que c'est bien vous qui
@@ -1254,7 +1257,7 @@ function ContinuousListeningSection() {
                   minImportanceThreshold: parseInt(e.target.value) / 100,
                 })
               }
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
             />
             <p className="text-xs text-slate-500">
               Seules les paroles jugées pertinentes au-dessus de ce seuil seront
