@@ -11,8 +11,10 @@ import {
   BarChart3,
   Mic,
   MessageSquare,
+  Wrench,
 } from "lucide-react";
 import { useState } from "react";
+import { ToolsConfigPage } from "./ToolsConfigPage";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -39,6 +41,9 @@ export function DashboardPage() {
             Second Brain
           </h1>
         </div>
+
+        <nav className="flex-1 p-4 space-y-2">
+          <NavItem
             icon={<Home className="w-5 h-5" />}
             label="Dashboard"
             onClick={() => setActiveTab("dashboard")}
@@ -75,101 +80,231 @@ export function DashboardPage() {
             isActive={activeTab === "chat"}
           />
           <NavItem
+            icon={<Wrench className="w-5 h-5" />}
+            label="Tools"
+            onClick={() => setActiveTab("tools")}
+            isActive={activeTab === "tools"}
+          />
+          <NavItem
             icon={<Settings className="w-5 h-5" />}
             label="Settings"
             onClick={() => setActiveTab("settings")}
             isActive={activeTab === "settings"}
-         
           />
-          <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Analytics" />
-          <NavItem icon={<Settings className="w-5 h-5" />} label="Settings" />
         </nav>
 
         <div className="p-4 border-t border-slate-800">
           <Button
             onClick={handleLogout}
             variant="outline"
-            {activeTab === "dashboard" && (
-              <>
-                <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                  Welcome back, {user?.name}!
-                </h2>
-                <p className="text-slate-600 mb-8">
-                  Your personal cognitive operating system is ready to enhance
-                  your memory and reasoning.
-                </p>
+            className="w-full text-slate-300 border-slate-700 hover:bg-slate-800"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
+        </div>
+      </div>
 
-                {/* Dashboard Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Stats Card */}
-                  <DashboardCard
-                    title="Total Memories"
-                    value="0"
-                    description="Memories captured"
-                    icon="📚"
-                  />
-                  <DashboardCard
-                    title="Interactions"
-                    value="0"
-                    description="Interactions logged"
-                    icon="💬"
-                  />
-                  <DashboardCard
-                    title="Daily Summaries"
-                    value="0"
-                    description="Summaries generated"
-                    icon="📝"
-                  />
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Bar */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 justify-between">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-slate-100"
+          >
+            <Menu className="w-5 h-5 text-slate-600" />
+          </button>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-slate-600">{user?.email}</span>
+          </div>
+        </header>
 
-                  {/* Quick Start */}
-                  <div className="md:col-span-3 bg-white rounded-lg shadow p-6 border border-slate-200">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                      Quick Start
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <QuickStartButton
-                        title="Record Thought"
-                        description="Capture your current thoughts"
-                        icon="🎤"
-                        onClick={() => setActiveTab("chat")}
-                      />
-                      <QuickStartButton
-                        title="View Memories"
-                        description="Browse your knowledge base"
-                        icon="🧠"
-                        onClick={() => setActiveTab("memories")}
-                      />
-                      <QuickStartButton
-                        title="Today's Summary"
-                        description="See today's highlights"
-                        icon="📊"
-                        onClick={() => setActiveTab("analytics")}
-                      />
-                      <QuickStartButton
-                        title="Settings"
-                        description="Customize your system"
-                        icon="⚙️"
-                        onClick={() => setActiveTab("settings")}
-                      />
-                    </div>
-                  </div>
+        {/* Content Area */}
+        <main className="flex-1 overflow-auto p-8">
+          {activeTab === "dashboard" && (
+            <>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Welcome back, {user?.name}!
+              </h2>
+              <p className="text-slate-600 mb-8">
+                Your personal cognitive operating system is ready to enhance
+                your memory and reasoning.
+              </p>
 
-                  {/* Recent Activity */}
-                  <div className="md:col-span-3 bg-white rounded-lg shadow p-6 border border-slate-200">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                      Recent Activity
-                    </h3>
-                    <div className="space-y-3">
-                      <ActivityItem
-                        title="System Initialized"
-                        description="Your Second Brain is ready to use"
-                        time="Just now"
-                      />
-                    </div>
+              {/* Dashboard Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Stats Card */}
+                <DashboardCard
+                  title="Total Memories"
+                  value="0"
+                  description="Memories captured"
+                  icon="📚"
+                />
+                <DashboardCard
+                  title="Interactions"
+                  value="0"
+                  description="Interactions logged"
+                  icon="💬"
+                />
+                <DashboardCard
+                  title="Daily Summaries"
+                  value="0"
+                  description="Summaries generated"
+                  icon="📝"
+                />
+
+                {/* Quick Start */}
+                <div className="md:col-span-3 bg-white rounded-lg shadow p-6 border border-slate-200">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                    Quick Start
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <QuickStartButton
+                      title="Record Thought"
+                      description="Capture your current thoughts"
+                      icon="🎤"
+                      onClick={() => setActiveTab("chat")}
+                    />
+                    <QuickStartButton
+                      title="View Memories"
+                      description="Browse your knowledge base"
+                      icon="🧠"
+                      onClick={() => setActiveTab("memories")}
+                    />
+                    <QuickStartButton
+                      title="Today's Summary"
+                      description="See today's highlights"
+                      icon="📊"
+                      onClick={() => setActiveTab("analytics")}
+                    />
+                    <QuickStartButton
+                      title="Configure Tools"
+                      description="Manage integrations"
+                      icon="🔧"
+                      onClick={() => setActiveTab("tools")}
+                    />
+                    <QuickStartButton
+                      title="Settings"
+                      description="Customize your system"
+                      icon="⚙️"
+                      onClick={() => setActiveTab("settings")}
+                    />
                   </div>
                 </div>
-              </>
-            )}
+
+                {/* Recent Activity */}
+                <div className="md:col-span-3 bg-white rounded-lg shadow p-6 border border-slate-200">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                    Recent Activity
+                  </h3>
+                  <div className="space-y-3">
+                    <ActivityItem
+                      title="System Initialized"
+                      description="Your Second Brain is ready to use"
+                      time="Just now"
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === "memories" && (
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Memories
+              </h2>
+              <p className="text-slate-600 mb-8">
+                Browse and manage your captured memories.
+              </p>
+              <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
+                <p className="text-slate-500">Memory browser coming soon...</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "interactions" && (
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Interactions
+              </h2>
+              <p className="text-slate-600 mb-8">
+                View your interaction history.
+              </p>
+              <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
+                <p className="text-slate-500">
+                  Interactions log coming soon...
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "analytics" && (
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Analytics
+              </h2>
+              <p className="text-slate-600 mb-8">
+                Analyze your patterns and insights.
+              </p>
+              <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
+                <p className="text-slate-500">
+                  Analytics dashboard coming soon...
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "training" && (
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Voice Training
+              </h2>
+              <p className="text-slate-600 mb-8">
+                Train your voice model for better recognition.
+              </p>
+              <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
+                <p className="text-slate-500">Voice training coming soon...</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "chat" && (
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">
+                Chat with Second Brain
+              </h2>
+              <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
+                <p className="text-slate-500">Chat interface coming soon...</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "tools" && <ToolsConfigPage />}
+
+          {activeTab === "settings" && (
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Settings
+              </h2>
+              <p className="text-slate-600 mb-8">
+                Customize your Second Brain experience.
+              </p>
+              <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
+                <p className="text-slate-500">
+                  Settings interface coming soon...
+                </p>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function NavItem({
   icon,
   label,
   onClick,
@@ -188,148 +323,7 @@ export function DashboardPage() {
           ? "bg-blue-600 text-white"
           : "text-slate-400 hover:bg-slate-800 hover:text-white"
       }`}
-    
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                  Memories
-                </h2>
-                <p className="text-slate-600 mb-8">
-                  Browse and manage your captured memories.
-                </p>
-                <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
-                  <p className="text-slate-500">
-                    Memory browser coming soon...
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "interactions" && (
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                  Interactions
-                </h2>
-                <p className="text-slate-600 mb-8">
-  onClick,
-}: {
-  title: string;
-  description: string;
-  icon: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
-    
-              </div>
-            )}
-
-            {activeTab === "analytics" && (
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                  Analytics
-                </h2>
-                <p className="text-slate-600 mb-8">
-                  Analyze your patterns and insights.
-                </p>
-                <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
-                  <p className="text-slate-500">
-                    Analytics dashboard coming soon...
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "training" && (
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                  Voice Training
-                </h2>
-                <p className="text-slate-600 mb-8">
-                  Train your voice model for better recognition.
-                </p>
-                <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
-                  <p className="text-slate-500">
-                    Voice training coming soon...
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "chat" && (
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-6">
-                  Chat with Second Brain
-                </h2>
-                <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
-                  <p className="text-slate-500">Chat interface coming soon...</p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "settings" && (
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                  Settings
-                </h2>
-                <p className="text-slate-600 mb-8">
-                  Customize your Second Brain experience.
-                </p>
-                <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
-                  <p className="text-slate-500">
-                    Settings interface coming soon...
-                  </p>
-                </div>
-              </div>
-            )}iv className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <QuickStartButton
-                    title="Record Thought"
-                    description="Capture your current thoughts"
-                    icon="🎤"
-                  />
-                  <QuickStartButton
-                    title="View Memories"
-                    description="Browse your knowledge base"
-                    icon="🧠"
-                  />
-                  <QuickStartButton
-                    title="Today's Summary"
-                    description="See today's highlights"
-                    icon="📊"
-                  />
-                  <QuickStartButton
-                    title="Settings"
-                    description="Customize your system"
-                    icon="⚙️"
-                  />
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div className="md:col-span-3 bg-white rounded-lg shadow p-6 border border-slate-200">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                  Recent Activity
-                </h3>
-                <div className="space-y-3">
-                  <ActivityItem
-                    title="System Initialized"
-                    description="Your Second Brain is ready to use"
-                    time="Just now"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NavItem({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+    >
       {icon}
       <span className="text-sm font-medium">{label}</span>
     </button>
@@ -365,13 +359,18 @@ function QuickStartButton({
   title,
   description,
   icon,
+  onClick,
 }: {
   title: string;
   description: string;
   icon: string;
+  onClick?: () => void;
 }) {
   return (
-    <button className="p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left">
+    <button
+      onClick={onClick}
+      className="p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+    >
       <div className="text-2xl mb-2">{icon}</div>
       <p className="font-medium text-slate-900 text-sm">{title}</p>
       <p className="text-xs text-slate-500 mt-1">{description}</p>

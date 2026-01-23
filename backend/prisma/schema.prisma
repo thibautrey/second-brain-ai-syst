@@ -37,6 +37,11 @@ model User {
     scheduledTasks ScheduledTask[]
     notifications  Notification[]
 
+    // Tool configuration relations
+    toolConfigs      UserToolConfig[]
+    mcpServers       MCPServer[]
+    marketplaceTools MarketplaceTool[]
+
     @@map("users")
 }
 
@@ -689,4 +694,82 @@ enum NotificationChannel {
     EMAIL // Email notification
     PUSH // Push notification (mobile/desktop)
     WEBHOOK // External webhook
+}
+
+// ==================== Tool Configuration Models ====================
+
+// User-specific tool configuration (enable/disable, settings)
+model UserToolConfig {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    toolId    String // Identifier of the tool (e.g., 'todo', 'curl', 'mcp_github')
+    enabled   Boolean @default(true)
+    config    Json    @default("{}") // Tool-specific configuration
+    rateLimit Int? // Override default rate limit
+    timeout   Int? // Override default timeout
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, toolId])
+    @@index([userId])
+    @@map("user_tool_configs")
+}
+
+// MCP Server configuration
+model MCPServer {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    name        String // Display name
+    description String? // User description
+
+    // Connection config
+    transportType MCPTransportType @default(STDIO)
+    command       String? // For STDIO: command to run
+    args          String[]         @default([]) // Command arguments
+    env           Json             @default("{}") // Environment variables
+    url           String? // For HTTP/SSE: server URL
+
+    // Status
+    enabled       Boolean   @default(true)
+    isConnected   Boolean   @default(false)
+    lastConnected DateTime?
+    lastError     String?
+
+    // Discovered capabilities
+    availableTools Json @default("[]") // List of tools provided by this server
+    serverInfo     Json @default("{}") // Server metadata
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, name])
+    @@index([userId])
+    @@map("mcp_servers")
+}
+
+// Marketplace tool installation
+model MarketplaceTool {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    toolSlug    String // Unique identifier from marketplace
+    installedAt DateTime @default(now())
+    config      Json     @default("{}") // Tool configuration
+    enabled     Boolean  @default(true)
+
+    @@unique([userId, toolSlug])
+    @@index([userId])
+    @@map("marketplace_tools")
+}
+
+enum MCPTransportType {
+    STDIO // Standard input/output
+    HTTP // HTTP transport
+    SSE // Server-Sent Events
 }

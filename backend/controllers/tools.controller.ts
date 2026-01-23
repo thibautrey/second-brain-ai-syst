@@ -818,4 +818,386 @@ router.delete(
   },
 );
 
+// ==================== MCP Server Routes ====================
+
+import { mcpManagerService } from "../services/mcp-manager.js";
+
+/**
+ * List MCP servers
+ * GET /api/tools/mcp
+ */
+router.get("/mcp", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const servers = await mcpManagerService.listMCPServers(userId);
+    return res.json({ success: true, servers });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Create MCP server
+ * POST /api/tools/mcp
+ */
+router.post("/mcp", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const {
+      name,
+      description,
+      transportType,
+      command,
+      args,
+      env,
+      url,
+      enabled,
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: "name is required",
+      });
+    }
+
+    const server = await mcpManagerService.createMCPServer(userId, {
+      name,
+      description,
+      transportType,
+      command,
+      args,
+      env,
+      url,
+      enabled,
+    });
+
+    return res.status(201).json({ success: true, server });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Get MCP server
+ * GET /api/tools/mcp/:id
+ */
+router.get("/mcp/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const server = await mcpManagerService.getMCPServer(userId, req.params.id);
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        error: "MCP Server not found",
+      });
+    }
+
+    return res.json({ success: true, server });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Update MCP server
+ * PATCH /api/tools/mcp/:id
+ */
+router.patch("/mcp/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const {
+      name,
+      description,
+      transportType,
+      command,
+      args,
+      env,
+      url,
+      enabled,
+    } = req.body;
+
+    const server = await mcpManagerService.updateMCPServer(
+      userId,
+      req.params.id,
+      {
+        name,
+        description,
+        transportType,
+        command,
+        args,
+        env,
+        url,
+        enabled,
+      },
+    );
+
+    return res.json({ success: true, server });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Delete MCP server
+ * DELETE /api/tools/mcp/:id
+ */
+router.delete("/mcp/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    await mcpManagerService.deleteMCPServer(userId, req.params.id);
+    return res.json({ success: true });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Connect to MCP server
+ * POST /api/tools/mcp/:id/connect
+ */
+router.post("/mcp/:id/connect", async (req: AuthRequest, res: Response) => {
+  try {
+    const connection = await mcpManagerService.connectServer(req.params.id);
+    return res.json({
+      success: true,
+      isConnected: connection.isConnected,
+      tools: connection.tools,
+      serverInfo: connection.serverInfo,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Disconnect from MCP server
+ * POST /api/tools/mcp/:id/disconnect
+ */
+router.post("/mcp/:id/disconnect", async (req: AuthRequest, res: Response) => {
+  try {
+    await mcpManagerService.disconnectServer(req.params.id);
+    return res.json({ success: true });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ==================== Tool Configuration Routes ====================
+
+/**
+ * Get user tool configurations
+ * GET /api/tools/config
+ */
+router.get("/config", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const configs = await mcpManagerService.getUserToolConfigs(userId);
+    return res.json({ success: true, configs });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Get specific tool configuration
+ * GET /api/tools/config/:toolId
+ */
+router.get("/config/:toolId", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const config = await mcpManagerService.getToolConfig(
+      userId,
+      req.params.toolId,
+    );
+    return res.json({ success: true, config });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Update tool configuration
+ * PUT /api/tools/config/:toolId
+ */
+router.put("/config/:toolId", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const { enabled, config, rateLimit, timeout } = req.body;
+
+    const updatedConfig = await mcpManagerService.upsertToolConfig(
+      userId,
+      req.params.toolId,
+      { enabled, config, rateLimit, timeout },
+    );
+
+    return res.json({ success: true, config: updatedConfig });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ==================== Marketplace Routes ====================
+
+/**
+ * Get marketplace catalog
+ * GET /api/tools/marketplace
+ */
+router.get("/marketplace", async (req: AuthRequest, res: Response) => {
+  try {
+    const catalog = mcpManagerService.getMarketplaceCatalog();
+    return res.json({ success: true, catalog });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Get specific marketplace tool
+ * GET /api/tools/marketplace/:slug
+ */
+router.get("/marketplace/:slug", async (req: AuthRequest, res: Response) => {
+  try {
+    const tool = mcpManagerService.getMarketplaceTool(req.params.slug);
+
+    if (!tool) {
+      return res.status(404).json({
+        success: false,
+        error: "Tool not found",
+      });
+    }
+
+    return res.json({ success: true, tool });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Get installed marketplace tools
+ * GET /api/tools/marketplace/installed
+ */
+router.get(
+  "/marketplace-installed",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.userId!;
+      const installed =
+        await mcpManagerService.getInstalledMarketplaceTools(userId);
+      return res.json({ success: true, installed });
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  },
+);
+
+/**
+ * Install marketplace tool
+ * POST /api/tools/marketplace/:slug/install
+ */
+router.post(
+  "/marketplace/:slug/install",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.userId!;
+      const { config } = req.body;
+
+      const installed = await mcpManagerService.installMarketplaceTool(
+        userId,
+        req.params.slug,
+        config || {},
+      );
+
+      return res.status(201).json({ success: true, installed });
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  },
+);
+
+/**
+ * Uninstall marketplace tool
+ * DELETE /api/tools/marketplace/:slug
+ */
+router.delete("/marketplace/:slug", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    await mcpManagerService.uninstallMarketplaceTool(userId, req.params.slug);
+    return res.json({ success: true });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * Update marketplace tool configuration
+ * PATCH /api/tools/marketplace/:slug
+ */
+router.patch("/marketplace/:slug", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const { config, enabled } = req.body;
+
+    const updated = await mcpManagerService.updateMarketplaceToolConfig(
+      userId,
+      req.params.slug,
+      config || {},
+      enabled,
+    );
+
+    return res.json({ success: true, installed: updated });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 export default router;
