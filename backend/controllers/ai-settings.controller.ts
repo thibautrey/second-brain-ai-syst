@@ -99,6 +99,9 @@ function mapCapability(cap: string): ModelCapability {
     reflection: "REFLECTION",
     "image-generation": "IMAGE_GENERATION",
     embeddings: "EMBEDDINGS",
+    chat: "CHAT",
+    summarization: "SUMMARIZATION",
+    analysis: "ANALYSIS",
   };
   return mapping[cap] || (cap as ModelCapability);
 }
