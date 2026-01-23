@@ -316,7 +316,7 @@ app.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -336,7 +336,9 @@ app.get(
       const filters: MemoryQueryFilters = {
         type: req.query.type as any,
         timeScale: req.query.timeScale as any,
-        tags: req.query.tags ? (req.query.tags as string).split(",") : undefined,
+        tags: req.query.tags
+          ? (req.query.tags as string).split(",")
+          : undefined,
         minImportance: req.query.minImportance
           ? parseFloat(req.query.minImportance as string)
           : undefined,
@@ -349,8 +351,18 @@ app.get(
         endDate: req.query.endDate
           ? new Date(req.query.endDate as string)
           : undefined,
-        isArchived: req.query.isArchived === "true" ? true : req.query.isArchived === "false" ? false : undefined,
-        isPinned: req.query.isPinned === "true" ? true : req.query.isPinned === "false" ? false : undefined,
+        isArchived:
+          req.query.isArchived === "true"
+            ? true
+            : req.query.isArchived === "false"
+              ? false
+              : undefined,
+        isPinned:
+          req.query.isPinned === "true"
+            ? true
+            : req.query.isPinned === "false"
+              ? false
+              : undefined,
         search: req.query.search as string,
       };
 
@@ -366,7 +378,7 @@ app.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -387,7 +399,7 @@ app.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -414,7 +426,7 @@ app.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -435,7 +447,7 @@ app.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -457,7 +469,7 @@ app.patch(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -478,7 +490,7 @@ app.delete(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -499,7 +511,7 @@ app.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -520,7 +532,7 @@ app.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -541,7 +553,7 @@ app.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -562,7 +574,7 @@ app.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ==================== Summary Routes ====================
@@ -582,7 +594,12 @@ app.post(
 
       const input: CreateSummaryInput = req.body;
 
-      if (!input.content || !input.timeScale || !input.periodStart || !input.periodEnd) {
+      if (
+        !input.content ||
+        !input.timeScale ||
+        !input.periodStart ||
+        !input.periodEnd
+      ) {
         return res.status(400).json({
           error: "content, timeScale, periodStart, and periodEnd are required",
         });
@@ -597,7 +614,7 @@ app.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -635,7 +652,7 @@ app.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -656,7 +673,7 @@ app.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -677,7 +694,7 @@ app.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -694,12 +711,16 @@ app.patch(
       }
 
       const input: UpdateSummaryInput = req.body;
-      const summary = await updateSummary(req.userId, req.params.summaryId, input);
+      const summary = await updateSummary(
+        req.userId,
+        req.params.summaryId,
+        input,
+      );
       res.json(summary);
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -720,7 +741,7 @@ app.delete(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**

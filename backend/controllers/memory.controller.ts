@@ -110,7 +110,7 @@ export async function getMemoryById(userId: string, memoryId: string) {
 export async function getMemories(
   userId: string,
   filters: MemoryQueryFilters = {},
-  pagination: PaginationOptions = {}
+  pagination: PaginationOptions = {},
 ) {
   const {
     type,
@@ -125,7 +125,12 @@ export async function getMemories(
     search,
   } = filters;
 
-  const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = pagination;
+  const {
+    page = 1,
+    limit = 20,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = pagination;
 
   // Build where clause
   const where: Prisma.MemoryWhereInput = {
@@ -212,7 +217,7 @@ export async function getMemories(
 export async function updateMemory(
   userId: string,
   memoryId: string,
-  input: UpdateMemoryInput
+  input: UpdateMemoryInput,
 ) {
   // First check ownership
   const existing = await prisma.memory.findFirst({
@@ -293,7 +298,7 @@ export async function unpinMemory(userId: string, memoryId: string) {
  */
 export async function bulkCreateMemories(
   userId: string,
-  inputs: CreateMemoryInput[]
+  inputs: CreateMemoryInput[],
 ) {
   const memories = await prisma.memory.createMany({
     data: inputs.map((input) => ({
@@ -474,10 +479,15 @@ export async function getSummaries(
     startDate?: Date;
     endDate?: Date;
   } = {},
-  pagination: PaginationOptions = {}
+  pagination: PaginationOptions = {},
 ) {
   const { timeScale, startDate, endDate } = filters;
-  const { page = 1, limit = 20, sortBy = "periodEnd", sortOrder = "desc" } = pagination;
+  const {
+    page = 1,
+    limit = 20,
+    sortBy = "periodEnd",
+    sortOrder = "desc",
+  } = pagination;
 
   const where: Prisma.SummaryWhereInput = {
     userId,
@@ -533,7 +543,7 @@ export async function getSummaries(
 export async function updateSummary(
   userId: string,
   summaryId: string,
-  input: UpdateSummaryInput
+  input: UpdateSummaryInput,
 ) {
   const existing = await prisma.summary.findFirst({
     where: {
@@ -608,7 +618,7 @@ export async function getLatestSummaries(userId: string) {
         },
       });
       return { timeScale: scale, summary };
-    })
+    }),
   );
 
   return summaries.filter((s) => s.summary !== null);

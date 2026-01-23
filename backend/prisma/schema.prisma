@@ -28,6 +28,8 @@ model User {
     inputProcessingMetrics InputProcessingMetrics[]
     memories               Memory[]
     summaries              Summary[]
+    aiProviders            AIProvider[]
+    aiTaskConfigs          AITaskConfig[]
 
     @@map("users")
 }
