@@ -1854,6 +1854,66 @@ app.post(
 );
 
 /**
+ * GET /api/ai-settings/max-tokens
+ * Get the default max tokens setting for the user
+ */
+app.get(
+  "/api/ai-settings/max-tokens",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { getDefaultMaxTokens } =
+        await import("../controllers/ai-settings.controller.js");
+      const maxTokens = await getDefaultMaxTokens(req.userId);
+      res.json({ maxTokens });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PATCH /api/ai-settings/max-tokens
+ * Update the default max tokens setting for the user
+ */
+app.patch(
+  "/api/ai-settings/max-tokens",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { maxTokens } = req.body;
+
+      if (typeof maxTokens !== "number" || maxTokens < 1) {
+        return res.status(400).json({
+          error: "maxTokens must be a number and at least 1",
+        });
+      }
+
+      if (maxTokens > 100000) {
+        return res.status(400).json({
+          error: "maxTokens cannot exceed 100000",
+        });
+      }
+
+      const { updateDefaultMaxTokens } =
+        await import("../controllers/ai-settings.controller.js");
+      const updated = await updateDefaultMaxTokens(req.userId, maxTokens);
+      res.json({ maxTokens: updated });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
  * GET /api/ai-settings/task-configs
  * Get all task configurations
  */

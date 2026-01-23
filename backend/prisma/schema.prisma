@@ -80,6 +80,9 @@ model UserSettings {
     notifyOnMemoryStored    Boolean @default(true)
     notifyOnCommandDetected Boolean @default(true)
 
+    // AI Generation Settings
+    defaultMaxTokens Int @default(4096) // Default max tokens for LLM responses
+
     // User Profile - Structural information about the user (name, preferences, etc.)
     // Managed by the LLM to store important facts that shouldn't need memory search
     // Format: JSON object with flexible structure maintained by the AI

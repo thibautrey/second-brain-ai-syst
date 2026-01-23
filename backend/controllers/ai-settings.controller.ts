@@ -761,3 +761,58 @@ export async function testProviderApiKey(
 ) {
   return modelDiscoveryService.testApiKey(apiKey, baseUrl);
 }
+
+// ==================== AI Generation Settings Operations ====================
+
+/**
+ * Get the default max tokens setting for a user
+ */
+export async function getDefaultMaxTokens(userId: string) {
+  let settings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: { defaultMaxTokens: true },
+  });
+
+  // Create default settings if they don't exist
+  if (!settings) {
+    settings = await prisma.userSettings.create({
+      data: { userId, defaultMaxTokens: 4096 },
+      select: { defaultMaxTokens: true },
+    });
+  }
+
+  return settings.defaultMaxTokens;
+}
+
+/**
+ * Update the default max tokens setting for a user
+ */
+export async function updateDefaultMaxTokens(
+  userId: string,
+  maxTokens: number,
+) {
+  if (maxTokens < 1) {
+    throw new Error("Max tokens must be at least 1");
+  }
+
+  if (maxTokens > 100000) {
+    throw new Error("Max tokens cannot exceed 100000");
+  }
+
+  let settings = await prisma.userSettings.findUnique({
+    where: { userId },
+  });
+
+  if (!settings) {
+    settings = await prisma.userSettings.create({
+      data: { userId, defaultMaxTokens: maxTokens },
+    });
+  } else {
+    settings = await prisma.userSettings.update({
+      where: { userId },
+      data: { defaultMaxTokens: maxTokens },
+    });
+  }
+
+  return settings.defaultMaxTokens;
+}

@@ -37,6 +37,7 @@ import {
   isMaxTokensError,
   getFallbackMaxTokens,
 } from "../utils/token-validator.js";
+import { getDefaultMaxTokens } from "./ai-settings.controller.js";
 
 const intentRouter = new IntentRouterService();
 
@@ -380,8 +381,12 @@ export async function chatStream(
           return content.substring(0, 1000);
         })
         .join(" ");
+
+      // Get user's configured max tokens setting
+      const userMaxTokens = await getDefaultMaxTokens(userId);
+
       const validation = validateMaxTokens(
-        4096,
+        userMaxTokens,
         modelId,
         messages.length,
         messagesStr,

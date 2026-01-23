@@ -21,9 +21,9 @@ import sys
 import logging
 import time
 import traceback
+import threading
 from typing import Dict, Any, Optional
 from io import StringIO
-import signal
 from contextlib import contextmanager
 
 from flask import Flask, request, jsonify, Response
@@ -187,17 +187,22 @@ class RestrictedExecutor:
             def flush(self):
                 pass
 
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"Code execution timed out after {self.timeout} seconds")
+        # Use a flag to track timeout
+        timed_out = threading.Event()
+
+        def timeout_handler():
+            """Called when timeout is reached"""
+            timed_out.set()
+
+        timeout_timer = threading.Timer(self.timeout, timeout_handler)
+        timeout_timer.daemon = True
 
         try:
             sys.stdout = StdoutCapture()
             sys.stderr = StderrCapture()
 
-            # Set timeout (Unix only)
-            if hasattr(signal, 'SIGALRM'):
-                signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(self.timeout)
+            # Start timeout timer (thread-safe, works in worker threads)
+            timeout_timer.start()
 
             # Compile and execute
             compiled = compile(code, '<sandbox>', 'exec')
@@ -206,14 +211,19 @@ class RestrictedExecutor:
             exec_globals = self.safe_globals.copy()
             exec_locals = {}
 
+            # Execute with periodic checks for timeout
             exec(compiled, exec_globals, exec_locals)
 
-            # Try to get return value from last expression
-            # Check if there's a variable named 'result' or '_'
-            if '_result_' in exec_locals:
-                result = exec_locals['_result_']
-            elif 'result' in exec_locals:
-                result = exec_locals['result']
+            # Check if timeout occurred during execution
+            if timed_out.is_set():
+                error = f"Code execution timed out after {self.timeout} seconds"
+            else:
+                # Try to get return value from last expression
+                # Check if there's a variable named 'result' or '_'
+                if '_result_' in exec_locals:
+                    result = exec_locals['_result_']
+                elif 'result' in exec_locals:
+                    result = exec_locals['result']
 
         except TimeoutError as e:
             error = str(e)
@@ -227,9 +237,8 @@ class RestrictedExecutor:
                 tb = tb[:500] + "\n... (traceback truncated)"
             output.write_stderr(tb)
         finally:
-            # Reset timeout
-            if hasattr(signal, 'SIGALRM'):
-                signal.alarm(0)
+            # Cancel timeout timer
+            timeout_timer.cancel()
 
             sys.stdout = old_stdout
             sys.stderr = old_stderr

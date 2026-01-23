@@ -258,7 +258,13 @@ export class LLMRouterService {
       throw new Error(`No AI provider configured for task: ${taskType}`);
     }
 
-    return this.callLLM(provider, systemPrompt || "", userMessage, options);
+    return this.callLLM(
+      provider,
+      systemPrompt || "",
+      userMessage,
+      options,
+      userId,
+    );
   }
 
   /**
@@ -269,6 +275,7 @@ export class LLMRouterService {
     systemPrompt: string,
     userMessage: string,
     options?: TaskExecutionOptions,
+    userId?: string,
   ): Promise<string> {
     const { validateMaxTokens, isMaxTokensError, getFallbackMaxTokens } =
       await import("../utils/token-validator.js");
@@ -284,6 +291,8 @@ export class LLMRouterService {
         validateMaxTokens,
         isMaxTokensError,
         getFallbackMaxTokens,
+        options,
+        userId,
       );
     } catch (primaryError) {
       // If primary failed and fallback is configured, try fallback
@@ -307,6 +316,8 @@ export class LLMRouterService {
             validateMaxTokens,
             isMaxTokensError,
             getFallbackMaxTokens,
+            options,
+            userId,
           );
         } catch (fallbackError) {
           console.error(
@@ -337,6 +348,8 @@ export class LLMRouterService {
     validateMaxTokens: any,
     isMaxTokensError: any,
     getFallbackMaxTokens: any,
+    options?: TaskExecutionOptions,
+    userId?: string,
   ): Promise<string> {
     const client = new OpenAI({
       apiKey,
@@ -352,10 +365,28 @@ export class LLMRouterService {
     }
     messages.push({ role: "user", content: userMessage });
 
+    // Get user's configured max tokens, or use default
+    let defaultMaxTokens = 2048;
+    if (userId) {
+      const { getDefaultMaxTokens } =
+        await import("../controllers/ai-settings.controller.js");
+      try {
+        defaultMaxTokens = await getDefaultMaxTokens(userId);
+      } catch (error) {
+        console.warn(
+          `Failed to get user max tokens, using default: ${defaultMaxTokens}`,
+          error,
+        );
+      }
+    }
+
+    // Use options.maxTokens if provided, otherwise use user's configured default
+    const maxTokensToUse = options?.maxTokens || defaultMaxTokens;
+
     // Validate max_tokens before making the request
     const messagesStr = `${systemPrompt}${userMessage}`.substring(0, 2000);
     const validation = validateMaxTokens(
-      2048, // default max tokens
+      maxTokensToUse,
       modelId,
       messages.length,
       messagesStr,
