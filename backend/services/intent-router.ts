@@ -1,5 +1,6 @@
 // Intent Router Service
 // Classifies incoming user inputs and determines system response
+// ALL classification is done via LLM - no regex/pattern matching
 
 import prisma from "./prisma.js";
 import OpenAI from "openai";
@@ -33,6 +34,13 @@ export interface ClassificationContext {
   userId?: string;
 }
 
+export interface ResponseValueAssessment {
+  isValuable: boolean;
+  reason: string;
+  adjustedImportanceScore: number;
+  shouldStore: boolean;
+}
+
 // Classification prompts for LLM
 const CLASSIFICATION_SYSTEM_PROMPT = `You are an intent classification system for a personal AI assistant called "Second Brain".
 Your job is to analyze user speech/text and classify it accurately.
@@ -43,15 +51,7 @@ Classification types:
 - reflection: User is thinking out loud, journaling, or reflecting on something
 - observation: User is noting something about their environment or situation
 - conversation: User is having a casual conversation (not necessarily with the AI)
-- noise: Random speech, background noise transcription, or unintelligible content
-
-Important indicators:
-- Commands typically start with action verbs or the wake word
-- Questions contain interrogative words or question marks
-- Reflections often use "I think", "I feel", "I wonder"
-- Observations note facts about the present situation
-- Conversations involve dialogue or social exchanges
-- Noise is fragmented, incomplete, or doesn't form coherent thoughts
+- noise: Random speech, background noise transcription, unintelligible content, filler words only (um, uh, euh), or text that is too short/fragmented to be meaningful
 
 You must respond with a JSON object containing:
 {
@@ -67,55 +67,53 @@ You must respond with a JSON object containing:
 }
 
 Guidelines for importance scoring:
-- 0.0-0.2: Trivial, noise, or very mundane
-- 0.2-0.4: Low importance, casual conversation
-- 0.4-0.6: Moderate importance, useful observations
-- 0.6-0.8: Important, decisions, commitments, insights
-- 0.8-1.0: Critical, major life events, key decisions`;
+- 0.0-0.2: Trivial, noise, or very mundane (filler words, incomplete sentences, greetings)
+- 0.2-0.4: Low importance, casual conversation, simple exchanges
+- 0.4-0.6: Moderate importance, useful observations, general questions
+- 0.6-0.8: Important, decisions, commitments, insights, personal reflections
+- 0.8-1.0: Critical, major life events, key decisions, important deadlines
+
+Guidelines for shouldStore:
+- false: Noise, filler words, unintelligible content, content too short to be meaningful, very short inputs (<5 chars)
+- true: Any meaningful content that could be valuable to recall later`;
+
+const RESPONSE_VALUE_SYSTEM_PROMPT = `You are a memory quality assessor for a personal AI assistant called "Second Brain".
+Your job is to evaluate if a question-response pair contains valuable information worth storing in long-term memory.
+
+You must respond with a JSON object containing:
+{
+  "isValuable": true|false,
+  "reason": "brief explanation of why this is or isn't valuable",
+  "adjustedImportanceScore": 0.0-1.0,
+  "shouldStore": true|false
+}
+
+Guidelines for assessing value:
+- NOT VALUABLE (shouldStore: false):
+  - The AI couldn't answer and said "I don't know", "I don't have access to", "I cannot remember", etc.
+  - The response is a generic disclaimer about AI limitations
+  - The question was about personal info the AI doesn't have (user's name, personal details not in context)
+  - The response provides no new information or insight
+  - The interaction was just a test or meaningless exchange
+  - The AI admits it lacks information about the user or the topic
+
+- VALUABLE (shouldStore: true):
+  - The AI provided useful information, advice, or insights
+  - The user shared personal reflections, decisions, or goals
+  - The exchange contains actionable information
+  - The response includes specific facts, dates, or commitments
+  - The user expressed emotions, intentions, or plans worth remembering`;
 
 export class IntentRouterService {
   /**
-   * Analyze user input and classify intent
+   * Initialize or get OpenAI client for a user
    */
-  async classifyInput(
-    text: string,
-    context?: ClassificationContext,
-  ): Promise<ClassificationResult> {
-    // Quick noise filter for very short or empty inputs
-    if (!text || text.trim().length < 3) {
-      return this.createNoiseResult();
-    }
-
-    // Check for obvious noise patterns
-    if (this.isLikelyNoise(text)) {
-      return this.createNoiseResult();
-    }
-
-    // If we have a wake word, it's likely a command
-    if (context?.hasWakeWord) {
-      return this.classifyAsCommand(text, context);
-    }
-
-    // Try LLM classification if available
-    try {
-      return await this.llmClassify(text, context);
-    } catch (error) {
-      console.warn("LLM classification failed, using heuristics:", error);
-      return this.heuristicClassify(text, context);
-    }
-  }
-
-  /**
-   * Use LLM for classification
-   */
-  private async llmClassify(
-    text: string,
-    context?: ClassificationContext,
-  ): Promise<ClassificationResult> {
-    // Get user's configured routing model
+  private async getOpenAIClient(
+    userId?: string,
+  ): Promise<{ client: OpenAI; modelId: string }> {
     const whereClause: any = { taskType: "ROUTING" };
-    if (context?.userId) {
-      whereClause.userId = context.userId;
+    if (userId) {
+      whereClause.userId = userId;
     }
 
     const taskConfig = await prisma.aITaskConfig.findFirst({
@@ -127,22 +125,104 @@ export class IntentRouterService {
     });
 
     if (!taskConfig || !taskConfig.provider) {
-      throw new Error("No routing model configured");
+      // Fallback: try to find any available provider for this user
+      const provider = await prisma.aIProvider.findFirst({
+        where: userId ? { userId } : undefined,
+      });
+
+      if (!provider) {
+        throw new Error(
+          "No AI provider configured. Please configure an AI provider in settings.",
+        );
+      }
+
+      return {
+        client: new OpenAI({
+          apiKey: provider.apiKey,
+          baseURL: provider.baseUrl || "https://api.openai.com/v1",
+        }),
+        modelId: "gpt-3.5-turbo",
+      };
     }
 
-    const openai = new OpenAI({
-      apiKey: taskConfig.provider.apiKey,
-      baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
-    });
+    return {
+      client: new OpenAI({
+        apiKey: taskConfig.provider.apiKey,
+        baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
+      }),
+      modelId: taskConfig.model?.modelId || "gpt-3.5-turbo",
+    };
+  }
+
+  /**
+   * Analyze user input and classify intent using LLM
+   * ALL classification is done via LLM - no regex/pattern matching
+   */
+  async classifyInput(
+    text: string,
+    context?: ClassificationContext,
+  ): Promise<ClassificationResult> {
+    // Only filter completely empty inputs
+    if (!text || text.trim().length === 0) {
+      return this.createNoiseResult("Empty input");
+    }
+
+    // Use LLM for ALL classification - no heuristic fallback
+    try {
+      return await this.llmClassify(text, context);
+    } catch (error) {
+      console.error("LLM classification failed:", error);
+      // Return a safe default that won't store anything if LLM fails
+      // Do NOT fall back to heuristics - if LLM fails, we don't classify
+      return {
+        inputType: "noise",
+        confidence: 0.5,
+        shouldStore: false,
+        shouldCallTools: false,
+        memoryScopes: [],
+        importanceScore: 0,
+        entities: [],
+        sentiment: "neutral",
+        topic: "LLM classification unavailable",
+        temporalReference: undefined,
+      };
+    }
+  }
+
+  /**
+   * Use LLM for classification
+   */
+  private async llmClassify(
+    text: string,
+    context?: ClassificationContext,
+  ): Promise<ClassificationResult> {
+    const { client, modelId } = await this.getOpenAIClient(context?.userId);
+
+    const contextInfo = [];
+    if (context?.hasWakeWord) {
+      contextInfo.push(
+        "Note: This input was preceded by a wake word, indicating direct address to the AI.",
+      );
+    }
+    if (context?.duration) {
+      contextInfo.push(`Audio duration: ${context.duration.toFixed(1)}s`);
+    }
+    if (context?.speakerConfidence !== undefined) {
+      contextInfo.push(
+        `Speaker identification confidence: ${(context.speakerConfidence * 100).toFixed(0)}%`,
+      );
+    }
+    if (context?.previousContext) {
+      contextInfo.push(`Previous context: ${context.previousContext}`);
+    }
 
     const userPrompt = `Classify the following input:
 "${text}"
 
-${context?.hasWakeWord ? "Note: This input was preceded by a wake word." : ""}
-${context?.duration ? `Audio duration: ${context.duration.toFixed(1)}s` : ""}`;
+${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
 
-    const response = await openai.chat.completions.create({
-      model: taskConfig.model?.modelId || "gpt-3.5-turbo",
+    const response = await client.chat.completions.create({
+      model: modelId,
       messages: [
         { role: "system", content: CLASSIFICATION_SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
@@ -161,324 +241,106 @@ ${context?.duration ? `Audio duration: ${context.duration.toFixed(1)}s` : ""}`;
     return {
       inputType: result.inputType || "observation",
       confidence: result.confidence || 0.7,
-      topic: result.topic,
-      temporalReference: result.temporalReference,
-      shouldStore: result.shouldStore ?? true,
+      topic: result.topic || undefined,
+      temporalReference: result.temporalReference || undefined,
+      shouldStore: result.shouldStore ?? false, // Default to NOT storing
       shouldCallTools: result.shouldCallTools ?? false,
       memoryScopes: this.determineMemoryScopes(result),
-      importanceScore: result.importanceScore || 0.5,
+      importanceScore: result.importanceScore || 0,
       entities: result.entities || [],
       sentiment: result.sentiment || "neutral",
     };
   }
 
   /**
-   * Heuristic-based classification (fallback)
+   * Assess if a question-response pair is valuable enough to store
+   * This should be called AFTER getting the LLM response to evaluate if the exchange is worth remembering
    */
-  private heuristicClassify(
-    text: string,
-    context?: ClassificationContext,
-  ): ClassificationResult {
-    const normalizedText = text.toLowerCase().trim();
+  async assessResponseValue(
+    question: string,
+    response: string,
+    originalClassification: ClassificationResult,
+    userId?: string,
+  ): Promise<ResponseValueAssessment> {
+    try {
+      const { client, modelId } = await this.getOpenAIClient(userId);
 
-    // Check for questions
-    const questionPatterns = [
-      /^(what|who|where|when|why|how|is|are|do|does|can|could|would|should|will)/i,
-      /\?$/,
-      /^(est-ce que|qu'est-ce|comment|pourquoi|quand|où|qui|quel)/i,
-    ];
+      const userPrompt = `Evaluate if this question-response pair should be stored in memory:
 
-    for (const pattern of questionPatterns) {
-      if (pattern.test(normalizedText)) {
-        return {
-          inputType: "question",
-          confidence: 0.8,
-          shouldStore: true,
-          shouldCallTools: false,
-          memoryScopes: ["short_term"],
-          importanceScore: 0.5,
-          entities: this.extractBasicEntities(text),
-          sentiment: "neutral",
-        };
+QUESTION: "${question}"
+
+RESPONSE: "${response}"
+
+ORIGINAL CLASSIFICATION:
+- Type: ${originalClassification.inputType}
+- Initial importance score: ${originalClassification.importanceScore}
+- Topic: ${originalClassification.topic || "none"}
+
+Should this exchange be stored in the user's memory? Consider:
+1. Does the response actually provide useful information?
+2. Is this just a "I don't know" or disclaimer response?
+3. Would recalling this later be valuable to the user?`;
+
+      const llmResponse = await client.chat.completions.create({
+        model: modelId,
+        messages: [
+          { role: "system", content: RESPONSE_VALUE_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+      });
+
+      const content = llmResponse.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("Empty LLM response for value assessment");
       }
+
+      const result = JSON.parse(content);
+
+      return {
+        isValuable: result.isValuable ?? false,
+        reason: result.reason || "No reason provided",
+        adjustedImportanceScore: result.adjustedImportanceScore ?? 0,
+        shouldStore: result.shouldStore ?? false,
+      };
+    } catch (error) {
+      console.error("Response value assessment failed:", error);
+      // If assessment fails, default to not storing to avoid low-quality memories
+      return {
+        isValuable: false,
+        reason: "Assessment failed - defaulting to not store",
+        adjustedImportanceScore: 0,
+        shouldStore: false,
+      };
     }
-
-    // Check for commands
-    const commandPatterns = [
-      /^(do|make|create|send|find|search|add|remove|delete|update|set|get|show|tell|remind|schedule)/i,
-      /^(fais|crée|envoie|trouve|cherche|ajoute|supprime|met|montre|dis|rappelle)/i,
-    ];
-
-    for (const pattern of commandPatterns) {
-      if (pattern.test(normalizedText)) {
-        return {
-          inputType: "command",
-          confidence: 0.75,
-          shouldStore: true,
-          shouldCallTools: true,
-          memoryScopes: ["short_term"],
-          importanceScore: 0.6,
-          entities: this.extractBasicEntities(text),
-          sentiment: "neutral",
-        };
-      }
-    }
-
-    // Check for reflections
-    const reflectionPatterns = [
-      /^(i think|i feel|i believe|i wonder|maybe|perhaps)/i,
-      /^(je pense|je crois|je me demande|peut-être)/i,
-    ];
-
-    for (const pattern of reflectionPatterns) {
-      if (pattern.test(normalizedText)) {
-        return {
-          inputType: "reflection",
-          confidence: 0.7,
-          shouldStore: true,
-          shouldCallTools: false,
-          memoryScopes: ["short_term", "daily"],
-          importanceScore: 0.6,
-          entities: this.extractBasicEntities(text),
-          sentiment: this.detectBasicSentiment(text),
-        };
-      }
-    }
-
-    // Default to observation
-    return {
-      inputType: "observation",
-      confidence: 0.6,
-      shouldStore: text.length > 20,
-      shouldCallTools: false,
-      memoryScopes: ["short_term"],
-      importanceScore: this.assessMeaningfulness(text) * 0.6,
-      entities: this.extractBasicEntities(text),
-      sentiment: this.detectBasicSentiment(text),
-    };
-  }
-
-  /**
-   * Classify as command (when wake word detected)
-   */
-  private classifyAsCommand(
-    text: string,
-    context?: ClassificationContext,
-  ): ClassificationResult {
-    return {
-      inputType: "command",
-      confidence: 0.9,
-      shouldStore: true,
-      shouldCallTools: true,
-      memoryScopes: ["short_term"],
-      importanceScore: 0.7,
-      entities: this.extractBasicEntities(text),
-      sentiment: "neutral",
-    };
   }
 
   /**
    * Create a noise classification result
    */
-  private createNoiseResult(): ClassificationResult {
+  private createNoiseResult(reason?: string): ClassificationResult {
     return {
       inputType: "noise",
-      confidence: 0.9,
+      confidence: 1.0,
       shouldStore: false,
       shouldCallTools: false,
       memoryScopes: [],
       importanceScore: 0,
       entities: [],
       sentiment: "neutral",
+      topic: reason,
     };
-  }
-
-  /**
-   * Check if input is likely noise
-   */
-  private isLikelyNoise(text: string): boolean {
-    const normalized = text.toLowerCase().trim();
-
-    // Very short
-    if (normalized.length < 5) return true;
-
-    // Only non-word characters
-    if (!/\w{2,}/.test(normalized)) return true;
-
-    // Common filler words only
-    const fillerOnly =
-      /^(um+|uh+|ah+|oh+|hmm+|euh+|ben+|bah+|hein+)+[.,!?\s]*$/i;
-    if (fillerOnly.test(normalized)) return true;
-
-    // Repetitive characters
-    if (/(.)\1{4,}/.test(normalized)) return true;
-
-    return false;
-  }
-
-  /**
-   * Assess how meaningful the text is (0-1)
-   */
-  private assessMeaningfulness(text: string): number {
-    let score = 0.5;
-
-    // Length contributes to meaningfulness
-    if (text.length > 50) score += 0.1;
-    if (text.length > 100) score += 0.1;
-    if (text.length > 200) score += 0.1;
-
-    // Presence of proper nouns (capitalized words)
-    const properNouns = text.match(/\b[A-Z][a-z]+\b/g);
-    if (properNouns && properNouns.length > 0) {
-      score += Math.min(0.2, properNouns.length * 0.05);
-    }
-
-    // Presence of numbers (dates, times, amounts)
-    if (/\d+/.test(text)) score += 0.1;
-
-    // Presence of important keywords
-    const importantKeywords = [
-      "important",
-      "urgent",
-      "remember",
-      "don't forget",
-      "meeting",
-      "deadline",
-      "decision",
-      "goal",
-      "plan",
-      "idea",
-      "project",
-      "problem",
-      "solution",
-      "important",
-      "urgent",
-      "rappel",
-      "n'oublie pas",
-      "réunion",
-      "échéance",
-      "décision",
-      "objectif",
-      "plan",
-      "idée",
-      "projet",
-      "problème",
-      "solution",
-    ];
-
-    const normalizedText = text.toLowerCase();
-    for (const keyword of importantKeywords) {
-      if (normalizedText.includes(keyword)) {
-        score += 0.1;
-        break;
-      }
-    }
-
-    return Math.min(1, score);
-  }
-
-  /**
-   * Extract basic entities from text
-   */
-  private extractBasicEntities(text: string): string[] {
-    const entities: string[] = [];
-
-    // Capitalized words (potential proper nouns)
-    const properNouns = text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g);
-    if (properNouns) {
-      entities.push(...properNouns);
-    }
-
-    // Dates
-    const dates = text.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g);
-    if (dates) {
-      entities.push(...dates);
-    }
-
-    // Times
-    const times = text.match(/\b\d{1,2}[h:]\d{2}\b/g);
-    if (times) {
-      entities.push(...times);
-    }
-
-    // Email addresses
-    const emails = text.match(/\b[\w.-]+@[\w.-]+\.\w+\b/g);
-    if (emails) {
-      entities.push(...emails);
-    }
-
-    return [...new Set(entities)].slice(0, 10);
-  }
-
-  /**
-   * Detect basic sentiment
-   */
-  private detectBasicSentiment(
-    text: string,
-  ): "positive" | "negative" | "neutral" {
-    const normalizedText = text.toLowerCase();
-
-    const positiveWords = [
-      "happy",
-      "great",
-      "good",
-      "excellent",
-      "wonderful",
-      "amazing",
-      "love",
-      "enjoy",
-      "content",
-      "bien",
-      "super",
-      "génial",
-      "excellent",
-      "merveilleux",
-      "incroyable",
-      "aime",
-      "adore",
-    ];
-
-    const negativeWords = [
-      "sad",
-      "bad",
-      "terrible",
-      "awful",
-      "hate",
-      "angry",
-      "frustrated",
-      "worried",
-      "anxious",
-      "triste",
-      "mauvais",
-      "terrible",
-      "horrible",
-      "déteste",
-      "énervé",
-      "frustré",
-      "inquiet",
-      "anxieux",
-    ];
-
-    let positiveCount = 0;
-    let negativeCount = 0;
-
-    for (const word of positiveWords) {
-      if (normalizedText.includes(word)) positiveCount++;
-    }
-
-    for (const word of negativeWords) {
-      if (normalizedText.includes(word)) negativeCount++;
-    }
-
-    if (positiveCount > negativeCount) return "positive";
-    if (negativeCount > positiveCount) return "negative";
-    return "neutral";
   }
 
   /**
    * Determine memory scopes based on classification
    */
   private determineMemoryScopes(result: any): string[] {
+    if (!result.shouldStore) {
+      return [];
+    }
+
     const scopes = ["short_term"];
 
     if (result.importanceScore >= 0.6) {
@@ -490,33 +352,5 @@ ${context?.duration ? `Audio duration: ${context.duration.toFixed(1)}s` : ""}`;
     }
 
     return scopes;
-  }
-
-  /**
-   * Extract temporal references from input
-   */
-  extractTemporalReferences(text: string): string | undefined {
-    const patterns = [
-      // English
-      /\b(today|tomorrow|yesterday|next week|last week|this week)\b/i,
-      /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,
-      /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i,
-      /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/,
-      /\b(in \d+ (days?|weeks?|months?|years?))\b/i,
-      // French
-      /\b(aujourd'hui|demain|hier|la semaine prochaine|la semaine dernière|cette semaine)\b/i,
-      /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i,
-      /\b(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b/i,
-      /\b(dans \d+ (jours?|semaines?|mois|ans?))\b/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) {
-        return match[0];
-      }
-    }
-
-    return undefined;
   }
 }

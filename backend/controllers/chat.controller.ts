@@ -70,6 +70,12 @@ export async function chatStream(
       userId,
     });
 
+    const classificationDecision = `Type détecté: ${classification.inputType} (confiance: ${(classification.confidence * 100).toFixed(1)}%). ` +
+      `Importance: ${(classification.importanceScore * 100).toFixed(1)}%. ` +
+      `Stocker: ${classification.shouldStore ? 'OUI' : 'NON'}. ` +
+      `Exécuter outils: ${classification.shouldCallTools ? 'OUI' : 'NON'}. ` +
+      `Sentiment: ${classification.sentiment}.`;
+
     flowTracker.trackEvent({
       flowId,
       stage: "intent_classification",
@@ -80,7 +86,13 @@ export async function chatStream(
         inputType: classification.inputType,
         confidence: classification.confidence,
         shouldStore: classification.shouldStore,
+        shouldCallTools: classification.shouldCallTools,
+        importanceScore: classification.importanceScore,
+        sentiment: classification.sentiment,
+        topic: classification.topic,
+        entities: classification.entities,
       },
+      decision: classificationDecision,
     });
 
     // 2. Get relevant memories for context
@@ -97,13 +109,26 @@ export async function chatStream(
           `[Mémoire du ${new Date(r.memory.createdAt).toLocaleDateString()}]: ${r.memory.content}`,
       );
 
+      const memoryDecision = `${searchResponse.results.length} mémoire(s) pertinente(s) trouvée(s). ` +
+        `Score moyen: ${(searchResponse.results.reduce((sum, r) => sum + (r.score || 0), 0) / searchResponse.results.length * 100).toFixed(1)}%.`;
+
       flowTracker.trackEvent({
         flowId,
         stage: "memory_search",
         service: "MemorySearchService",
         status: "success",
         duration: Date.now() - searchStart,
-        data: { resultsFound: searchResponse.results.length },
+        data: { 
+          resultsFound: searchResponse.results.length,
+          query: message,
+          topResults: searchResponse.results.slice(0, 3).map((r, i) => ({
+            rank: i + 1,
+            score: r.score,
+            distance: r.distance,
+            dateCreated: r.memory.createdAt,
+          })),
+        },
+        decision: memoryDecision,
       });
     } catch (error) {
       console.warn("Memory search failed, continuing without context:", error);
@@ -113,6 +138,7 @@ export async function chatStream(
         service: "MemorySearchService",
         status: "failed",
         error: error instanceof Error ? error.message : "Unknown error",
+        decision: "Recherche mémoire échouée. Continuation sans contexte mémoire.",
       });
     }
 
@@ -206,37 +232,88 @@ export async function chatStream(
       data: { responseLength: fullResponse.length },
     });
 
-    // 7. Store in memory if important (integrates with global system)
-    if (classification.shouldStore && classification.importanceScore >= 0.3) {
+    // 7. Assess if the response is valuable enough to store
+    // Use LLM to evaluate the question-response pair, not just the input classification
+    if (classification.shouldStore) {
       try {
-        const memoryStart = Date.now();
-        await prisma.memory.create({
-          data: {
-            userId,
-            content: `Question: ${message}\nRéponse: ${fullResponse}`,
-            type: "SHORT_TERM",
-            sourceType: "chat",
-            importanceScore: classification.importanceScore,
-            tags: classification.topic ? [classification.topic] : [],
-            entities: classification.entities,
-          },
-        });
+        const assessmentStart = Date.now();
+        const valueAssessment = await intentRouter.assessResponseValue(
+          message,
+          fullResponse,
+          classification,
+          userId,
+        );
 
         flowTracker.trackEvent({
           flowId,
-          stage: "memory_storage",
-          service: "MemoryManager",
+          stage: "response_value_assessment",
+          service: "IntentRouter",
           status: "success",
-          duration: Date.now() - memoryStart,
+          duration: Date.now() - assessmentStart,
+          data: {
+            isValuable: valueAssessment.isValuable,
+            reason: valueAssessment.reason,
+            adjustedImportanceScore: valueAssessment.adjustedImportanceScore,
+            shouldStore: valueAssessment.shouldStore,
+          },
+          decision: `Évaluation de la réponse: ${valueAssessment.isValuable ? 'VALUABLE' : 'NOT VALUABLE'}. Raison: ${valueAssessment.reason}`,
         });
+
+        // Only store if the response was assessed as valuable
+        if (valueAssessment.shouldStore && valueAssessment.adjustedImportanceScore >= 0.3) {
+          const memoryStart = Date.now();
+          await prisma.memory.create({
+            data: {
+              userId,
+              content: `Question: ${message}\nRéponse: ${fullResponse}`,
+              type: "SHORT_TERM",
+              sourceType: "chat",
+              importanceScore: valueAssessment.adjustedImportanceScore,
+              tags: classification.topic ? [classification.topic] : [],
+              entities: classification.entities,
+            },
+          });
+
+          const memoryStorageDecision = `Mémoire stockée avec score d'importance ajusté: ${(valueAssessment.adjustedImportanceScore * 100).toFixed(1)}%. ` +
+            `Tags: ${classification.topic ? classification.topic : 'Aucun'}. Raison: ${valueAssessment.reason}`;
+
+          flowTracker.trackEvent({
+            flowId,
+            stage: "memory_storage",
+            service: "MemoryManager",
+            status: "success",
+            duration: Date.now() - memoryStart,
+            data: {
+              importanceScore: valueAssessment.adjustedImportanceScore,
+              topic: classification.topic,
+              entities: classification.entities,
+              responseLength: fullResponse.length,
+              valueReason: valueAssessment.reason,
+            },
+            decision: memoryStorageDecision,
+          });
+        } else {
+          const skipReason = !valueAssessment.shouldStore
+            ? `Réponse non valuable: ${valueAssessment.reason}`
+            : `Score d'importance ajusté trop bas (${(valueAssessment.adjustedImportanceScore * 100).toFixed(1)}% < 30%)`;
+          
+          flowTracker.trackEvent({
+            flowId,
+            stage: "memory_storage",
+            service: "MemoryManager",
+            status: "skipped",
+            decision: skipReason,
+          });
+        }
       } catch (error) {
-        console.warn("Failed to store chat in memory:", error);
+        console.warn("Failed to assess or store chat in memory:", error);
         flowTracker.trackEvent({
           flowId,
           stage: "memory_storage",
           service: "MemoryManager",
           status: "failed",
           error: error instanceof Error ? error.message : "Unknown error",
+          decision: `Erreur lors de l'évaluation/stockage mémoire: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
       }
     } else {
@@ -245,7 +322,7 @@ export async function chatStream(
         stage: "memory_storage",
         service: "MemoryManager",
         status: "skipped",
-        decision: "Below importance threshold or shouldStore=false",
+        decision: "Entrée non stockable (shouldStore=false dès la classification)",
       });
     }
 

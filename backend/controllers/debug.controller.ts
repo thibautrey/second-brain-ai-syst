@@ -115,13 +115,23 @@ router.get("/input-flow", (req: Request, res: Response) => {
     .flow-item.active .flow-details { display: block; }
     .event-item {
       background: #1a1a1a;
-      padding: 8px;
-      margin-bottom: 6px;
+      padding: 12px;
+      margin-bottom: 8px;
       border-radius: 4px;
       font-size: 12px;
+      cursor: pointer;
+      border: 1px solid #333;
+      transition: all 0.2s;
+    }
+    .event-item:hover {
+      background: #2a2a2a;
+      border-color: #667eea;
+    }
+    .event-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 4px;
     }
     .event-stage { font-weight: 600; color: #fff; }
     .event-status {
@@ -134,6 +144,63 @@ router.get("/input-flow", (req: Request, res: Response) => {
     .event-status.failed { background: #ef4444; color: #fff; }
     .event-status.started { background: #3b82f6; color: #fff; }
     .event-status.skipped { background: #6b7280; color: #fff; }
+    .event-meta {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    .event-details {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #333;
+      background: #252525;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .event-item.active-event .event-details {
+      display: block;
+    }
+    .details-section {
+      margin-bottom: 12px;
+    }
+    .details-label {
+      font-size: 11px;
+      color: #667eea;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .details-content {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 11px;
+      background: #1a1a1a;
+      padding: 8px;
+      border-radius: 3px;
+      color: #e0e0e0;
+      overflow-x: auto;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .details-decision {
+      padding: 8px;
+      background: #1f3a1f;
+      border-left: 3px solid #10b981;
+      border-radius: 3px;
+      color: #b8e6b8;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .details-error {
+      padding: 8px;
+      background: #3a1f1f;
+      border-left: 3px solid #ef4444;
+      border-radius: 3px;
+      color: #e6b8b8;
+      font-size: 11px;
+      margin-top: 4px;
+    }
     .mermaid {
       background: #fff;
       padding: 20px;
@@ -240,6 +307,16 @@ graph TB
 
     let autoRefreshInterval = null;
 
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function toggleEventDetails(element, event) {
+      element.classList.toggle('active-event');
+    }
+
     async function loadStats() {
       try {
         const response = await fetch('/api/debug/flow-stats');
@@ -283,15 +360,45 @@ graph TB
           const statusClass = flow.finalStatus || 'in-progress';
           const duration = flow.totalDuration ? \`\${flow.totalDuration}ms\` : 'En cours...';
 
-          const eventsHtml = flow.events.map(event => \`
-            <div class="event-item">
-              <div>
-                <span class="event-stage">\${event.stage}</span>
-                <span style="color: #666; font-size: 11px; margin-left: 8px;">\${event.service}</span>
+          const eventsHtml = flow.events.map((event, idx) => {
+            const dataStr = event.data ? JSON.stringify(event.data, null, 2) : 'N/A';
+            const durationStr = event.duration ? \`⏱️ \${event.duration}ms\` : '';
+            
+            return \`
+              <div class="event-item" onclick="toggleEventDetails(this, event)">
+                <div class="event-header">
+                  <div>
+                    <span class="event-stage">\${event.stage}</span>
+                    <span style="color: #666; font-size: 11px; margin-left: 8px;">\${event.service}</span>
+                  </div>
+                  <span class="event-status \${event.status}">\${event.status}</span>
+                </div>
+                <div class="event-meta">
+                  \${durationStr}
+                </div>
+                <div class="event-details">
+                  \${event.data ? \`
+                    <div class="details-section">
+                      <div class="details-label">📊 Données:</div>
+                      <div class="details-content">\${escapeHtml(dataStr)}</div>
+                    </div>
+                  \` : ''}
+                  \${event.decision ? \`
+                    <div class="details-section">
+                      <div class="details-label">🎯 Décision:</div>
+                      <div class="details-decision">\${event.decision}</div>
+                    </div>
+                  \` : ''}
+                  \${event.error ? \`
+                    <div class="details-section">
+                      <div class="details-label">❌ Erreur:</div>
+                      <div class="details-error">\${escapeHtml(event.error)}</div>
+                    </div>
+                  \` : ''}
+                </div>
               </div>
-              <span class="event-status \${event.status}">\${event.status}</span>
-            </div>
-          \`).join('');
+            \`;
+          }).join('');
 
           return \`
             <div class="flow-item \${statusClass}" onclick="toggleFlow(this)">

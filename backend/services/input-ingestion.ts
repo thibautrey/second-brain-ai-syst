@@ -132,7 +132,8 @@ export class InputIngestionService extends EventEmitter {
         service: "InputIngestionService",
         status: "success",
         duration: Date.now() - startTime,
-        data: { inputId },
+        data: { inputId, contentLength: request.content.length },
+        decision: `Texte reçu et traité avec succès. Longueur: ${request.content.length} caractères. Locuteur: ${request.speaker_id || "user"}`,
       });
 
       this.emit("input:processed", processed);
@@ -146,6 +147,7 @@ export class InputIngestionService extends EventEmitter {
         status: "failed",
         duration: Date.now() - startTime,
         error: error instanceof Error ? error.message : "Unknown error",
+        decision: `Erreur lors du traitement du texte: ${error instanceof Error ? error.message : "Unknown error"}`,
       });
       flowTracker.completeFlow(flowId, "failed");
 
