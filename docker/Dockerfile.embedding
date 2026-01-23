@@ -21,13 +21,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Create models directory
 RUN mkdir -p /app/models
 
+# Configure HuggingFace to cache in persistent volume
+ENV MODEL_CACHE_DIR=/app/models
+ENV HF_HOME=/app/models
+ENV HF_HUB_CACHE=/app/models/hub
+
 # Copy the model download script
 COPY backend/services/download-model.py .
 
 # Attempt to pre-download model (may fail without internet, that's OK)
 # We'll handle offline mode gracefully in the embedding service
-ENV MODEL_CACHE_DIR=/app/models
-ENV HF_HUB_OFFLINE=1
 RUN python3 download-model.py || true
 
 # Copy the embedding service

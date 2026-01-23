@@ -14,6 +14,10 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any, Union, Tuple, Optional
 
+# Configure HuggingFace cache BEFORE importing any HF-dependent libraries
+os.environ.setdefault("HF_HOME", os.getenv("HF_HOME", "/app/models"))
+os.environ.setdefault("HF_HUB_CACHE", os.getenv("HF_HUB_CACHE", "/app/models/hub"))
+
 import numpy as np
 from flask import Flask, request, jsonify
 import torch

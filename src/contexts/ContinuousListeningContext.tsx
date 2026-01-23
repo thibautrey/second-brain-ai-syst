@@ -239,7 +239,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
 
   const fetchSettings = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("authToken");
       if (!token) {
         setIsLoading(false);
         return;
@@ -270,7 +270,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
     dispatch({ type: "SET_ERROR", payload: null });
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("authToken");
       if (!token) {
         throw new Error("Not authenticated");
       }
@@ -432,7 +432,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
   const updateSettings = useCallback(
     async (updates: UpdateUserSettingsInput) => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("authToken");
         if (!token) throw new Error("Not authenticated");
 
         const response = await fetch("/api/user-settings", {
@@ -467,7 +467,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
   const testWakeWord = useCallback(
     async (text: string): Promise<WakeWordTestResult> => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("authToken");
         if (!token) throw new Error("Not authenticated");
 
         const response = await fetch("/api/user-settings/test-wake-word", {

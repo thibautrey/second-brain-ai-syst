@@ -7,6 +7,11 @@ This script should be run during Docker build to cache the model files.
 import os
 import logging
 from pathlib import Path
+
+# Configure HuggingFace cache BEFORE importing any HF-dependent libraries
+os.environ.setdefault("HF_HOME", os.getenv("HF_HOME", "/app/models"))
+os.environ.setdefault("HF_HUB_CACHE", os.getenv("HF_HUB_CACHE", "/app/models/hub"))
+
 import torch
 from speechbrain.inference.speaker import SpeakerRecognition
 

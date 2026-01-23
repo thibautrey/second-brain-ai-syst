@@ -36,6 +36,8 @@ services:
     environment:
       EMBEDDING_SERVICE_PORT: 5001
       MODEL_CACHE_DIR: /app/models
+      HF_HOME: /app/models
+      HF_HUB_CACHE: /app/models/hub
       HF_TOKEN: ${HF_TOKEN}
       HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-0}
     ports:

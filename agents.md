@@ -12,6 +12,12 @@ The Second Brain AI System is a personal cognitive operating system designed to:
 
 ---
 
+## ⚠️ Agent Instructions
+
+**DO NOT attempt to test code by running `docker compose`**. Agents should focus on implementing features and making code changes. Code testing and Docker container execution should be left to the user. If you need to verify something, check the actual code or ask the user to test it.
+
+---
+
 ## 🤖 Core Agents
 
 ### 1. **Intent Router Agent**

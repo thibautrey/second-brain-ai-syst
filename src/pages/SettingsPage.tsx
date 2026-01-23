@@ -17,6 +17,7 @@ import {
   Play,
   AlertCircle,
 } from "lucide-react";
+import { getFaviconUrl } from "../utils/favicon";
 import {
   Card,
   CardContent,
@@ -384,6 +385,32 @@ function ProviderCard({
   isSaving: boolean;
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  const [faviconError, setFaviconError] = useState(false);
+
+  useEffect(() => {
+    const fetchFavicon = async () => {
+      // For OpenAI, use OpenAI domain
+      let urlToFetch = provider.baseUrl || "https://openai.com";
+
+      // Determine endpoint to use
+      if (provider.type === "openai") {
+        urlToFetch = "https://openai.com";
+      } else if (!provider.baseUrl) {
+        setFaviconError(true);
+        return;
+      }
+
+      const url = await getFaviconUrl(urlToFetch);
+      if (url) {
+        setFaviconUrl(url);
+      } else {
+        setFaviconError(true);
+      }
+    };
+
+    fetchFavicon();
+  }, [provider.type, provider.baseUrl]);
 
   if (isEditing) {
     return (
@@ -401,8 +428,17 @@ function ProviderCard({
       <CardContent className="pt-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-              <Server className="w-6 h-6 text-white" />
+            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden">
+              {faviconUrl && !faviconError ? (
+                <img
+                  src={faviconUrl}
+                  alt={`${provider.name} favicon`}
+                  className="w-full h-full object-cover"
+                  onError={() => setFaviconError(true)}
+                />
+              ) : (
+                <Server className="w-6 h-6 text-white" />
+              )}
             </div>
             <div>
               <h4 className="font-semibold text-slate-900">{provider.name}</h4>
