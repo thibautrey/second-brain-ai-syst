@@ -117,11 +117,11 @@ class MemorySearchService {
 
   /**
    * Get embedding provider configuration for a user
-   * Returns the API key and model to use for vectorization
+   * Returns the API key, model, and baseUrl to use for vectorization
    */
   private async getEmbeddingConfig(
     userId: string,
-  ): Promise<{ apiKey: string; model: string; baseUrl?: string } | null> {
+  ): Promise<{ apiKey: string; model: string; baseUrl: string } | null> {
     try {
       const config = await getConfiguredModelForTask(userId, "embeddings");
       if (!config) {
@@ -129,36 +129,18 @@ class MemorySearchService {
         return null;
       }
 
+      // Default to OpenAI baseUrl if not specified (for OpenAI provider type)
+      const baseUrl = config.provider.baseUrl || "https://api.openai.com/v1";
+
       return {
         apiKey: config.provider.apiKey,
         model: config.model.id,
-        baseUrl: config.provider.baseUrl || undefined,
+        baseUrl: baseUrl,
       };
     } catch (error) {
       console.error("Failed to get embedding config:", error);
       return null;
     }
-  }
-
-  /**
-   * Create headers with API key for Weaviate requests
-   * Includes baseUrl header for OpenAI-compatible providers
-   */
-  private getWeaviateHeaders(
-    apiKey: string,
-    baseUrl?: string,
-  ): Record<string, string> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "X-OpenAI-Api-Key": apiKey,
-    };
-
-    // Pass custom baseUrl for OpenAI-compatible providers
-    if (baseUrl) {
-      headers["X-OpenAI-BaseURL"] = baseUrl;
-    }
-
-    return headers;
   }
 
   /**
@@ -178,17 +160,11 @@ class MemorySearchService {
       );
 
       if (!collectionExists) {
-        // Create collection with text2vec-openai vectorizer
-        // The actual API key will be passed via headers on each request
+        // Create collection with manual vectorization (none)
+        // Embeddings will be provided explicitly at insertion time
         await this.weaviateClient.post("/v1/schema", {
           class: this.COLLECTION_NAME,
-          vectorizer: "text2vec-openai",
-          moduleConfig: {
-            "text2vec-openai": {
-              model: "text-embedding-3-small",
-              type: "text",
-            },
-          },
+          vectorizer: "none",
           properties: [
             {
               name: "content",
@@ -216,7 +192,9 @@ class MemorySearchService {
             },
           ],
         });
-        console.log("✓ Created Memory collection in Weaviate");
+        console.log(
+          "✓ Created Memory collection in Weaviate (manual vectorization)",
+        );
       }
     } catch (error) {
       console.error("Failed to ensure Weaviate collection:", error);
@@ -224,8 +202,48 @@ class MemorySearchService {
   }
 
   /**
+   * Generate embedding vector for text using configured provider
+   */
+  private async generateEmbedding(
+    text: string,
+    apiKey: string,
+    model: string,
+    baseUrl: string,
+  ): Promise<number[]> {
+    try {
+      // Ensure baseUrl ends with /v1 if not already present
+      const normalizedBaseUrl = baseUrl.endsWith("/v1")
+        ? baseUrl
+        : `${baseUrl}/v1`;
+      const endpoint = `${normalizedBaseUrl}/embeddings`;
+
+      const response = await axios.post(
+        endpoint,
+        {
+          input: text,
+          model: model,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+        },
+      );
+
+      return response.data.data[0].embedding;
+    } catch (error: any) {
+      console.error(
+        "Failed to generate embedding:",
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Index a memory in Weaviate
-   * Requires embedding provider to be configured for the user
+   * Generates embedding via configured provider and stores with manual vector
    */
   async indexMemory(memory: Memory): Promise<void> {
     if (!this.weaviateClient || !this.isWeaviateAvailable) return;
@@ -240,25 +258,26 @@ class MemorySearchService {
     }
 
     try {
-      await this.weaviateClient.post(
-        `/v1/objects`,
-        {
-          class: this.COLLECTION_NAME,
-          properties: {
-            content: memory.content,
-            memoryId: memory.id,
-            userId: memory.userId,
-            tags: memory.tags,
-            createdAt: memory.createdAt.toISOString(),
-          },
-        },
-        {
-          headers: this.getWeaviateHeaders(
-            embeddingConfig.apiKey,
-            embeddingConfig.baseUrl,
-          ),
-        },
+      // Generate embedding vector
+      const vector = await this.generateEmbedding(
+        memory.content,
+        embeddingConfig.apiKey,
+        embeddingConfig.model,
+        embeddingConfig.baseUrl,
       );
+
+      // Store in Weaviate with explicit vector
+      await this.weaviateClient.post(`/v1/objects`, {
+        class: this.COLLECTION_NAME,
+        properties: {
+          content: memory.content,
+          memoryId: memory.id,
+          userId: memory.userId,
+          tags: memory.tags,
+          createdAt: memory.createdAt.toISOString(),
+        },
+        vector: vector,
+      });
     } catch (error: any) {
       // Log detailed error from Weaviate
       const weaviateError = error.response?.data?.error || error.response?.data;
@@ -310,7 +329,7 @@ class MemorySearchService {
 
   /**
    * Perform semantic search
-   * Requires embedding provider to be configured for the user
+   * Generates embedding for query and uses nearVector search
    */
   async semanticSearch(
     userId: string,
@@ -329,12 +348,20 @@ class MemorySearchService {
       }
 
       try {
+        // Generate embedding vector for the query
+        const queryVector = await this.generateEmbedding(
+          query,
+          embeddingConfig.apiKey,
+          embeddingConfig.model,
+          embeddingConfig.baseUrl,
+        );
+
         const graphqlQuery = {
           query: `{
             Get {
               ${this.COLLECTION_NAME}(
-                nearText: {
-                  concepts: ["${query.replace(/"/g, '\\"')}"]
+                nearVector: {
+                  vector: [${queryVector.join(",")}]
                 }
                 where: {
                   path: ["userId"],
@@ -360,12 +387,6 @@ class MemorySearchService {
         const response = await this.weaviateClient.post(
           "/v1/graphql",
           graphqlQuery,
-          {
-            headers: this.getWeaviateHeaders(
-              embeddingConfig.apiKey,
-              embeddingConfig.baseUrl,
-            ),
-          },
         );
         const weaviateResults =
           response.data?.data?.Get?.[this.COLLECTION_NAME] || [];

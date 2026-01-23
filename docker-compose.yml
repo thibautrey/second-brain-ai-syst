@@ -22,8 +22,7 @@ services:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
       PERSISTENCE_DATA_PATH: /var/lib/weaviate
-      # Activer les modules sans API key globale - les clés seront passées via headers
-      ENABLE_MODULES: text2vec-openai
+      # Pas de module de vectorisation - embeddings fournis manuellement
       DEFAULT_VECTORIZER_MODULE: none
       # Configuration Raft pour mode single-node (requis depuis Weaviate v1.25+)
       RAFT_BOOTSTRAP_EXPECT: 1
