@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import prisma from "./prisma.js";
 import { websocketBroadcast } from "./websocket-broadcast";
 import type { NotificationType, NotificationChannel } from "@prisma/client";
 
@@ -75,20 +75,22 @@ class NotificationService {
     }
 
     // Send through each channel
-    const promises = notification.channels.map((channel) => {
-      switch (channel) {
-        case "IN_APP":
-          return this.sendInApp(notification);
-        case "PUSH":
-          return this.sendPush(notification);
-        case "EMAIL":
-          return this.sendEmail(notification);
-        case "WEBHOOK":
-          return this.sendWebhook(notification);
-        default:
-          return Promise.resolve();
-      }
-    });
+    const promises = notification.channels.map(
+      (channel: NotificationChannel) => {
+        switch (channel) {
+          case "IN_APP":
+            return this.sendInApp(notification);
+          case "PUSH":
+            return this.sendPush(notification);
+          case "EMAIL":
+            return this.sendEmail(notification);
+          case "WEBHOOK":
+            return this.sendWebhook(notification);
+          default:
+            return Promise.resolve();
+        }
+      },
+    );
 
     await Promise.all(promises);
 

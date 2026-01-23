@@ -1,14 +1,15 @@
 import { Request, Response } from "express";
 import { notificationService } from "../services/notification";
+import type { AuthRequest } from "../middlewares/auth.middleware";
 
 export class NotificationController {
   /**
    * POST /api/notifications
    * Create a new notification (for AI to use)
    */
-  async create(req: Request, res: Response) {
+  async create(req: AuthRequest, res: Response) {
     try {
-      const userId = req.user?.userId;
+      const userId = req.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -29,9 +30,9 @@ export class NotificationController {
    * GET /api/notifications
    * Get user notifications
    */
-  async list(req: Request, res: Response) {
+  async list(req: AuthRequest, res: Response) {
     try {
-      const userId = req.user?.userId;
+      const userId = req.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -57,9 +58,9 @@ export class NotificationController {
    * PATCH /api/notifications/:id/read
    * Mark notification as read
    */
-  async markRead(req: Request, res: Response) {
+  async markRead(req: AuthRequest, res: Response) {
     try {
-      const userId = req.user?.userId;
+      const userId = req.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }

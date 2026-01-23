@@ -950,8 +950,7 @@ export class ToolExecutorService {
   ): Promise<any> {
     switch (action) {
       case "send":
-        return notificationService.createNotification({
-          userId,
+        return notificationService.sendNotification(userId, {
           title: params.title,
           message: params.message,
           type: params.type as NotificationType,
@@ -964,11 +963,16 @@ export class ToolExecutorService {
         });
 
       case "list":
-        return notificationService.getUserNotifications(userId, {
-          limit: params.limit,
-          offset: params.offset,
-          unreadOnly: params.unreadOnly,
-        });
+        return notificationService.listNotifications(
+          userId,
+          {},
+          {
+            page: params.page || 1,
+            limit: params.limit || 50,
+            sortBy: params.sortBy || "createdAt",
+            sortOrder: params.sortOrder || "desc",
+          },
+        );
 
       case "mark_read":
         return notificationService.markAsRead(userId, params.notificationId);
