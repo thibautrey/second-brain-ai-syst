@@ -392,7 +392,7 @@ export class ScheduledTaskService {
         const { backgroundAgentService } =
           await import("../background-agents.js");
         const agentMethod = payload.agent;
-        const agentServiceMethods = backgroundAgentService as Record<
+        const agentServiceMethods = backgroundAgentService as unknown as Record<
           string,
           (userId: string) => Promise<any>
         >;

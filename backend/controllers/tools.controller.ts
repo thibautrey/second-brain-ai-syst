@@ -27,7 +27,7 @@ router.use(authMiddleware);
  */
 router.post("/execute", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { toolId, action, params } = req.body;
 
     if (!toolId || !action) {
@@ -58,7 +58,7 @@ router.post("/execute", async (req: AuthRequest, res: Response) => {
  */
 router.get("/", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const tools = await toolExecutorService.listAvailableTools(userId);
     return res.json({ success: true, tools });
   } catch (error: any) {
@@ -93,7 +93,7 @@ router.get("/schemas", async (req: AuthRequest, res: Response) => {
  */
 router.post("/todos", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const todo = await todoService.createTodo(userId, req.body);
     return res.status(201).json({ success: true, todo });
   } catch (error: any) {
@@ -110,7 +110,7 @@ router.post("/todos", async (req: AuthRequest, res: Response) => {
  */
 router.get("/todos", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const {
       page,
       limit,
@@ -155,7 +155,7 @@ router.get("/todos", async (req: AuthRequest, res: Response) => {
  */
 router.get("/todos/stats", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const stats = await todoService.getTodoStats(userId);
     return res.json({ success: true, stats });
   } catch (error: any) {
@@ -172,7 +172,7 @@ router.get("/todos/stats", async (req: AuthRequest, res: Response) => {
  */
 router.get("/todos/overdue", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const todos = await todoService.getOverdueTodos(userId);
     return res.json({ success: true, todos });
   } catch (error: any) {
@@ -189,7 +189,7 @@ router.get("/todos/overdue", async (req: AuthRequest, res: Response) => {
  */
 router.get("/todos/due-soon", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const withinHours = req.query.hours
       ? parseInt(req.query.hours as string)
       : 24;
@@ -209,7 +209,7 @@ router.get("/todos/due-soon", async (req: AuthRequest, res: Response) => {
  */
 router.get("/todos/categories", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const categories = await todoService.getCategories(userId);
     return res.json({ success: true, categories });
   } catch (error: any) {
@@ -226,7 +226,7 @@ router.get("/todos/categories", async (req: AuthRequest, res: Response) => {
  */
 router.get("/todos/tags", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const tags = await todoService.getTags(userId);
     return res.json({ success: true, tags });
   } catch (error: any) {
@@ -243,7 +243,7 @@ router.get("/todos/tags", async (req: AuthRequest, res: Response) => {
  */
 router.get("/todos/:id", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const todo = await todoService.getTodo(userId, req.params.id);
 
     if (!todo) {
@@ -268,7 +268,7 @@ router.get("/todos/:id", async (req: AuthRequest, res: Response) => {
  */
 router.patch("/todos/:id", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const todo = await todoService.updateTodo(userId, req.params.id, req.body);
     return res.json({ success: true, todo });
   } catch (error: any) {
@@ -291,7 +291,7 @@ router.patch("/todos/:id", async (req: AuthRequest, res: Response) => {
  */
 router.post("/todos/:id/complete", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const todo = await todoService.completeTodo(userId, req.params.id);
     return res.json({ success: true, todo });
   } catch (error: any) {
@@ -314,7 +314,7 @@ router.post("/todos/:id/complete", async (req: AuthRequest, res: Response) => {
  */
 router.delete("/todos/:id", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     await todoService.deleteTodo(userId, req.params.id);
     return res.json({ success: true });
   } catch (error: any) {
@@ -339,7 +339,7 @@ router.delete("/todos/:id", async (req: AuthRequest, res: Response) => {
  */
 router.post("/notifications", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { scheduledFor, ...rest } = req.body;
 
     let notification;
@@ -367,7 +367,7 @@ router.post("/notifications", async (req: AuthRequest, res: Response) => {
  */
 router.get("/notifications", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { page, limit, sortBy, sortOrder, type, isRead, isDismissed } =
       req.query;
 
@@ -404,7 +404,7 @@ router.get(
   "/notifications/unread-count",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       const count = await notificationService.getUnreadCount(userId);
       return res.json({ success: true, count });
     } catch (error: any) {
@@ -424,7 +424,7 @@ router.post(
   "/notifications/mark-all-read",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       await notificationService.markAllAsRead(userId);
       return res.json({ success: true });
     } catch (error: any) {
@@ -444,7 +444,7 @@ router.delete(
   "/notifications/dismissed",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       await notificationService.clearDismissed(userId);
       return res.json({ success: true });
     } catch (error: any) {
@@ -462,7 +462,7 @@ router.delete(
  */
 router.get("/notifications/:id", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const notification = await notificationService.getNotification(
       userId,
       req.params.id,
@@ -492,7 +492,7 @@ router.post(
   "/notifications/:id/read",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       const notification = await notificationService.markAsRead(
         userId,
         req.params.id,
@@ -521,7 +521,7 @@ router.post(
   "/notifications/:id/dismiss",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       const notification = await notificationService.dismissNotification(
         userId,
         req.params.id,
@@ -548,7 +548,7 @@ router.post(
  */
 router.delete("/notifications/:id", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     await notificationService.deleteNotification(userId, req.params.id);
     return res.json({ success: true });
   } catch (error: any) {
@@ -573,7 +573,7 @@ router.delete("/notifications/:id", async (req: AuthRequest, res: Response) => {
  */
 router.post("/scheduled-tasks", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { executeAt, expiresAt, ...rest } = req.body;
 
     const task = await scheduledTaskService.createTask(userId, {
@@ -597,7 +597,7 @@ router.post("/scheduled-tasks", async (req: AuthRequest, res: Response) => {
  */
 router.get("/scheduled-tasks", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { isEnabled, actionType, scheduleType } = req.query;
 
     const tasks = await scheduledTaskService.listTasks(userId, {
@@ -621,7 +621,7 @@ router.get("/scheduled-tasks", async (req: AuthRequest, res: Response) => {
  */
 router.get("/scheduled-tasks/:id", async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const task = await scheduledTaskService.getTask(userId, req.params.id);
 
     if (!task) {
@@ -648,7 +648,7 @@ router.patch(
   "/scheduled-tasks/:id",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       const { executeAt, expiresAt, ...rest } = req.body;
 
       const task = await scheduledTaskService.updateTask(
@@ -685,7 +685,7 @@ router.post(
   "/scheduled-tasks/:id/enable",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       const task = await scheduledTaskService.enableTask(userId, req.params.id);
       return res.json({ success: true, task });
     } catch (error: any) {
@@ -711,7 +711,7 @@ router.post(
   "/scheduled-tasks/:id/disable",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       const task = await scheduledTaskService.disableTask(
         userId,
         req.params.id,
@@ -740,7 +740,7 @@ router.post(
   "/scheduled-tasks/:id/execute",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       const result = await scheduledTaskService.executeTaskNow(
         userId,
         req.params.id,
@@ -769,7 +769,7 @@ router.get(
   "/scheduled-tasks/:id/history",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const executions = await scheduledTaskService.getTaskExecutions(
         userId,
@@ -800,7 +800,7 @@ router.delete(
   "/scheduled-tasks/:id",
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId!;
       await scheduledTaskService.deleteTask(userId, req.params.id);
       return res.json({ success: true });
     } catch (error: any) {

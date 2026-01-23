@@ -21,6 +21,7 @@ import prisma from "../services/prisma.js";
 import OpenAI from "openai";
 import { flowTracker } from "../services/flow-tracker.js";
 import { randomBytes } from "crypto";
+import { toolExecutorService } from "../services/tool-executor.js";
 
 const intentRouter = new IntentRouterService();
 
@@ -250,28 +251,142 @@ export async function chatStream(
         ? `${CHAT_SYSTEM_PROMPT}\n\nContexte des mémoires pertinentes:\n${memoryContext.join("\n")}`
         : CHAT_SYSTEM_PROMPT;
 
-    // 6. Stream response
+    // 6. Get tool schemas for function calling
+    const toolSchemas = toolExecutorService.getToolSchemas();
+
+    // 7. HYBRID STREAMING MODE: Initial call to detect tool usage
     const llmStart = Date.now();
-    const stream = await openai.chat.completions.create({
-      model: modelId,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message },
-      ],
-      temperature: 0.7,
-      stream: true,
-    });
+    type ChatMessage = {
+      role: "system" | "user" | "assistant" | "tool";
+      content: string | null;
+      tool_calls?: any[];
+      tool_call_id?: string;
+      name?: string;
+    };
+
+    let messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: message },
+    ];
 
     let fullResponse = "";
+    let allToolResults: any[] = [];
+    let iterationCount = 0;
+    const MAX_ITERATIONS = 3;
 
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || "";
-      if (content) {
-        fullResponse += content;
-        res.write(
-          `data: ${JSON.stringify({ type: "token", data: content })}\n\n`,
-        );
+    // Tool calling loop (max 3 iterations to prevent infinite loops)
+    while (iterationCount < MAX_ITERATIONS) {
+      iterationCount++;
+
+      flowTracker.trackEvent({
+        flowId,
+        stage: `llm_call_iteration_${iterationCount}`,
+        service: "OpenAI",
+        status: "started",
+        duration: 0,
+        data: { messagesCount: messages.length },
+      });
+
+      // Non-streaming call to detect tool usage
+      const response = await openai.chat.completions.create({
+        model: modelId,
+        messages: messages as any,
+        temperature: 0.7,
+        tools: toolSchemas.map((schema) => ({
+          type: "function",
+          function: schema,
+        })),
+        tool_choice: "auto",
+        stream: false,
+      });
+
+      const assistantMessage = response.choices[0]?.message;
+
+      if (!assistantMessage) {
+        break;
       }
+
+      // Check if AI wants to use tools
+      if (
+        assistantMessage.tool_calls &&
+        assistantMessage.tool_calls.length > 0
+      ) {
+        flowTracker.trackEvent({
+          flowId,
+          stage: `tool_calls_detected_iteration_${iterationCount}`,
+          service: "ToolExecutor",
+          status: "started",
+          duration: 0,
+          data: {
+            toolCallsCount: assistantMessage.tool_calls.length,
+            tools: assistantMessage.tool_calls.map((tc) => tc.function.name),
+          },
+        });
+
+        // Add assistant message with tool calls to history
+        messages.push({
+          role: "assistant",
+          content: assistantMessage.content,
+          tool_calls: assistantMessage.tool_calls,
+        });
+
+        // Execute tools in parallel
+        const toolExecutionStart = Date.now();
+        const toolRequests = assistantMessage.tool_calls.map((toolCall) => {
+          const args = JSON.parse(toolCall.function.arguments);
+          return {
+            toolId: toolCall.function.name,
+            action: args.action,
+            params: args,
+            _toolCallId: toolCall.id, // Store for response mapping
+          };
+        });
+
+        const toolResults = await toolExecutorService.executeToolsInParallel(
+          userId,
+          toolRequests,
+          7000, // 7s per tool
+          60000, // 60s global
+        );
+
+        flowTracker.trackEvent({
+          flowId,
+          stage: `tools_executed_iteration_${iterationCount}`,
+          service: "ToolExecutor",
+          status: "success",
+          duration: Date.now() - toolExecutionStart,
+          data: {
+            toolsExecuted: toolResults.length,
+            successCount: toolResults.filter((r) => r.success).length,
+            failureCount: toolResults.filter((r) => !r.success).length,
+          },
+        });
+
+        // Store tool results for memory
+        allToolResults.push(...toolResults);
+
+        // Add tool results to messages
+        toolRequests.forEach((req, index) => {
+          const result = toolResults[index];
+          messages.push({
+            role: "tool",
+            tool_call_id: (req as any)._toolCallId,
+            name: req.toolId,
+            content: JSON.stringify({
+              success: result.success,
+              data: result.data,
+              error: result.error,
+            }),
+          });
+        });
+
+        // Continue loop to let AI process tool results
+        continue;
+      }
+
+      // No tool calls - this is the final response
+      fullResponse = assistantMessage.content || "";
+      break;
     }
 
     flowTracker.trackEvent({
@@ -280,8 +395,46 @@ export async function chatStream(
       service: "OpenAI",
       status: "success",
       duration: Date.now() - llmStart,
-      data: { responseLength: fullResponse.length },
+      data: {
+        responseLength: fullResponse.length,
+        iterations: iterationCount,
+        toolsUsed: allToolResults.length,
+      },
     });
+
+    // 8. Stream the final response to user
+    if (fullResponse) {
+      // Send start event
+      res.write(`data: ${JSON.stringify({ type: "start", messageId })}\n\n`);
+
+      // Send tool usage info if any
+      if (allToolResults.length > 0) {
+        res.write(
+          `data: ${JSON.stringify({
+            type: "tools",
+            data: {
+              count: allToolResults.length,
+              tools: allToolResults.map((r) => ({
+                tool: r.toolUsed,
+                success: r.success,
+                duration: r.executionTime,
+              })),
+            },
+          })}\n\n`,
+        );
+      }
+
+      // Stream response in chunks (simulate streaming for consistency)
+      const chunkSize = 5;
+      for (let i = 0; i < fullResponse.length; i += chunkSize) {
+        const chunk = fullResponse.slice(i, i + chunkSize);
+        res.write(
+          `data: ${JSON.stringify({ type: "token", data: chunk })}\n\n`,
+        );
+        // Small delay to simulate streaming
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    }
 
     // Complete flow and send response to user IMMEDIATELY
     const userResponseDuration = Date.now() - startTime;
@@ -353,6 +506,21 @@ export async function chatStream(
             contentToStore = `Question: ${message}\nRéponse: ${fullResponse}`;
           }
 
+          // Add tool results to content if any were used
+          if (allToolResults.length > 0) {
+            const toolsSummary = allToolResults
+              .filter((r) => r.success)
+              .map(
+                (r) =>
+                  `- ${r.toolUsed}: ${r.data ? JSON.stringify(r.data).substring(0, 100) : "executed"}`,
+              )
+              .join("\n");
+
+            if (toolsSummary) {
+              contentToStore += `\n\nOutils utilisés:\n${toolsSummary}`;
+            }
+          }
+
           await prisma.memory.create({
             data: {
               userId,
@@ -362,6 +530,13 @@ export async function chatStream(
               importanceScore: valueAssessment.adjustedImportanceScore,
               tags: classification.topic ? [classification.topic] : [],
               entities: classification.entities,
+              metadata: {
+                toolsUsed:
+                  allToolResults.length > 0
+                    ? allToolResults.map((r) => r.toolUsed)
+                    : undefined,
+                toolResultsCount: allToolResults.length,
+              },
             },
           });
 

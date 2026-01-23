@@ -7,6 +7,7 @@ import {
   scheduledTaskService,
   curlService,
 } from "./tools/index.js";
+import { memorySearchService } from "./memory-search.js";
 import {
   TodoStatus,
   TodoPriority,
@@ -118,9 +119,91 @@ const BUILTIN_TOOLS: ToolConfig[] = [
       actions: ["request", "get", "post", "put", "delete", "patch"],
     },
   },
+  {
+    id: "user_context",
+    name: "User Context",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 50,
+    timeout: 5000,
+    config: {
+      description:
+        "Retrieve user context information from memory - location, preferences, facts about the user",
+      actions: ["get_location", "get_preferences", "search_facts"],
+    },
+  },
 ];
 
 export class ToolExecutorService {
+  /**
+   * Execute multiple tools in parallel with individual and global timeouts
+   * @param userId - User ID
+   * @param requests - Array of tool execution requests
+   * @param individualTimeout - Timeout per tool in ms (default: 7000ms)
+   * @param globalTimeout - Global timeout for all tools in ms (default: 60000ms)
+   */
+  async executeToolsInParallel(
+    userId: string,
+    requests: ToolExecutionRequest[],
+    individualTimeout: number = 7000,
+    globalTimeout: number = 60000,
+  ): Promise<ToolExecutionResult[]> {
+    const globalStart = Date.now();
+
+    // Wrapper to add timeout to individual tool execution
+    const executeWithTimeout = async (
+      request: ToolExecutionRequest,
+    ): Promise<ToolExecutionResult> => {
+      return Promise.race([
+        this.executeTool(userId, request),
+        new Promise<ToolExecutionResult>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(new Error(`Tool timeout after ${individualTimeout}ms`)),
+            individualTimeout,
+          ),
+        ),
+      ]).catch((error) => ({
+        success: false,
+        error: error.message,
+        executionTime: individualTimeout,
+        toolUsed: request.toolId,
+      }));
+    };
+
+    // Execute all tools in parallel with global timeout
+    try {
+      const results = await Promise.race([
+        Promise.allSettled(requests.map(executeWithTimeout)),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Global timeout after ${globalTimeout}ms`)),
+            globalTimeout,
+          ),
+        ),
+      ]);
+
+      return results.map((result) =>
+        result.status === "fulfilled"
+          ? result.value
+          : {
+              success: false,
+              error: result.reason?.message || "Unknown error",
+              executionTime: Date.now() - globalStart,
+              toolUsed: "unknown",
+            },
+      );
+    } catch (error: any) {
+      // Global timeout reached
+      return requests.map((req) => ({
+        success: false,
+        error: error.message || "Global timeout exceeded",
+        executionTime: globalTimeout,
+        toolUsed: req.toolId,
+      }));
+    }
+  }
+
   /**
    * Execute a tool with given parameters
    */
@@ -204,6 +287,8 @@ export class ToolExecutorService {
         return this.executeScheduledTaskAction(userId, action, params);
       case "curl":
         return this.executeCurlAction(action, params);
+      case "user_context":
+        return this.executeUserContextAction(userId, action, params);
       default:
         throw new Error(`Unknown builtin tool: ${toolId}`);
     }
@@ -262,7 +347,81 @@ export class ToolExecutorService {
         throw new Error(`Unknown curl action: ${action}`);
     }
   }
+  /**
+   * Execute user context actions
+   */
+  private async executeUserContextAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "get_location": {
+        // Search for location-related memories
+        const result = await memorySearchService.semanticSearch(
+          userId,
+          "location address city country where I live",
+          3,
+        );
+        return {
+          action: "get_location",
+          found: result.results.length > 0,
+          results: result.results.map((r) => ({
+            content: r.memory.content,
+            score: r.score,
+            date: r.memory.createdAt,
+          })),
+        };
+      }
 
+      case "get_preferences": {
+        // Search for preference-related memories
+        const query = params.topic
+          ? `preferences about ${params.topic}`
+          : "preferences likes dislikes favorite";
+        const result = await memorySearchService.semanticSearch(
+          userId,
+          query,
+          5,
+        );
+        return {
+          action: "get_preferences",
+          topic: params.topic || "general",
+          found: result.results.length > 0,
+          results: result.results.map((r) => ({
+            content: r.memory.content,
+            score: r.score,
+            date: r.memory.createdAt,
+          })),
+        };
+      }
+
+      case "search_facts": {
+        // Search for specific facts about the user
+        if (!params.query) {
+          throw new Error("query parameter is required for search_facts");
+        }
+        const result = await memorySearchService.semanticSearch(
+          userId,
+          params.query,
+          params.limit || 5,
+        );
+        return {
+          action: "search_facts",
+          query: params.query,
+          found: result.results.length > 0,
+          results: result.results.map((r) => ({
+            content: r.memory.content,
+            score: r.score,
+            date: r.memory.createdAt,
+          })),
+        };
+      }
+
+      default:
+        throw new Error(`Unknown user_context action: ${action}`);
+    }
+  }
   /**
    * Execute todo actions
    */
@@ -819,6 +978,38 @@ export class ToolExecutorService {
             },
           },
           required: ["action", "url"],
+        },
+      },
+      {
+        name: "user_context",
+        description:
+          "Retrieve user context information from memory - location, preferences, and facts about the user. Use this to understand user's location, preferences, or search for specific information about them.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["get_location", "get_preferences", "search_facts"],
+              description:
+                "The action to perform - get_location: retrieve user's location info, get_preferences: get user preferences (optionally on a topic), search_facts: search for specific facts",
+            },
+            topic: {
+              type: "string",
+              description:
+                "Topic for preferences (optional, used with get_preferences action)",
+            },
+            query: {
+              type: "string",
+              description:
+                "Search query for facts (required for search_facts action)",
+            },
+            limit: {
+              type: "number",
+              description:
+                "Number of results to return (optional, default: 5, used with search_facts)",
+            },
+          },
+          required: ["action"],
         },
       },
     ];
