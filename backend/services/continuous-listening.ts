@@ -25,6 +25,8 @@ import {
   getVoiceActivityDetector,
 } from "./voice-activity-detector.js";
 import OpenAI from "openai";
+import { flowTracker } from "./flow-tracker.js";
+import { randomBytes } from "crypto";
 
 // ==================== Types ====================
 
@@ -303,6 +305,19 @@ export class ContinuousListeningService extends EventEmitter {
     this.isProcessing = true;
     this.state = "processing";
 
+    const flowId = randomBytes(8).toString("hex");
+    const startTime = Date.now();
+
+    // Start flow tracking for audio processing
+    flowTracker.startFlow(flowId, "audio_stream");
+    flowTracker.trackEvent({
+      flowId,
+      stage: "audio_chunk_received",
+      service: "ContinuousListeningService",
+      status: "started",
+      data: { bufferDuration: this.speechBuffer.getDuration() },
+    });
+
     try {
       const audioData = this.speechBuffer.read();
       const duration = this.speechBuffer.getDuration();
@@ -311,12 +326,31 @@ export class ContinuousListeningService extends EventEmitter {
       this.speechBuffer.clear();
 
       // Step 1: Speaker Identification
+      const speakerStart = Date.now();
       const speakerResult = await this.identifySpeaker(audioData);
+
+      flowTracker.trackEvent({
+        flowId,
+        stage: "speaker_identification",
+        service: "SpeakerRecognition",
+        status: speakerResult.isTargetUser ? "success" : "skipped",
+        duration: Date.now() - speakerStart,
+        data: {
+          isTargetUser: speakerResult.isTargetUser,
+          confidence: speakerResult.confidence,
+          speakerId: speakerResult.speakerId,
+        },
+        decision: speakerResult.isTargetUser
+          ? "Target user identified"
+          : "Other speaker detected",
+      });
 
       this.emit("speaker_status", speakerResult);
 
       if (!speakerResult.isTargetUser) {
+        flowTracker.completeFlow(flowId, "completed");
         this.state = "listening";
+        this.isProcessing = false;
         return {
           type:
             speakerResult.speakerId === "unknown"
@@ -328,25 +362,72 @@ export class ContinuousListeningService extends EventEmitter {
       }
 
       // Step 2: Transcription
+      const transcriptionStart = Date.now();
       const transcription = await this.transcribeAudio(audioData, duration);
+
+      flowTracker.trackEvent({
+        flowId,
+        stage: "transcription",
+        service: "OpenAI/Whisper",
+        status: "success",
+        duration: Date.now() - transcriptionStart,
+        data: {
+          textLength: transcription.text.length,
+          confidence: transcription.confidence,
+          language: transcription.language,
+        },
+      });
 
       this.emit("transcript", transcription);
 
       if (!transcription.text || transcription.text.trim().length === 0) {
+        flowTracker.trackEvent({
+          flowId,
+          stage: "transcription_validation",
+          service: "ContinuousListeningService",
+          status: "skipped",
+          decision: "Empty transcription",
+        });
+        flowTracker.completeFlow(flowId, "completed");
         this.state = "listening";
+        this.isProcessing = false;
         return { type: "ignored", timestamp: Date.now() };
       }
 
       // Step 3: Wake word detection + Intent classification
+      const classificationStart = Date.now();
       const hasWakeWord = this.detectWakeWord(transcription.text);
       const classification = await this.intentRouter.classifyInput(
         transcription.text,
         { hasWakeWord, duration },
       );
 
+      flowTracker.trackEvent({
+        flowId,
+        stage: "intent_classification",
+        service: "IntentRouter",
+        status: "success",
+        duration: Date.now() - classificationStart,
+        data: {
+          inputType: classification.inputType,
+          confidence: classification.confidence,
+          hasWakeWord,
+          shouldStore: classification.shouldStore,
+        },
+      });
+
       if (hasWakeWord) {
         // Command mode - active response needed
         const commandText = this.removeWakeWord(transcription.text);
+
+        flowTracker.trackEvent({
+          flowId,
+          stage: "wake_word_detected",
+          service: "ContinuousListeningService",
+          status: "success",
+          decision: "Command mode activated",
+        });
+        flowTracker.completeFlow(flowId, "completed");
 
         this.emit("command_detected", {
           text: commandText,
@@ -355,6 +436,7 @@ export class ContinuousListeningService extends EventEmitter {
         });
 
         this.state = "listening";
+        this.isProcessing = false;
         return {
           type: "command",
           timestamp: Date.now(),
@@ -367,6 +449,7 @@ export class ContinuousListeningService extends EventEmitter {
         classification.shouldStore &&
         classification.confidence >= this.config.minImportanceThreshold
       ) {
+        const memoryStart = Date.now();
         const memory = await this.memoryManager.ingestInteraction(
           this.config.userId,
           transcription.text,
@@ -377,9 +460,20 @@ export class ContinuousListeningService extends EventEmitter {
           },
         );
 
+        flowTracker.trackEvent({
+          flowId,
+          stage: "memory_storage",
+          service: "MemoryManager",
+          status: "success",
+          duration: Date.now() - memoryStart,
+          data: { memoryId: memory.id },
+        });
+        flowTracker.completeFlow(flowId, "completed");
+
         this.emit("memory_stored", { memory, classification });
 
         this.state = "listening";
+        this.isProcessing = false;
         return {
           type: "memory_stored",
           timestamp: Date.now(),
@@ -392,7 +486,17 @@ export class ContinuousListeningService extends EventEmitter {
       }
 
       // Not relevant enough to store
+      flowTracker.trackEvent({
+        flowId,
+        stage: "memory_storage",
+        service: "MemoryManager",
+        status: "skipped",
+        decision: `Below importance threshold (${classification.confidence} < ${this.config.minImportanceThreshold}) or shouldStore=false`,
+      });
+      flowTracker.completeFlow(flowId, "completed");
+
       this.state = "listening";
+      this.isProcessing = false;
       return {
         type: "ignored",
         timestamp: Date.now(),
@@ -400,6 +504,17 @@ export class ContinuousListeningService extends EventEmitter {
       };
     } catch (error) {
       console.error("Error processing speech:", error);
+
+      flowTracker.trackEvent({
+        flowId,
+        stage: "audio_processing_error",
+        service: "ContinuousListeningService",
+        status: "failed",
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      flowTracker.completeFlow(flowId, "failed");
+
       this.state = "error";
       this.emit("error", error);
       return { type: "ignored", timestamp: Date.now() };

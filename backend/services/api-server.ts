@@ -59,6 +59,7 @@ import jwt from "jsonwebtoken";
 import cors from "cors";
 import prisma from "./prisma.js";
 import multer from "multer";
+import debugController from "../controllers/debug.controller.js";
 
 const app: Express = express();
 
@@ -695,6 +696,14 @@ app.get("/api/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+// ==================== Debug Routes ====================
+
+// Only enable debug routes in development
+if (process.env.NODE_ENV !== "production") {
+  app.use("/api/debug", debugController);
+  console.log("🐛 Debug routes enabled at /api/debug/input-flow");
+}
+
 // ==================== Chat Routes ====================
 
 /**
@@ -815,6 +824,59 @@ app.get(
 
       const stats = await getMemoryStats(req.userId);
       res.json(stats);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/dashboard/stats
+ * Get dashboard statistics (memories, interactions, summaries)
+ */
+app.get(
+  "/api/dashboard/stats",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Get total memories
+      const memoryStats = await getMemoryStats(req.userId);
+      const totalMemories = memoryStats.total;
+
+      // Get total interactions (processed inputs)
+      const totalInteractions = await prisma.processedInput.count({
+        where: {
+          userId: req.userId,
+          status: "completed",
+        },
+      });
+
+      // Get today's summaries
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const dailySummaries = await prisma.summary.count({
+        where: {
+          userId: req.userId,
+          timeScale: "DAILY",
+          periodStart: {
+            gte: today,
+            lt: tomorrow,
+          },
+        },
+      });
+
+      res.json({
+        totalMemories,
+        totalInteractions,
+        dailySummaries,
+      });
     } catch (error) {
       next(error);
     }

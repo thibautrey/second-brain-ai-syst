@@ -19,12 +19,15 @@ import { useState } from "react";
 import { TrainingPage } from "./TrainingPage";
 import { SettingsPage } from "./SettingsPage";
 import { MemoryBrowser } from "../components/memory";
+import { useDashboardStats } from "../hooks/useDashboardStats";
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const { totalMemories, totalInteractions, dailySummaries, isLoading, error } =
+    useDashboardStats();
 
   function handleLogout() {
     logout();
@@ -152,26 +155,39 @@ export function DashboardPage() {
                   your memory and reasoning.
                 </p>
 
+                {/* Error Display */}
+                {error && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                    <p className="font-medium">
+                      Error loading dashboard stats:
+                    </p>
+                    <p className="text-sm">{error}</p>
+                  </div>
+                )}
+
                 {/* Dashboard Grid */}
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {/* Stats Card */}
                   <DashboardCard
                     title="Total Memories"
-                    value="0"
+                    value={isLoading ? "..." : String(totalMemories)}
                     description="Memories captured"
                     icon="📚"
+                    isLoading={isLoading}
                   />
                   <DashboardCard
                     title="Interactions"
-                    value="0"
+                    value={isLoading ? "..." : String(totalInteractions)}
                     description="Interactions logged"
                     icon="💬"
+                    isLoading={isLoading}
                   />
                   <DashboardCard
                     title="Daily Summaries"
-                    value="0"
+                    value={isLoading ? "..." : String(dailySummaries)}
                     description="Summaries generated"
                     icon="📝"
+                    isLoading={isLoading}
                   />
 
                   {/* Quick Start */}
@@ -304,18 +320,24 @@ function DashboardCard({
   value,
   description,
   icon,
+  isLoading = false,
 }: {
   title: string;
   value: string;
   description: string;
   icon: string;
+  isLoading?: boolean;
 }) {
   return (
     <div className="p-6 transition-shadow bg-white border rounded-lg shadow border-slate-200 hover:shadow-lg">
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-sm font-medium text-slate-600">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+          <p
+            className={`mt-2 text-3xl font-bold ${isLoading ? "text-slate-300 animate-pulse" : "text-slate-900"}`}
+          >
+            {value}
+          </p>
         </div>
         <div className="text-3xl">{icon}</div>
       </div>

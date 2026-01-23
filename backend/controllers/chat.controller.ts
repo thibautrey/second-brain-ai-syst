@@ -10,6 +10,8 @@ import { IntentRouterService } from "../services/intent-router.js";
 import { memorySearchService } from "../services/memory-search.js";
 import prisma from "../services/prisma.js";
 import OpenAI from "openai";
+import { flowTracker } from "../services/flow-tracker.js";
+import { randomBytes } from "crypto";
 
 const intentRouter = new IntentRouterService();
 
@@ -37,6 +39,19 @@ export async function chatStream(
     return res.status(400).json({ error: "Message is required" });
   }
 
+  const flowId = randomBytes(8).toString("hex");
+  const startTime = Date.now();
+
+  // Start flow tracking
+  flowTracker.startFlow(flowId, "chat");
+  flowTracker.trackEvent({
+    flowId,
+    stage: "chat_received",
+    service: "ChatController",
+    status: "started",
+    data: { messageLength: message.length },
+  });
+
   // Set SSE headers
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -50,13 +65,28 @@ export async function chatStream(
     res.write(`data: ${JSON.stringify({ type: "start", messageId })}\n\n`);
 
     // 1. Classify intent (integrates with global system)
+    const classifyStart = Date.now();
     const classification = await intentRouter.classifyInput(message, {
       userId,
+    });
+
+    flowTracker.trackEvent({
+      flowId,
+      stage: "intent_classification",
+      service: "IntentRouter",
+      status: "success",
+      duration: Date.now() - classifyStart,
+      data: {
+        inputType: classification.inputType,
+        confidence: classification.confidence,
+        shouldStore: classification.shouldStore,
+      },
     });
 
     // 2. Get relevant memories for context
     let memoryContext: string[] = [];
     try {
+      const searchStart = Date.now();
       const searchResponse = await memorySearchService.semanticSearch(
         userId,
         message,
@@ -66,8 +96,24 @@ export async function chatStream(
         (r) =>
           `[Mémoire du ${new Date(r.memory.createdAt).toLocaleDateString()}]: ${r.memory.content}`,
       );
+
+      flowTracker.trackEvent({
+        flowId,
+        stage: "memory_search",
+        service: "MemorySearchService",
+        status: "success",
+        duration: Date.now() - searchStart,
+        data: { resultsFound: searchResponse.results.length },
+      });
     } catch (error) {
       console.warn("Memory search failed, continuing without context:", error);
+      flowTracker.trackEvent({
+        flowId,
+        stage: "memory_search",
+        service: "MemorySearchService",
+        status: "failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
     }
 
     // 3. Get user's configured LLM provider
@@ -110,6 +156,17 @@ export async function chatStream(
       baseURL: provider.baseUrl || "https://api.openai.com/v1",
     });
 
+    flowTracker.trackEvent({
+      flowId,
+      stage: "llm_provider_selected",
+      service: "LLMRouter",
+      status: "success",
+      data: {
+        providerName: provider.name,
+        modelId,
+      },
+    });
+
     // 5. Build messages with memory context
     const systemPrompt =
       memoryContext.length > 0
@@ -117,6 +174,7 @@ export async function chatStream(
         : CHAT_SYSTEM_PROMPT;
 
     // 6. Stream response
+    const llmStart = Date.now();
     const stream = await openai.chat.completions.create({
       model: modelId,
       messages: [
@@ -139,9 +197,19 @@ export async function chatStream(
       }
     }
 
+    flowTracker.trackEvent({
+      flowId,
+      stage: "llm_response",
+      service: "OpenAI",
+      status: "success",
+      duration: Date.now() - llmStart,
+      data: { responseLength: fullResponse.length },
+    });
+
     // 7. Store in memory if important (integrates with global system)
     if (classification.shouldStore && classification.importanceScore >= 0.3) {
       try {
+        const memoryStart = Date.now();
         await prisma.memory.create({
           data: {
             userId,
@@ -153,16 +221,60 @@ export async function chatStream(
             entities: classification.entities,
           },
         });
+
+        flowTracker.trackEvent({
+          flowId,
+          stage: "memory_storage",
+          service: "MemoryManager",
+          status: "success",
+          duration: Date.now() - memoryStart,
+        });
       } catch (error) {
         console.warn("Failed to store chat in memory:", error);
+        flowTracker.trackEvent({
+          flowId,
+          stage: "memory_storage",
+          service: "MemoryManager",
+          status: "failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
       }
+    } else {
+      flowTracker.trackEvent({
+        flowId,
+        stage: "memory_storage",
+        service: "MemoryManager",
+        status: "skipped",
+        decision: "Below importance threshold or shouldStore=false",
+      });
     }
+
+    // Complete flow
+    flowTracker.completeFlow(flowId, "completed");
+    flowTracker.trackEvent({
+      flowId,
+      stage: "chat_complete",
+      service: "ChatController",
+      status: "success",
+      duration: Date.now() - startTime,
+    });
 
     // Send end event
     res.write(`data: ${JSON.stringify({ type: "end", messageId })}\n\n`);
     res.end();
   } catch (error) {
     console.error("Chat error:", error);
+
+    flowTracker.trackEvent({
+      flowId,
+      stage: "chat_error",
+      service: "ChatController",
+      status: "failed",
+      duration: Date.now() - startTime,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    flowTracker.completeFlow(flowId, "failed");
+
     res.write(
       `data: ${JSON.stringify({
         type: "error",

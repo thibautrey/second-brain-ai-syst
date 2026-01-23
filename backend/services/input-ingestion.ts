@@ -10,6 +10,8 @@
  */
 
 import { EventEmitter } from "events";
+import { flowTracker } from "./flow-tracker.js";
+import { randomBytes } from "crypto";
 
 export enum InputFormat {
   TEXT = "text",
@@ -88,7 +90,18 @@ export class InputIngestionService extends EventEmitter {
    */
   async processTextInput(request: TextInputRequest): Promise<ProcessedInput> {
     const inputId = this.generateId();
+    const flowId = randomBytes(8).toString("hex");
     const startTime = Date.now();
+
+    // Start flow tracking
+    flowTracker.startFlow(flowId, "text");
+    flowTracker.trackEvent({
+      flowId,
+      stage: "input_received",
+      service: "InputIngestionService",
+      status: "started",
+      data: { contentLength: request.content.length },
+    });
 
     try {
       const processed: ProcessedInput = {
@@ -106,14 +119,36 @@ export class InputIngestionService extends EventEmitter {
           processing_time_ms: Date.now() - startTime,
           source: "text_input",
           ...request.metadata,
+          // Add flowId for debugging
+          ...(flowId && { flowId }),
         },
       };
 
       this.processedInputs.set(inputId, processed);
+
+      flowTracker.trackEvent({
+        flowId,
+        stage: "text_processed",
+        service: "InputIngestionService",
+        status: "success",
+        duration: Date.now() - startTime,
+        data: { inputId },
+      });
+
       this.emit("input:processed", processed);
 
       return processed;
     } catch (error) {
+      flowTracker.trackEvent({
+        flowId,
+        stage: "text_processing",
+        service: "InputIngestionService",
+        status: "failed",
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      flowTracker.completeFlow(flowId, "failed");
+
       const errorInput: ProcessedInput = {
         id: inputId,
         format: InputFormat.TEXT,
