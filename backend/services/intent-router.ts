@@ -5,6 +5,46 @@
 import prisma from "./prisma.js";
 import OpenAI from "openai";
 
+// ============================================================================
+// PROVIDER CACHE (Optimization 4)
+// Cache LLM provider configs by userId with 5 minute TTL
+// ============================================================================
+interface CachedProvider {
+  client: OpenAI;
+  modelId: string;
+  timestamp: number;
+}
+
+const providerCache = new Map<string, CachedProvider>();
+const PROVIDER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCachedProvider(userId: string): CachedProvider | null {
+  const cached = providerCache.get(userId);
+  if (cached && Date.now() - cached.timestamp < PROVIDER_CACHE_TTL_MS) {
+    return cached;
+  }
+  // Expired or not found
+  if (cached) {
+    providerCache.delete(userId);
+  }
+  return null;
+}
+
+function setCachedProvider(
+  userId: string,
+  client: OpenAI,
+  modelId: string,
+): void {
+  providerCache.set(userId, {
+    client,
+    modelId,
+    timestamp: Date.now(),
+  });
+}
+
+// Export for use in chat.controller.ts
+export { providerCache, PROVIDER_CACHE_TTL_MS };
+
 export type InputType =
   | "question"
   | "command"
@@ -39,9 +79,66 @@ export interface ResponseValueAssessment {
   reason: string;
   adjustedImportanceScore: number;
   shouldStore: boolean;
+  isFactualDeclaration: boolean; // True if user is just sharing a fact (e.g., "My girlfriend is Blandine")
+  factToStore?: string; // The clean fact to store (without AI acknowledgment)
 }
 
-// Classification prompts for LLM
+// ============================================================================
+// UNIFIED POST-RESPONSE ANALYSIS PROMPT (Optimization 5)
+// Single LLM call after response that does BOTH classification AND value assessment
+// ============================================================================
+const UNIFIED_ANALYSIS_SYSTEM_PROMPT = `You are an analysis system for a personal AI assistant called "Second Brain".
+Your job is to analyze a complete user-AI exchange and determine:
+1. The type and importance of the user's input
+2. Whether this exchange should be stored in memory
+
+You must respond with a JSON object containing:
+{
+  "inputType": "question|command|reflection|observation|conversation|noise",
+  "confidence": 0.0-1.0,
+  "topic": "brief topic description or null",
+  "entities": ["list", "of", "named", "entities"],
+  "sentiment": "positive|negative|neutral",
+  "temporalReference": "any time reference mentioned or null",
+  "shouldStore": true|false,
+  "importanceScore": 0.0-1.0,
+  "isFactualDeclaration": true|false,
+  "factToStore": "clean fact to store (only if isFactualDeclaration is true)",
+  "reason": "brief explanation of storage decision"
+}
+
+Classification types:
+- question: User asked for information
+- command: User gave a direct instruction
+- reflection: User was thinking out loud or journaling
+- observation: User noted something about their environment
+- conversation: Casual conversation
+- noise: Random/unintelligible content
+
+Importance scoring:
+- 0.0-0.2: Trivial, noise, greetings
+- 0.2-0.4: Low importance, casual exchanges
+- 0.4-0.6: Moderate importance, useful observations
+- 0.6-0.8: Important: decisions, commitments, insights, personal reflections
+- 0.8-1.0: Critical: major life events, key decisions, deadlines
+
+Storage guidelines:
+- DO NOT STORE if:
+  - The AI couldn't answer ("I don't know", disclaimers about AI limitations)
+  - The exchange was meaningless or a test
+  - It's noise or filler words
+  
+- DO STORE if:
+  - User shared personal facts (FACTUAL DECLARATION) - set isFactualDeclaration=true and factToStore
+  - AI provided useful information or insights
+  - User expressed emotions, intentions, plans, or goals
+  - Exchange contains actionable information, dates, or commitments
+
+For FACTUAL DECLARATIONS (e.g., "My girlfriend is Blandine", "I work at Google"):
+- Set isFactualDeclaration: true
+- Set factToStore: reformulated fact WITHOUT the AI response (e.g., "L'utilisateur travaille chez Google")`;
+
+// Legacy prompt for pre-response classification (kept for compatibility)
 const CLASSIFICATION_SYSTEM_PROMPT = `You are an intent classification system for a personal AI assistant called "Second Brain".
 Your job is to analyze user speech/text and classify it accurately.
 
@@ -85,8 +182,18 @@ You must respond with a JSON object containing:
   "isValuable": true|false,
   "reason": "brief explanation of why this is or isn't valuable",
   "adjustedImportanceScore": 0.0-1.0,
-  "shouldStore": true|false
+  "shouldStore": true|false,
+  "isFactualDeclaration": true|false,
+  "factToStore": "the clean fact to store (only if isFactualDeclaration is true)"
 }
+
+IMPORTANT - Factual Declarations:
+When the user simply shares personal information or facts (e.g., "My girlfriend is Blandine", "I work at Google", "My birthday is March 15th"), this is a FACTUAL DECLARATION.
+For factual declarations:
+- Set isFactualDeclaration: true
+- Set factToStore: a clean reformulation of the fact (e.g., "La copine de l'utilisateur s'appelle Blandine")
+- Do NOT include the AI's response (like "Compris") in factToStore
+- These ARE valuable and should be stored
 
 Guidelines for assessing value:
 - NOT VALUABLE (shouldStore: false):
@@ -100,6 +207,7 @@ Guidelines for assessing value:
 - VALUABLE (shouldStore: true):
   - The AI provided useful information, advice, or insights
   - The user shared personal reflections, decisions, or goals
+  - The user shared personal facts or information (FACTUAL DECLARATION)
   - The exchange contains actionable information
   - The response includes specific facts, dates, or commitments
   - The user expressed emotions, intentions, or plans worth remembering`;
@@ -107,10 +215,19 @@ Guidelines for assessing value:
 export class IntentRouterService {
   /**
    * Initialize or get OpenAI client for a user
+   * Uses cache with 5-minute TTL (Optimization 4)
    */
   private async getOpenAIClient(
     userId?: string,
   ): Promise<{ client: OpenAI; modelId: string }> {
+    // Check cache first (Optimization 4)
+    if (userId) {
+      const cached = getCachedProvider(userId);
+      if (cached) {
+        return { client: cached.client, modelId: cached.modelId };
+      }
+    }
+
     const whereClause: any = { taskType: "ROUTING" };
     if (userId) {
       whereClause.userId = userId;
@@ -124,6 +241,9 @@ export class IntentRouterService {
       },
     });
 
+    let client: OpenAI;
+    let modelId: string;
+
     if (!taskConfig || !taskConfig.provider) {
       // Fallback: try to find any available provider for this user
       const provider = await prisma.aIProvider.findFirst({
@@ -136,22 +256,108 @@ export class IntentRouterService {
         );
       }
 
-      return {
-        client: new OpenAI({
-          apiKey: provider.apiKey,
-          baseURL: provider.baseUrl || "https://api.openai.com/v1",
-        }),
-        modelId: "gpt-3.5-turbo",
-      };
-    }
-
-    return {
-      client: new OpenAI({
+      client = new OpenAI({
+        apiKey: provider.apiKey,
+        baseURL: provider.baseUrl || "https://api.openai.com/v1",
+      });
+      modelId = "gpt-3.5-turbo";
+    } else {
+      client = new OpenAI({
         apiKey: taskConfig.provider.apiKey,
         baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
-      }),
-      modelId: taskConfig.model?.modelId || "gpt-3.5-turbo",
-    };
+      });
+      modelId = taskConfig.model?.modelId || "gpt-3.5-turbo";
+    }
+
+    // Cache the provider (Optimization 4)
+    if (userId) {
+      setCachedProvider(userId, client, modelId);
+    }
+
+    return { client, modelId };
+  }
+
+  /**
+   * UNIFIED: Analyze complete exchange AFTER response (Optimization 5)
+   * Single LLM call that does classification + value assessment
+   * This replaces the need for separate classifyInput + assessResponseValue calls
+   */
+  async analyzeExchangePostResponse(
+    userMessage: string,
+    aiResponse: string,
+    userId?: string,
+  ): Promise<{
+    classification: ClassificationResult;
+    valueAssessment: ResponseValueAssessment;
+  }> {
+    try {
+      const { client, modelId } = await this.getOpenAIClient(userId);
+
+      const userPrompt = `Analyze this complete user-AI exchange:
+
+USER MESSAGE: "${userMessage}"
+
+AI RESPONSE: "${aiResponse}"
+
+Provide a complete analysis including classification and storage decision.`;
+
+      const response = await client.chat.completions.create({
+        model: modelId,
+        messages: [
+          { role: "system", content: UNIFIED_ANALYSIS_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("Empty LLM response");
+      }
+
+      const result = JSON.parse(content);
+
+      // Build classification result
+      const classification: ClassificationResult = {
+        inputType: result.inputType || "observation",
+        confidence: result.confidence || 0.7,
+        topic: result.topic || undefined,
+        temporalReference: result.temporalReference || undefined,
+        shouldStore: result.shouldStore ?? false,
+        shouldCallTools: false, // Post-response, tools already executed if needed
+        memoryScopes: this.determineMemoryScopes(result),
+        importanceScore: result.importanceScore || 0,
+        entities: result.entities || [],
+        sentiment: result.sentiment || "neutral",
+      };
+
+      // Build value assessment result
+      const valueAssessment: ResponseValueAssessment = {
+        isValuable: result.shouldStore && result.importanceScore >= 0.3,
+        reason: result.reason || "No reason provided",
+        adjustedImportanceScore: result.importanceScore || 0,
+        shouldStore: result.shouldStore ?? false,
+        isFactualDeclaration: result.isFactualDeclaration ?? false,
+        factToStore: result.factToStore || undefined,
+      };
+
+      return { classification, valueAssessment };
+    } catch (error) {
+      console.error("Unified exchange analysis failed:", error);
+      // Return safe defaults
+      return {
+        classification: this.createNoiseResult("Analysis failed"),
+        valueAssessment: {
+          isValuable: false,
+          reason: "Analysis failed - defaulting to not store",
+          adjustedImportanceScore: 0,
+          shouldStore: false,
+          isFactualDeclaration: false,
+          factToStore: undefined,
+        },
+      };
+    }
   }
 
   /**
@@ -303,6 +509,8 @@ Should this exchange be stored in the user's memory? Consider:
         reason: result.reason || "No reason provided",
         adjustedImportanceScore: result.adjustedImportanceScore ?? 0,
         shouldStore: result.shouldStore ?? false,
+        isFactualDeclaration: result.isFactualDeclaration ?? false,
+        factToStore: result.factToStore || undefined,
       };
     } catch (error) {
       console.error("Response value assessment failed:", error);
@@ -312,6 +520,8 @@ Should this exchange be stored in the user's memory? Consider:
         reason: "Assessment failed - defaulting to not store",
         adjustedImportanceScore: 0,
         shouldStore: false,
+        isFactualDeclaration: false,
+        factToStore: undefined,
       };
     }
   }

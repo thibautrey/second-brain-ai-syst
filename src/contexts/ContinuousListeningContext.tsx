@@ -277,10 +277,12 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
         throw new Error("Not authenticated");
       }
 
-      // Determine WebSocket URL
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws/continuous-listen?token=${token}`;
+      // Determine WebSocket URL from API_BASE_URL
+      const apiUrl = new URL(API_BASE_URL);
+      const protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${apiUrl.host}/ws/continuous-listen?token=${token}`;
+
+      console.log("Connecting to WebSocket:", wsUrl);
 
       // Create WebSocket connection
       const ws = new WebSocket(wsUrl);

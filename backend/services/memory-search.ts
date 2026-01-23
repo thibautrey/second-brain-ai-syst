@@ -142,12 +142,23 @@ class MemorySearchService {
 
   /**
    * Create headers with API key for Weaviate requests
+   * Includes baseUrl header for OpenAI-compatible providers
    */
-  private getWeaviateHeaders(apiKey: string): Record<string, string> {
-    return {
+  private getWeaviateHeaders(
+    apiKey: string,
+    baseUrl?: string,
+  ): Record<string, string> {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "X-OpenAI-Api-Key": apiKey,
     };
+
+    // Pass custom baseUrl for OpenAI-compatible providers
+    if (baseUrl) {
+      headers["X-OpenAI-BaseURL"] = baseUrl;
+    }
+
+    return headers;
   }
 
   /**
@@ -242,11 +253,19 @@ class MemorySearchService {
           },
         },
         {
-          headers: this.getWeaviateHeaders(embeddingConfig.apiKey),
+          headers: this.getWeaviateHeaders(
+            embeddingConfig.apiKey,
+            embeddingConfig.baseUrl,
+          ),
         },
       );
-    } catch (error) {
-      console.error("Failed to index memory in Weaviate:", error);
+    } catch (error: any) {
+      // Log detailed error from Weaviate
+      const weaviateError = error.response?.data?.error || error.response?.data;
+      console.error(
+        "Failed to index memory in Weaviate:",
+        weaviateError || error.message,
+      );
     }
   }
 
@@ -342,7 +361,10 @@ class MemorySearchService {
           "/v1/graphql",
           graphqlQuery,
           {
-            headers: this.getWeaviateHeaders(embeddingConfig.apiKey),
+            headers: this.getWeaviateHeaders(
+              embeddingConfig.apiKey,
+              embeddingConfig.baseUrl,
+            ),
           },
         );
         const weaviateResults =
