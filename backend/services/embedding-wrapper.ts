@@ -229,7 +229,19 @@ export class EmbeddingService {
       );
 
       if (!response.data.success && response.data.embeddings.length === 0) {
-        throw new Error("Batch extraction failed completely");
+        // Log detailed error information
+        console.error("Batch extraction failed. Error details:");
+        console.error(`- Total files: ${response.data.total}`);
+        console.error(`- Successfully processed: ${response.data.processed}`);
+        console.error(`- Errors: ${response.data.errors_count}`);
+        if (response.data.errors && response.data.errors.length > 0) {
+          response.data.errors.forEach((err) => {
+            console.error(`  [${err.index}] ${err.audio_path}: ${err.error}`);
+          });
+        }
+        throw new Error(
+          `Batch extraction failed completely: ${response.data.errors_count} errors out of ${response.data.total} files`,
+        );
       }
 
       return response.data.embeddings.map((item) => ({

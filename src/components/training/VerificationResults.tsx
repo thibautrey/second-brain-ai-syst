@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { AlertCircle, CheckCircle2, TrendingUp, Mic } from "lucide-react";
-import { RecordingControl } from "./RecordingControl";
+import { VerificationRecording } from "./VerificationRecording";
 
 interface VerificationResultsProps {
   speakerProfileId: string;
@@ -148,12 +148,8 @@ export function VerificationResults({
         </p>
 
         {isRecordingVerification ? (
-          <RecordingControl
-            phrase="Record any of the training phrases you learned"
-            category="Verification"
-            isRecording={isRecordingVerification}
-            onStart={() => {}}
-            onStop={handleVerificationComplete}
+          <VerificationRecording
+            onComplete={handleVerificationComplete}
             onCancel={() => setIsRecordingVerification(false)}
             disabled={isVerifying}
           />

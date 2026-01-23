@@ -365,3 +365,41 @@ export async function getSpeakerProfile(profileId: string): Promise<any> {
   const data = await response.json();
   return data.profile;
 }
+
+export interface VerificationResult {
+  recognized: boolean;
+  confidence: number;
+  similarity: number;
+  profileId: string;
+  profileName: string;
+}
+
+/**
+ * Verify voice against an enrolled speaker profile
+ */
+export async function verifyVoice(
+  audioFile: File,
+  profileId: string,
+): Promise<VerificationResult> {
+  const formData = new FormData();
+  formData.append("audio", audioFile);
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/training/verify/${profileId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: formData,
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to verify voice");
+  }
+
+  const data = await response.json();
+  return data.verification;
+}

@@ -1,6 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
-import { AlertCircle, Plus, CheckCircle2 } from "lucide-react";
+import {
+  AlertCircle,
+  Plus,
+  CheckCircle2,
+  Mic,
+  Square,
+  Shield,
+  X,
+} from "lucide-react";
 import * as trainingAPI from "../../services/training-api";
 
 interface ProfileSelectionStepProps {
@@ -24,6 +32,23 @@ export function ProfileSelectionStep({
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // Verification state
+  const [verifyingProfileId, setVerifyingProfileId] = useState<string | null>(
+    null,
+  );
+  const [isRecordingVerification, setIsRecordingVerification] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<{
+    recognized: boolean;
+    confidence: number;
+    profileName: string;
+  } | null>(null);
+
+  // Recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   // Load existing profiles on mount
   useEffect(() => {
@@ -81,6 +106,103 @@ export function ProfileSelectionStep({
     onProfileSelected(profileId);
   };
 
+  // Start verification recording
+  const startVerificationRecording = async (profileId: string) => {
+    setVerifyingProfileId(profileId);
+    setVerificationResult(null);
+    setLocalError(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "audio/webm",
+      });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(chunksRef.current, {
+          type: mediaRecorder.mimeType,
+        });
+        await handleVerification(audioBlob, profileId);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecordingVerification(true);
+    } catch (err) {
+      setLocalError("Failed to access microphone. Please grant permission.");
+      setVerifyingProfileId(null);
+    }
+  };
+
+  // Stop verification recording
+  const stopVerificationRecording = () => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsRecordingVerification(false);
+  };
+
+  // Cancel verification
+  const cancelVerification = () => {
+    stopVerificationRecording();
+    setVerifyingProfileId(null);
+    setVerificationResult(null);
+  };
+
+  // Handle verification API call
+  const handleVerification = async (audioBlob: Blob, profileId: string) => {
+    setIsVerifying(true);
+    setLocalError(null);
+
+    try {
+      const mimeType = audioBlob.type || "audio/webm";
+      const extensionMap: Record<string, string> = {
+        "audio/webm": "webm",
+        "audio/webm;codecs=opus": "webm",
+        "audio/ogg": "ogg",
+        "audio/wav": "wav",
+      };
+      const extension = extensionMap[mimeType] || "webm";
+
+      const audioFile = new File(
+        [audioBlob],
+        `verification-${Date.now()}.${extension}`,
+        {
+          type: mimeType,
+        },
+      );
+
+      const result = await trainingAPI.verifyVoice(audioFile, profileId);
+      setVerificationResult({
+        recognized: result.recognized,
+        confidence: result.confidence,
+        profileName: result.profileName,
+      });
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : "Verification failed");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   if (isLoadingProfiles) {
     return (
       <div className="max-w-2xl mx-auto text-center py-12">
@@ -122,14 +244,16 @@ export function ProfileSelectionStep({
               {profiles.map((profile) => (
                 <div
                   key={profile.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                  className={`p-4 border rounded-lg transition-all ${
                     selectedProfileId === profile.id
                       ? "border-blue-500 bg-blue-50"
                       : "border-slate-200 hover:border-blue-300"
                   }`}
-                  onClick={() => handleSelectProfile(profile.id)}
                 >
-                  <div className="flex items-start justify-between">
+                  <div
+                    className="flex items-start justify-between cursor-pointer"
+                    onClick={() => handleSelectProfile(profile.id)}
+                  >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         {selectedProfileId === profile.id && (
@@ -151,6 +275,148 @@ export function ProfileSelectionStep({
                       )}
                     </div>
                   </div>
+
+                  {/* Verify Voice Button - only for enrolled profiles */}
+                  {profile.isEnrolled && (
+                    <div className="mt-3 pt-3 border-t border-slate-200">
+                      {verifyingProfileId === profile.id ? (
+                        <div className="space-y-3">
+                          {isRecordingVerification ? (
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2 flex-1">
+                                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                                <span className="text-sm text-slate-600">
+                                  Recording...
+                                </span>
+                              </div>
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  stopVerificationRecording();
+                                }}
+                                size="sm"
+                                className="bg-red-600 hover:bg-red-700 text-white gap-1"
+                              >
+                                <Square className="w-4 h-4" />
+                                Stop
+                              </Button>
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  cancelVerification();
+                                }}
+                                size="sm"
+                                variant="outline"
+                                className="gap-1"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : isVerifying ? (
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                              Verifying voice...
+                            </div>
+                          ) : verificationResult ? (
+                            <div
+                              className={`p-3 rounded-lg ${
+                                verificationResult.recognized
+                                  ? "bg-green-50 border border-green-200"
+                                  : "bg-amber-50 border border-amber-200"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {verificationResult.recognized ? (
+                                  <>
+                                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                    <span className="font-medium text-green-900">
+                                      Voice Recognized!
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                                    <span className="font-medium text-amber-900">
+                                      Voice Not Recognized
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              <p className="text-sm mt-1 text-slate-600">
+                                Confidence:{" "}
+                                {(verificationResult.confidence * 100).toFixed(
+                                  1,
+                                )}
+                                %
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <Button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startVerificationRecording(profile.id);
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1"
+                                >
+                                  <Mic className="w-4 h-4" />
+                                  Try Again
+                                </Button>
+                                <Button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setVerifyingProfileId(null);
+                                    setVerificationResult(null);
+                                  }}
+                                  size="sm"
+                                  variant="ghost"
+                                >
+                                  Close
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startVerificationRecording(profile.id);
+                                }}
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700 text-white gap-1"
+                              >
+                                <Mic className="w-4 h-4" />
+                                Start Recording
+                              </Button>
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  cancelVerification();
+                                }}
+                                size="sm"
+                                variant="ghost"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setVerifyingProfileId(profile.id);
+                          }}
+                          size="sm"
+                          variant="outline"
+                          className="gap-2 text-slate-600 hover:text-slate-900"
+                        >
+                          <Shield className="w-4 h-4" />
+                          Verify Voice
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

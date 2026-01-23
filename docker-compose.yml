@@ -41,6 +41,7 @@ services:
       - "5001:5001"
     volumes:
       - embedding_models:/app/models
+      - audio_data:/app/data/audio
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
@@ -61,6 +62,8 @@ services:
       EMBEDDING_SERVICE_PORT: 5001
     ports:
       - "3000:3000"
+    volumes:
+      - audio_data:/app/data/audio
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,3 +89,4 @@ volumes:
   postgres_data:
   weaviate_data:
   embedding_models:
+  audio_data:

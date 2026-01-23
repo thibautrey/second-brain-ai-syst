@@ -34,8 +34,11 @@ const DEFAULT_CONFIG: AudioStorageConfig = {
     "audio/mp3",
     "audio/mpeg",
     "audio/ogg",
+    "audio/ogg;codecs=opus",
     "audio/webm",
+    "audio/webm;codecs=opus",
     "audio/flac",
+    "audio/mp4",
   ],
 };
 
@@ -57,6 +60,23 @@ export class AudioStorageService {
   }
 
   /**
+   * Check if a MIME type is allowed (handles codecs in MIME type)
+   */
+  private isAllowedMimeType(mimeType: string): boolean {
+    // Check exact match first
+    if (this.config.allowedMimeTypes.includes(mimeType)) {
+      return true;
+    }
+    // Check base MIME type (without codecs)
+    const baseMimeType = mimeType.split(";")[0].trim();
+    return this.config.allowedMimeTypes.some(
+      (allowed) =>
+        allowed === baseMimeType ||
+        allowed.split(";")[0].trim() === baseMimeType,
+    );
+  }
+
+  /**
    * Store an audio file from base64 data
    */
   async storeFromBase64(
@@ -66,7 +86,7 @@ export class AudioStorageService {
     mimeType: string,
   ): Promise<AudioFileMetadata> {
     // Validate mime type
-    if (!this.config.allowedMimeTypes.includes(mimeType)) {
+    if (!this.isAllowedMimeType(mimeType)) {
       throw new Error(`Unsupported audio format: ${mimeType}`);
     }
 
@@ -114,7 +134,7 @@ export class AudioStorageService {
     mimeType: string,
   ): Promise<AudioFileMetadata> {
     // Validate mime type
-    if (!this.config.allowedMimeTypes.includes(mimeType)) {
+    if (!this.isAllowedMimeType(mimeType)) {
       throw new Error(`Unsupported audio format: ${mimeType}`);
     }
 
@@ -266,6 +286,9 @@ export class AudioStorageService {
   }
 
   private getExtensionFromMimeType(mimeType: string): string {
+    // Remove codec info (e.g., "audio/webm;codecs=opus" -> "audio/webm")
+    const baseMimeType = mimeType.split(";")[0].trim();
+
     const mimeToExt: Record<string, string> = {
       "audio/wav": ".wav",
       "audio/wave": ".wav",
@@ -275,8 +298,9 @@ export class AudioStorageService {
       "audio/ogg": ".ogg",
       "audio/webm": ".webm",
       "audio/flac": ".flac",
+      "audio/mp4": ".mp4",
     };
-    return mimeToExt[mimeType] || ".audio";
+    return mimeToExt[baseMimeType] || ".audio";
   }
 }
 

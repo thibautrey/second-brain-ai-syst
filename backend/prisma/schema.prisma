@@ -26,8 +26,124 @@ model User {
     audioStreamSessions    AudioStreamSession[]
     audioBatches           AudioBatch[]
     inputProcessingMetrics InputProcessingMetrics[]
+    memories               Memory[]
+    summaries              Summary[]
 
     @@map("users")
+}
+
+// ==================== Memory Models ====================
+
+model Memory {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Memory content
+    content String @db.Text
+
+    // Memory classification
+    type      MemoryType @default(SHORT_TERM)
+    timeScale TimeScale?
+
+    // Source tracking
+    sourceType   String? // 'interaction', 'observation', 'reflection', 'tool_result'
+    sourceId     String? // Reference to source (e.g., ProcessedInput id)
+    interactionId String? // Direct link to ProcessedInput if applicable
+
+    // Embedding for semantic search
+    embeddingId String? // Reference to vector in Weaviate
+    embedding   Json?   // Optional: store embedding directly for backup
+
+    // Scoring and organization
+    importanceScore Float    @default(0.5) // 0.0 - 1.0
+    tags            String[] @default([])
+    entities        String[] @default([]) // Named entities extracted
+
+    // Metadata
+    metadata Json @default("{}")
+
+    // Temporal context
+    occurredAt DateTime? // When the event/interaction happened (if different from creation)
+
+    // Status
+    isArchived Boolean @default(false)
+    isPinned   Boolean @default(false)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    sourceSummaries Summary[] @relation("SourceMemories")
+
+    @@index([userId])
+    @@index([type])
+    @@index([timeScale])
+    @@index([importanceScore])
+    @@index([isArchived])
+    @@index([createdAt])
+    @@map("memories")
+}
+
+model Summary {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Summary content
+    content String @db.Text
+    title   String?
+
+    // Time period covered
+    timeScale   TimeScale
+    periodStart DateTime
+    periodEnd   DateTime
+
+    // Linking to source memories
+    sourceMemories Memory[] @relation("SourceMemories")
+    sourceMemoryCount Int   @default(0)
+
+    // Extracted insights
+    keyInsights  String[] @default([])
+    topics       String[] @default([])
+    sentiment    String?  // 'positive', 'neutral', 'negative', 'mixed'
+    actionItems  String[] @default([])
+
+    // Embedding for semantic search
+    embeddingId String?
+    embedding   Json?
+
+    // Metadata
+    metadata Json @default("{}")
+
+    // Version tracking (summaries can be regenerated)
+    version   Int      @default(1)
+    parentId  String?  // Previous version of this summary
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([timeScale])
+    @@index([periodStart, periodEnd])
+    @@map("summaries")
+}
+
+enum MemoryType {
+    SHORT_TERM
+    LONG_TERM
+}
+
+enum TimeScale {
+    DAILY
+    THREE_DAY
+    WEEKLY
+    BIWEEKLY
+    MONTHLY
+    QUARTERLY
+    SIX_MONTH
+    YEARLY
+    MULTI_YEAR
 }
 
 // ==================== Input Ingestion Models ====================
@@ -243,4 +359,82 @@ model InputProcessingMetrics {
 
     @@index([userId])
     @@map("input_processing_metrics")
+}
+
+// ==================== AI Settings Models ====================
+
+model AIProvider {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    name      String
+    type      ProviderType // 'OPENAI' or 'OPENAI_COMPATIBLE'
+    apiKey    String       // Encrypted API key
+    baseUrl   String?      // Required for OPENAI_COMPATIBLE type
+    isEnabled Boolean      @default(true)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    models      AIModel[]
+    taskConfigs AITaskConfig[]
+
+    @@unique([userId, name])
+    @@index([userId])
+    @@map("ai_providers")
+}
+
+model AIModel {
+    id         String     @id @default(cuid())
+    providerId String
+    provider   AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+    modelId      String           // The actual model ID (e.g., 'gpt-4o', 'whisper-1')
+    name         String           // Display name
+    capabilities ModelCapability[] // What this model can do
+    isCustom     Boolean          @default(false) // User-added vs default
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    taskConfigs AITaskConfig[]
+
+    @@unique([providerId, modelId])
+    @@index([providerId])
+    @@map("ai_models")
+}
+
+model AITaskConfig {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    taskType   ModelCapability @unique // One config per task type per user
+    providerId String?
+    provider   AIProvider?     @relation(fields: [providerId], references: [id], onDelete: SetNull)
+    modelId    String?
+    model      AIModel?        @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, taskType])
+    @@index([userId])
+    @@map("ai_task_configs")
+}
+
+enum ProviderType {
+    OPENAI
+    OPENAI_COMPATIBLE
+}
+
+enum ModelCapability {
+    SPEECH_TO_TEXT
+    ROUTING
+    REFLECTION
+    IMAGE_GENERATION
+    EMBEDDINGS
 }

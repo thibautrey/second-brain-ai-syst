@@ -5,6 +5,30 @@ import {
   signin,
   signup,
 } from "../controllers/auth.controller.js";
+import {
+  createMemory,
+  getMemoryById,
+  getMemories,
+  updateMemory,
+  deleteMemory,
+  archiveMemory,
+  unarchiveMemory,
+  pinMemory,
+  unpinMemory,
+  bulkCreateMemories,
+  getMemoryStats,
+  createSummary,
+  getSummaryById,
+  getSummaries,
+  updateSummary,
+  deleteSummary,
+  getLatestSummaries,
+  type CreateMemoryInput,
+  type UpdateMemoryInput,
+  type MemoryQueryFilters,
+  type CreateSummaryInput,
+  type UpdateSummaryInput,
+} from "../controllers/memory.controller.js";
 import { audioUploadService } from "./audio-upload.js";
 import { speakerRecognitionService } from "./speaker-recognition.js";
 import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
@@ -247,11 +271,457 @@ app.get(
   },
 );
 
+/**
+ * POST /api/training/verify/:profileId
+ * Verify voice against an enrolled speaker profile
+ */
+app.post(
+  "/api/training/verify/:profileId",
+  authMiddleware,
+  upload.single("audio"),
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.verifyVoice(req, res, next);
+  },
+);
+
 // ==================== Health Check ====================
 
 app.get("/api/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
+
+// ==================== Memory Routes ====================
+
+/**
+ * POST /api/memories
+ * Create a new memory
+ */
+app.post(
+  "/api/memories",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const input: CreateMemoryInput = req.body;
+
+      if (!input.content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      const memory = await createMemory(req.userId, input);
+      res.status(201).json(memory);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/memories
+ * Get all memories for current user with filtering and pagination
+ */
+app.get(
+  "/api/memories",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Parse query parameters
+      const filters: MemoryQueryFilters = {
+        type: req.query.type as any,
+        timeScale: req.query.timeScale as any,
+        tags: req.query.tags ? (req.query.tags as string).split(",") : undefined,
+        minImportance: req.query.minImportance
+          ? parseFloat(req.query.minImportance as string)
+          : undefined,
+        maxImportance: req.query.maxImportance
+          ? parseFloat(req.query.maxImportance as string)
+          : undefined,
+        startDate: req.query.startDate
+          ? new Date(req.query.startDate as string)
+          : undefined,
+        endDate: req.query.endDate
+          ? new Date(req.query.endDate as string)
+          : undefined,
+        isArchived: req.query.isArchived === "true" ? true : req.query.isArchived === "false" ? false : undefined,
+        isPinned: req.query.isPinned === "true" ? true : req.query.isPinned === "false" ? false : undefined,
+        search: req.query.search as string,
+      };
+
+      const pagination = {
+        page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 20,
+        sortBy: (req.query.sortBy as any) || "createdAt",
+        sortOrder: (req.query.sortOrder as any) || "desc",
+      };
+
+      const result = await getMemories(req.userId, filters, pagination);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/memories/stats
+ * Get memory statistics for current user
+ */
+app.get(
+  "/api/memories/stats",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const stats = await getMemoryStats(req.userId);
+      res.json(stats);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/memories/bulk
+ * Bulk create memories
+ */
+app.post(
+  "/api/memories/bulk",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { memories } = req.body;
+
+      if (!Array.isArray(memories) || memories.length === 0) {
+        return res.status(400).json({ error: "Memories array is required" });
+      }
+
+      const result = await bulkCreateMemories(req.userId, memories);
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/memories/:memoryId
+ * Get a specific memory
+ */
+app.get(
+  "/api/memories/:memoryId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const memory = await getMemoryById(req.userId, req.params.memoryId);
+      res.json(memory);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/memories/:memoryId
+ * Update a memory
+ */
+app.patch(
+  "/api/memories/:memoryId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const input: UpdateMemoryInput = req.body;
+      const memory = await updateMemory(req.userId, req.params.memoryId, input);
+      res.json(memory);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * DELETE /api/memories/:memoryId
+ * Delete a memory
+ */
+app.delete(
+  "/api/memories/:memoryId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const result = await deleteMemory(req.userId, req.params.memoryId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/memories/:memoryId/archive
+ * Archive a memory
+ */
+app.post(
+  "/api/memories/:memoryId/archive",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const memory = await archiveMemory(req.userId, req.params.memoryId);
+      res.json(memory);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/memories/:memoryId/unarchive
+ * Unarchive a memory
+ */
+app.post(
+  "/api/memories/:memoryId/unarchive",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const memory = await unarchiveMemory(req.userId, req.params.memoryId);
+      res.json(memory);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/memories/:memoryId/pin
+ * Pin a memory
+ */
+app.post(
+  "/api/memories/:memoryId/pin",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const memory = await pinMemory(req.userId, req.params.memoryId);
+      res.json(memory);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/memories/:memoryId/unpin
+ * Unpin a memory
+ */
+app.post(
+  "/api/memories/:memoryId/unpin",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const memory = await unpinMemory(req.userId, req.params.memoryId);
+      res.json(memory);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ==================== Summary Routes ====================
+
+/**
+ * POST /api/summaries
+ * Create a new summary
+ */
+app.post(
+  "/api/summaries",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const input: CreateSummaryInput = req.body;
+
+      if (!input.content || !input.timeScale || !input.periodStart || !input.periodEnd) {
+        return res.status(400).json({
+          error: "content, timeScale, periodStart, and periodEnd are required",
+        });
+      }
+
+      // Convert date strings to Date objects
+      input.periodStart = new Date(input.periodStart);
+      input.periodEnd = new Date(input.periodEnd);
+
+      const summary = await createSummary(req.userId, input);
+      res.status(201).json(summary);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/summaries
+ * Get all summaries for current user
+ */
+app.get(
+  "/api/summaries",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const filters = {
+        timeScale: req.query.timeScale as any,
+        startDate: req.query.startDate
+          ? new Date(req.query.startDate as string)
+          : undefined,
+        endDate: req.query.endDate
+          ? new Date(req.query.endDate as string)
+          : undefined,
+      };
+
+      const pagination = {
+        page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 20,
+        sortBy: (req.query.sortBy as any) || "periodEnd",
+        sortOrder: (req.query.sortOrder as any) || "desc",
+      };
+
+      const result = await getSummaries(req.userId, filters, pagination);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/summaries/latest
+ * Get the latest summary for each time scale
+ */
+app.get(
+  "/api/summaries/latest",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const summaries = await getLatestSummaries(req.userId);
+      res.json(summaries);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/summaries/:summaryId
+ * Get a specific summary
+ */
+app.get(
+  "/api/summaries/:summaryId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const summary = await getSummaryById(req.userId, req.params.summaryId);
+      res.json(summary);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/summaries/:summaryId
+ * Update a summary
+ */
+app.patch(
+  "/api/summaries/:summaryId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const input: UpdateSummaryInput = req.body;
+      const summary = await updateSummary(req.userId, req.params.summaryId, input);
+      res.json(summary);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * DELETE /api/summaries/:summaryId
+ * Delete a summary
+ */
+app.delete(
+  "/api/summaries/:summaryId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const result = await deleteSummary(req.userId, req.params.summaryId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 /**
  * Initialize and start the API server

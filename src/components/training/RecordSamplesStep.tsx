@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
-import { AlertCircle, CheckCircle2, Play, Trash2, Plus } from "lucide-react";
+import { AlertCircle, CheckCircle2, Play, Trash2, Globe } from "lucide-react";
 import { RecordingControl } from "./RecordingControl";
 
 interface Recording {
@@ -8,6 +8,7 @@ interface Recording {
   url: string;
   duration: number;
   phraseIndex: number;
+  language: string;
   timestamp: number;
   uploadStatus: "pending" | "uploading" | "completed" | "failed";
 }
@@ -16,7 +17,11 @@ interface RecordSamplesStepProps {
   recordings: Recording[];
   currentPhraseIndex: number;
   speakerProfileId: string;
-  onRecordingComplete: (audioBlob: Blob, duration: number) => Promise<void>;
+  onRecordingComplete: (
+    audioBlob: Blob,
+    duration: number,
+    language: string,
+  ) => Promise<void>;
   onDeleteRecording: (id: string) => void;
   onPhraseChange: (index: number) => void;
   onContinue: () => void;
@@ -24,18 +29,164 @@ interface RecordSamplesStepProps {
   error?: string;
 }
 
-const TRAINING_PHRASES = [
-  { text: "My voice is my password", category: "Passphrase" },
-  { text: "Verify my identity", category: "Passphrase" },
-  { text: "Approve this transaction", category: "Passphrase" },
-  { text: "Set a reminder for tomorrow morning", category: "Sentence" },
-  { text: "What is the weather today", category: "Sentence" },
-  { text: "Play my favorite music", category: "Sentence" },
-  { text: "Call my mom and tell her I'm running late", category: "Sentence" },
-  { text: "Send a message to my friend", category: "Sentence" },
-  { text: "Seven, three, nine, two, five", category: "Numeric" },
-  { text: "One, four, six, eight, zero", category: "Numeric" },
+// Supported languages with their display names and flags
+const SUPPORTED_LANGUAGES = [
+  { code: "en", name: "English", flag: "🇬🇧" },
+  { code: "fr", name: "Français", flag: "🇫🇷" },
+  { code: "es", name: "Español", flag: "🇪🇸" },
+  { code: "de", name: "Deutsch", flag: "🇩🇪" },
+  { code: "it", name: "Italiano", flag: "🇮🇹" },
+  { code: "pt", name: "Português", flag: "🇵🇹" },
+  { code: "nl", name: "Nederlands", flag: "🇳🇱" },
+  { code: "zh", name: "中文", flag: "🇨🇳" },
+  { code: "ja", name: "日本語", flag: "🇯🇵" },
+  { code: "ko", name: "한국어", flag: "🇰🇷" },
 ];
+
+// Training phrases organized by language
+const TRAINING_PHRASES_BY_LANGUAGE: Record<
+  string,
+  { text: string; category: string }[]
+> = {
+  en: [
+    { text: "My voice is my password", category: "Passphrase" },
+    { text: "Verify my identity", category: "Passphrase" },
+    { text: "Approve this transaction", category: "Passphrase" },
+    { text: "Set a reminder for tomorrow morning", category: "Sentence" },
+    { text: "What is the weather today", category: "Sentence" },
+    { text: "Play my favorite music", category: "Sentence" },
+    { text: "Call my mom and tell her I'm running late", category: "Sentence" },
+    { text: "Send a message to my friend", category: "Sentence" },
+    { text: "Seven, three, nine, two, five", category: "Numeric" },
+    { text: "One, four, six, eight, zero", category: "Numeric" },
+  ],
+  fr: [
+    { text: "Ma voix est mon mot de passe", category: "Passphrase" },
+    { text: "Vérifiez mon identité", category: "Passphrase" },
+    { text: "Approuvez cette transaction", category: "Passphrase" },
+    { text: "Mets un rappel pour demain matin", category: "Sentence" },
+    { text: "Quel temps fait-il aujourd'hui", category: "Sentence" },
+    { text: "Joue ma musique préférée", category: "Sentence" },
+    {
+      text: "Appelle ma mère et dis-lui que je suis en retard",
+      category: "Sentence",
+    },
+    { text: "Envoie un message à mon ami", category: "Sentence" },
+    { text: "Sept, trois, neuf, deux, cinq", category: "Numeric" },
+    { text: "Un, quatre, six, huit, zéro", category: "Numeric" },
+  ],
+  es: [
+    { text: "Mi voz es mi contraseña", category: "Passphrase" },
+    { text: "Verifica mi identidad", category: "Passphrase" },
+    { text: "Aprueba esta transacción", category: "Passphrase" },
+    {
+      text: "Pon un recordatorio para mañana por la mañana",
+      category: "Sentence",
+    },
+    { text: "Qué tiempo hace hoy", category: "Sentence" },
+    { text: "Pon mi música favorita", category: "Sentence" },
+    { text: "Llama a mi madre y dile que llego tarde", category: "Sentence" },
+    { text: "Envía un mensaje a mi amigo", category: "Sentence" },
+    { text: "Siete, tres, nueve, dos, cinco", category: "Numeric" },
+    { text: "Uno, cuatro, seis, ocho, cero", category: "Numeric" },
+  ],
+  de: [
+    { text: "Meine Stimme ist mein Passwort", category: "Passphrase" },
+    { text: "Überprüfe meine Identität", category: "Passphrase" },
+    { text: "Genehmige diese Transaktion", category: "Passphrase" },
+    { text: "Setze eine Erinnerung für morgen früh", category: "Sentence" },
+    { text: "Wie ist das Wetter heute", category: "Sentence" },
+    { text: "Spiele meine Lieblingsmusik", category: "Sentence" },
+    {
+      text: "Ruf meine Mutter an und sag ihr dass ich mich verspäte",
+      category: "Sentence",
+    },
+    { text: "Schicke eine Nachricht an meinen Freund", category: "Sentence" },
+    { text: "Sieben, drei, neun, zwei, fünf", category: "Numeric" },
+    { text: "Eins, vier, sechs, acht, null", category: "Numeric" },
+  ],
+  it: [
+    { text: "La mia voce è la mia password", category: "Passphrase" },
+    { text: "Verifica la mia identità", category: "Passphrase" },
+    { text: "Approva questa transazione", category: "Passphrase" },
+    { text: "Imposta un promemoria per domani mattina", category: "Sentence" },
+    { text: "Che tempo fa oggi", category: "Sentence" },
+    { text: "Metti la mia musica preferita", category: "Sentence" },
+    {
+      text: "Chiama mia madre e dille che sono in ritardo",
+      category: "Sentence",
+    },
+    { text: "Invia un messaggio al mio amico", category: "Sentence" },
+    { text: "Sette, tre, nove, due, cinque", category: "Numeric" },
+    { text: "Uno, quattro, sei, otto, zero", category: "Numeric" },
+  ],
+  pt: [
+    { text: "Minha voz é minha senha", category: "Passphrase" },
+    { text: "Verifique minha identidade", category: "Passphrase" },
+    { text: "Aprove esta transação", category: "Passphrase" },
+    { text: "Defina um lembrete para amanhã de manhã", category: "Sentence" },
+    { text: "Como está o tempo hoje", category: "Sentence" },
+    { text: "Toque minha música favorita", category: "Sentence" },
+    {
+      text: "Ligue para minha mãe e diga que estou atrasado",
+      category: "Sentence",
+    },
+    { text: "Envie uma mensagem para meu amigo", category: "Sentence" },
+    { text: "Sete, três, nove, dois, cinco", category: "Numeric" },
+    { text: "Um, quatro, seis, oito, zero", category: "Numeric" },
+  ],
+  nl: [
+    { text: "Mijn stem is mijn wachtwoord", category: "Passphrase" },
+    { text: "Verifieer mijn identiteit", category: "Passphrase" },
+    { text: "Keur deze transactie goed", category: "Passphrase" },
+    { text: "Zet een herinnering voor morgenochtend", category: "Sentence" },
+    { text: "Wat is het weer vandaag", category: "Sentence" },
+    { text: "Speel mijn favoriete muziek", category: "Sentence" },
+    { text: "Bel mijn moeder en zeg dat ik te laat ben", category: "Sentence" },
+    { text: "Stuur een bericht naar mijn vriend", category: "Sentence" },
+    { text: "Zeven, drie, negen, twee, vijf", category: "Numeric" },
+    { text: "Een, vier, zes, acht, nul", category: "Numeric" },
+  ],
+  zh: [
+    { text: "我的声音就是我的密码", category: "Passphrase" },
+    { text: "验证我的身份", category: "Passphrase" },
+    { text: "批准这笔交易", category: "Passphrase" },
+    { text: "设置明天早上的提醒", category: "Sentence" },
+    { text: "今天天气怎么样", category: "Sentence" },
+    { text: "播放我最喜欢的音乐", category: "Sentence" },
+    { text: "打电话给我妈妈说我要迟到了", category: "Sentence" },
+    { text: "给我的朋友发消息", category: "Sentence" },
+    { text: "七、三、九、二、五", category: "Numeric" },
+    { text: "一、四、六、八、零", category: "Numeric" },
+  ],
+  ja: [
+    { text: "私の声が私のパスワードです", category: "Passphrase" },
+    { text: "私の身元を確認してください", category: "Passphrase" },
+    { text: "この取引を承認してください", category: "Passphrase" },
+    { text: "明日の朝にリマインダーを設定して", category: "Sentence" },
+    { text: "今日の天気はどうですか", category: "Sentence" },
+    { text: "お気に入りの音楽を再生して", category: "Sentence" },
+    { text: "母に電話して遅れると伝えて", category: "Sentence" },
+    { text: "友達にメッセージを送って", category: "Sentence" },
+    { text: "七、三、九、二、五", category: "Numeric" },
+    { text: "一、四、六、八、ゼロ", category: "Numeric" },
+  ],
+  ko: [
+    { text: "내 목소리가 내 비밀번호입니다", category: "Passphrase" },
+    { text: "내 신원을 확인해 주세요", category: "Passphrase" },
+    { text: "이 거래를 승인해 주세요", category: "Passphrase" },
+    { text: "내일 아침에 알림을 설정해 줘", category: "Sentence" },
+    { text: "오늘 날씨가 어때", category: "Sentence" },
+    { text: "내가 좋아하는 음악 틀어 줘", category: "Sentence" },
+    { text: "엄마한테 전화해서 늦는다고 말해 줘", category: "Sentence" },
+    { text: "친구에게 메시지를 보내 줘", category: "Sentence" },
+    { text: "칠, 삼, 구, 이, 오", category: "Numeric" },
+    { text: "일, 사, 육, 팔, 영", category: "Numeric" },
+  ],
+};
+
+// For backwards compatibility
+const TRAINING_PHRASES = TRAINING_PHRASES_BY_LANGUAGE.en;
 
 export function RecordSamplesStep({
   recordings,
@@ -50,23 +201,54 @@ export function RecordSamplesStep({
 }: RecordSamplesStepProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingError, setRecordingError] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
 
-  const currentPhrase = TRAINING_PHRASES[currentPhraseIndex];
-  const recordingsForPhrase = recordings.filter(
-    (r) => r.phraseIndex === currentPhraseIndex,
-  ).length;
+  // Get phrases for current language
+  const currentPhrases =
+    TRAINING_PHRASES_BY_LANGUAGE[selectedLanguage] || TRAINING_PHRASES;
+  const currentPhrase = currentPhrases[currentPhraseIndex] || currentPhrases[0];
+
+  // Get language info
+  const currentLanguageInfo =
+    SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage) ||
+    SUPPORTED_LANGUAGES[0];
+
+  // Count recordings by language
+  const recordingsByLanguage = SUPPORTED_LANGUAGES.reduce(
+    (acc, lang) => {
+      acc[lang.code] = recordings.filter(
+        (r) => r.language === lang.code,
+      ).length;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  const languagesUsed = Object.entries(recordingsByLanguage).filter(
+    ([, count]) => count > 0,
+  );
   const totalRecordings = recordings.length;
-  const uniquePhrases = new Set(recordings.map((r) => r.phraseIndex)).size;
+  const uniquePhrases = new Set(
+    recordings.map((r) => `${r.language}-${r.phraseIndex}`),
+  ).size;
 
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsRecording(false);
     setRecordingError(null);
     try {
-      await onRecordingComplete(audioBlob, duration);
+      await onRecordingComplete(audioBlob, duration, selectedLanguage);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Recording failed";
       setRecordingError(msg);
     }
+  };
+
+  const handleLanguageChange = (langCode: string) => {
+    setSelectedLanguage(langCode);
+    setShowLanguageSelector(false);
+    // Reset phrase index when changing language
+    onPhraseChange(0);
   };
 
   const canContinue = totalRecordings >= 1;
@@ -78,8 +260,99 @@ export function RecordSamplesStep({
           Record Voice Samples
         </h2>
         <p className="text-slate-600">
-          Record natural readings of the phrases below. Aim for 5-10 samples
-          across different phrases.
+          Record natural readings of the phrases below. Train with multiple
+          languages for better accuracy.
+        </p>
+      </div>
+
+      {/* Language Selector */}
+      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 p-4 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-indigo-600" />
+            <span className="font-medium text-slate-900">
+              Training Language
+            </span>
+          </div>
+          {languagesUsed.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span>Recorded:</span>
+              {languagesUsed.map(([code, count]) => {
+                const lang = SUPPORTED_LANGUAGES.find((l) => l.code === code);
+                return (
+                  <span
+                    key={code}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-slate-200"
+                  >
+                    {lang?.flag} {count}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <button
+            onClick={() => setShowLanguageSelector(!showLanguageSelector)}
+            className="w-full flex items-center justify-between p-3 bg-white rounded-lg border-2 border-indigo-200 hover:border-indigo-400 transition-colors"
+          >
+            <span className="flex items-center gap-3">
+              <span className="text-2xl">{currentLanguageInfo.flag}</span>
+              <span className="font-medium text-slate-900">
+                {currentLanguageInfo.name}
+              </span>
+            </span>
+            <svg
+              className={`w-5 h-5 text-slate-400 transition-transform ${showLanguageSelector ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+
+          {showLanguageSelector && (
+            <div className="absolute z-10 w-full mt-2 bg-white rounded-lg border border-slate-200 shadow-lg max-h-64 overflow-y-auto">
+              {SUPPORTED_LANGUAGES.map((lang) => {
+                const count = recordingsByLanguage[lang.code] || 0;
+                return (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className={`w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors ${
+                      selectedLanguage === lang.code ? "bg-indigo-50" : ""
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="text-xl">{lang.flag}</span>
+                      <span
+                        className={`font-medium ${selectedLanguage === lang.code ? "text-indigo-600" : "text-slate-900"}`}
+                      >
+                        {lang.name}
+                      </span>
+                    </span>
+                    {count > 0 && (
+                      <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">
+                        {count} sample{count > 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <p className="mt-2 text-xs text-slate-500">
+          💡 Tip: Recording samples in multiple languages improves recognition
+          when you switch languages
         </p>
       </div>
 
@@ -148,11 +421,16 @@ export function RecordSamplesStep({
 
       {/* Phrase Navigator */}
       <div className="mb-8">
-        <h3 className="font-semibold text-slate-900 mb-4">Select Phrase</h3>
+        <h3 className="font-semibold text-slate-900 mb-4">
+          Select Phrase
+          <span className="ml-2 text-sm font-normal text-slate-500">
+            ({currentLanguageInfo.flag} {currentLanguageInfo.name})
+          </span>
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-          {TRAINING_PHRASES.map((phrase, idx) => {
+          {currentPhrases.map((phrase, idx) => {
             const count = recordings.filter(
-              (r) => r.phraseIndex === idx,
+              (r) => r.phraseIndex === idx && r.language === selectedLanguage,
             ).length;
             return (
               <button
@@ -181,8 +459,15 @@ export function RecordSamplesStep({
         <div className="mb-8">
           <h3 className="font-semibold text-slate-900 mb-4">Your Samples</h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {recordings.map((recording, idx) => {
-              const phrase = TRAINING_PHRASES[recording.phraseIndex];
+            {recordings.map((recording) => {
+              const recordingLang = recording.language || "en";
+              const langPhrases =
+                TRAINING_PHRASES_BY_LANGUAGE[recordingLang] || TRAINING_PHRASES;
+              const phrase =
+                langPhrases[recording.phraseIndex] || langPhrases[0];
+              const langInfo = SUPPORTED_LANGUAGES.find(
+                (l) => l.code === recordingLang,
+              );
               const mins = Math.floor(recording.duration / 60);
               const secs = recording.duration % 60;
               const durationStr = `${mins}:${secs.toString().padStart(2, "0")}`;
@@ -192,6 +477,9 @@ export function RecordSamplesStep({
                   key={recording.id}
                   className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg hover:border-slate-300"
                 >
+                  <div className="flex-shrink-0 text-lg" title={langInfo?.name}>
+                    {langInfo?.flag || "🌐"}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 line-clamp-1">
                       "{phrase.text}"
@@ -261,7 +549,9 @@ export function RecordSamplesStep({
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Record in a quiet environment for best results</li>
           <li>• Speak naturally without over-pronunciation</li>
-          <li>• Vary your pace and intonation</li>
+          <li>
+            • Train with multiple languages for better multilingual recognition
+          </li>
           <li>• Multiple recordings of the same phrase strengthen the model</li>
         </ul>
       </div>

@@ -885,4 +885,124 @@ export class VoiceTrainingController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/training/verify/:profileId
+   * Verify voice against an enrolled speaker profile
+   */
+  async verifyVoice(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { profileId } = req.params;
+
+      if (!req.file) {
+        res.status(400).json({ error: "No audio file provided" });
+        return;
+      }
+
+      // Get speaker profile with centroid embedding
+      const profile = await prisma.speakerProfile.findUnique({
+        where: { id: profileId },
+      });
+
+      if (!profile || profile.userId !== req.userId) {
+        res.status(404).json({ error: "Speaker profile not found" });
+        return;
+      }
+
+      if (!profile.isEnrolled || !profile.centroidEmbedding) {
+        res.status(400).json({
+          error: "Profile is not enrolled. Please train the profile first.",
+        });
+        return;
+      }
+
+      // Save the uploaded audio temporarily and extract embedding
+      const { getEmbeddingService } =
+        await import("../services/embedding-wrapper.js");
+      const embeddingService = await getEmbeddingService();
+
+      // Store audio in shared volume for processing
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      const audioStoragePath =
+        process.env.AUDIO_STORAGE_PATH || "/app/data/audio";
+      const tempDir = path.join(audioStoragePath, "temp");
+
+      // Ensure temp directory exists
+      await fs.mkdir(tempDir, { recursive: true }).catch(() => {});
+
+      const tempPath = path.join(
+        tempDir,
+        `verify-${Date.now()}-${Math.random().toString(36).substring(7)}.webm`,
+      );
+      await fs.writeFile(tempPath, req.file.buffer);
+
+      try {
+        // Extract embedding from the uploaded audio
+        const testEmbedding = await embeddingService.extractEmbedding(tempPath);
+
+        // Compute cosine similarity between test embedding and centroid
+        const centroidEmbedding = profile.centroidEmbedding as number[];
+        const similarity = this.cosineSimilarity(
+          testEmbedding,
+          centroidEmbedding,
+        );
+
+        // Convert similarity to confidence (threshold-based)
+        const confidence = Math.max(0, Math.min(1, (similarity + 1) / 2)); // Normalize from [-1,1] to [0,1]
+        const recognized = similarity >= 0.6; // Threshold for recognition
+
+        res.status(200).json({
+          success: true,
+          verification: {
+            recognized,
+            confidence,
+            similarity,
+            profileId,
+            profileName: profile.name,
+          },
+        });
+      } finally {
+        // Clean up temp file
+        await fs.unlink(tempPath).catch(() => {});
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Compute cosine similarity between two vectors
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) {
+      throw new Error("Vectors must have the same length");
+    }
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+
+    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+    if (denominator === 0) {
+      return 0;
+    }
+
+    return dotProduct / denominator;
+  }
 }

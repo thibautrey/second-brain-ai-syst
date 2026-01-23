@@ -17,7 +17,8 @@ import numpy as np
 from flask import Flask, request, jsonify
 import torch
 import torchaudio
-from speechbrain.pretrained import SpeakerRecognition
+from speechbrain.inference.speaker import SpeakerRecognition
+from huggingface_hub import login
 
 # Configure logging
 logging.basicConfig(
@@ -34,6 +35,21 @@ HF_TOKEN = os.getenv("HF_TOKEN")  # Hugging Face API token
 
 # Global model instance
 model = None
+
+def authenticate_with_huggingface():
+    """
+    Authenticate with Hugging Face using the HF_TOKEN environment variable.
+    This ensures the huggingface_hub library can access private or gated models.
+    """
+    if HF_TOKEN:
+        try:
+            login(token=HF_TOKEN, add_to_git_credential=False)
+            logger.info("✓ Successfully authenticated with Hugging Face")
+        except Exception as e:
+            logger.warning(f"⚠ Failed to authenticate with Hugging Face: {e}")
+            logger.info("Continuing without explicit authentication (may fail for gated models)")
+    else:
+        logger.info("ℹ No HF_TOKEN provided, using anonymous access")
 
 def load_model() -> SpeakerRecognition:
     """
@@ -61,12 +77,8 @@ def load_model() -> SpeakerRecognition:
             "run_opts": {"device": DEVICE}
         }
         
-        # Add HF token if available
-        if HF_TOKEN:
-            kwargs["huggingface_fields"] = {"token": HF_TOKEN}
-            logger.info("Using Hugging Face token for authentication")
-        
         # Load model with automatic download
+        # HF_TOKEN is already set in the environment from authenticate_with_huggingface()
         model = SpeakerRecognition.from_hparams(**kwargs)
         logger.info(f"✓ Model loaded successfully on {DEVICE}")
         return model
@@ -74,16 +86,76 @@ def load_model() -> SpeakerRecognition:
         logger.error(f"✗ Failed to load model: {e}")
         raise
 
+
+def convert_to_wav(audio_path: str) -> str:
+    """
+    Convert audio file to WAV format using ffmpeg.
+    Returns path to converted file (or original if already WAV).
+    
+    Args:
+        audio_path: Path to source audio file
+        
+    Returns:
+        Path to WAV file (temporary file if conversion was needed)
+    """
+    import subprocess
+    import tempfile
+    
+    # Check if file is already a valid WAV that torchaudio can read
+    try:
+        waveform, sr = torchaudio.load(audio_path)
+        return audio_path  # No conversion needed
+    except Exception as e:
+        logger.info(f"Cannot load {audio_path} directly, attempting ffmpeg conversion: {e}")
+    
+    # Create temp file for converted audio
+    temp_fd, temp_path = tempfile.mkstemp(suffix='.wav')
+    os.close(temp_fd)
+    
+    try:
+        # Use ffmpeg to convert to WAV (16kHz mono for speaker recognition)
+        cmd = [
+            'ffmpeg', '-y', '-i', audio_path,
+            '-acodec', 'pcm_s16le',  # Standard WAV codec
+            '-ar', '16000',           # 16kHz sample rate
+            '-ac', '1',               # Mono channel
+            temp_path
+        ]
+        
+        result = subprocess.run(
+            cmd, 
+            capture_output=True, 
+            text=True,
+            timeout=60
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"ffmpeg conversion failed: {result.stderr}")
+            os.unlink(temp_path)
+            raise RuntimeError(f"ffmpeg conversion failed: {result.stderr}")
+        
+        logger.info(f"Successfully converted {audio_path} to WAV at {temp_path}")
+        return temp_path
+        
+    except subprocess.TimeoutExpired:
+        os.unlink(temp_path)
+        raise RuntimeError(f"ffmpeg conversion timed out for {audio_path}")
+    except FileNotFoundError:
+        os.unlink(temp_path)
+        raise RuntimeError("ffmpeg not found. Please install ffmpeg.")
+
+
 def extract_embedding(audio_path: str) -> List[float]:
     """
     Extract speaker embedding from audio file.
 
     Args:
-        audio_path: Path to audio file (WAV, MP3, etc.)
+        audio_path: Path to audio file (WAV, MP3, WebM, OGG, etc.)
 
     Returns:
         List of 192 embedding values (ECAPA-TDNN dimension)
     """
+    temp_wav_path = None
     try:
         if not os.path.exists(audio_path):
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
@@ -92,8 +164,12 @@ def extract_embedding(audio_path: str) -> List[float]:
         if model is None:
             load_model()
 
+        # Try to load audio, converting if necessary
+        wav_path = convert_to_wav(audio_path)
+        temp_wav_path = wav_path if wav_path != audio_path else None
+        
         # Load and resample audio
-        waveform, sr = torchaudio.load(audio_path)
+        waveform, sr = torchaudio.load(wav_path)
 
         # Resample to 16kHz if needed
         if sr != 16000:
@@ -121,6 +197,13 @@ def extract_embedding(audio_path: str) -> List[float]:
     except Exception as e:
         logger.error(f"✗ Failed to extract embedding: {e}")
         raise
+    finally:
+        # Clean up temp file if created
+        if temp_wav_path and os.path.exists(temp_wav_path):
+            try:
+                os.unlink(temp_wav_path)
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to clean up temp file {temp_wav_path}: {cleanup_err}")
 
 def compute_similarity(embedding1: List[float], embedding2: List[float]) -> float:
     """
@@ -341,6 +424,9 @@ if __name__ == "__main__":
     logger.info(f"Starting Embedding Service on port {port}")
     logger.info(f"Model: {MODEL_NAME}")
     logger.info(f"Device: {DEVICE}")
+
+    # Authenticate with Hugging Face first
+    authenticate_with_huggingface()
 
     # Pre-load model on startup
     try:

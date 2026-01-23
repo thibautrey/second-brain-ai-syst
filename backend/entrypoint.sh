@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-# Rebuild native modules for the current Alpine environment
+# Rebuild native modules for the current Debian environment
 echo "Rebuilding native modules..."
 npm rebuild bcrypt --build-from-source
 

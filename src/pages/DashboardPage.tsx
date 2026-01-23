@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { TrainingPage } from "./TrainingPage";
+import { SettingsPage } from "./SettingsPage";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -256,21 +257,7 @@ export function DashboardPage() {
 
             {activeTab === "training" && <TrainingPage />}
 
-            {activeTab === "settings" && (
-              <div>
-                <h2 className="mb-2 text-3xl font-bold text-slate-900">
-                  Settings
-                </h2>
-                <p className="mb-8 text-slate-600">
-                  Customize your system preferences.
-                </p>
-                <div className="p-8 text-center bg-white border rounded-lg shadow border-slate-200">
-                  <p className="text-slate-500">
-                    Settings panel coming soon...
-                  </p>
-                </div>
-              </div>
-            )}
+            {activeTab === "settings" && <SettingsPage />}
           </div>
         </div>
       </div>

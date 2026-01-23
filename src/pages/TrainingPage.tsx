@@ -12,6 +12,7 @@ interface Recording {
   url: string;
   duration: number;
   phraseIndex: number;
+  language: string;
   timestamp: number;
   uploadedSampleId?: string;
   uploadStatus: "pending" | "uploading" | "completed" | "failed";
@@ -67,7 +68,11 @@ export function TrainingPage() {
   };
 
   // Step 2: Record samples
-  const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
+  const handleRecordingComplete = async (
+    audioBlob: Blob,
+    duration: number,
+    language: string = "en",
+  ) => {
     setIsLoading(true);
     setError(null);
 
@@ -76,33 +81,205 @@ export function TrainingPage() {
         throw new Error("No speaker profile selected");
       }
 
-      const TRAINING_PHRASES = [
-        { text: "My voice is my password", category: "passphrase" },
-        { text: "Verify my identity", category: "passphrase" },
-        { text: "Approve this transaction", category: "passphrase" },
-        { text: "Set a reminder for tomorrow morning", category: "sentence" },
-        { text: "What is the weather today", category: "sentence" },
-        { text: "Play my favorite music", category: "sentence" },
+      // Training phrases by language - matches RecordSamplesStep
+      const TRAINING_PHRASES_BY_LANGUAGE: Record<
+        string,
+        { text: string; category: string }[]
+      > = {
+        en: [
+          { text: "My voice is my password", category: "passphrase" },
+          { text: "Verify my identity", category: "passphrase" },
+          { text: "Approve this transaction", category: "passphrase" },
+          { text: "Set a reminder for tomorrow morning", category: "sentence" },
+          { text: "What is the weather today", category: "sentence" },
+          { text: "Play my favorite music", category: "sentence" },
+          {
+            text: "Call my mom and tell her I'm running late",
+            category: "sentence",
+          },
+          { text: "Send a message to my friend", category: "sentence" },
+          { text: "Seven, three, nine, two, five", category: "numeric" },
+          { text: "One, four, six, eight, zero", category: "numeric" },
+        ],
+        fr: [
+          { text: "Ma voix est mon mot de passe", category: "passphrase" },
+          { text: "Vérifiez mon identité", category: "passphrase" },
+          { text: "Approuvez cette transaction", category: "passphrase" },
+          { text: "Mets un rappel pour demain matin", category: "sentence" },
+          { text: "Quel temps fait-il aujourd'hui", category: "sentence" },
+          { text: "Joue ma musique préférée", category: "sentence" },
+          {
+            text: "Appelle ma mère et dis-lui que je suis en retard",
+            category: "sentence",
+          },
+          { text: "Envoie un message à mon ami", category: "sentence" },
+          { text: "Sept, trois, neuf, deux, cinq", category: "numeric" },
+          { text: "Un, quatre, six, huit, zéro", category: "numeric" },
+        ],
+        es: [
+          { text: "Mi voz es mi contraseña", category: "passphrase" },
+          { text: "Verifica mi identidad", category: "passphrase" },
+          { text: "Aprueba esta transacción", category: "passphrase" },
+          {
+            text: "Pon un recordatorio para mañana por la mañana",
+            category: "sentence",
+          },
+          { text: "Qué tiempo hace hoy", category: "sentence" },
+          { text: "Pon mi música favorita", category: "sentence" },
+          {
+            text: "Llama a mi madre y dile que llego tarde",
+            category: "sentence",
+          },
+          { text: "Envía un mensaje a mi amigo", category: "sentence" },
+          { text: "Siete, tres, nueve, dos, cinco", category: "numeric" },
+          { text: "Uno, cuatro, seis, ocho, cero", category: "numeric" },
+        ],
+        de: [
+          { text: "Meine Stimme ist mein Passwort", category: "passphrase" },
+          { text: "Überprüfe meine Identität", category: "passphrase" },
+          { text: "Genehmige diese Transaktion", category: "passphrase" },
+          {
+            text: "Setze eine Erinnerung für morgen früh",
+            category: "sentence",
+          },
+          { text: "Wie ist das Wetter heute", category: "sentence" },
+          { text: "Spiele meine Lieblingsmusik", category: "sentence" },
+          {
+            text: "Ruf meine Mutter an und sag ihr dass ich mich verspäte",
+            category: "sentence",
+          },
+          {
+            text: "Schicke eine Nachricht an meinen Freund",
+            category: "sentence",
+          },
+          { text: "Sieben, drei, neun, zwei, fünf", category: "numeric" },
+          { text: "Eins, vier, sechs, acht, null", category: "numeric" },
+        ],
+        it: [
+          { text: "La mia voce è la mia password", category: "passphrase" },
+          { text: "Verifica la mia identità", category: "passphrase" },
+          { text: "Approva questa transazione", category: "passphrase" },
+          {
+            text: "Imposta un promemoria per domani mattina",
+            category: "sentence",
+          },
+          { text: "Che tempo fa oggi", category: "sentence" },
+          { text: "Metti la mia musica preferita", category: "sentence" },
+          {
+            text: "Chiama mia madre e dille che sono in ritardo",
+            category: "sentence",
+          },
+          { text: "Invia un messaggio al mio amico", category: "sentence" },
+          { text: "Sette, tre, nove, due, cinque", category: "numeric" },
+          { text: "Uno, quattro, sei, otto, zero", category: "numeric" },
+        ],
+        pt: [
+          { text: "Minha voz é minha senha", category: "passphrase" },
+          { text: "Verifique minha identidade", category: "passphrase" },
+          { text: "Aprove esta transação", category: "passphrase" },
+          {
+            text: "Defina um lembrete para amanhã de manhã",
+            category: "sentence",
+          },
+          { text: "Como está o tempo hoje", category: "sentence" },
+          { text: "Toque minha música favorita", category: "sentence" },
+          {
+            text: "Ligue para minha mãe e diga que estou atrasado",
+            category: "sentence",
+          },
+          { text: "Envie uma mensagem para meu amigo", category: "sentence" },
+          { text: "Sete, três, nove, dois, cinco", category: "numeric" },
+          { text: "Um, quatro, seis, oito, zero", category: "numeric" },
+        ],
+        nl: [
+          { text: "Mijn stem is mijn wachtwoord", category: "passphrase" },
+          { text: "Verifieer mijn identiteit", category: "passphrase" },
+          { text: "Keur deze transactie goed", category: "passphrase" },
+          {
+            text: "Zet een herinnering voor morgenochtend",
+            category: "sentence",
+          },
+          { text: "Wat is het weer vandaag", category: "sentence" },
+          { text: "Speel mijn favoriete muziek", category: "sentence" },
+          {
+            text: "Bel mijn moeder en zeg dat ik te laat ben",
+            category: "sentence",
+          },
+          { text: "Stuur een bericht naar mijn vriend", category: "sentence" },
+          { text: "Zeven, drie, negen, twee, vijf", category: "numeric" },
+          { text: "Een, vier, zes, acht, nul", category: "numeric" },
+        ],
+        zh: [
+          { text: "我的声音就是我的密码", category: "passphrase" },
+          { text: "验证我的身份", category: "passphrase" },
+          { text: "批准这笔交易", category: "passphrase" },
+          { text: "设置明天早上的提醒", category: "sentence" },
+          { text: "今天天气怎么样", category: "sentence" },
+          { text: "播放我最喜欢的音乐", category: "sentence" },
+          { text: "打电话给我妈妈说我要迟到了", category: "sentence" },
+          { text: "给我的朋友发消息", category: "sentence" },
+          { text: "七、三、九、二、五", category: "numeric" },
+          { text: "一、四、六、八、零", category: "numeric" },
+        ],
+        ja: [
+          { text: "私の声が私のパスワードです", category: "passphrase" },
+          { text: "私の身元を確認してください", category: "passphrase" },
+          { text: "この取引を承認してください", category: "passphrase" },
+          { text: "明日の朝にリマインダーを設定して", category: "sentence" },
+          { text: "今日の天気はどうですか", category: "sentence" },
+          { text: "お気に入りの音楽を再生して", category: "sentence" },
+          { text: "母に電話して遅れると伝えて", category: "sentence" },
+          { text: "友達にメッセージを送って", category: "sentence" },
+          { text: "七、三、九、二、五", category: "numeric" },
+          { text: "一、四、六、八、ゼロ", category: "numeric" },
+        ],
+        ko: [
+          { text: "내 목소리가 내 비밀번호입니다", category: "passphrase" },
+          { text: "내 신원을 확인해 주세요", category: "passphrase" },
+          { text: "이 거래를 승인해 주세요", category: "passphrase" },
+          { text: "내일 아침에 알림을 설정해 줘", category: "sentence" },
+          { text: "오늘 날씨가 어때", category: "sentence" },
+          { text: "내가 좋아하는 음악 틀어 줘", category: "sentence" },
+          { text: "엄마한테 전화해서 늦는다고 말해 줘", category: "sentence" },
+          { text: "친구에게 메시지를 보내 줘", category: "sentence" },
+          { text: "칠, 삼, 구, 이, 오", category: "numeric" },
+          { text: "일, 사, 육, 팔, 영", category: "numeric" },
+        ],
+      };
+
+      const phrases =
+        TRAINING_PHRASES_BY_LANGUAGE[language] ||
+        TRAINING_PHRASES_BY_LANGUAGE.en;
+
+      // Get the actual MIME type from the blob and determine file extension
+      const actualMimeType = audioBlob.type || "audio/webm";
+      const extensionMap: Record<string, string> = {
+        "audio/webm": "webm",
+        "audio/webm;codecs=opus": "webm",
+        "audio/ogg": "ogg",
+        "audio/ogg;codecs=opus": "ogg",
+        "audio/mp4": "mp4",
+        "audio/wav": "wav",
+        "audio/mpeg": "mp3",
+      };
+      const extension = extensionMap[actualMimeType] || "webm";
+
+      const audioFile = new File(
+        [audioBlob],
+        `recording-${Date.now()}.${extension}`,
         {
-          text: "Call my mom and tell her I'm running late",
-          category: "sentence",
+          type: actualMimeType,
         },
-        { text: "Send a message to my friend", category: "sentence" },
-        { text: "Seven, three, nine, two, five", category: "numeric" },
-        { text: "One, four, six, eight, zero", category: "numeric" },
-      ];
+      );
 
-      const audioFile = new File([audioBlob], `recording-${Date.now()}.wav`, {
-        type: "audio/wav",
-      });
-
-      const phrase = TRAINING_PHRASES[currentPhraseIndex];
+      const phrase = phrases[currentPhraseIndex];
 
       const newRecording: Recording = {
         id: `recording-${Date.now()}`,
         url: URL.createObjectURL(audioBlob),
         duration,
         phraseIndex: currentPhraseIndex,
+        language,
         timestamp: Date.now(),
         uploadStatus: "uploading",
       };
@@ -269,13 +446,13 @@ export function TrainingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-6 px-4">
       {/* Header with back button */}
-      <div className="max-w-4xl mx-auto mb-8">
+      <div className="max-w-4xl mx-auto mb-4">
         <Button
           onClick={() => window.history.back()}
           variant="ghost"
-          className="gap-2 text-slate-600 hover:text-slate-900 mb-6"
+          className="gap-2 text-slate-600 hover:text-slate-900 mb-3"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
@@ -283,7 +460,7 @@ export function TrainingPage() {
       </div>
 
       {/* Step Progress Indicator */}
-      <div className="max-w-4xl mx-auto mb-12">
+      <div className="max-w-4xl mx-auto mb-6">
         <div className="flex items-center justify-between">
           {steps.map((step, idx) => (
             <div key={step.key} className="flex items-center flex-1">
@@ -334,7 +511,7 @@ export function TrainingPage() {
       <div className="max-w-4xl mx-auto">
         {/* Global Error Banner */}
         {error && currentStep !== "verification" && (
-          <div className="mb-6 flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mb-4 flex gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-red-900">Error</p>
@@ -343,7 +520,7 @@ export function TrainingPage() {
           </div>
         )}
         {/* Step Content */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="bg-white rounded-xl shadow-lg p-6">
           {currentStep === "profile-selection" && (
             <ProfileSelectionStep
               onProfileSelected={handleProfileSelected}
@@ -368,7 +545,7 @@ export function TrainingPage() {
           )}
 
           {currentStep === "training" && isTraining && (
-            <div className="max-w-2xl mx-auto text-center space-y-6">
+            <div className="max-w-2xl mx-auto text-center space-y-4">
               <h2 className="text-2xl font-bold text-slate-900">
                 Training Your Voice Profile
               </h2>
@@ -378,7 +555,7 @@ export function TrainingPage() {
               </p>
 
               {/* Training Progress */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="relative h-32 flex items-center justify-center">
                   <svg className="absolute w-32 h-32" viewBox="0 0 120 120">
                     {/* Background circle */}
