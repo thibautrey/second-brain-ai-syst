@@ -32,8 +32,8 @@ class MemorySearchService {
   private readonly COLLECTION_NAME = "Memory";
   private weaviateUrl: string;
   private initializationPromise: Promise<void> | null = null;
-  private readonly MAX_RETRIES = 10;
-  private readonly RETRY_DELAY_MS = 3000;
+  private readonly MAX_RETRIES = 15;
+  private readonly RETRY_DELAY_MS = 5000;
 
   constructor() {
     this.weaviateUrl = process.env.WEAVIATE_URL || "http://localhost:8080";
@@ -56,7 +56,7 @@ class MemorySearchService {
   private async initializeWeaviateWithRetry(): Promise<void> {
     this.weaviateClient = axios.create({
       baseURL: this.weaviateUrl,
-      timeout: 15000,
+      timeout: 30000,
       headers: {
         "Content-Type": "application/json",
       },

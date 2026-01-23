@@ -458,6 +458,22 @@ model AITaskConfig {
     @@map("ai_task_configs")
 }
 
+// ==================== Audit Log Model ====================
+
+model AuditLog {
+    id        String   @id @default(cuid())
+    userId    String?
+    action    String // e.g., "SCHEDULER_TASK", "MEMORY_CREATE", "AGENT_RUN"
+    resource  String // e.g., task ID, memory ID
+    metadata  Json     @default("{}")
+    createdAt DateTime @default(now())
+
+    @@index([userId])
+    @@index([action])
+    @@index([createdAt])
+    @@map("audit_logs")
+}
+
 enum ProviderType {
     OPENAI
     OPENAI_COMPATIBLE
@@ -469,4 +485,7 @@ enum ModelCapability {
     REFLECTION
     IMAGE_GENERATION
     EMBEDDINGS
+    CHAT
+    SUMMARIZATION
+    ANALYSIS
 }

@@ -109,6 +109,9 @@ function mapCapabilityToFrontend(cap: ModelCapability): string {
     REFLECTION: "reflection",
     IMAGE_GENERATION: "image-generation",
     EMBEDDINGS: "embeddings",
+    CHAT: "chat",
+    SUMMARIZATION: "summarization",
+    ANALYSIS: "analysis",
   };
   return mapping[cap];
 }

@@ -28,6 +28,8 @@ import {
   WakeWordTestResult,
 } from "../types/continuous-listening";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 // ==================== State Management ====================
 
 type Action =
@@ -245,7 +247,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
         return;
       }
 
-      const response = await fetch("/api/user-settings", {
+      const response = await fetch(`${API_BASE_URL}/api/user-settings`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -435,7 +437,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
         const token = localStorage.getItem("authToken");
         if (!token) throw new Error("Not authenticated");
 
-        const response = await fetch("/api/user-settings", {
+        const response = await fetch(`${API_BASE_URL}/api/user-settings`, {
           method: "PATCH",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -470,14 +472,17 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
         const token = localStorage.getItem("authToken");
         if (!token) throw new Error("Not authenticated");
 
-        const response = await fetch("/api/user-settings/test-wake-word", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        const response = await fetch(
+          `${API_BASE_URL}/api/user-settings/test-wake-word`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text }),
           },
-          body: JSON.stringify({ text }),
-        });
+        );
 
         if (!response.ok) {
           throw new Error("Failed to test wake word");

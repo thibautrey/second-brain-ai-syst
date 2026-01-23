@@ -25,10 +25,28 @@ services:
       # Activer les modules sans API key globale - les clés seront passées via headers
       ENABLE_MODULES: text2vec-openai
       DEFAULT_VECTORIZER_MODULE: none
+      # Configuration Raft pour mode single-node (requis depuis Weaviate v1.25+)
+      RAFT_BOOTSTRAP_EXPECT: 1
+      RAFT_JOIN: ""
+      CLUSTER_HOSTNAME: "weaviate"
     ports:
       - "8080:8080"
+      - "8300:8300"
     volumes:
       - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:8080/v1/.well-known/ready",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
 
   embedding-service:
     build:
@@ -74,7 +92,7 @@ services:
       embedding-service:
         condition: service_healthy
       weaviate:
-        condition: service_started
+        condition: service_healthy
 
   frontend:
     build:

@@ -3,6 +3,8 @@
 
 import prisma from "./prisma.js";
 import { MemoryType, TimeScale, Prisma } from "@prisma/client";
+import { memorySearchService } from "./memory-search.js";
+import { summarizationService } from "./summarization.js";
 
 export interface MemoryMetadata {
   id: string;
@@ -60,8 +62,13 @@ export class MemoryManagerService {
       },
     });
 
-    // TODO: 2. Generate embedding via embedding service
-    // TODO: 3. Store embedding in Weaviate
+    // Index memory in Weaviate for semantic search
+    try {
+      await memorySearchService.indexMemory(memory);
+    } catch (error) {
+      console.warn("Failed to index memory in Weaviate:", error);
+      // Continue - memory is still stored in PostgreSQL
+    }
 
     return {
       id: memory.id,
@@ -79,6 +86,7 @@ export class MemoryManagerService {
 
   /**
    * Generate summary of memories over time period
+   * Uses the SummarizationService for LLM-powered summaries
    */
   async generateSummary(
     userId: string,
@@ -86,7 +94,14 @@ export class MemoryManagerService {
     endDate: Date,
     timeScale: TimeScale,
   ): Promise<MemoryMetadata> {
-    // 1. Retrieve memories in time window
+    // Delegate to summarization service
+    const summary = await summarizationService.generateSummary(
+      userId,
+      timeScale,
+      endDate,
+    );
+
+    // Get source memories for promotion
     const memories = await prisma.memory.findMany({
       where: {
         userId,
@@ -95,34 +110,6 @@ export class MemoryManagerService {
           lte: endDate,
         },
         isArchived: false,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-    });
-
-    if (memories.length === 0) {
-      throw new Error("No memories found in the specified time range");
-    }
-
-    // 2. Generate summary content (placeholder for LLM call)
-    // TODO: Call LLM to summarize
-    const summaryContent = this.generateBasicSummary(memories);
-
-    // 3. Create summary with references to source memories
-    const summary = await prisma.summary.create({
-      data: {
-        userId,
-        content: summaryContent,
-        timeScale,
-        periodStart: startDate,
-        periodEnd: endDate,
-        sourceMemoryCount: memories.length,
-        sourceMemories: {
-          connect: memories.map((m) => ({ id: m.id })),
-        },
-        topics: this.extractTopics(memories),
-        keyInsights: [],
       },
     });
 

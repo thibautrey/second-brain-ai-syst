@@ -50,6 +50,8 @@ import { chatStream } from "../controllers/chat.controller.js";
 import { TrainingProcessorService } from "./training-processor.js";
 import { memorySearchService } from "./memory-search.js";
 import { continuousListeningManager } from "./continuous-listening.js";
+import { schedulerService } from "./scheduler.js";
+import { backgroundAgentService } from "./background-agents.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer, Server as HttpServer, IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
@@ -301,6 +303,171 @@ app.post(
   upload.single("audio"),
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     await voiceTrainingController.verifyVoice(req, res, next);
+  },
+);
+
+// ==================== Scheduler Routes ====================
+
+/**
+ * GET /api/scheduler/tasks
+ * Get status of all scheduled tasks
+ */
+app.get(
+  "/api/scheduler/tasks",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const tasks = schedulerService.getTasksStatus();
+      res.json({ tasks });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/scheduler/tasks/:taskId/run
+ * Run a specific task immediately
+ */
+app.post(
+  "/api/scheduler/tasks/:taskId/run",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { taskId } = req.params;
+      const result = await schedulerService.runTaskNow(taskId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PATCH /api/scheduler/tasks/:taskId
+ * Enable or disable a task
+ */
+app.patch(
+  "/api/scheduler/tasks/:taskId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { taskId } = req.params;
+      const { enabled } = req.body;
+
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+
+      schedulerService.setTaskEnabled(taskId, enabled);
+      res.json({ success: true, taskId, enabled });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ==================== Background Agents Routes ====================
+
+/**
+ * POST /api/agents/daily-reflection
+ * Trigger daily reflection generation
+ */
+app.post(
+  "/api/agents/daily-reflection",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await backgroundAgentService.runDailyReflection(
+        req.userId,
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/agents/weekly-insights
+ * Trigger weekly insights generation
+ */
+app.post(
+  "/api/agents/weekly-insights",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await backgroundAgentService.runWeeklyInsights(req.userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/agents/goal-tracker
+ * Trigger goal tracking analysis
+ */
+app.post(
+  "/api/agents/goal-tracker",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await backgroundAgentService.runGoalTracker(req.userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/agents/habit-analyzer
+ * Trigger habit analysis
+ */
+app.post(
+  "/api/agents/habit-analyzer",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await backgroundAgentService.runHabitAnalyzer(req.userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/agents/run-all
+ * Trigger all agents for current user
+ */
+app.post(
+  "/api/agents/run-all",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const results = await backgroundAgentService.runAllAgents(req.userId);
+      res.json({ results });
+    } catch (error) {
+      next(error);
+    }
   },
 );
 
@@ -1556,6 +1723,10 @@ export async function startServer(port: number = 3000) {
 
     trainingProcessor.startProcessor(5000); // Process every 5 seconds
     console.log("✓ Training processor started");
+
+    // Start the scheduler for background tasks
+    schedulerService.start();
+    console.log("✓ Scheduler service started");
 
     // Create HTTP server
     const httpServer: HttpServer = createServer(app);
