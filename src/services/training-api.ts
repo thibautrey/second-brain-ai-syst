@@ -275,6 +275,143 @@ export async function pollTrainingStatus(
     }, interval);
   });
 }
+
+/**
+ * Training session update event from SSE
+ */
+export interface TrainingUpdateEvent {
+  id: string;
+  progress: number;
+  currentStep: string | null;
+  status: string;
+  errorMessage?: string;
+}
+
+/**
+ * SSE message types
+ */
+export interface SSEMessage {
+  type: "connected" | "sessions_update" | "update";
+  sessions?: TrainingUpdateEvent[];
+  // Single update fields (for direct updates)
+  id?: string;
+  progress?: number;
+  currentStep?: string | null;
+  status?: string;
+  errorMessage?: string;
+}
+
+/**
+ * Subscribe to real-time training session updates via SSE
+ * @param onUpdate Callback when a training session is updated
+ * @param onError Callback when an error occurs
+ * @returns Cleanup function to close the connection
+ */
+export function subscribeToTrainingUpdates(
+  onUpdate: (sessions: TrainingUpdateEvent[]) => void,
+  onError?: (error: Event) => void,
+): () => void {
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    console.error("No auth token available for SSE connection");
+    return () => {};
+  }
+
+  // Create EventSource with auth token in URL (SSE doesn't support custom headers)
+  const url = new URL(`${API_BASE_URL}/api/training/active/stream`);
+
+  // Create a custom EventSource-like connection using fetch
+  const controller = new AbortController();
+  let isConnected = true;
+
+  const connect = async () => {
+    try {
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "text/event-stream",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`SSE connection failed: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body reader available");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (isConnected) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          console.log("[SSE] Stream ended");
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete messages (separated by double newlines)
+        const messages = buffer.split("\n\n");
+        buffer = messages.pop() || ""; // Keep incomplete message in buffer
+
+        for (const message of messages) {
+          if (!message.trim()) continue;
+
+          // Parse SSE format: "data: {...}"
+          const dataMatch = message.match(/^data:\s*(.+)$/m);
+          if (dataMatch) {
+            try {
+              const data: SSEMessage = JSON.parse(dataMatch[1]);
+
+              if (data.type === "connected") {
+                console.log("[SSE] Connected to training updates");
+              } else if (data.type === "sessions_update" && data.sessions) {
+                onUpdate(data.sessions);
+              } else if (data.id && data.status) {
+                // Single session update
+                onUpdate([
+                  {
+                    id: data.id,
+                    progress: data.progress || 0,
+                    currentStep: data.currentStep || null,
+                    status: data.status,
+                    errorMessage: data.errorMessage,
+                  },
+                ]);
+              }
+            } catch (parseError) {
+              // Ignore heartbeat comments (": heartbeat")
+              if (!message.startsWith(":")) {
+                console.warn("[SSE] Failed to parse message:", message);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        console.error("[SSE] Connection error:", error);
+        onError?.(error as Event);
+      }
+    }
+  };
+
+  connect();
+
+  // Return cleanup function
+  return () => {
+    isConnected = false;
+    controller.abort();
+  };
+}
+
 /**
  * Get active training sessions for current user
  */

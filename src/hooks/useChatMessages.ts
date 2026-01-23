@@ -7,7 +7,7 @@
 import { useState, useCallback, useRef } from "react";
 import { ChatMessage, ChatState } from "../types/chat";
 
-const API_BASE = "http://localhost:3000/api";
+const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

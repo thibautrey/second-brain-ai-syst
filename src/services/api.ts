@@ -2,7 +2,7 @@
  * API Service - Base HTTP client for backend communication
  */
 
-const API_BASE_URL = "http://localhost:3000/api";
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
 
 function getAuthToken(): string | null {
   return localStorage.getItem("authToken");
@@ -20,7 +20,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export async function apiGet<T>(
   endpoint: string,
-  params?: Record<string, any>,
+  params?: Record<string, unknown>,
 ): Promise<T> {
   const url = new URL(`${API_BASE_URL}${endpoint}`);
   if (params) {
@@ -42,7 +42,7 @@ export async function apiGet<T>(
   return handleResponse<T>(response);
 }
 
-export async function apiPost<T>(endpoint: string, data?: any): Promise<T> {
+export async function apiPost<T>(endpoint: string, data?: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: "POST",
     headers: {
@@ -55,7 +55,10 @@ export async function apiPost<T>(endpoint: string, data?: any): Promise<T> {
   return handleResponse<T>(response);
 }
 
-export async function apiPatch<T>(endpoint: string, data?: any): Promise<T> {
+export async function apiPatch<T>(
+  endpoint: string,
+  data?: unknown,
+): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: "PATCH",
     headers: {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import * as trainingAPI from "../../services/training-api";
 
 interface ActiveTraining {
@@ -13,35 +13,80 @@ export function TrainingProgressWidget() {
     null,
   );
   const [tooltipVisible, setTooltipVisible] = useState(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    const checkActiveSessions = async () => {
+    // Initial fetch to get current state
+    const fetchInitialState = async () => {
       try {
         const sessions = await trainingAPI.getActiveTrainingSessions();
-
         if (sessions && sessions.length > 0) {
           const session = sessions[0];
           setActiveTraining({
             id: session.id,
             progress: session.progress,
-            currentStep: session.currentStep,
+            currentStep: session.currentStep || null,
             status: session.status,
           });
-        } else {
-          setActiveTraining(null);
         }
       } catch (error) {
-        console.error("Failed to check active training sessions:", error);
+        console.error("Failed to fetch initial training sessions:", error);
       }
     };
 
-    // Check immediately
-    checkActiveSessions();
+    fetchInitialState();
 
-    // Poll every 2 seconds
-    const interval = setInterval(checkActiveSessions, 2000);
+    // Subscribe to SSE updates
+    cleanupRef.current = trainingAPI.subscribeToTrainingUpdates(
+      (sessions) => {
+        if (sessions && sessions.length > 0) {
+          // Find active session (pending or in-progress)
+          const activeSession = sessions.find(
+            (s) => s.status === "pending" || s.status === "in-progress",
+          );
 
-    return () => clearInterval(interval);
+          if (activeSession) {
+            setActiveTraining({
+              id: activeSession.id,
+              progress: activeSession.progress,
+              currentStep: activeSession.currentStep,
+              status: activeSession.status,
+            });
+          } else {
+            // Check if a session just completed or failed
+            const completedOrFailed = sessions.find(
+              (s) => s.status === "completed" || s.status === "failed",
+            );
+
+            if (completedOrFailed) {
+              // Show completed state briefly then hide
+              setActiveTraining({
+                id: completedOrFailed.id,
+                progress: completedOrFailed.progress,
+                currentStep: completedOrFailed.currentStep,
+                status: completedOrFailed.status,
+              });
+
+              // Hide widget after 3 seconds if completed/failed
+              setTimeout(() => {
+                setActiveTraining(null);
+              }, 3000);
+            } else {
+              setActiveTraining(null);
+            }
+          }
+        }
+      },
+      (error) => {
+        console.error("SSE connection error:", error);
+      },
+    );
+
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+      }
+    };
   }, []);
 
   if (!activeTraining) {

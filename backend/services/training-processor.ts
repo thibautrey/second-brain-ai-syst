@@ -8,6 +8,7 @@
 import prisma from "./prisma.js";
 import { SpeakerRecognitionService } from "./speaker-recognition.js";
 import { getEmbeddingService } from "./embedding-wrapper.js";
+import { trainingSSEService } from "./training-sse.js";
 
 interface TrainingState {
   isProcessing: boolean;
@@ -104,6 +105,7 @@ export class TrainingProcessorService {
       this.state.isProcessing = true;
       this.state.activeSessionId = pendingSession.id;
 
+      const userId = pendingSession.speakerProfile.userId;
       console.log(`Processing training session: ${pendingSession.id}`);
 
       // Mark as in-progress
@@ -117,6 +119,14 @@ export class TrainingProcessorService {
         },
       });
 
+      // Notify SSE clients about session start
+      trainingSSEService.notifyUser(userId, {
+        id: pendingSession.id,
+        progress: 5,
+        currentStep: "initializing",
+        status: "in-progress",
+      });
+
       const voiceSamples = pendingSession.speakerProfile.voiceSamples;
 
       if (voiceSamples.length === 0) {
@@ -124,7 +134,12 @@ export class TrainingProcessorService {
       }
 
       // Step 1: Prepare audio paths (15% progress)
-      await this.updateProgress(pendingSession.id, 15, "preparing-samples");
+      await this.updateProgress(
+        pendingSession.id,
+        15,
+        "preparing-samples",
+        userId,
+      );
 
       const audioPaths = voiceSamples
         .map((sample) => sample.storagePath)
@@ -139,7 +154,12 @@ export class TrainingProcessorService {
       );
 
       // Step 2: Extract embeddings using ECAPA-TDNN (40% progress)
-      await this.updateProgress(pendingSession.id, 40, "extracting-embeddings");
+      await this.updateProgress(
+        pendingSession.id,
+        40,
+        "extracting-embeddings",
+        userId,
+      );
 
       const embeddingService = await getEmbeddingService();
       const embeddings: number[][] = [];
@@ -181,7 +201,12 @@ export class TrainingProcessorService {
       }
 
       // Step 3: Compute centroid (60% progress)
-      await this.updateProgress(pendingSession.id, 60, "computing-centroid");
+      await this.updateProgress(
+        pendingSession.id,
+        60,
+        "computing-centroid",
+        userId,
+      );
 
       let centroidEmbedding: number[] = [];
       try {
@@ -197,7 +222,12 @@ export class TrainingProcessorService {
       }
 
       // Step 4: Compute statistics (80% progress)
-      await this.updateProgress(pendingSession.id, 80, "computing-statistics");
+      await this.updateProgress(
+        pendingSession.id,
+        80,
+        "computing-statistics",
+        userId,
+      );
 
       const intraClassVariance = this.computeVariance(
         embeddings,
@@ -209,7 +239,12 @@ export class TrainingProcessorService {
       );
 
       // Step 5: Save results (90% progress)
-      await this.updateProgress(pendingSession.id, 90, "saving-results");
+      await this.updateProgress(
+        pendingSession.id,
+        90,
+        "saving-results",
+        userId,
+      );
 
       // Save centroid embedding to speaker profile
       await prisma.speakerProfile.update({
@@ -235,6 +270,14 @@ export class TrainingProcessorService {
         },
       });
 
+      // Notify SSE clients about session completion
+      trainingSSEService.notifyUser(userId, {
+        id: pendingSession.id,
+        progress: 100,
+        currentStep: "completed",
+        status: "completed",
+      });
+
       console.log(
         `✓ Training session completed: ${pendingSession.id} (confidence: ${(confidenceScore * 100).toFixed(1)}%)`,
       );
@@ -243,6 +286,13 @@ export class TrainingProcessorService {
       if (this.state.activeSessionId) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
+
+        // Get the session to find the user ID for SSE notification
+        const failedSession = await prisma.trainingSession.findUnique({
+          where: { id: this.state.activeSessionId },
+          include: { speakerProfile: true },
+        });
+
         await prisma.trainingSession.update({
           where: { id: this.state.activeSessionId },
           data: {
@@ -251,6 +301,17 @@ export class TrainingProcessorService {
             progress: 0,
           },
         });
+
+        // Notify SSE clients about session failure
+        if (failedSession?.speakerProfile?.userId) {
+          trainingSSEService.notifyUser(failedSession.speakerProfile.userId, {
+            id: this.state.activeSessionId,
+            progress: 0,
+            currentStep: null,
+            status: "failed",
+            errorMessage: errorMessage,
+          });
+        }
 
         console.error(
           `✗ Training session failed: ${this.state.activeSessionId}`,
@@ -264,21 +325,36 @@ export class TrainingProcessorService {
   }
 
   /**
-   * Update training session progress
+   * Update training session progress and notify connected clients via SSE
    */
   private async updateProgress(
     sessionId: string,
     progress: number,
     currentStep: string,
+    userId?: string,
   ): Promise<void> {
-    await prisma.trainingSession.update({
+    const session = await prisma.trainingSession.update({
       where: { id: sessionId },
       data: {
         progress,
         currentStep,
         updatedAt: new Date(),
       },
+      include: {
+        speakerProfile: true,
+      },
     });
+
+    // Notify connected SSE clients
+    const targetUserId = userId || session.speakerProfile?.userId;
+    if (targetUserId) {
+      trainingSSEService.notifyUser(targetUserId, {
+        id: sessionId,
+        progress,
+        currentStep,
+        status: session.status,
+      });
+    }
   }
 
   /**

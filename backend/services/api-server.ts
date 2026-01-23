@@ -48,6 +48,7 @@ import { speakerRecognitionService } from "./speaker-recognition.js";
 import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
 import { chatStream } from "../controllers/chat.controller.js";
 import { TrainingProcessorService } from "./training-processor.js";
+import { trainingSSEService } from "./training-sse.js";
 import { memorySearchService } from "./memory-search.js";
 import { continuousListeningManager } from "./continuous-listening.js";
 import { schedulerService } from "./scheduler.js";
@@ -305,6 +306,67 @@ app.get(
   authMiddleware,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     await voiceTrainingController.getActiveTrainingSessions(req, res, next);
+  },
+);
+
+/**
+ * GET /api/training/active/stream
+ * Server-Sent Events endpoint for real-time training session updates
+ */
+app.get(
+  "/api/training/active/stream",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    if (!req.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+
+    // Send initial connection event
+    res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+
+    // Register client for SSE updates
+    trainingSSEService.addClient(req.userId, res);
+
+    // Send current active sessions immediately
+    try {
+      const sessions = await prisma.trainingSession.findMany({
+        where: {
+          speakerProfile: {
+            userId: req.userId,
+          },
+          status: {
+            in: ["pending", "in-progress"],
+          },
+        },
+        include: { speakerProfile: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const sessionsData = sessions.map((s) => ({
+        id: s.id,
+        progress: s.progress,
+        currentStep: s.currentStep,
+        status: s.status,
+      }));
+
+      res.write(
+        `data: ${JSON.stringify({ type: "sessions_update", sessions: sessionsData })}\n\n`,
+      );
+    } catch (error) {
+      console.error("[SSE] Error fetching initial sessions:", error);
+    }
+
+    // Handle client disconnect
+    req.on("close", () => {
+      trainingSSEService.removeClient(req.userId!, res);
+    });
   },
 );
 

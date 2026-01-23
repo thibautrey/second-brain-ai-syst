@@ -12,11 +12,15 @@ import {
   FileText,
   BarChart3,
   Mic,
+  CheckSquare,
+  Calendar,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { TrainingPage } from "./TrainingPage";
 import { SettingsPage } from "./SettingsPage";
 import { MemoryBrowser } from "../components/memory";
+import { TodoList } from "../components/todos";
+import { ScheduleList } from "../components/schedule";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 
 export function DashboardPage() {
@@ -78,6 +82,18 @@ export function DashboardPage() {
             label="Voice Training"
             onClick={() => navigate("/dashboard/training")}
             isActive={activeTab === "training"}
+          />
+          <NavItem
+            icon={<CheckSquare className="w-5 h-5" />}
+            label="Tâches"
+            onClick={() => navigate("/dashboard/todos")}
+            isActive={activeTab === "todos"}
+          />
+          <NavItem
+            icon={<Calendar className="w-5 h-5" />}
+            label="Planifications"
+            onClick={() => navigate("/dashboard/schedule")}
+            isActive={activeTab === "schedule"}
           />
           <NavItem
             icon={<Settings className="w-5 h-5" />}
@@ -268,6 +284,10 @@ export function DashboardPage() {
             )}
 
             {activeTab === "training" && <TrainingPage />}
+
+            {activeTab === "todos" && <TodoList />}
+
+            {activeTab === "schedule" && <ScheduleList />}
 
             {activeTab === "settings" && <SettingsPage />}
           </div>
