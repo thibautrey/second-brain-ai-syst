@@ -28,10 +28,13 @@ second-brain-ai-syst/
 │   ├── middlewares/            # Express middleware
 │   └── utils/                  # Helper functions
 │
-├── frontend/                   # React application
-│   ├── components/ui/          # Shadcn UI components (to be populated)
+├── src/                        # React application
+│   ├── components/             # React components
+│   ├── pages/                  # Page components
 │   ├── hooks/                  # Custom React hooks
+│   ├── services/               # API client services
 │   ├── styles/                 # Global styles
+│   ├── types/                  # TypeScript types
 │   └── lib/                    # Utilities
 │
 ├── docker/                     # Docker configuration
@@ -81,6 +84,8 @@ docker-compose up -d
 npm run backend:dev
 
 # Terminal 2: Frontend
+cd /Users/thibaut/gitRepo/second-brain-ai-syst
+npm run dev
 npm run dev
 ```
 

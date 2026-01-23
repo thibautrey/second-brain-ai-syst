@@ -14,6 +14,8 @@ import {
   Mic,
   CheckSquare,
   Calendar,
+  Wrench,
+  Bell,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { TrainingPage } from "./TrainingPage";
@@ -21,6 +23,8 @@ import { SettingsPage } from "./SettingsPage";
 import { MemoryBrowser } from "../components/memory";
 import { TodoList } from "../components/todos";
 import { ScheduleList } from "../components/schedule";
+import { ToolsConfigPage } from "./ToolsConfigPage";
+import { NotificationTestPage } from "./NotificationTestPage";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useRecentActivity } from "../hooks/useRecentActivity";
 
@@ -100,6 +104,18 @@ export function DashboardPage() {
             label="Planifications"
             onClick={() => navigate("/dashboard/schedule")}
             isActive={activeTab === "schedule"}
+          />
+          <NavItem
+            icon={<Wrench className="w-5 h-5" />}
+            label="Tools"
+            onClick={() => navigate("/dashboard/tools")}
+            isActive={activeTab === "tools"}
+          />
+          <NavItem
+            icon={<Bell className="w-5 h-5" />}
+            label="Notifications"
+            onClick={() => navigate("/dashboard/notifications")}
+            isActive={activeTab === "notifications"}
           />
           <NavItem
             icon={<Settings className="w-5 h-5" />}
@@ -320,6 +336,10 @@ export function DashboardPage() {
             {activeTab === "todos" && <TodoList />}
 
             {activeTab === "schedule" && <ScheduleList />}
+
+            {activeTab === "tools" && <ToolsConfigPage />}
+
+            {activeTab === "notifications" && <NotificationTestPage />}
 
             {activeTab === "settings" && <SettingsPage />}
           </div>

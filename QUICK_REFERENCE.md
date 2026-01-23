@@ -27,7 +27,7 @@ project/
 │   ├── models/             # TypeScript data models
 │   ├── database/           # Migrations & schema designs
 │   └── controllers/        # API handlers
-├── frontend/               # React + TypeScript UI
+├── src/                    # React + TypeScript UI
 ├── docker/                 # Docker Compose for local dev
 ├── docs/                   # Architecture & schema docs
 ├── agents.md              # **Complete system architecture**

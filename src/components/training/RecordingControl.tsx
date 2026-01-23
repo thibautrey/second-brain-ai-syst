@@ -185,7 +185,7 @@ export function RecordingControl({
         <p className="text-xs font-semibold tracking-wider uppercase text-slate-500">
           Read this phrase:
         </p>
-        <div className="p-4 border-2 border-blue-200 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="p-4 border-2 border-blue-200 rounded-lg bg-linear-to-r from-blue-50 to-indigo-50">
           <p className="text-2xl font-bold text-slate-900">"{phrase}"</p>
           <p className="mt-2 text-xs text-slate-600">
             Category: <span className="font-medium">{category}</span>
@@ -205,7 +205,7 @@ export function RecordingControl({
           </div>
           <div className="w-full h-2 overflow-hidden rounded-full bg-slate-200">
             <div
-              className="h-full transition-all duration-75 bg-gradient-to-r from-green-500 to-blue-500"
+              className="h-full transition-all duration-75 bg-linear-to-r from-green-500 to-blue-500"
               style={{ width: `${audioLevel}%` }}
             />
           </div>

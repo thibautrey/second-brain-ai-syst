@@ -45,6 +45,10 @@ model User {
     // Long Running Tasks
     longRunningTasks LongRunningTask[]
 
+    // User Secrets and Generated Tools
+    secrets        UserSecret[]
+    generatedTools GeneratedTool[]
+
     @@map("users")
 }
 
@@ -951,4 +955,92 @@ enum TaskCompletionBehavior {
     SILENT // Don't notify user on completion
     NOTIFY_USER // Send notification to user
     NOTIFY_AND_SUMMARIZE // Notify + generate detailed summary
+}
+
+// ==================== User Secrets (Encrypted) ====================
+
+// Centralized storage for user secrets (API keys, tokens, etc.)
+// All sensitive values are encrypted with AES-256-GCM
+model UserSecret {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Identification
+    key         String // Unique key: "google_maps_api_key", "openai_api_key", etc.
+    category    String @default("general") // "ai_provider", "mcp", "integration", "generated_tool"
+    displayName String // Human-readable name
+
+    // Encrypted value (AES-256-GCM)
+    encryptedValue String @db.Text
+    iv             String // Initialization vector (hex)
+    authTag        String // GCM authentication tag (hex)
+
+    // Metadata
+    description String?
+    expiresAt   DateTime? // For temporary tokens
+    lastUsedAt  DateTime?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, key])
+    @@index([userId])
+    @@index([category])
+    @@map("user_secrets")
+}
+
+// ==================== Generated Tools ====================
+
+// AI-generated tools that can be reused
+model GeneratedTool {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Identification
+    name        String // Unique identifier: "google_maps_directions", "weather_forecast"
+    displayName String // Human-readable: "Google Maps Directions"
+    description String @db.Text // What the tool does
+
+    // Code
+    language String @default("python") // "python", "javascript"
+    code     String @db.Text // Source code
+
+    // Schema for LLM function calling
+    inputSchema Json // JSON Schema for parameters
+    outputSchema Json? // Optional output schema
+
+    // Required secrets (references to UserSecret.key)
+    requiredSecrets String[] @default([])
+
+    // Categorization
+    category String   @default("custom")
+    tags     String[] @default([])
+
+    // Versioning
+    version       Int     @default(1)
+    previousCode  String? @db.Text // Previous version for rollback
+
+    // Status
+    enabled    Boolean @default(true)
+    isVerified Boolean @default(false) // Has been successfully tested
+
+    // Usage stats
+    usageCount   Int       @default(0)
+    lastUsedAt   DateTime?
+    lastErrorAt  DateTime?
+    lastError    String?
+
+    // Execution config
+    timeout Int @default(30000) // ms
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, name])
+    @@index([userId])
+    @@index([category])
+    @@index([enabled])
+    @@map("generated_tools")
 }

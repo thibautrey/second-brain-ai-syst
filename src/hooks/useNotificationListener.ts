@@ -54,7 +54,7 @@ export function useNotificationListener(
 
       // Subscribe to connection status
       const unsubscribeConnection = notificationClient.onConnectionChange(
-        (connected) => {
+        (connected: boolean) => {
           setIsConnected(connected);
         },
       );

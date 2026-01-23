@@ -23,8 +23,9 @@ backend/dist/
 backend/node_modules/
 
 # Frontend
-frontend/node_modules/
-frontend/dist/
+src/node_modules/
+src/dist/
+src/build/
 
 # Database
 *.db

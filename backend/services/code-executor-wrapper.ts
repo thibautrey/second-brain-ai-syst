@@ -17,6 +17,8 @@ interface CodeExecutorConfig {
 interface ExecuteCodeRequest {
   code: string;
   timeout?: number;
+  network_enabled?: boolean;
+  env_vars?: Record<string, string>;
 }
 
 interface ExecuteCodeResponse {
@@ -28,6 +30,7 @@ interface ExecuteCodeResponse {
   execution_time_ms: number;
   truncated?: boolean;
   note?: string;
+  network_enabled?: boolean;
 }
 
 interface ValidateCodeResponse {
@@ -39,7 +42,16 @@ interface ExecutionLimits {
   max_execution_time_seconds: number;
   max_output_size_bytes: number;
   max_code_size_bytes: number;
-  safe_modules: string[];
+  modes: {
+    sandbox: {
+      description: string;
+      modules: string[];
+    };
+    network: {
+      description: string;
+      modules: string[];
+    };
+  };
   forbidden_operations: string[];
 }
 
@@ -122,19 +134,40 @@ export class CodeExecutorService {
 
   /**
    * Execute Python code in sandbox
+   * @param code - Python code to execute
+   * @param timeout - Optional timeout in seconds
+   * @param options - Additional options: network_enabled, env_vars
    */
   async executeCode(
     code: string,
     timeout?: number,
+    options?: { network_enabled?: boolean; env_vars?: Record<string, string> },
   ): Promise<ExecuteCodeResponse> {
     await this.waitForReady();
 
     const response = await this.client.post<ExecuteCodeResponse>("/execute", {
       code,
       timeout,
+      network_enabled: options?.network_enabled || false,
+      env_vars: options?.env_vars || {},
     });
 
     return response.data;
+  }
+
+  /**
+   * Execute Python code with network access enabled
+   * Useful for API calls, web requests, etc.
+   */
+  async executeWithNetwork(
+    code: string,
+    envVars?: Record<string, string>,
+    timeout?: number,
+  ): Promise<ExecuteCodeResponse> {
+    return this.executeCode(code, timeout, {
+      network_enabled: true,
+      env_vars: envVars,
+    });
   }
 
   /**

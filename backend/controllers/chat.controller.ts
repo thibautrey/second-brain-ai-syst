@@ -309,8 +309,8 @@ export async function chatStream(
         ? `${CHAT_SYSTEM_PROMPT}\n\nContexte des mémoires pertinentes:\n${memoryContext.join("\n")}`
         : CHAT_SYSTEM_PROMPT;
 
-    // 6. Get tool schemas for function calling
-    const toolSchemas = toolExecutorService.getToolSchemas();
+    // 6. Get tool schemas for function calling (including generated tools)
+    const toolSchemas = await toolExecutorService.getToolSchemasWithGenerated(userId);
 
     // 7. HYBRID STREAMING MODE: Initial call to detect tool usage
     const llmStart = Date.now();

@@ -67,6 +67,8 @@ import cors from "cors";
 import prisma from "./prisma.js";
 import multer from "multer";
 import debugController from "../controllers/debug.controller.js";
+import secretsController from "../controllers/secrets.controller.js";
+import generatedToolsController from "../controllers/generated-tools.controller.js";
 
 const app: Express = express();
 
@@ -787,6 +789,16 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use("/api/tools", toolsController);
 console.log("🔧 Built-in tools routes enabled at /api/tools");
+
+// ==================== User Secrets Routes ====================
+
+app.use("/api/secrets", secretsController);
+console.log("🔐 Secrets routes enabled at /api/secrets");
+
+// ==================== Generated Tools Routes ====================
+
+app.use("/api/generated-tools", generatedToolsController);
+console.log("🤖 Generated tools routes enabled at /api/generated-tools");
 
 // ==================== Notification Routes ====================
 

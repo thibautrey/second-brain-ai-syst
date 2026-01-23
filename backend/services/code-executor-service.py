@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Code Executor Service using Pyodide (WebAssembly)
+Code Executor Service
 
-Executes Python code in an isolated WebAssembly sandbox.
-Provides a safe environment for ephemeral code execution.
+Executes Python code with configurable isolation levels.
+Supports both sandboxed execution and network-enabled mode for generated tools.
 
 Features:
-- Complete isolation via WebAssembly
-- No filesystem access
-- No network access
+- Sandboxed mode: Safe execution with restricted modules
+- Network mode: Full network access for API calls (requests, httpx)
+- Environment variable injection for secrets
 - Timeout enforcement
 - Memory limits
 - Stateless execution
@@ -122,15 +122,36 @@ class RestrictedExecutor:
         'IndexError', 'AttributeError', 'RuntimeError', 'StopIteration',
     }
 
-    # Safe modules whitelist
+    # Safe modules whitelist (sandbox mode)
     SAFE_MODULES = {
         'math', 'random', 'datetime', 'json', 're', 'itertools',
         'functools', 'collections', 'string', 'decimal', 'fractions',
         'statistics', 'operator', 'copy', 'textwrap', 'unicodedata',
     }
+    
+    # Extended modules for network mode (generated tools)
+    NETWORK_MODULES = {
+        # All safe modules
+        'math', 'random', 'datetime', 'json', 're', 'itertools',
+        'functools', 'collections', 'string', 'decimal', 'fractions',
+        'statistics', 'operator', 'copy', 'textwrap', 'unicodedata',
+        # Network & HTTP
+        'requests', 'httpx', 'urllib', 'urllib.request', 'urllib.parse', 'urllib.error',
+        'http', 'http.client', 'ssl', 'socket',
+        # Data processing
+        'base64', 'hashlib', 'hmac', 'secrets',
+        # Parsing
+        'xml', 'xml.etree', 'xml.etree.ElementTree', 'html', 'html.parser',
+        'csv', 'io',
+        # Time
+        'time', 'calendar',
+        # OS utilities (limited)
+        'os.path', 'pathlib',
+    }
 
-    def __init__(self, timeout: int = MAX_EXECUTION_TIME):
+    def __init__(self, timeout: int = MAX_EXECUTION_TIME, network_enabled: bool = False):
         self.timeout = timeout
+        self.network_enabled = network_enabled
         self._setup_safe_globals()
 
     def _setup_safe_globals(self):
@@ -143,11 +164,20 @@ class RestrictedExecutor:
             if hasattr(builtins, name):
                 safe_builtins[name] = getattr(builtins, name)
 
-        # Custom safe import
-        def safe_import(name, *args, **kwargs):
-            if name in self.SAFE_MODULES:
-                return __import__(name)
-            raise ImportError(f"Import of '{name}' is not allowed in sandbox")
+        # Choose module set based on network mode
+        allowed_modules = self.NETWORK_MODULES if self.network_enabled else self.SAFE_MODULES
+
+        # Custom safe import that supports submodules
+        def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+            # Check if the base module or full path is allowed
+            base_module = name.split('.')[0]
+            if name in allowed_modules or base_module in allowed_modules:
+                try:
+                    module = __import__(name, globals, locals, fromlist, level)
+                    return module
+                except ImportError as e:
+                    raise ImportError(f"Module '{name}' not available: {e}")
+            raise ImportError(f"Import of '{name}' is not allowed in {'network' if self.network_enabled else 'sandbox'} mode")
 
         safe_builtins['__import__'] = safe_import
 
@@ -158,18 +188,33 @@ class RestrictedExecutor:
         }
 
         # Pre-import safe modules
-        for module_name in self.SAFE_MODULES:
-            try:
-                self.safe_globals[module_name] = __import__(module_name)
-            except ImportError:
-                pass
+        allowed_modules = self.NETWORK_MODULES if self.network_enabled else self.SAFE_MODULES
+        for module_name in allowed_modules:
+            # Only import top-level modules
+            if '.' not in module_name:
+                try:
+                    self.safe_globals[module_name] = __import__(module_name)
+                except ImportError:
+                    pass
 
-    def execute(self, code: str) -> Dict[str, Any]:
-        """Execute code with restrictions and timeout"""
+    def execute(self, code: str, env_vars: Dict[str, str] = None) -> Dict[str, Any]:
+        """Execute code with restrictions and timeout
+        
+        Args:
+            code: Python code to execute
+            env_vars: Environment variables to inject (for secrets)
+        """
         output = OutputCapture()
         start_time = time.time()
         result = None
         error = None
+        
+        # Inject environment variables if provided
+        old_environ = {}
+        if env_vars:
+            for key, value in env_vars.items():
+                old_environ[key] = os.environ.get(key)
+                os.environ[key] = value
 
         # Redirect stdout/stderr
         old_stdout = sys.stdout
@@ -242,6 +287,14 @@ class RestrictedExecutor:
 
             sys.stdout = old_stdout
             sys.stderr = old_stderr
+            
+            # Restore environment variables
+            if env_vars:
+                for key in env_vars:
+                    if old_environ.get(key) is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = old_environ[key]
 
         execution_time = time.time() - start_time
 
@@ -250,6 +303,7 @@ class RestrictedExecutor:
             "result": self._serialize_result(result),
             "error": error,
             "execution_time_ms": round(execution_time * 1000, 2),
+            "network_enabled": self.network_enabled,
             **output.get_output()
         }
 
@@ -299,7 +353,9 @@ def execute_code():
     Request body:
     {
         "code": "print('Hello, World!')",
-        "timeout": 30  // optional, default 30 seconds
+        "timeout": 30,  // optional, default 30 seconds
+        "network_enabled": false,  // optional, enable network access
+        "env_vars": {"API_KEY": "xxx"}  // optional, environment variables
     }
 
     Response:
@@ -309,7 +365,8 @@ def execute_code():
         "stdout": "Hello, World!\n",
         "stderr": "",
         "execution_time_ms": 5.2,
-        "error": null
+        "error": null,
+        "network_enabled": false
     }
     """
     try:
@@ -323,6 +380,8 @@ def execute_code():
 
         code = data["code"]
         timeout = min(data.get("timeout", MAX_EXECUTION_TIME), MAX_EXECUTION_TIME)
+        network_enabled = data.get("network_enabled", False)
+        env_vars = data.get("env_vars", {})
 
         # Validate code size
         if len(code) > MAX_CODE_SIZE:
@@ -337,21 +396,26 @@ def execute_code():
                 "success": False,
                 "error": "Code cannot be empty"
             }), 400
+        
+        # Validate env_vars is a dict
+        if not isinstance(env_vars, dict):
+            return jsonify({
+                "success": False,
+                "error": "env_vars must be an object"
+            }), 400
 
-        logger.info(f"Executing code ({len(code)} bytes, timeout={timeout}s)")
+        mode = "network" if network_enabled else "sandbox"
+        logger.info(f"Executing code ({len(code)} bytes, timeout={timeout}s, mode={mode})")
 
-        # Execute with custom timeout if specified
-        if timeout != MAX_EXECUTION_TIME:
-            local_executor = RestrictedExecutor(timeout=timeout)
-            result = local_executor.execute(code)
-        else:
-            result = executor.execute(code)
+        # Create executor with appropriate settings
+        local_executor = RestrictedExecutor(timeout=timeout, network_enabled=network_enabled)
+        result = local_executor.execute(code, env_vars if env_vars else None)
 
         # Log execution result with error details if failed
         if result['success']:
-            logger.info(f"Execution completed: success=True, time={result['execution_time_ms']}ms")
+            logger.info(f"Execution completed: success=True, time={result['execution_time_ms']}ms, mode={mode}")
         else:
-            logger.error(f"Execution completed: success=False, time={result['execution_time_ms']}ms, error={result.get('error', 'Unknown error')}")
+            logger.error(f"Execution completed: success=False, time={result['execution_time_ms']}ms, mode={mode}, error={result.get('error', 'Unknown error')}")
             if result.get('stderr'):
                 logger.error(f"Stderr output:\n{result['stderr']}")
 
@@ -372,14 +436,21 @@ def get_limits():
         "max_execution_time_seconds": MAX_EXECUTION_TIME,
         "max_output_size_bytes": MAX_OUTPUT_SIZE,
         "max_code_size_bytes": MAX_CODE_SIZE,
-        "safe_modules": sorted(RestrictedExecutor.SAFE_MODULES),
+        "modes": {
+            "sandbox": {
+                "description": "Safe execution with restricted modules, no network access",
+                "modules": sorted(RestrictedExecutor.SAFE_MODULES),
+            },
+            "network": {
+                "description": "Extended execution with network access for API calls",
+                "modules": sorted(RestrictedExecutor.NETWORK_MODULES),
+            }
+        },
         "forbidden_operations": [
-            "file_operations",
-            "network_access",
+            "file_write_operations",
             "system_calls",
             "subprocess",
-            "eval/exec",
-            "import_arbitrary_modules"
+            "arbitrary_code_eval"
         ]
     })
 

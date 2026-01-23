@@ -11,6 +11,9 @@ import {
 import { memorySearchService } from "./memory-search.js";
 import { userProfileService, UserProfile } from "./user-profile.js";
 import { codeExecutorService } from "./code-executor-wrapper.js";
+import { dynamicToolRegistry } from "./dynamic-tool-registry.js";
+import { dynamicToolGeneratorService } from "./dynamic-tool-generator.js";
+import { secretsService } from "./secrets.js";
 import {
   TodoStatus,
   TodoPriority,
@@ -186,6 +189,32 @@ const BUILTIN_TOOLS: ToolConfig[] = [
       actions: ["execute", "validate", "get_limits", "get_examples"],
     },
   },
+  {
+    id: "generate_tool",
+    name: "Dynamic Tool Generator",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 5,
+    timeout: 120000,
+    config: {
+      description:
+        "Generate a new custom tool with Python code to accomplish a specific task. Use this when you need to create reusable functionality like API integrations, data processing pipelines, or custom calculations. The generated tool will be saved and available for future use. You can specify which API keys/secrets are needed.",
+      actions: ["generate", "list", "get", "execute", "delete", "search"],
+    },
+  },
+  {
+    id: "secrets",
+    name: "User Secrets Manager",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 20,
+    timeout: 5000,
+    config: {
+      description:
+        "Manage user secrets like API keys for generated tools. List available secrets, check if required secrets exist. Never expose secret values - only check existence.",
+      actions: ["list", "check", "has"],
+    },
+  },
 ];
 
 export class ToolExecutorService {
@@ -349,8 +378,274 @@ export class ToolExecutorService {
         return this.executeLongRunningTaskAction(userId, action, params);
       case "code_executor":
         return this.executeCodeExecutorAction(action, params);
+      case "generate_tool":
+        return this.executeGenerateToolAction(userId, action, params);
+      case "secrets":
+        return this.executeSecretsAction(userId, action, params);
       default:
+        // Check if it's a generated tool
+        if (dynamicToolRegistry.isGeneratedToolCall(toolId)) {
+          const toolName = dynamicToolRegistry.extractToolName(toolId);
+          return this.executeGeneratedTool(userId, toolName, params);
+        }
         throw new Error(`Unknown builtin tool: ${toolId}`);
+    }
+  }
+
+  /**
+   * Execute a dynamically generated tool
+   */
+  private async executeGeneratedTool(
+    userId: string,
+    toolName: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    const result = await dynamicToolRegistry.executeTool(userId, toolName, params);
+    
+    if (result.success) {
+      return {
+        action: "execute",
+        tool: toolName,
+        success: true,
+        result: result.data,
+        executionTime: result.executionTime,
+      };
+    }
+    
+    throw new Error(result.error || "Tool execution failed");
+  }
+
+  /**
+   * Execute generate_tool actions
+   */
+  private async executeGenerateToolAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "generate": {
+        if (!params.objective) {
+          throw new Error("Missing 'objective' parameter - describe what the tool should do");
+        }
+        
+        const result = await dynamicToolGeneratorService.generateTool(userId, {
+          objective: params.objective,
+          context: params.context,
+          suggestedSecrets: params.suggestedSecrets || params.required_secrets,
+        });
+        
+        if (result.success && result.tool) {
+          // Add to registry cache
+          await dynamicToolRegistry.addToCache(result.tool);
+          
+          return {
+            action: "generate",
+            success: true,
+            tool: {
+              id: result.tool.id,
+              name: result.tool.name,
+              displayName: result.tool.displayName,
+              description: result.tool.description,
+              category: result.tool.category,
+              requiredSecrets: result.tool.requiredSecrets,
+            },
+            executionResult: result.executionResult,
+            iterations: result.iterations,
+            message: `Successfully created tool '${result.tool.displayName}'. It's now available for use.`,
+          };
+        }
+        
+        return {
+          action: "generate",
+          success: false,
+          error: result.error,
+          logs: result.logs,
+          iterations: result.iterations,
+        };
+      }
+
+      case "list": {
+        const tools = await dynamicToolGeneratorService.listTools(
+          userId,
+          params.category,
+          params.enabled_only !== false,
+        );
+        
+        return {
+          action: "list",
+          tools: tools.map((t) => ({
+            id: t.id,
+            name: t.name,
+            displayName: t.displayName,
+            description: t.description,
+            category: t.category,
+            usageCount: t.usageCount,
+            lastUsedAt: t.lastUsedAt,
+            enabled: t.enabled,
+            isVerified: t.isVerified,
+          })),
+          count: tools.length,
+        };
+      }
+
+      case "get": {
+        if (!params.tool_id && !params.name) {
+          throw new Error("Missing 'tool_id' or 'name' parameter");
+        }
+        
+        const tool = await dynamicToolGeneratorService.getTool(
+          userId,
+          params.tool_id || params.name,
+        );
+        
+        if (!tool) {
+          return { action: "get", found: false, error: "Tool not found" };
+        }
+        
+        return {
+          action: "get",
+          found: true,
+          tool: {
+            id: tool.id,
+            name: tool.name,
+            displayName: tool.displayName,
+            description: tool.description,
+            category: tool.category,
+            tags: tool.tags,
+            requiredSecrets: tool.requiredSecrets,
+            inputSchema: tool.inputSchema,
+            usageCount: tool.usageCount,
+            lastUsedAt: tool.lastUsedAt,
+            enabled: tool.enabled,
+            isVerified: tool.isVerified,
+            version: tool.version,
+            code: tool.code, // Include code for debugging/review
+          },
+        };
+      }
+
+      case "execute": {
+        if (!params.tool_id && !params.name) {
+          throw new Error("Missing 'tool_id' or 'name' parameter");
+        }
+        
+        const toolParams = params.params || params.tool_params || {};
+        const result = await dynamicToolGeneratorService.executeTool(
+          userId,
+          params.tool_id || params.name,
+          toolParams,
+        );
+        
+        return {
+          action: "execute",
+          success: result.success,
+          result: result.result,
+          error: result.error,
+        };
+      }
+
+      case "delete": {
+        if (!params.tool_id) {
+          throw new Error("Missing 'tool_id' parameter");
+        }
+        
+        const deleted = await dynamicToolGeneratorService.deleteTool(userId, params.tool_id);
+        
+        if (deleted) {
+          dynamicToolRegistry.removeFromCache(userId, params.tool_id);
+        }
+        
+        return {
+          action: "delete",
+          success: deleted,
+          message: deleted ? "Tool deleted successfully" : "Tool not found",
+        };
+      }
+
+      case "search": {
+        if (!params.query) {
+          throw new Error("Missing 'query' parameter");
+        }
+        
+        const tools = await dynamicToolRegistry.searchTools(userId, params.query);
+        
+        return {
+          action: "search",
+          query: params.query,
+          tools: tools.map((t) => ({
+            id: t.id,
+            name: t.name,
+            displayName: t.displayName,
+            description: t.description,
+            category: t.category,
+          })),
+          count: tools.length,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown generate_tool action: ${action}`);
+    }
+  }
+
+  /**
+   * Execute secrets management actions
+   */
+  private async executeSecretsAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "list": {
+        const secrets = await secretsService.listSecrets(userId, params.category);
+        
+        return {
+          action: "list",
+          secrets: secrets.map((s) => ({
+            key: s.key,
+            displayName: s.displayName,
+            category: s.category,
+            description: s.description,
+            lastUsedAt: s.lastUsedAt,
+            // Never include the actual value!
+          })),
+          count: secrets.length,
+        };
+      }
+
+      case "check": {
+        if (!params.keys || !Array.isArray(params.keys)) {
+          throw new Error("Missing 'keys' array parameter");
+        }
+        
+        const result = await secretsService.checkSecretsExist(userId, params.keys);
+        
+        return {
+          action: "check",
+          exists: result.exists,
+          missing: result.missing,
+          allPresent: result.missing.length === 0,
+        };
+      }
+
+      case "has": {
+        if (!params.key) {
+          throw new Error("Missing 'key' parameter");
+        }
+        
+        const exists = await secretsService.hasSecret(userId, params.key);
+        
+        return {
+          action: "has",
+          key: params.key,
+          exists,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown secrets action: ${action}`);
     }
   }
 
@@ -1731,7 +2026,108 @@ export class ToolExecutorService {
           required: ["action"],
         },
       },
+      {
+        name: "generate_tool",
+        description:
+          "Generate, manage, and execute custom AI-created tools. Use 'generate' to create a new tool from an objective (e.g., 'get directions from Google Maps API', 'fetch weather data'). The AI will write Python code, test it, and save it for future use. Generated tools can make HTTP requests and use API keys stored in user secrets.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["generate", "list", "get", "execute", "delete", "search"],
+              description:
+                "generate: create new tool from objective, list: show all generated tools, get: get tool details and code, execute: run a generated tool, delete: remove a tool, search: find tools by keyword",
+            },
+            objective: {
+              type: "string",
+              description:
+                "For 'generate': describe what the tool should do (e.g., 'get driving directions between two cities using Google Maps')",
+            },
+            context: {
+              type: "string",
+              description:
+                "For 'generate': additional context from the conversation",
+            },
+            suggestedSecrets: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "For 'generate': API key names that might be needed (e.g., ['google_maps_api_key'])",
+            },
+            tool_id: {
+              type: "string",
+              description:
+                "For 'get', 'execute', 'delete': the tool ID",
+            },
+            name: {
+              type: "string",
+              description:
+                "For 'get', 'execute': the tool name (alternative to tool_id)",
+            },
+            params: {
+              type: "object",
+              description:
+                "For 'execute': parameters to pass to the tool",
+            },
+            query: {
+              type: "string",
+              description:
+                "For 'search': keyword to search for in tool names/descriptions",
+            },
+            category: {
+              type: "string",
+              description:
+                "For 'list': filter by category",
+            },
+          },
+          required: ["action"],
+        },
+      },
+      {
+        name: "secrets",
+        description:
+          "Check which API keys and secrets are configured by the user. Use this before generating tools to verify required API keys are available. Never exposes actual secret values - only lists names and checks existence.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["list", "check", "has"],
+              description:
+                "list: show all configured secrets (names only), check: verify if specific keys exist, has: check single key",
+            },
+            keys: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "For 'check': array of secret keys to verify existence",
+            },
+            key: {
+              type: "string",
+              description:
+                "For 'has': single key to check",
+            },
+            category: {
+              type: "string",
+              description:
+                "For 'list': filter by category",
+            },
+          },
+          required: ["action"],
+        },
+      },
     ];
+  }
+
+  /**
+   * Get tool schemas including dynamically generated tools
+   */
+  async getToolSchemasWithGenerated(userId: string): Promise<any[]> {
+    const builtinSchemas = this.getToolSchemas();
+    const generatedSchemas = await dynamicToolRegistry.getToolSchemas(userId);
+    
+    return [...builtinSchemas, ...generatedSchemas];
   }
 }
 
