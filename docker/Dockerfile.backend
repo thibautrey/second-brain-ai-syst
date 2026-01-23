@@ -13,7 +13,6 @@ RUN npm install
 # Copy build config and source files
 COPY index.html vite.config.ts tsconfig.json tailwind.config.js components.json ./
 COPY src/ ./src/
-COPY frontend/ ./frontend/
 COPY config/ ./config/
 
 # Build the frontend
