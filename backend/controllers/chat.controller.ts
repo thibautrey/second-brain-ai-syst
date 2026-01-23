@@ -310,7 +310,8 @@ export async function chatStream(
         : CHAT_SYSTEM_PROMPT;
 
     // 6. Get tool schemas for function calling (including generated tools)
-    const toolSchemas = await toolExecutorService.getToolSchemasWithGenerated(userId);
+    const toolSchemas =
+      await toolExecutorService.getToolSchemasWithGenerated(userId);
 
     // 7. HYBRID STREAMING MODE: Initial call to detect tool usage
     const llmStart = Date.now();

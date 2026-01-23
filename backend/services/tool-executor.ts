@@ -400,8 +400,12 @@ export class ToolExecutorService {
     toolName: string,
     params: Record<string, any>,
   ): Promise<any> {
-    const result = await dynamicToolRegistry.executeTool(userId, toolName, params);
-    
+    const result = await dynamicToolRegistry.executeTool(
+      userId,
+      toolName,
+      params,
+    );
+
     if (result.success) {
       return {
         action: "execute",
@@ -411,7 +415,7 @@ export class ToolExecutorService {
         executionTime: result.executionTime,
       };
     }
-    
+
     throw new Error(result.error || "Tool execution failed");
   }
 
@@ -426,19 +430,21 @@ export class ToolExecutorService {
     switch (action) {
       case "generate": {
         if (!params.objective) {
-          throw new Error("Missing 'objective' parameter - describe what the tool should do");
+          throw new Error(
+            "Missing 'objective' parameter - describe what the tool should do",
+          );
         }
-        
+
         const result = await dynamicToolGeneratorService.generateTool(userId, {
           objective: params.objective,
           context: params.context,
           suggestedSecrets: params.suggestedSecrets || params.required_secrets,
         });
-        
+
         if (result.success && result.tool) {
           // Add to registry cache
           await dynamicToolRegistry.addToCache(result.tool);
-          
+
           return {
             action: "generate",
             success: true,
@@ -455,7 +461,7 @@ export class ToolExecutorService {
             message: `Successfully created tool '${result.tool.displayName}'. It's now available for use.`,
           };
         }
-        
+
         return {
           action: "generate",
           success: false,
@@ -471,7 +477,7 @@ export class ToolExecutorService {
           params.category,
           params.enabled_only !== false,
         );
-        
+
         return {
           action: "list",
           tools: tools.map((t) => ({
@@ -493,16 +499,16 @@ export class ToolExecutorService {
         if (!params.tool_id && !params.name) {
           throw new Error("Missing 'tool_id' or 'name' parameter");
         }
-        
+
         const tool = await dynamicToolGeneratorService.getTool(
           userId,
           params.tool_id || params.name,
         );
-        
+
         if (!tool) {
           return { action: "get", found: false, error: "Tool not found" };
         }
-        
+
         return {
           action: "get",
           found: true,
@@ -529,14 +535,14 @@ export class ToolExecutorService {
         if (!params.tool_id && !params.name) {
           throw new Error("Missing 'tool_id' or 'name' parameter");
         }
-        
+
         const toolParams = params.params || params.tool_params || {};
         const result = await dynamicToolGeneratorService.executeTool(
           userId,
           params.tool_id || params.name,
           toolParams,
         );
-        
+
         return {
           action: "execute",
           success: result.success,
@@ -549,13 +555,16 @@ export class ToolExecutorService {
         if (!params.tool_id) {
           throw new Error("Missing 'tool_id' parameter");
         }
-        
-        const deleted = await dynamicToolGeneratorService.deleteTool(userId, params.tool_id);
-        
+
+        const deleted = await dynamicToolGeneratorService.deleteTool(
+          userId,
+          params.tool_id,
+        );
+
         if (deleted) {
           dynamicToolRegistry.removeFromCache(userId, params.tool_id);
         }
-        
+
         return {
           action: "delete",
           success: deleted,
@@ -567,9 +576,12 @@ export class ToolExecutorService {
         if (!params.query) {
           throw new Error("Missing 'query' parameter");
         }
-        
-        const tools = await dynamicToolRegistry.searchTools(userId, params.query);
-        
+
+        const tools = await dynamicToolRegistry.searchTools(
+          userId,
+          params.query,
+        );
+
         return {
           action: "search",
           query: params.query,
@@ -599,8 +611,11 @@ export class ToolExecutorService {
   ): Promise<any> {
     switch (action) {
       case "list": {
-        const secrets = await secretsService.listSecrets(userId, params.category);
-        
+        const secrets = await secretsService.listSecrets(
+          userId,
+          params.category,
+        );
+
         return {
           action: "list",
           secrets: secrets.map((s) => ({
@@ -619,9 +634,12 @@ export class ToolExecutorService {
         if (!params.keys || !Array.isArray(params.keys)) {
           throw new Error("Missing 'keys' array parameter");
         }
-        
-        const result = await secretsService.checkSecretsExist(userId, params.keys);
-        
+
+        const result = await secretsService.checkSecretsExist(
+          userId,
+          params.keys,
+        );
+
         return {
           action: "check",
           exists: result.exists,
@@ -634,9 +652,9 @@ export class ToolExecutorService {
         if (!params.key) {
           throw new Error("Missing 'key' parameter");
         }
-        
+
         const exists = await secretsService.hasSecret(userId, params.key);
-        
+
         return {
           action: "has",
           key: params.key,
@@ -2057,8 +2075,7 @@ export class ToolExecutorService {
             },
             tool_id: {
               type: "string",
-              description:
-                "For 'get', 'execute', 'delete': the tool ID",
+              description: "For 'get', 'execute', 'delete': the tool ID",
             },
             name: {
               type: "string",
@@ -2067,8 +2084,7 @@ export class ToolExecutorService {
             },
             params: {
               type: "object",
-              description:
-                "For 'execute': parameters to pass to the tool",
+              description: "For 'execute': parameters to pass to the tool",
             },
             query: {
               type: "string",
@@ -2077,8 +2093,7 @@ export class ToolExecutorService {
             },
             category: {
               type: "string",
-              description:
-                "For 'list': filter by category",
+              description: "For 'list': filter by category",
             },
           },
           required: ["action"],
@@ -2105,13 +2120,11 @@ export class ToolExecutorService {
             },
             key: {
               type: "string",
-              description:
-                "For 'has': single key to check",
+              description: "For 'has': single key to check",
             },
             category: {
               type: "string",
-              description:
-                "For 'list': filter by category",
+              description: "For 'list': filter by category",
             },
           },
           required: ["action"],
@@ -2126,7 +2139,7 @@ export class ToolExecutorService {
   async getToolSchemasWithGenerated(userId: string): Promise<any[]> {
     const builtinSchemas = this.getToolSchemas();
     const generatedSchemas = await dynamicToolRegistry.getToolSchemas(userId);
-    
+
     return [...builtinSchemas, ...generatedSchemas];
   }
 }

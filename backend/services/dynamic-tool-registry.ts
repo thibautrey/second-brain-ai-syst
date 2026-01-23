@@ -51,7 +51,10 @@ class DynamicToolRegistry {
   /**
    * Load all enabled tools for a user
    */
-  async loadTools(userId: string, forceRefresh = false): Promise<GeneratedTool[]> {
+  async loadTools(
+    userId: string,
+    forceRefresh = false,
+  ): Promise<GeneratedTool[]> {
     const cached = this.cache.get(userId);
     const now = Date.now();
 
@@ -85,7 +88,10 @@ class DynamicToolRegistry {
   /**
    * Get a specific tool by ID or name
    */
-  async getTool(userId: string, toolIdOrName: string): Promise<GeneratedTool | null> {
+  async getTool(
+    userId: string,
+    toolIdOrName: string,
+  ): Promise<GeneratedTool | null> {
     await this.loadTools(userId);
     const cached = this.cache.get(userId);
     return cached?.tools.get(toolIdOrName) || null;
@@ -300,10 +306,7 @@ ${tool.code}
   /**
    * Get most used tools
    */
-  async getMostUsedTools(
-    userId: string,
-    limit = 5,
-  ): Promise<GeneratedTool[]> {
+  async getMostUsedTools(userId: string, limit = 5): Promise<GeneratedTool[]> {
     return prisma.generatedTool.findMany({
       where: { userId, enabled: true },
       orderBy: { usageCount: "desc" },
@@ -314,10 +317,7 @@ ${tool.code}
   /**
    * Search tools by keyword
    */
-  async searchTools(
-    userId: string,
-    query: string,
-  ): Promise<GeneratedTool[]> {
+  async searchTools(userId: string, query: string): Promise<GeneratedTool[]> {
     return prisma.generatedTool.findMany({
       where: {
         userId,

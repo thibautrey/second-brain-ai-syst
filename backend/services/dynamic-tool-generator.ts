@@ -240,13 +240,13 @@ Generate Python code that accomplishes this objective.`;
     const response = await llmRouterService.executeTask(
       userId,
       "chat",
-      TOOL_GENERATION_SYSTEM_PROMPT,
       userPrompt,
+      TOOL_GENERATION_SYSTEM_PROMPT,
       { temperature: 0.3 },
     );
 
     // Clean up code (remove markdown if present)
-    let code = response.content;
+    let code = response;
     if (code.startsWith("```python")) {
       code = code.slice(9);
     }
@@ -278,12 +278,12 @@ Generate Python code that accomplishes this objective.`;
     const response = await llmRouterService.executeTask(
       userId,
       "chat",
-      `You are fixing Python code that failed to execute. Here is the original code:\n\n${originalCode}`,
       prompt,
+      `You are fixing Python code that failed to execute. Here is the original code:\n\n${originalCode}`,
       { temperature: 0.2 },
     );
 
-    let code = response.content;
+    let code = response;
     if (code.startsWith("```python")) {
       code = code.slice(9);
     }
@@ -309,13 +309,13 @@ Generate Python code that accomplishes this objective.`;
     const response = await llmRouterService.executeTask(
       userId,
       "chat",
-      TOOL_SCHEMA_PROMPT,
       `Objective: ${objective}\n\nCode:\n${code}`,
+      TOOL_SCHEMA_PROMPT,
       { temperature: 0.1, responseFormat: "json" },
     );
 
     try {
-      let jsonStr = response.content;
+      let jsonStr = response;
       // Extract JSON if wrapped in markdown
       const jsonMatch = jsonStr.match(/```json\s*([\s\S]*?)\s*```/);
       if (jsonMatch) {

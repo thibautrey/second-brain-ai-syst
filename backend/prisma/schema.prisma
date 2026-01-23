@@ -1008,7 +1008,7 @@ model GeneratedTool {
     code     String @db.Text // Source code
 
     // Schema for LLM function calling
-    inputSchema Json // JSON Schema for parameters
+    inputSchema  Json // JSON Schema for parameters
     outputSchema Json? // Optional output schema
 
     // Required secrets (references to UserSecret.key)
@@ -1019,18 +1019,18 @@ model GeneratedTool {
     tags     String[] @default([])
 
     // Versioning
-    version       Int     @default(1)
-    previousCode  String? @db.Text // Previous version for rollback
+    version      Int     @default(1)
+    previousCode String? @db.Text // Previous version for rollback
 
     // Status
     enabled    Boolean @default(true)
     isVerified Boolean @default(false) // Has been successfully tested
 
     // Usage stats
-    usageCount   Int       @default(0)
-    lastUsedAt   DateTime?
-    lastErrorAt  DateTime?
-    lastError    String?
+    usageCount  Int       @default(0)
+    lastUsedAt  DateTime?
+    lastErrorAt DateTime?
+    lastError   String?
 
     // Execution config
     timeout Int @default(30000) // ms

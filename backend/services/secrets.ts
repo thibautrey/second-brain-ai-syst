@@ -57,11 +57,7 @@ function encrypt(plaintext: string): {
   };
 }
 
-function decrypt(
-  encryptedValue: string,
-  iv: string,
-  authTag: string,
-): string {
+function decrypt(encryptedValue: string, iv: string, authTag: string): string {
   const key = getEncryptionKey();
 
   const decipher = crypto.createDecipheriv(
@@ -110,7 +106,10 @@ class SecretsService {
   /**
    * Store a new secret (encrypted)
    */
-  async createSecret(userId: string, input: SecretInput): Promise<SecretOutput> {
+  async createSecret(
+    userId: string,
+    input: SecretInput,
+  ): Promise<SecretOutput> {
     const { encryptedValue, iv, authTag } = encrypt(input.value);
 
     const secret = await prisma.userSecret.create({
