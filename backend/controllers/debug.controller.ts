@@ -5,6 +5,7 @@
 
 import { Router, Request, Response } from "express";
 import { flowTracker } from "../services/flow-tracker.js";
+import { embeddingSchedulerService } from "../services/embedding-scheduler.js";
 
 const router = Router();
 
@@ -499,6 +500,80 @@ router.get("/flow/:flowId", (req: Request, res: Response) => {
     return res.status(404).json({ error: "Flow not found" });
   }
   res.json(flow);
+});
+
+// ==================== Embedding Stats & Management ====================
+
+/**
+ * GET /debug/embedding-stats
+ * Returns embedding coverage statistics
+ */
+router.get("/embedding-stats", async (req: Request, res: Response) => {
+  try {
+    const stats = await embeddingSchedulerService.getEmbeddingStats();
+    res.json(stats);
+  } catch (error) {
+    console.error("Error getting embedding stats:", error);
+    res.status(500).json({ error: "Failed to get embedding stats" });
+  }
+});
+
+/**
+ * GET /debug/embedding-stats/by-user
+ * Returns embedding coverage statistics per user
+ */
+router.get("/embedding-stats/by-user", async (req: Request, res: Response) => {
+  try {
+    const stats = await embeddingSchedulerService.getEmbeddingStatsByUser();
+    res.json(stats);
+  } catch (error) {
+    console.error("Error getting embedding stats by user:", error);
+    res.status(500).json({ error: "Failed to get embedding stats by user" });
+  }
+});
+
+/**
+ * POST /debug/process-missing-embeddings
+ * Manually trigger embedding processing for all users
+ */
+router.post(
+  "/process-missing-embeddings",
+  async (req: Request, res: Response) => {
+    try {
+      console.log("Manual embedding processing triggered via API");
+      const result =
+        await embeddingSchedulerService.processAllMissingEmbeddings();
+      res.json({
+        success: true,
+        message: `Processed ${result.successful}/${result.totalProcessed} memories`,
+        result,
+      });
+    } catch (error) {
+      console.error("Error processing missing embeddings:", error);
+      res.status(500).json({ error: "Failed to process missing embeddings" });
+    }
+  },
+);
+
+/**
+ * POST /debug/reindex-user/:userId
+ * Reindex all memories for a specific user
+ */
+router.post("/reindex-user/:userId", async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    console.log(`Manual reindex triggered for user ${userId}`);
+    const result =
+      await embeddingSchedulerService.reindexAllUserMemories(userId);
+    res.json({
+      success: !result.error,
+      message: result.error || `Reindexed ${result.indexed} memories`,
+      result,
+    });
+  } catch (error) {
+    console.error("Error reindexing user memories:", error);
+    res.status(500).json({ error: "Failed to reindex user memories" });
+  }
 });
 
 export default router;

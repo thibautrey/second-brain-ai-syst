@@ -1,9 +1,8 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { TrainingProgressWidget } from "../components/ui/training-progress-widget";
 import { ContinuousListeningCompact } from "../components/ContinuousListeningCompact";
-import { ChatPanel } from "../components/ChatPanel";
 import {
   Menu,
   LogOut,
@@ -13,9 +12,8 @@ import {
   FileText,
   BarChart3,
   Mic,
-  MessageSquare,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TrainingPage } from "./TrainingPage";
 import { SettingsPage } from "./SettingsPage";
 import { MemoryBrowser } from "../components/memory";
@@ -23,9 +21,10 @@ import { useDashboardStats } from "../hooks/useDashboardStats";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { tab } = useParams();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const activeTab = tab || "dashboard";
   const { totalMemories, totalInteractions, dailySummaries, isLoading, error } =
     useDashboardStats();
 
@@ -53,43 +52,37 @@ export function DashboardPage() {
           <NavItem
             icon={<Home className="w-5 h-5" />}
             label="Dashboard"
-            onClick={() => setActiveTab("dashboard")}
+            onClick={() => navigate("/dashboard/dashboard")}
             isActive={activeTab === "dashboard"}
           />
           <NavItem
             icon={<Brain className="w-5 h-5" />}
             label="Memories"
-            onClick={() => setActiveTab("memories")}
+            onClick={() => navigate("/dashboard/memories")}
             isActive={activeTab === "memories"}
           />
           <NavItem
             icon={<FileText className="w-5 h-5" />}
             label="Interactions"
-            onClick={() => setActiveTab("interactions")}
+            onClick={() => navigate("/dashboard/interactions")}
             isActive={activeTab === "interactions"}
           />
           <NavItem
             icon={<BarChart3 className="w-5 h-5" />}
             label="Analytics"
-            onClick={() => setActiveTab("analytics")}
+            onClick={() => navigate("/dashboard/analytics")}
             isActive={activeTab === "analytics"}
           />
           <NavItem
             icon={<Mic className="w-5 h-5" />}
             label="Voice Training"
-            onClick={() => setActiveTab("training")}
+            onClick={() => navigate("/dashboard/training")}
             isActive={activeTab === "training"}
-          />
-          <NavItem
-            icon={<MessageSquare className="w-5 h-5" />}
-            label="Chat"
-            onClick={() => setActiveTab("chat")}
-            isActive={activeTab === "chat"}
           />
           <NavItem
             icon={<Settings className="w-5 h-5" />}
             label="Settings"
-            onClick={() => setActiveTab("settings")}
+            onClick={() => navigate("/dashboard/settings")}
             isActive={activeTab === "settings"}
           />
         </nav>
@@ -157,7 +150,7 @@ export function DashboardPage() {
 
                 {/* Error Display */}
                 {error && (
-                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                  <div className="p-4 mb-6 text-red-700 border border-red-200 rounded-lg bg-red-50">
                     <p className="font-medium">
                       Error loading dashboard stats:
                     </p>
@@ -200,21 +193,25 @@ export function DashboardPage() {
                         title="Record Thought"
                         description="Capture your current thoughts"
                         icon="🎤"
+                        onClick={() => {}}
                       />
                       <QuickStartButton
                         title="View Memories"
                         description="Browse your knowledge base"
                         icon="🧠"
+                        onClick={() => navigate("/dashboard/memories")}
                       />
                       <QuickStartButton
                         title="Today's Summary"
                         description="See today's highlights"
                         icon="📊"
+                        onClick={() => navigate("/dashboard/analytics")}
                       />
                       <QuickStartButton
                         title="Settings"
                         description="Customize your system"
                         icon="⚙️"
+                        onClick={() => navigate("/dashboard/settings")}
                       />
                     </div>
                   </div>
@@ -271,15 +268,6 @@ export function DashboardPage() {
             )}
 
             {activeTab === "training" && <TrainingPage />}
-
-            {activeTab === "chat" && (
-              <div className="max-w-4xl mx-auto">
-                <h2 className="mb-6 text-2xl font-bold text-slate-900">
-                  Chat avec Second Brain
-                </h2>
-                <ChatPanel />
-              </div>
-            )}
 
             {activeTab === "settings" && <SettingsPage />}
           </div>
@@ -350,13 +338,18 @@ function QuickStartButton({
   title,
   description,
   icon,
+  onClick,
 }: {
   title: string;
   description: string;
   icon: string;
+  onClick?: () => void;
 }) {
   return (
-    <button className="p-4 text-left transition-all border rounded-lg border-slate-200 hover:border-blue-300 hover:bg-blue-50">
+    <button
+      onClick={onClick}
+      className="p-4 text-left transition-all border rounded-lg border-slate-200 hover:border-blue-300 hover:bg-blue-50"
+    >
       <div className="mb-2 text-2xl">{icon}</div>
       <p className="text-sm font-medium text-slate-900">{title}</p>
       <p className="mt-1 text-xs text-slate-500">{description}</p>

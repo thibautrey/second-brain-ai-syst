@@ -5,11 +5,13 @@
  * - Automated summarization at various time scales
  * - Memory pruning and archival
  * - Background agent execution
+ * - Embedding processing for memories without vectors
  */
 
 import prisma from "./prisma.js";
 import { summarizationService } from "./summarization.js";
 import { memoryManagerService } from "./memory-manager.js";
+import { embeddingSchedulerService } from "./embedding-scheduler.js";
 import { TimeScale } from "@prisma/client";
 import { CronJob } from "cron";
 
@@ -129,6 +131,19 @@ export class SchedulerService {
       isEnabled: true,
       handler: async () => {
         await this.runWeeklyInsights();
+      },
+    });
+
+    // Embedding processing - runs every hour
+    this.registerTask({
+      id: "embedding-processing",
+      name: "Process Missing Embeddings",
+      cronExpression: "0 * * * *", // Every hour at minute 0
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runEmbeddingProcessing();
       },
     });
   }
@@ -436,6 +451,21 @@ export class SchedulerService {
           error,
         );
       }
+    }
+  }
+
+  /**
+   * Process missing embeddings for all memories
+   */
+  private async runEmbeddingProcessing(): Promise<void> {
+    try {
+      const result =
+        await embeddingSchedulerService.processAllMissingEmbeddings();
+      console.log(
+        `  ✓ Embedding processing: ${result.successful}/${result.totalProcessed} indexed`,
+      );
+    } catch (error) {
+      console.warn(`  ⚠ Embedding processing failed:`, error);
     }
   }
 

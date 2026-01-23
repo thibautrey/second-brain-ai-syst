@@ -51,6 +51,7 @@ import { TrainingProcessorService } from "./training-processor.js";
 import { memorySearchService } from "./memory-search.js";
 import { continuousListeningManager } from "./continuous-listening.js";
 import { schedulerService } from "./scheduler.js";
+import { embeddingSchedulerService } from "./embedding-scheduler.js";
 import { backgroundAgentService } from "./background-agents.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer, Server as HttpServer, IncomingMessage } from "http";
@@ -1789,6 +1790,20 @@ export async function startServer(port: number = 3000) {
     // Start the scheduler for background tasks
     schedulerService.start();
     console.log("✓ Scheduler service started");
+
+    // Process any missing embeddings on startup (runs in background)
+    embeddingSchedulerService
+      .processAllMissingEmbeddings()
+      .then((result) => {
+        if (result.totalProcessed > 0) {
+          console.log(
+            `✓ Startup embedding processing: ${result.successful}/${result.totalProcessed} memories indexed`,
+          );
+        }
+      })
+      .catch((error) => {
+        console.warn("⚠ Startup embedding processing failed:", error);
+      });
 
     // Create HTTP server
     const httpServer: HttpServer = createServer(app);
