@@ -113,7 +113,7 @@ interface UserToolConfig {
 
 // ==================== API Helpers ====================
 
-const API_BASE = "/api";
+const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = localStorage.getItem("authToken");
@@ -395,15 +395,15 @@ export function ToolsConfigPage() {
         </div>
 
         <div className="p-6 text-center bg-white border rounded-lg shadow border-slate-200">
-          <div className="text-5xl mb-4">⚙️</div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">
+          <div className="mb-4 text-5xl">⚙️</div>
+          <h3 className="mb-2 text-lg font-semibold text-slate-900">
             Service Tools Indisponible
           </h3>
-          <p className="text-slate-600 mb-4">
+          <p className="mb-4 text-slate-600">
             Les endpoints de configuration des outils ne sont pas encore
             disponibles.
           </p>
-          <div className="text-sm text-slate-500 text-left bg-slate-50 p-4 rounded inline-block">
+          <div className="inline-block p-4 text-sm text-left rounded text-slate-500 bg-slate-50">
             <p className="font-mono text-red-600">{error}</p>
           </div>
           <Button
@@ -439,22 +439,22 @@ export function ToolsConfigPage() {
 
       {error && (
         <div className="px-4 py-3 text-red-700 border border-red-200 rounded-lg bg-red-50">
-          <div className="font-semibold mb-2">⚠️ Erreur</div>
-          <p className="text-sm mb-2">{error}</p>
+          <div className="mb-2 font-semibold">⚠️ Erreur</div>
+          <p className="mb-2 text-sm">{error}</p>
           {error.includes("non-JSON") && (
-            <p className="text-xs text-red-600 mt-2">
+            <p className="mt-2 text-xs text-red-600">
               💡 <strong>Conseil:</strong> Les endpoints API pour les outils ne
               sont pas encore implémentés dans le backend. Vérifiez que le
               serveur backend est en cours d'exécution et que les routes sont
               définies dans{" "}
-              <code className="bg-red-100 px-1 rounded">
+              <code className="px-1 bg-red-100 rounded">
                 backend/controllers/tools.controller.ts
               </code>
             </p>
           )}
           <button
             onClick={() => setError(null)}
-            className="ml-4 underline mt-2 text-sm"
+            className="mt-2 ml-4 text-sm underline"
           >
             Fermer
           </button>
