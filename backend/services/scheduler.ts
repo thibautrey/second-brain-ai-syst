@@ -6,12 +6,14 @@
  * - Memory pruning and archival
  * - Background agent execution
  * - Embedding processing for memories without vectors
+ * - Scheduled notifications processing
  */
 
 import prisma from "./prisma.js";
 import { summarizationService } from "./summarization.js";
 import { memoryManagerService } from "./memory-manager.js";
 import { embeddingSchedulerService } from "./embedding-scheduler.js";
+import { notificationService } from "./tools/notification.service.js";
 import { TimeScale } from "@prisma/client";
 import { CronJob } from "cron";
 
@@ -144,6 +146,19 @@ export class SchedulerService {
       isEnabled: true,
       handler: async () => {
         await this.runEmbeddingProcessing();
+      },
+    });
+
+    // Scheduled notifications processing - runs every minute
+    this.registerTask({
+      id: "scheduled-notifications",
+      name: "Process Scheduled Notifications",
+      cronExpression: "* * * * *", // Every minute
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runScheduledNotifications();
       },
     });
   }
@@ -466,6 +481,22 @@ export class SchedulerService {
       );
     } catch (error) {
       console.warn(`  ⚠ Embedding processing failed:`, error);
+    }
+  }
+
+  /**
+   * Process scheduled notifications that are due
+   */
+  private async runScheduledNotifications(): Promise<void> {
+    try {
+      const result = await notificationService.processScheduledNotifications();
+      if (result.processed > 0) {
+        console.log(
+          `  ✓ Scheduled notifications: ${result.successful}/${result.processed} sent`,
+        );
+      }
+    } catch (error) {
+      console.warn(`  ⚠ Scheduled notifications processing failed:`, error);
     }
   }
 

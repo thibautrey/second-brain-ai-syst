@@ -53,6 +53,8 @@ import { continuousListeningManager } from "./continuous-listening.js";
 import { schedulerService } from "./scheduler.js";
 import { embeddingSchedulerService } from "./embedding-scheduler.js";
 import { backgroundAgentService } from "./background-agents.js";
+import { scheduledTaskService } from "./tools/scheduled-task.service.js";
+import toolsController from "../controllers/tools.controller.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer, Server as HttpServer, IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
@@ -704,6 +706,11 @@ if (process.env.NODE_ENV !== "production") {
   app.use("/api/debug", debugController);
   console.log("🐛 Debug routes enabled at /api/debug/input-flow");
 }
+
+// ==================== Built-in Tools Routes ====================
+
+app.use("/api/tools", toolsController);
+console.log("🔧 Built-in tools routes enabled at /api/tools");
 
 // ==================== Chat Routes ====================
 
@@ -1790,6 +1797,10 @@ export async function startServer(port: number = 3000) {
     // Start the scheduler for background tasks
     schedulerService.start();
     console.log("✓ Scheduler service started");
+
+    // Initialize user scheduled tasks service
+    await scheduledTaskService.initialize();
+    console.log("✓ User scheduled tasks service initialized");
 
     // Process any missing embeddings on startup (runs in background)
     // Wait 45 seconds for Weaviate and embedding services to be fully ready

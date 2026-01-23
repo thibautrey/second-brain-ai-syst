@@ -32,6 +32,11 @@ model User {
     aiTaskConfigs          AITaskConfig[]
     settings               UserSettings?
 
+    // Built-in Tools relations
+    todos          Todo[]
+    scheduledTasks ScheduledTask[]
+    notifications  Notification[]
+
     @@map("users")
 }
 
@@ -488,4 +493,200 @@ enum ModelCapability {
     CHAT
     SUMMARIZATION
     ANALYSIS
+}
+
+// ==================== Built-in Tools Models ====================
+
+// Todolist System
+model Todo {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    title       String
+    description String?      @db.Text
+    status      TodoStatus   @default(PENDING)
+    priority    TodoPriority @default(MEDIUM)
+
+    // Organization
+    category String?
+    tags     String[] @default([])
+
+    // Due date and reminders
+    dueDate    DateTime?
+    reminderAt DateTime?
+
+    // Recurrence (for recurring todos)
+    isRecurring    Boolean @default(false)
+    recurrenceRule String? // iCal RRULE format (e.g., "FREQ=DAILY;INTERVAL=1")
+
+    // Completion tracking
+    completedAt DateTime?
+
+    // Linking to memories/interactions
+    sourceMemoryId String?
+
+    // Metadata
+    metadata Json @default("{}")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([status])
+    @@index([dueDate])
+    @@index([priority])
+    @@map("todos")
+}
+
+enum TodoStatus {
+    PENDING
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+enum TodoPriority {
+    LOW
+    MEDIUM
+    HIGH
+    URGENT
+}
+
+// Scheduled Tasks System (Cron-like)
+model ScheduledTask {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    name        String
+    description String? @db.Text
+
+    // Scheduling
+    scheduleType   ScheduleType
+    cronExpression String? // For CRON type: "0 9 * * *"
+    executeAt      DateTime? // For ONE_TIME type
+    interval       Int? // For INTERVAL type: minutes
+
+    // Action to perform
+    actionType    TaskActionType
+    actionPayload Json // Data needed to execute the action
+
+    // Status and execution tracking
+    isEnabled     Boolean   @default(true)
+    lastRunAt     DateTime?
+    nextRunAt     DateTime?
+    runCount      Int       @default(0)
+    lastRunStatus String? // 'success', 'failed', 'skipped'
+    lastRunError  String?
+
+    // Limits
+    maxRuns   Int? // null = unlimited
+    expiresAt DateTime? // Auto-disable after this date
+
+    // Metadata
+    metadata Json @default("{}")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    executions TaskExecution[]
+
+    @@index([userId])
+    @@index([isEnabled])
+    @@index([nextRunAt])
+    @@map("scheduled_tasks")
+}
+
+model TaskExecution {
+    id              String        @id @default(cuid())
+    scheduledTaskId String
+    scheduledTask   ScheduledTask @relation(fields: [scheduledTaskId], references: [id], onDelete: Cascade)
+
+    status       String // 'running', 'success', 'failed'
+    output       Json? // Result/output of the execution
+    errorMessage String?
+
+    startedAt   DateTime  @default(now())
+    completedAt DateTime?
+    durationMs  Int?
+
+    @@index([scheduledTaskId])
+    @@index([startedAt])
+    @@map("task_executions")
+}
+
+enum ScheduleType {
+    ONE_TIME // Execute once at a specific time
+    CRON // Execute based on cron expression
+    INTERVAL // Execute at regular intervals
+}
+
+enum TaskActionType {
+    SEND_NOTIFICATION // Send a notification to user
+    CREATE_TODO // Create a todo item
+    GENERATE_SUMMARY // Generate a memory summary
+    RUN_AGENT // Run a background agent
+    WEBHOOK // Call an external webhook
+    CUSTOM // Custom action with payload
+}
+
+// Notification System
+model Notification {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    title   String
+    message String           @db.Text
+    type    NotificationType @default(INFO)
+
+    // Delivery channels
+    channels NotificationChannel[] @default([IN_APP])
+
+    // Status
+    isRead      Boolean   @default(false)
+    readAt      DateTime?
+    isDismissed Boolean   @default(false)
+
+    // Scheduling (for future notifications)
+    scheduledFor DateTime?
+    sentAt       DateTime?
+
+    // Linking
+    sourceType String? // 'todo', 'scheduled_task', 'memory', 'agent'
+    sourceId   String?
+
+    // Action (optional clickable action)
+    actionUrl   String?
+    actionLabel String?
+
+    // Metadata
+    metadata Json @default("{}")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([isRead])
+    @@index([scheduledFor])
+    @@index([type])
+    @@map("notifications")
+}
+
+enum NotificationType {
+    INFO
+    SUCCESS
+    WARNING
+    ERROR
+    REMINDER
+    ACHIEVEMENT
+}
+
+enum NotificationChannel {
+    IN_APP // In-app notification
+    EMAIL // Email notification
+    PUSH // Push notification (mobile/desktop)
+    WEBHOOK // External webhook
 }
