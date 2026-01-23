@@ -6,7 +6,7 @@
 
 import type { Notification } from "../types/tools";
 
-const WS_URL = (import.meta as any).env.VITE_WS_URL || "ws://localhost:3000";
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3000";
 
 export type NotificationCallback = (notification: Notification) => void;
 export type ConnectionCallback = (connected: boolean) => void;
