@@ -645,6 +645,12 @@ function TaskConfigCard({
       (m) => !m.capabilities.includes(taskType),
     ) || [];
 
+  // If no suggested models exist, include all models in "others" for flexibility
+  const allAvailableModels =
+    suggestedModels.length === 0
+      ? selectedProvider?.models || []
+      : selectedProvider?.models || [];
+
   // Fallback models
   const suggestedFallbackModels =
     selectedFallbackProvider?.models.filter((m) =>
@@ -654,6 +660,12 @@ function TaskConfigCard({
     selectedFallbackProvider?.models.filter(
       (m) => !m.capabilities.includes(taskType),
     ) || [];
+
+  // If no suggested models exist, include all models in "others" for flexibility
+  const allAvailableFallbackModels =
+    suggestedFallbackModels.length === 0
+      ? selectedFallbackProvider?.models || []
+      : selectedFallbackProvider?.models || [];
 
   // Séparer les providers en "suggérés" (avec au moins un modèle compatible) et "autres"
   const enabledProviders = providers.filter((p) => p.isEnabled);
@@ -764,10 +776,14 @@ function TaskConfigCard({
       })),
     });
   }
-  if (otherModels.length > 0) {
+  // Show other models, or all models if no suggested ones exist
+  const modelsToShow =
+    suggestedModels.length === 0 ? allAvailableModels : otherModels;
+  if (modelsToShow.length > 0) {
     modelOptionGroups.push({
-      label: "Autres modèles",
-      options: otherModels.map((m) => ({
+      label:
+        suggestedModels.length === 0 ? "Modèles disponibles" : "Autres modèles",
+      options: modelsToShow.map((m) => ({
         value: m.id,
         label: m.name,
       })),
@@ -806,10 +822,18 @@ function TaskConfigCard({
       })),
     });
   }
-  if (otherFallbackModels.length > 0) {
+  // Show other models, or all models if no suggested ones exist
+  const fallbackModelsToShow =
+    suggestedFallbackModels.length === 0
+      ? allAvailableFallbackModels
+      : otherFallbackModels;
+  if (fallbackModelsToShow.length > 0) {
     fallbackModelOptionGroups.push({
-      label: "Autres modèles",
-      options: otherFallbackModels.map((m) => ({
+      label:
+        suggestedFallbackModels.length === 0
+          ? "Modèles disponibles"
+          : "Autres modèles",
+      options: fallbackModelsToShow.map((m) => ({
         value: m.id,
         label: m.name,
       })),
