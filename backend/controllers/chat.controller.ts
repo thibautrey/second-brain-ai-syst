@@ -925,10 +925,10 @@ export async function chatStream(
             contentToStore = `Question: ${message}\nRéponse: ${fullResponse}`;
           }
 
-          // Add tool execution summary if tools were used
+          // Add tool execution details to metadata only (not to stored content)
           let toolMetadata: any = {};
           if (allToolResults.length > 0) {
-            // Generate summary and enriched metadata (Option B approach)
+            // Generate summary for metadata only (not stored in main content)
             const executionSummary = generateToolExecutionSummary(
               allToolResults.map((r) => ({
                 toolUsed: r.toolUsed,
@@ -939,7 +939,8 @@ export async function chatStream(
               sanitizationResults,
             );
 
-            contentToStore += `\n\n${executionSummary}`;
+            // Keep technical details in metadata only, not in stored content
+            // This keeps the memory focused on meaningful information
 
             // Create enriched metadata with success/failure counts
             toolMetadata = createToolMetadata(
