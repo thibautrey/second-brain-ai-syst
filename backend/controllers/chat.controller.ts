@@ -27,6 +27,7 @@ import {
   generateToolExecutionSummary,
   createToolMetadata,
 } from "../services/sanitize-tool-results.js";
+import { injectDateIntoPrompt } from "../services/llm-router.js";
 
 const intentRouter = new IntentRouterService();
 
@@ -287,7 +288,11 @@ export async function chatStream(
     };
 
     // Build message history from previous messages + current message
-    let messages: ChatMessage[] = [{ role: "system", content: systemPrompt }];
+    // Inject current date into system prompt
+    const systemPromptWithDate = injectDateIntoPrompt(systemPrompt);
+    let messages: ChatMessage[] = [
+      { role: "system", content: systemPromptWithDate },
+    ];
 
     // Add previous conversation messages (if any)
     if (Array.isArray(previousMessages) && previousMessages.length > 0) {

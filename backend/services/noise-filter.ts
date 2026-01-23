@@ -17,6 +17,7 @@
 
 import prisma from "./prisma.js";
 import OpenAI from "openai";
+import { injectDateIntoPrompt } from "./llm-router.js";
 
 // ============================================================================
 // Types & Interfaces
@@ -459,7 +460,7 @@ Est-ce du contenu significatif ou du bruit?`;
       const response = await client.chat.completions.create({
         model: modelId,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: injectDateIntoPrompt(systemPrompt) },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,

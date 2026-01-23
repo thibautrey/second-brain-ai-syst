@@ -4,6 +4,28 @@
 import prisma from "./prisma.js";
 import OpenAI from "openai";
 
+/**
+ * Get the current date formatted for system prompts
+ * Format: "23 janvier 2026" in French locale
+ */
+export function getCurrentDateForPrompt(): string {
+  const now = new Date();
+  return now.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/**
+ * Inject current date into system prompt
+ */
+export function injectDateIntoPrompt(systemPrompt: string): string {
+  if (!systemPrompt) return systemPrompt;
+  const datePrefix = `[Date actuelle: ${getCurrentDateForPrompt()}]\n\n`;
+  return datePrefix + systemPrompt;
+}
+
 export type LLMModel =
   | "gpt-4-turbo"
   | "gpt-4o"
@@ -194,7 +216,9 @@ export class LLMRouterService {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
 
     if (systemPrompt) {
-      messages.push({ role: "system", content: systemPrompt });
+      // Inject current date into system prompt
+      const enhancedSystemPrompt = injectDateIntoPrompt(systemPrompt);
+      messages.push({ role: "system", content: enhancedSystemPrompt });
     }
     messages.push({ role: "user", content: userMessage });
 
@@ -273,7 +297,9 @@ export class LLMRouterService {
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
     if (systemPrompt) {
-      messages.push({ role: "system", content: systemPrompt });
+      // Inject current date into system prompt
+      const enhancedSystemPrompt = injectDateIntoPrompt(systemPrompt);
+      messages.push({ role: "system", content: enhancedSystemPrompt });
     }
     messages.push({ role: "user", content: userMessage });
 

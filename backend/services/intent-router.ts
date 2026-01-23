@@ -4,6 +4,7 @@
 
 import prisma from "./prisma.js";
 import OpenAI from "openai";
+import { injectDateIntoPrompt } from "./llm-router.js";
 
 // ============================================================================
 // PROVIDER CACHE (Optimization 4)
@@ -304,7 +305,10 @@ Provide a complete analysis including classification and storage decision.`;
       const response = await client.chat.completions.create({
         model: modelId,
         messages: [
-          { role: "system", content: UNIFIED_ANALYSIS_SYSTEM_PROMPT },
+          {
+            role: "system",
+            content: injectDateIntoPrompt(UNIFIED_ANALYSIS_SYSTEM_PROMPT),
+          },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
@@ -431,7 +435,10 @@ ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
     const response = await client.chat.completions.create({
       model: modelId,
       messages: [
-        { role: "system", content: CLASSIFICATION_SYSTEM_PROMPT },
+        {
+          role: "system",
+          content: injectDateIntoPrompt(CLASSIFICATION_SYSTEM_PROMPT),
+        },
         { role: "user", content: userPrompt },
       ],
       temperature: 0.1,
@@ -492,7 +499,10 @@ Should this exchange be stored in the user's memory? Consider:
       const llmResponse = await client.chat.completions.create({
         model: modelId,
         messages: [
-          { role: "system", content: RESPONSE_VALUE_SYSTEM_PROMPT },
+          {
+            role: "system",
+            content: injectDateIntoPrompt(RESPONSE_VALUE_SYSTEM_PROMPT),
+          },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
