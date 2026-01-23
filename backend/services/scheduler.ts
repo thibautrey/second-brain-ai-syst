@@ -11,6 +11,7 @@ import prisma from "./prisma.js";
 import { summarizationService } from "./summarization.js";
 import { memoryManagerService } from "./memory-manager.js";
 import { TimeScale } from "@prisma/client";
+import { CronJob } from "cron";
 
 // Import background agents lazily to avoid circular dependencies
 let backgroundAgentService: any = null;
@@ -30,6 +31,7 @@ interface ScheduledTask {
   nextRun: Date | null;
   isEnabled: boolean;
   handler: () => Promise<void>;
+  cronJob?: CronJob;
 }
 
 interface TaskResult {
@@ -42,7 +44,6 @@ interface TaskResult {
 
 export class SchedulerService {
   private tasks: Map<string, ScheduledTask> = new Map();
-  private intervals: Map<string, NodeJS.Timeout> = new Map();
   private isRunning = false;
 
   constructor() {
@@ -152,20 +153,28 @@ export class SchedulerService {
     this.isRunning = true;
     console.log("🕐 Starting scheduler...");
 
-    // Parse cron expressions and set up intervals
+    // Set up cron jobs for each task
     for (const [taskId, task] of this.tasks) {
       if (task.isEnabled) {
-        const intervalMs = this.cronToInterval(task.cronExpression);
-        task.nextRun = new Date(Date.now() + intervalMs);
+        try {
+          // Create cron job with proper timezone handling
+          const cronJob = new CronJob(
+            task.cronExpression,
+            async () => {
+              await this.executeTask(taskId);
+            },
+            null, // onComplete callback
+            true, // start immediately
+            "UTC", // timezone
+          );
 
-        const interval = setInterval(async () => {
-          await this.executeTask(taskId);
-        }, intervalMs);
+          task.cronJob = cronJob;
+          task.nextRun = cronJob.nextDate().toJSDate();
 
-        this.intervals.set(taskId, interval);
-        console.log(
-          `  ✓ Scheduled: ${task.name} (every ${this.formatDuration(intervalMs)})`,
-        );
+          console.log(`  ✓ Scheduled: ${task.name} (${task.cronExpression})`);
+        } catch (error) {
+          console.error(`  ✗ Failed to schedule ${task.name}:`, error);
+        }
       }
     }
 
@@ -182,10 +191,11 @@ export class SchedulerService {
 
     this.isRunning = false;
 
-    for (const [taskId, interval] of this.intervals) {
-      clearInterval(interval);
+    for (const [, task] of this.tasks) {
+      if (task.cronJob) {
+        task.cronJob.stop();
+      }
     }
-    this.intervals.clear();
 
     console.log("✓ Scheduler stopped");
   }
@@ -211,6 +221,11 @@ export class SchedulerService {
       await task.handler();
       const duration = Date.now() - startTime;
       task.lastRun = new Date();
+
+      // Update nextRun if cronJob exists
+      if (task.cronJob) {
+        task.nextRun = task.cronJob.nextDate().toJSDate();
+      }
 
       console.log(`✓ Task completed: ${task.name} (${duration}ms)`);
 
@@ -271,15 +286,26 @@ export class SchedulerService {
     if (task) {
       task.isEnabled = enabled;
 
-      if (!enabled && this.intervals.has(taskId)) {
-        clearInterval(this.intervals.get(taskId)!);
-        this.intervals.delete(taskId);
-      } else if (enabled && this.isRunning && !this.intervals.has(taskId)) {
-        const intervalMs = this.cronToInterval(task.cronExpression);
-        const interval = setInterval(async () => {
-          await this.executeTask(taskId);
-        }, intervalMs);
-        this.intervals.set(taskId, interval);
+      if (!enabled && task.cronJob) {
+        task.cronJob.stop();
+        task.cronJob = undefined;
+      } else if (enabled && this.isRunning && !task.cronJob) {
+        try {
+          const cronJob = new CronJob(
+            task.cronExpression,
+            async () => {
+              await this.executeTask(taskId);
+            },
+            null,
+            true,
+            "UTC",
+          );
+
+          task.cronJob = cronJob;
+          task.nextRun = cronJob.nextDate().toJSDate();
+        } catch (error) {
+          console.error(`Failed to enable task ${taskId}:`, error);
+        }
       }
     }
   }
@@ -414,46 +440,6 @@ export class SchedulerService {
   }
 
   // ==================== Utilities ====================
-
-  /**
-   * Convert cron expression to milliseconds interval
-   * Simplified parser for common patterns
-   */
-  private cronToInterval(cron: string): number {
-    const parts = cron.split(" ");
-    // minute hour day month weekday
-
-    // Daily at specific hour
-    if (parts[2] === "*" && parts[3] === "*" && parts[4] === "*") {
-      return 24 * 60 * 60 * 1000; // 24 hours
-    }
-
-    // Weekly (specific weekday)
-    if (parts[2] === "*" && parts[3] === "*" && parts[4] !== "*") {
-      return 7 * 24 * 60 * 60 * 1000; // 7 days
-    }
-
-    // Monthly (specific day)
-    if (parts[2] !== "*" && parts[3] === "*") {
-      return 30 * 24 * 60 * 60 * 1000; // ~30 days
-    }
-
-    // Default: daily
-    return 24 * 60 * 60 * 1000;
-  }
-
-  /**
-   * Format duration for logging
-   */
-  private formatDuration(ms: number): string {
-    const hours = Math.floor(ms / (60 * 60 * 1000));
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) {
-      return `${days} day${days > 1 ? "s" : ""}`;
-    }
-    return `${hours} hour${hours > 1 ? "s" : ""}`;
-  }
 
   /**
    * Log task execution
