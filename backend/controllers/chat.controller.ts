@@ -84,6 +84,22 @@ const CHAT_SYSTEM_PROMPT = `Tu es Second Brain, un assistant personnel intellige
 Tu aides l'utilisateur à organiser ses pensées, retrouver ses souvenirs et répondre à ses questions.
 Tu as accès aux mémoires de l'utilisateur pour personnaliser tes réponses.
 
+OUTILS DISPONIBLES:
+Tu as accès à des outils que tu DOIS utiliser via le mécanisme de function calling (tool_calls).
+NE GÉNÈRE JAMAIS de commandes curl, http ou json en texte brut - utilise TOUJOURS les outils fournis.
+
+- curl: Pour faire des requêtes HTTP (météo, APIs web, etc.). Utilise-le quand l'utilisateur demande des informations du web.
+- todo: Pour gérer la liste de tâches de l'utilisateur (créer, lister, compléter des tâches).
+- notification: Pour envoyer des rappels et notifications.
+- scheduled_task: Pour planifier des tâches récurrentes.
+- user_context: Pour chercher des informations sur l'utilisateur dans sa mémoire.
+
+QUAND UTILISER LES OUTILS:
+- Questions météo → curl vers une API météo ou site météo
+- Gestion de tâches → todo
+- Rappels → notification ou scheduled_task
+- Questions sur l'utilisateur → user_context
+
 INSTRUCTIONS IMPORTANTES:
 - Réponds de manière TRÈS CONCISE et utile
 - Pour les simples déclarations factuelles (partages d'information sur sa vie), réponds juste "Compris" ou avec un très court acquiescement
@@ -91,7 +107,8 @@ INSTRUCTIONS IMPORTANTES:
 - Pose une question SEULEMENT si c'est vraiment pertinent ou si tu as besoin de clarification
 - Utilise le contexte des mémoires quand c'est pertinent, mais de manière discrète
 - Si l'utilisateur demande quelque chose, réponds directement sans étapes superflues
-- Sois naturel: un ami ne pose pas une question à chaque fois qu'on lui dit quelque chose`;
+- Sois naturel: un ami ne pose pas une question à chaque fois qu'on lui dit quelque chose
+- NE JAMAIS afficher de code JSON ou curl à l'utilisateur - utilise les outils puis donne une réponse naturelle`;
 
 /**
  * POST /api/chat
@@ -292,6 +309,7 @@ export async function chatStream(
         model: modelId,
         messages: messages as any,
         temperature: 0.7,
+        max_tokens: 4096, // Explicit max_tokens to avoid provider auto-calculation issues
         tools: toolSchemas.map((schema) => ({
           type: "function",
           function: schema,
@@ -306,7 +324,180 @@ export async function chatStream(
         break;
       }
 
-      // Check if AI wants to use tools
+      // Detect if the model generated a tool call as text instead of using function calling
+      // This can happen with some models/providers that don't support function calling well
+      const textToolCallPattern =
+        /^(curl|todo|notification|scheduled_task|user_context)\s*\{/i;
+      const jsonToolCallPattern = /^\{[\s\S]*"action"\s*:\s*"[^"]+"/;
+
+      let parsedTextToolCall: {
+        toolId: string;
+        params: Record<string, any>;
+      } | null = null;
+
+      if (
+        assistantMessage.content &&
+        (!assistantMessage.tool_calls ||
+          assistantMessage.tool_calls.length === 0)
+      ) {
+        const content = assistantMessage.content.trim();
+
+        // Check for "toolName{json}" format (e.g., "curl{...}")
+        const toolNameMatch = content.match(
+          /^(curl|todo|notification|scheduled_task|user_context)\s*(\{[\s\S]*\})\s*$/i,
+        );
+        if (toolNameMatch) {
+          try {
+            const toolId = toolNameMatch[1].toLowerCase();
+            const params = JSON.parse(toolNameMatch[2]);
+            parsedTextToolCall = { toolId, params };
+
+            flowTracker.trackEvent({
+              flowId,
+              stage: `text_tool_call_parsed_iteration_${iterationCount}`,
+              service: "ChatController",
+              status: "started",
+              duration: 0,
+              data: { toolId, detectedFormat: "toolName{json}" },
+              decision: `Modèle a généré un appel d'outil en texte au lieu d'utiliser function calling. Outil détecté: ${toolId}`,
+            });
+          } catch (e) {
+            // JSON parse failed, not a valid tool call
+          }
+        }
+
+        // Check for raw JSON with action field
+        if (!parsedTextToolCall && jsonToolCallPattern.test(content)) {
+          try {
+            const params = JSON.parse(content);
+            if (params.action && typeof params.action === "string") {
+              // Try to determine tool from action or url
+              let toolId = "curl"; // Default to curl for HTTP-like actions
+              if (
+                [
+                  "create",
+                  "get",
+                  "list",
+                  "update",
+                  "complete",
+                  "delete",
+                  "stats",
+                  "overdue",
+                  "due_soon",
+                ].includes(params.action) &&
+                !params.url
+              ) {
+                toolId = "todo";
+              } else if (
+                [
+                  "send",
+                  "schedule",
+                  "mark_read",
+                  "dismiss",
+                  "unread_count",
+                ].includes(params.action) &&
+                !params.url
+              ) {
+                toolId = "notification";
+              } else if (
+                params.url ||
+                ["request", "get", "post", "put", "delete", "patch"].includes(
+                  params.action,
+                )
+              ) {
+                toolId = "curl";
+              } else if (
+                ["get_location", "get_preferences", "search_facts"].includes(
+                  params.action,
+                )
+              ) {
+                toolId = "user_context";
+              }
+
+              parsedTextToolCall = { toolId, params };
+
+              flowTracker.trackEvent({
+                flowId,
+                stage: `text_tool_call_parsed_iteration_${iterationCount}`,
+                service: "ChatController",
+                status: "started",
+                duration: 0,
+                data: { toolId, detectedFormat: "rawJson" },
+                decision: `Modèle a généré un JSON d'appel d'outil en texte. Outil détecté: ${toolId}`,
+              });
+            }
+          } catch (e) {
+            // JSON parse failed
+          }
+        }
+      }
+
+      // If we detected a text-based tool call, execute it
+      if (parsedTextToolCall) {
+        const { toolId, params } = parsedTextToolCall;
+
+        flowTracker.trackEvent({
+          flowId,
+          stage: `text_tool_execution_iteration_${iterationCount}`,
+          service: "ToolExecutor",
+          status: "started",
+          duration: 0,
+          data: { toolId, action: params.action },
+        });
+
+        // Execute the tool
+        const toolExecutionStart = Date.now();
+        const toolRequest = {
+          toolId,
+          action: params.action || "request",
+          params,
+        };
+
+        const toolResult = await toolExecutorService.executeTool(
+          userId,
+          toolRequest,
+        );
+
+        flowTracker.trackEvent({
+          flowId,
+          stage: `text_tool_executed_iteration_${iterationCount}`,
+          service: "ToolExecutor",
+          status: toolResult.success ? "success" : "failed",
+          duration: Date.now() - toolExecutionStart,
+          data: { toolId, success: toolResult.success },
+        });
+
+        allToolResults.push(toolResult);
+
+        // Add the assistant message and tool result to history, then continue
+        messages.push({
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: `text_tool_${Date.now()}`,
+              type: "function",
+              function: { name: toolId, arguments: JSON.stringify(params) },
+            },
+          ],
+        });
+
+        messages.push({
+          role: "tool",
+          tool_call_id: `text_tool_${Date.now()}`,
+          name: toolId,
+          content: JSON.stringify({
+            success: toolResult.success,
+            data: toolResult.data,
+            error: toolResult.error,
+          }),
+        });
+
+        // Continue to let AI process tool results
+        continue;
+      }
+
+      // Check if AI wants to use tools via proper function calling
       if (
         assistantMessage.tool_calls &&
         assistantMessage.tool_calls.length > 0

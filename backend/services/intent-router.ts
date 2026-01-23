@@ -308,6 +308,7 @@ Provide a complete analysis including classification and storage decision.`;
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
+        max_tokens: 1024,
         response_format: { type: "json_object" },
       });
 
@@ -434,6 +435,7 @@ ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0.1,
+      max_tokens: 512,
       response_format: { type: "json_object" },
     });
 
@@ -494,6 +496,7 @@ Should this exchange be stored in the user's memory? Consider:
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
+        max_tokens: 512,
         response_format: { type: "json_object" },
       });
 
