@@ -12,9 +12,13 @@ import {
   Mic,
   MessageSquare,
   Wrench,
+  CheckSquare,
+  Calendar,
 } from "lucide-react";
 import { useState } from "react";
 import { ToolsConfigPage } from "./ToolsConfigPage";
+import { TodoList } from "../components/todos";
+import { ScheduleList } from "../components/schedule";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -78,6 +82,18 @@ export function DashboardPage() {
             label="Chat"
             onClick={() => setActiveTab("chat")}
             isActive={activeTab === "chat"}
+          />
+          <NavItem
+            icon={<CheckSquare className="w-5 h-5" />}
+            label="Tâches"
+            onClick={() => setActiveTab("todos")}
+            isActive={activeTab === "todos"}
+          />
+          <NavItem
+            icon={<Calendar className="w-5 h-5" />}
+            label="Planifications"
+            onClick={() => setActiveTab("schedule")}
+            isActive={activeTab === "schedule"}
           />
           <NavItem
             icon={<Wrench className="w-5 h-5" />}
@@ -159,7 +175,7 @@ export function DashboardPage() {
                   <h3 className="text-lg font-semibold text-slate-900 mb-4">
                     Quick Start
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                     <QuickStartButton
                       title="Record Thought"
                       description="Capture your current thoughts"
@@ -177,6 +193,18 @@ export function DashboardPage() {
                       description="See today's highlights"
                       icon="📊"
                       onClick={() => setActiveTab("analytics")}
+                    />
+                    <QuickStartButton
+                      title="Mes Tâches"
+                      description="Gérer mes todos"
+                      icon="✅"
+                      onClick={() => setActiveTab("todos")}
+                    />
+                    <QuickStartButton
+                      title="Planifications"
+                      description="Tâches automatiques"
+                      icon="📅"
+                      onClick={() => setActiveTab("schedule")}
                     />
                     <QuickStartButton
                       title="Configure Tools"
@@ -280,6 +308,10 @@ export function DashboardPage() {
               </div>
             </div>
           )}
+
+          {activeTab === "todos" && <TodoList />}
+
+          {activeTab === "schedule" && <ScheduleList />}
 
           {activeTab === "tools" && <ToolsConfigPage />}
 

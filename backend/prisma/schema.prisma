@@ -64,6 +64,15 @@ model UserSettings {
     speakerConfidenceThreshold  Float   @default(0.7) // Seuil identification speaker
     autoDeleteAudioAfterProcess Boolean @default(true) // Supprimer audio après traitement
 
+    // Noise Filtering Settings
+    noiseFilterEnabled         Boolean @default(true) // Activer le filtrage intelligent
+    noiseFilterSensitivity     Float   @default(0.7) // 0.0 (permissif) - 1.0 (strict)
+    filterMediaPlayback        Boolean @default(true) // Filtrer TV/radio/podcasts
+    filterBackgroundConvo      Boolean @default(true) // Filtrer conversations en arrière-plan
+    filterTrivialSelfTalk      Boolean @default(true) // Filtrer "où sont mes clés", etc.
+    filterThirdPartyAddress    Boolean @default(true) // Filtrer quand user parle à d'autres
+    askConfirmationOnAmbiguous Boolean @default(false) // Demander confirmation pour cas ambigus
+
     // Notification Settings
     notifyOnMemoryStored    Boolean @default(true)
     notifyOnCommandDetected Boolean @default(true)

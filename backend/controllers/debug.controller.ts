@@ -6,6 +6,7 @@
 import { Router, Request, Response } from "express";
 import { flowTracker } from "../services/flow-tracker.js";
 import { embeddingSchedulerService } from "../services/embedding-scheduler.js";
+import { noiseFilterService } from "../services/noise-filter.js";
 
 const router = Router();
 
@@ -573,6 +574,98 @@ router.post("/reindex-user/:userId", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error reindexing user memories:", error);
     res.status(500).json({ error: "Failed to reindex user memories" });
+  }
+});
+
+/**
+ * GET /debug/noise-filter/stats
+ * Get noise filter statistics and recent filtered content
+ */
+router.get("/noise-filter/stats", (req: Request, res: Response) => {
+  try {
+    const stats = noiseFilterService.getStats();
+
+    // Get recent flows that were filtered as noise
+    const allFlows = flowTracker.getRecentFlows(100);
+    const noiseFiltered = allFlows.filter((flow) => {
+      return flow.events.some(
+        (e) =>
+          e.stage === "noise_filtering" &&
+          e.status === "skipped" &&
+          e.data?.category,
+      );
+    });
+
+    // Aggregate by category
+    const categoryStats: Record<string, number> = {};
+    noiseFiltered.forEach((flow) => {
+      const noiseEvent = flow.events.find((e) => e.stage === "noise_filtering");
+      if (noiseEvent?.data?.category) {
+        categoryStats[noiseEvent.data.category] =
+          (categoryStats[noiseEvent.data.category] || 0) + 1;
+      }
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        ...stats,
+        recentFiltered: noiseFiltered.length,
+        categoryBreakdown: categoryStats,
+      },
+      recentFilteredFlows: noiseFiltered.slice(0, 20).map((flow) => {
+        const noiseEvent = flow.events.find(
+          (e) => e.stage === "noise_filtering",
+        );
+        return {
+          flowId: flow.flowId,
+          timestamp: flow.startTime,
+          category: noiseEvent?.data?.category,
+          reason: noiseEvent?.decision,
+          confidence: noiseEvent?.data?.confidence,
+        };
+      }),
+    });
+  } catch (error) {
+    console.error("Error getting noise filter stats:", error);
+    res.status(500).json({ error: "Failed to get noise filter stats" });
+  }
+});
+
+/**
+ * POST /debug/noise-filter/test
+ * Test the noise filter with a sample text
+ */
+router.post("/noise-filter/test", async (req: Request, res: Response) => {
+  try {
+    const { text, context } = req.body;
+
+    if (!text || typeof text !== "string") {
+      return res.status(400).json({ error: "Text is required" });
+    }
+
+    // First try quick filter
+    const quickResult = noiseFilterService.quickFilter(text, context);
+
+    if (quickResult) {
+      return res.json({
+        success: true,
+        method: "quick_filter",
+        result: quickResult,
+      });
+    }
+
+    // Fall back to LLM analysis
+    const llmResult = await noiseFilterService.analyzeWithLLM(text, context);
+
+    res.json({
+      success: true,
+      method: "llm_analysis",
+      result: llmResult,
+    });
+  } catch (error) {
+    console.error("Error testing noise filter:", error);
+    res.status(500).json({ error: "Failed to test noise filter" });
   }
 });
 

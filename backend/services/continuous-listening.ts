@@ -24,6 +24,11 @@ import {
   VoiceActivityDetector as ImprovedVAD,
   getVoiceActivityDetector,
 } from "./voice-activity-detector.js";
+import {
+  noiseFilterService,
+  NoiseFilterContext,
+  NoiseFilterResult,
+} from "./noise-filter.js";
 import OpenAI from "openai";
 import { flowTracker } from "./flow-tracker.js";
 import { randomBytes } from "crypto";
@@ -394,6 +399,85 @@ export class ContinuousListeningService extends EventEmitter {
         return { type: "ignored", timestamp: Date.now() };
       }
 
+      // Step 2.5: NOISE FILTERING - Filter out irrelevant content BEFORE classification
+      const noiseFilterStart = Date.now();
+
+      // Load user preferences for noise filtering
+      const userSettings = await prisma.userSettings.findUnique({
+        where: { userId: this.config.userId },
+      });
+
+      // Cast to any to access new fields that may not be in the generated types yet
+      const settingsAny = userSettings as any;
+
+      const noiseFilterContext: NoiseFilterContext = {
+        speakerId: speakerResult.speakerId,
+        isTargetUser: speakerResult.isTargetUser,
+        speakerConfidence: speakerResult.confidence,
+        audioDuration: duration,
+        userId: this.config.userId,
+        // Determine time of day
+        timeOfDay: this.getTimeOfDay(),
+        // User preferences for noise filtering (use defaults if new fields don't exist yet)
+        userPreferences: userSettings
+          ? {
+              noiseFilterEnabled: settingsAny.noiseFilterEnabled ?? true,
+              noiseFilterSensitivity: settingsAny.noiseFilterSensitivity ?? 0.7,
+              filterMediaPlayback: settingsAny.filterMediaPlayback ?? true,
+              filterBackgroundConvo: settingsAny.filterBackgroundConvo ?? true,
+              filterTrivialSelfTalk: settingsAny.filterTrivialSelfTalk ?? true,
+              filterThirdPartyAddress:
+                settingsAny.filterThirdPartyAddress ?? true,
+              askConfirmationOnAmbiguous:
+                settingsAny.askConfirmationOnAmbiguous ?? false,
+            }
+          : undefined,
+      };
+
+      const noiseFilterResult = await noiseFilterService.filter(
+        transcription.text,
+        noiseFilterContext,
+      );
+
+      flowTracker.trackEvent({
+        flowId,
+        stage: "noise_filtering",
+        service: "NoiseFilterService",
+        status: noiseFilterResult.isMeaningful ? "success" : "skipped",
+        duration: Date.now() - noiseFilterStart,
+        data: {
+          isMeaningful: noiseFilterResult.isMeaningful,
+          category: noiseFilterResult.category,
+          confidence: noiseFilterResult.confidence,
+          suggestedAction: noiseFilterResult.suggestedAction,
+          contextualRelevance: noiseFilterResult.contextualRelevance,
+        },
+        decision: noiseFilterResult.isMeaningful
+          ? `Contenu pertinent détecté: ${noiseFilterResult.reason}`
+          : `Filtré comme bruit (${noiseFilterResult.category}): ${noiseFilterResult.reason}`,
+      });
+
+      this.emit("noise_filter_result", noiseFilterResult);
+
+      // If content is clearly noise, skip further processing
+      if (
+        !noiseFilterResult.isMeaningful &&
+        noiseFilterResult.suggestedAction === "discard"
+      ) {
+        flowTracker.completeFlow(flowId, "completed");
+        this.state = "listening";
+        this.isProcessing = false;
+        return {
+          type: "ignored",
+          timestamp: Date.now(),
+          data: {
+            reason: "noise_filtered",
+            category: noiseFilterResult.category,
+            noiseFilterResult,
+          },
+        };
+      }
+
       // Step 3: Wake word detection + Intent classification
       const classificationStart = Date.now();
       const hasWakeWord = this.detectWakeWord(transcription.text);
@@ -699,6 +783,17 @@ export class ContinuousListeningService extends EventEmitter {
     }
 
     return false;
+  }
+
+  /**
+   * Get time of day for context
+   */
+  private getTimeOfDay(): "morning" | "afternoon" | "evening" | "night" {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "morning";
+    if (hour >= 12 && hour < 18) return "afternoon";
+    if (hour >= 18 && hour < 22) return "evening";
+    return "night";
   }
 
   /**
