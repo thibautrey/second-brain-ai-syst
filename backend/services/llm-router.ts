@@ -207,25 +207,11 @@ export class LLMRouterService {
     });
 
     if (!taskConfig?.provider) {
-      // Fallback: try to get any configured provider
-      const anyProvider = await prisma.aIProvider.findFirst({
-        where: { userId, isEnabled: true },
-        include: { models: true },
-      });
-
-      if (!anyProvider || !anyProvider.apiKey) {
-        return null;
-      }
-
-      const defaultModel = anyProvider.models[0];
-
-      return {
-        id: anyProvider.id,
-        name: anyProvider.name,
-        apiKey: anyProvider.apiKey,
-        baseUrl: anyProvider.baseUrl,
-        modelId: defaultModel?.modelId || "gpt-3.5-turbo",
-      };
+      // No task config found - this is required
+      console.error(
+        `[LLMRouter] No task configuration found for taskType: ${configTaskType} for user: ${userId}. This is a required configuration. User must set up task config in AI Settings.`,
+      );
+      return null;
     }
 
     return {

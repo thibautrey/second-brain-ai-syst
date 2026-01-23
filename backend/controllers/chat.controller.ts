@@ -73,13 +73,21 @@ async function getChatProvider(
     include: { provider: true, model: true },
   });
 
-  let provider = taskConfig?.provider;
-  let modelId = taskConfig?.model?.modelId || "gpt-3.5-turbo";
-
-  if (!provider) {
-    provider = await prisma.aIProvider.findFirst({ where: { userId } });
-    if (!provider) return null;
+  if (!taskConfig?.provider) {
+    throw new Error(
+      "No AI provider configured for REFLECTION task. Please configure a provider and model for the REFLECTION task type in AI Settings. This is a required configuration.",
+    );
   }
+
+  const modelId = taskConfig.model?.modelId;
+
+  if (!modelId) {
+    throw new Error(
+      "No model ID found for REFLECTION task configuration. Please ensure the REFLECTION task config has a valid model selected.",
+    );
+  }
+
+  const provider = taskConfig.provider;
 
   // Cache it
   chatProviderCache.set(userId, {

@@ -133,7 +133,7 @@ Storage guidelines:
   - The AI couldn't answer ("I don't know", disclaimers about AI limitations)
   - The exchange was meaningless or a test
   - It's noise or filler words
-  
+
 - DO STORE if:
   - User shared personal facts (FACTUAL DECLARATION) - set isFactualDeclaration=true and factToStore
   - AI provided useful information or insights
@@ -251,29 +251,26 @@ export class IntentRouterService {
     let modelId: string;
 
     if (!taskConfig || !taskConfig.provider) {
-      // Fallback: try to find any available provider for this user
-      const provider = await prisma.aIProvider.findFirst({
-        where: userId ? { userId } : undefined,
-      });
-
-      if (!provider) {
-        throw new Error(
-          "No AI provider configured. Please configure an AI provider in settings.",
-        );
-      }
-
-      client = new OpenAI({
-        apiKey: provider.apiKey,
-        baseURL: provider.baseUrl || "https://api.openai.com/v1",
-      });
-      modelId = "gpt-3.5-turbo";
-    } else {
-      client = new OpenAI({
-        apiKey: taskConfig.provider.apiKey,
-        baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
-      });
-      modelId = taskConfig.model?.modelId || "gpt-3.5-turbo";
+      // ROUTING task config is required
+      throw new Error(
+        "No AI provider configured for ROUTING task. Please configure a provider and model for the ROUTING task type in AI Settings. This is a required configuration.",
+      );
     }
+
+    const modelIdValue = taskConfig.model?.modelId;
+
+    if (!modelIdValue) {
+      throw new Error(
+        "No model ID found for ROUTING task configuration. Please ensure the ROUTING task config has a valid model selected.",
+      );
+    }
+
+    modelId = modelIdValue;
+
+    client = new OpenAI({
+      apiKey: taskConfig.provider.apiKey,
+      baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
+    });
 
     // Cache the provider (Optimization 4)
     if (userId) {

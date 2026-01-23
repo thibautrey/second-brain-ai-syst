@@ -688,29 +688,23 @@ Est-ce du contenu significatif ou du bruit?`;
       },
     });
 
-    let client: OpenAI;
-    let modelId: string;
-
     if (!taskConfig || !taskConfig.provider) {
-      const provider = await prisma.aIProvider.findFirst({
-        where: userId ? { userId } : undefined,
-      });
+      throw new Error(
+        "No AI provider configured for ROUTING task. Please configure a provider and model for the ROUTING task type in AI Settings. This is a required configuration.",
+      );
+    }
 
-      if (!provider) {
-        throw new Error("No AI provider configured");
-      }
+    const client = new OpenAI({
+      apiKey: taskConfig.provider.apiKey,
+      baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
+    });
 
-      client = new OpenAI({
-        apiKey: provider.apiKey,
-        baseURL: provider.baseUrl || "https://api.openai.com/v1",
-      });
-      modelId = "gpt-3.5-turbo";
-    } else {
-      client = new OpenAI({
-        apiKey: taskConfig.provider.apiKey,
-        baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
-      });
-      modelId = taskConfig.model?.modelId || "gpt-3.5-turbo";
+    const modelId = taskConfig.model?.modelId;
+
+    if (!modelId) {
+      throw new Error(
+        "No model ID found for ROUTING task configuration. Please ensure the ROUTING task config has a valid model selected.",
+      );
     }
 
     return { client, modelId };
