@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { TrainingProgressWidget } from "../components/ui/training-progress-widget";
 import { ContinuousListeningCompact } from "../components/ContinuousListeningCompact";
+import { ChatPanel } from "../components/ChatPanel";
 import {
   Menu,
   LogOut,
@@ -12,6 +13,7 @@ import {
   FileText,
   BarChart3,
   Mic,
+  MessageSquare,
 } from "lucide-react";
 import { useState } from "react";
 import { TrainingPage } from "./TrainingPage";
@@ -76,6 +78,12 @@ export function DashboardPage() {
             isActive={activeTab === "training"}
           />
           <NavItem
+            icon={<MessageSquare className="w-5 h-5" />}
+            label="Chat"
+            onClick={() => setActiveTab("chat")}
+            isActive={activeTab === "chat"}
+          />
+          <NavItem
             icon={<Settings className="w-5 h-5" />}
             label="Settings"
             onClick={() => setActiveTab("settings")}
@@ -132,7 +140,7 @@ export function DashboardPage() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-8 overflow-auto pt-24">
+        <div className="flex-1 p-8 pt-24 overflow-auto">
           <div className="max-w-6xl mx-auto">
             {activeTab === "dashboard" && (
               <>
@@ -247,6 +255,15 @@ export function DashboardPage() {
             )}
 
             {activeTab === "training" && <TrainingPage />}
+
+            {activeTab === "chat" && (
+              <div className="max-w-4xl mx-auto">
+                <h2 className="mb-6 text-2xl font-bold text-slate-900">
+                  Chat avec Second Brain
+                </h2>
+                <ChatPanel />
+              </div>
+            )}
 
             {activeTab === "settings" && <SettingsPage />}
           </div>

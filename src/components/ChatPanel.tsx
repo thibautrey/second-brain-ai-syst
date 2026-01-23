@@ -1,0 +1,168 @@
+/**
+ * Chat Panel Component
+ *
+ * Simple chat interface with message stream
+ */
+
+import React, { useState, useRef, useEffect } from "react";
+import { Send, Trash2, Loader2, Bot, User } from "lucide-react";
+import { Button } from "./ui/button";
+import { useChatMessages } from "../hooks/useChatMessages";
+import { cn } from "../lib/utils";
+
+export function ChatPanel() {
+  const { messages, isLoading, error, sendMessage, clearMessages } =
+    useChatMessages();
+  const [input, setInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() && !isLoading) {
+      sendMessage(input);
+      setInput("");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-180px)] bg-white rounded-lg shadow border border-slate-200">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+        <div className="flex items-center gap-2">
+          <Bot className="w-5 h-5 text-blue-600" />
+          <h3 className="font-semibold text-slate-900">
+            Chat avec Second Brain
+          </h3>
+        </div>
+        {messages.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearMessages}
+            className="text-slate-500 hover:text-slate-700"
+          >
+            <Trash2 className="w-4 h-4 mr-1" />
+            Effacer
+          </Button>
+        )}
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-slate-400">
+            <Bot className="w-12 h-12 mb-3 opacity-50" />
+            <p className="text-sm">Commencez une conversation...</p>
+            <p className="text-xs mt-1">
+              Je peux accéder à vos mémoires pour des réponses personnalisées
+            </p>
+          </div>
+        ) : (
+          messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={cn(
+                "flex gap-3",
+                msg.role === "user" ? "flex-row-reverse" : "",
+              )}
+            >
+              {/* Avatar */}
+              <div
+                className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-200 text-slate-600",
+                )}
+              >
+                {msg.role === "user" ? (
+                  <User className="w-4 h-4" />
+                ) : (
+                  <Bot className="w-4 h-4" />
+                )}
+              </div>
+
+              {/* Message bubble */}
+              <div
+                className={cn(
+                  "max-w-[75%] rounded-lg px-4 py-2",
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-900",
+                )}
+              >
+                <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                {msg.isStreaming && (
+                  <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
+                )}
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Loading indicator */}
+        {isLoading && messages[messages.length - 1]?.content === "" && (
+          <div className="flex items-center gap-2 text-slate-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Réflexion en cours...</span>
+          </div>
+        )}
+
+        {/* Error display */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="p-4 border-t border-slate-200">
+        <div className="flex gap-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Écrivez votre message..."
+            disabled={isLoading}
+            rows={1}
+            className={cn(
+              "flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm",
+              "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "placeholder:text-slate-400",
+            )}
+            style={{ minHeight: "40px", maxHeight: "120px" }}
+          />
+          <Button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="px-4"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}

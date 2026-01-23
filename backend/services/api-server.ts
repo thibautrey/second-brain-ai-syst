@@ -46,6 +46,7 @@ import {
 import { audioUploadService } from "./audio-upload.js";
 import { speakerRecognitionService } from "./speaker-recognition.js";
 import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
+import { chatStream } from "../controllers/chat.controller.js";
 import { TrainingProcessorService } from "./training-processor.js";
 import { memorySearchService } from "./memory-search.js";
 import { continuousListeningManager } from "./continuous-listening.js";
@@ -526,6 +527,20 @@ app.put(
 app.get("/api/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
+
+// ==================== Chat Routes ====================
+
+/**
+ * POST /api/chat
+ * Stream chat response using SSE
+ */
+app.post(
+  "/api/chat",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await chatStream(req, res, next);
+  },
+);
 
 // ==================== Memory Routes ====================
 
