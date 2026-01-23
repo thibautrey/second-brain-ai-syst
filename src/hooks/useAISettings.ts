@@ -4,123 +4,177 @@ import {
   AIProvider,
   AITaskConfig,
   DEFAULT_AI_SETTINGS,
-  DEFAULT_OPENAI_MODELS,
   ModelCapability,
 } from "../types/ai-settings";
 
-const STORAGE_KEY = "ai-settings";
+const API_BASE = "http://localhost:3000/api";
+
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem("authToken");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      ...getAuthHeaders(),
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: "Request failed" }));
+    throw new Error(error.error || `HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
 
 export function useAISettings() {
   const [settings, setSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load settings from localStorage on mount
+  // Load settings from API on mount
   useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as AISettings;
-        setSettings(parsed);
-      }
-    } catch (error) {
-      console.error("Failed to load AI settings:", error);
+      const data = await apiRequest<AISettings>("/ai-settings");
+      setSettings(data);
+    } catch (err) {
+      console.error("Failed to load AI settings:", err);
+      setError(err instanceof Error ? err.message : "Failed to load settings");
+      // Fall back to default settings
+      setSettings(DEFAULT_AI_SETTINGS);
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  // Save settings to localStorage
-  const saveSettings = useCallback(async (newSettings: AISettings) => {
-    setIsSaving(true);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
-      setSettings(newSettings);
-    } catch (error) {
-      console.error("Failed to save AI settings:", error);
-      throw error;
-    } finally {
-      setIsSaving(false);
-    }
-  }, []);
+  };
 
   // Add a new provider
   const addProvider = useCallback(
-    async (
-      provider: Omit<AIProvider, "id" | "createdAt" | "updatedAt" | "models">,
-    ) => {
-      const now = new Date().toISOString();
-      const newProvider: AIProvider = {
-        ...provider,
-        id: `provider-${Date.now()}`,
-        createdAt: now,
-        updatedAt: now,
-        models:
-          provider.type === "openai"
-            ? DEFAULT_OPENAI_MODELS.map((m) => ({
-                ...m,
-                providerId: `provider-${Date.now()}`,
-              }))
-            : [],
-      };
+    async (provider: {
+      name: string;
+      type: "openai" | "openai-compatible";
+      apiKey: string;
+      baseUrl?: string;
+      isEnabled: boolean;
+    }) => {
+      setIsSaving(true);
+      setError(null);
+      try {
+        const newProvider = await apiRequest<AIProvider>(
+          "/ai-settings/providers",
+          {
+            method: "POST",
+            body: JSON.stringify(provider),
+          },
+        );
 
-      // Fix the provider ID reference in models
-      newProvider.models = newProvider.models.map((m) => ({
-        ...m,
-        providerId: newProvider.id,
-      }));
+        setSettings((prev) => ({
+          ...prev,
+          providers: [...prev.providers, newProvider],
+        }));
 
-      const newSettings = {
-        ...settings,
-        providers: [...settings.providers, newProvider],
-      };
-
-      await saveSettings(newSettings);
-      return newProvider;
+        return newProvider;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to add provider";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [settings, saveSettings],
+    [],
   );
 
   // Update a provider
   const updateProvider = useCallback(
     async (
       providerId: string,
-      updates: Partial<Omit<AIProvider, "id" | "createdAt">>,
+      updates: {
+        name?: string;
+        type?: "openai" | "openai-compatible";
+        apiKey?: string;
+        baseUrl?: string;
+        isEnabled?: boolean;
+      },
     ) => {
-      const newSettings = {
-        ...settings,
-        providers: settings.providers.map((p) =>
-          p.id === providerId
-            ? { ...p, ...updates, updatedAt: new Date().toISOString() }
-            : p,
-        ),
-      };
+      setIsSaving(true);
+      setError(null);
+      try {
+        const updatedProvider = await apiRequest<AIProvider>(
+          `/ai-settings/providers/${providerId}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(updates),
+          },
+        );
 
-      await saveSettings(newSettings);
+        setSettings((prev) => ({
+          ...prev,
+          providers: prev.providers.map((p) =>
+            p.id === providerId ? updatedProvider : p,
+          ),
+        }));
+
+        return updatedProvider;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to update provider";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [settings, saveSettings],
+    [],
   );
 
   // Delete a provider
-  const deleteProvider = useCallback(
-    async (providerId: string) => {
-      // Also reset any task configs using this provider
-      const newTaskConfigs = settings.taskConfigs.map((tc) =>
-        tc.providerId === providerId
-          ? { ...tc, providerId: null, modelId: null }
-          : tc,
-      );
+  const deleteProvider = useCallback(async (providerId: string) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await apiRequest(`/ai-settings/providers/${providerId}`, {
+        method: "DELETE",
+      });
 
-      const newSettings = {
-        ...settings,
-        providers: settings.providers.filter((p) => p.id !== providerId),
-        taskConfigs: newTaskConfigs,
-      };
-
-      await saveSettings(newSettings);
-    },
-    [settings, saveSettings],
-  );
+      // Also reset task configs that used this provider
+      setSettings((prev) => ({
+        ...prev,
+        providers: prev.providers.filter((p) => p.id !== providerId),
+        taskConfigs: prev.taskConfigs.map((tc) =>
+          tc.providerId === providerId
+            ? { ...tc, providerId: null, modelId: null }
+            : tc,
+        ),
+      }));
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to delete provider";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
 
   // Update task configuration
   const updateTaskConfig = useCallback(
@@ -129,16 +183,35 @@ export function useAISettings() {
       providerId: string | null,
       modelId: string | null,
     ) => {
-      const newSettings = {
-        ...settings,
-        taskConfigs: settings.taskConfigs.map((tc) =>
-          tc.taskType === taskType ? { ...tc, providerId, modelId } : tc,
-        ),
-      };
+      setIsSaving(true);
+      setError(null);
+      try {
+        const updatedConfig = await apiRequest<AITaskConfig>(
+          `/ai-settings/task-configs/${taskType}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ providerId, modelId }),
+          },
+        );
 
-      await saveSettings(newSettings);
+        setSettings((prev) => ({
+          ...prev,
+          taskConfigs: prev.taskConfigs.map((tc) =>
+            tc.taskType === taskType ? updatedConfig : tc,
+          ),
+        }));
+
+        return updatedConfig;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to update task config";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [settings, saveSettings],
+    [],
   );
 
   // Add custom model to a provider
@@ -147,49 +220,60 @@ export function useAISettings() {
       providerId: string,
       model: { id: string; name: string; capabilities: ModelCapability[] },
     ) => {
-      const newSettings = {
-        ...settings,
-        providers: settings.providers.map((p) =>
-          p.id === providerId
-            ? {
-                ...p,
-                models: [...p.models, { ...model, providerId }],
-                updatedAt: new Date().toISOString(),
-              }
-            : p,
-        ),
-      };
+      setIsSaving(true);
+      setError(null);
+      try {
+        const newModel = await apiRequest(
+          `/ai-settings/providers/${providerId}/models`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              modelId: model.id,
+              name: model.name,
+              capabilities: model.capabilities,
+            }),
+          },
+        );
 
-      await saveSettings(newSettings);
+        // Reload settings to get updated provider
+        await loadSettings();
+
+        return newModel;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to add model";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [settings, saveSettings],
+    [],
   );
 
   // Remove model from a provider
   const removeModelFromProvider = useCallback(
     async (providerId: string, modelId: string) => {
-      // Also reset any task configs using this model
-      const newTaskConfigs = settings.taskConfigs.map((tc) =>
-        tc.modelId === modelId ? { ...tc, modelId: null } : tc,
-      );
+      setIsSaving(true);
+      setError(null);
+      try {
+        await apiRequest(
+          `/ai-settings/providers/${providerId}/models/${modelId}`,
+          { method: "DELETE" },
+        );
 
-      const newSettings = {
-        ...settings,
-        providers: settings.providers.map((p) =>
-          p.id === providerId
-            ? {
-                ...p,
-                models: p.models.filter((m) => m.id !== modelId),
-                updatedAt: new Date().toISOString(),
-              }
-            : p,
-        ),
-        taskConfigs: newTaskConfigs,
-      };
-
-      await saveSettings(newSettings);
+        // Reload settings to get updated state
+        await loadSettings();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to remove model";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [settings, saveSettings],
+    [],
   );
 
   // Get models available for a specific task type
@@ -227,6 +311,7 @@ export function useAISettings() {
     settings,
     isLoading,
     isSaving,
+    error,
     addProvider,
     updateProvider,
     deleteProvider,
@@ -235,5 +320,6 @@ export function useAISettings() {
     removeModelFromProvider,
     getModelsForTask,
     getTaskConfig,
+    refreshSettings: loadSettings,
   };
 }

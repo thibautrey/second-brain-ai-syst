@@ -29,6 +29,18 @@ import {
   type CreateSummaryInput,
   type UpdateSummaryInput,
 } from "../controllers/memory.controller.js";
+import {
+  getAISettings,
+  getProviders,
+  getProviderById,
+  createProvider,
+  updateProvider,
+  deleteProvider,
+  addModelToProvider,
+  removeModelFromProvider,
+  getTaskConfigs,
+  updateTaskConfig,
+} from "../controllers/ai-settings.controller.js";
 import { audioUploadService } from "./audio-upload.js";
 import { speakerRecognitionService } from "./speaker-recognition.js";
 import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
@@ -281,6 +293,224 @@ app.post(
   upload.single("audio"),
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     await voiceTrainingController.verifyVoice(req, res, next);
+  },
+);
+
+// ==================== AI Settings Routes ====================
+
+/**
+ * GET /api/settings/ai
+ * Get all AI settings (providers + task configs)
+ */
+app.get(
+  "/api/settings/ai",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const settings = await getAISettings(req.userId);
+      res.json(settings);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/settings/ai/providers
+ * Get all AI providers
+ */
+app.get(
+  "/api/settings/ai/providers",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const providers = await getProviders(req.userId);
+      res.json(providers);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/settings/ai/providers/:providerId
+ * Get a specific provider
+ */
+app.get(
+  "/api/settings/ai/providers/:providerId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const provider = await getProviderById(req.userId, req.params.providerId);
+      res.json(provider);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/settings/ai/providers
+ * Create a new AI provider
+ */
+app.post(
+  "/api/settings/ai/providers",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const provider = await createProvider(req.userId, req.body);
+      res.status(201).json(provider);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PUT /api/settings/ai/providers/:providerId
+ * Update an AI provider
+ */
+app.put(
+  "/api/settings/ai/providers/:providerId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const provider = await updateProvider(
+        req.userId,
+        req.params.providerId,
+        req.body,
+      );
+      res.json(provider);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * DELETE /api/settings/ai/providers/:providerId
+ * Delete an AI provider
+ */
+app.delete(
+  "/api/settings/ai/providers/:providerId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await deleteProvider(req.userId, req.params.providerId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/settings/ai/providers/:providerId/models
+ * Add a custom model to a provider
+ */
+app.post(
+  "/api/settings/ai/providers/:providerId/models",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const model = await addModelToProvider(
+        req.userId,
+        req.params.providerId,
+        req.body,
+      );
+      res.status(201).json(model);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * DELETE /api/settings/ai/providers/:providerId/models/:modelId
+ * Remove a model from a provider
+ */
+app.delete(
+  "/api/settings/ai/providers/:providerId/models/:modelId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await removeModelFromProvider(
+        req.userId,
+        req.params.providerId,
+        req.params.modelId,
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/settings/ai/tasks
+ * Get all task configurations
+ */
+app.get(
+  "/api/settings/ai/tasks",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const configs = await getTaskConfigs(req.userId);
+      res.json(configs);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PUT /api/settings/ai/tasks/:taskType
+ * Update a task configuration
+ */
+app.put(
+  "/api/settings/ai/tasks/:taskType",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const config = await updateTaskConfig(
+        req.userId,
+        req.params.taskType,
+        req.body,
+      );
+      res.json(config);
+    } catch (error) {
+      next(error);
+    }
   },
 );
 
@@ -738,6 +968,234 @@ app.delete(
 
       const result = await deleteSummary(req.userId, req.params.summaryId);
       res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ==================== AI Settings Routes ====================
+
+/**
+ * GET /api/ai-settings
+ * Get all AI settings (providers + task configs)
+ */
+app.get(
+  "/api/ai-settings",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const settings = await getAISettings(req.userId);
+      res.json(settings);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/ai-settings/providers
+ * Get all AI providers
+ */
+app.get(
+  "/api/ai-settings/providers",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const providers = await getProviders(req.userId);
+      res.json(providers);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/ai-settings/providers
+ * Create a new AI provider
+ */
+app.post(
+  "/api/ai-settings/providers",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const provider = await createProvider(req.userId, req.body);
+      res.status(201).json(provider);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/ai-settings/providers/:providerId
+ * Get a specific provider
+ */
+app.get(
+  "/api/ai-settings/providers/:providerId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const provider = await getProviderById(req.userId, req.params.providerId);
+      res.json(provider);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PATCH /api/ai-settings/providers/:providerId
+ * Update a provider
+ */
+app.patch(
+  "/api/ai-settings/providers/:providerId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const provider = await updateProvider(
+        req.userId,
+        req.params.providerId,
+        req.body,
+      );
+      res.json(provider);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * DELETE /api/ai-settings/providers/:providerId
+ * Delete a provider
+ */
+app.delete(
+  "/api/ai-settings/providers/:providerId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const result = await deleteProvider(req.userId, req.params.providerId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/ai-settings/providers/:providerId/models
+ * Add a custom model to a provider
+ */
+app.post(
+  "/api/ai-settings/providers/:providerId/models",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const model = await addModelToProvider(
+        req.userId,
+        req.params.providerId,
+        req.body,
+      );
+      res.status(201).json(model);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * DELETE /api/ai-settings/providers/:providerId/models/:modelId
+ * Remove a model from a provider
+ */
+app.delete(
+  "/api/ai-settings/providers/:providerId/models/:modelId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const result = await removeModelFromProvider(
+        req.userId,
+        req.params.providerId,
+        req.params.modelId,
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/ai-settings/task-configs
+ * Get all task configurations
+ */
+app.get(
+  "/api/ai-settings/task-configs",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const configs = await getTaskConfigs(req.userId);
+      res.json(configs);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PATCH /api/ai-settings/task-configs/:taskType
+ * Update a task configuration
+ */
+app.patch(
+  "/api/ai-settings/task-configs/:taskType",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const config = await updateTaskConfig(
+        req.userId,
+        req.params.taskType,
+        req.body,
+      );
+      res.json(config);
     } catch (error) {
       next(error);
     }

@@ -235,21 +235,30 @@ export class EmbeddingService {
         console.error(`- Successfully processed: ${response.data.processed}`);
         console.error(`- Errors: ${response.data.errors_count}`);
         if (response.data.errors && response.data.errors.length > 0) {
-          response.data.errors.forEach((err) => {
-            console.error(`  [${err.index}] ${err.audio_path}: ${err.error}`);
-          });
+          response.data.errors.forEach(
+            (err: { index: number; audio_path: string; error: string }) => {
+              console.error(`  [${err.index}] ${err.audio_path}: ${err.error}`);
+            },
+          );
         }
         throw new Error(
           `Batch extraction failed completely: ${response.data.errors_count} errors out of ${response.data.total} files`,
         );
       }
 
-      return response.data.embeddings.map((item) => ({
-        index: item.index,
-        audioPath: item.audio_path,
-        embedding: item.embedding,
-        success: item.success,
-      }));
+      return response.data.embeddings.map(
+        (item: {
+          index: number;
+          audio_path: string;
+          embedding: number[];
+          success: boolean;
+        }) => ({
+          index: item.index,
+          audioPath: item.audio_path,
+          embedding: item.embedding,
+          success: item.success,
+        }),
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Batch extraction failed: ${message}`);
