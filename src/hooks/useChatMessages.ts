@@ -64,7 +64,12 @@ export function useChatMessages() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ message: content }),
+          body: JSON.stringify({
+            message: content,
+            messages: state.messages.filter(
+              (m) => m.role !== "assistant" || m.content,
+            ),
+          }),
           signal: abortControllerRef.current.signal,
         });
 

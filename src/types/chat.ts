@@ -16,6 +16,7 @@ export interface ChatMessage {
 
 export interface ChatRequest {
   message: string;
+  messages?: ChatMessage[];
   conversationId?: string;
 }
 

@@ -129,7 +129,7 @@ export async function chatStream(
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { message } = req.body;
+  const { message, messages: previousMessages } = req.body;
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "Message is required" });
   }
@@ -281,10 +281,28 @@ export async function chatStream(
       name?: string;
     };
 
-    let messages: ChatMessage[] = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: message },
-    ];
+    // Build message history from previous messages + current message
+    let messages: ChatMessage[] = [{ role: "system", content: systemPrompt }];
+
+    // Add previous conversation messages (if any)
+    if (Array.isArray(previousMessages) && previousMessages.length > 0) {
+      for (const prevMsg of previousMessages) {
+        if (prevMsg.role === "user" && prevMsg.content) {
+          messages.push({
+            role: "user",
+            content: prevMsg.content,
+          });
+        } else if (prevMsg.role === "assistant" && prevMsg.content) {
+          messages.push({
+            role: "assistant",
+            content: prevMsg.content,
+          });
+        }
+      }
+    }
+
+    // Add current user message
+    messages.push({ role: "user", content: message });
 
     let fullResponse = "";
     let allToolResults: any[] = [];

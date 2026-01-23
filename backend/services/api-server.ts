@@ -95,6 +95,17 @@ const upload = multer({
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from dist in production
+if (process.env.NODE_ENV === "production") {
+  const distPath = new URL("../../../dist", import.meta.url).pathname;
+  app.use(
+    express.static(distPath, {
+      maxAge: "1y",
+      etag: false,
+    }),
+  );
+}
+
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err);
@@ -1764,6 +1775,21 @@ app.post(
     }
   },
 );
+
+// SPA fallback: serve index.html for all non-API routes
+// This must come AFTER all API route definitions
+if (process.env.NODE_ENV === "production") {
+  app.get("*", (req: Request, res: Response) => {
+    // Don't serve index.html for API routes or static files
+    if (req.path.startsWith("/api/") || req.path.match(/\.[^/]*$/)) {
+      return res.status(404).json({ error: "Not found" });
+    }
+    // Serve index.html for SPA routing
+    const indexPath = new URL("../../../dist/index.html", import.meta.url)
+      .pathname;
+    res.sendFile(indexPath);
+  });
+}
 
 /**
  * Initialize and start the API server
