@@ -1792,18 +1792,25 @@ export async function startServer(port: number = 3000) {
     console.log("✓ Scheduler service started");
 
     // Process any missing embeddings on startup (runs in background)
-    embeddingSchedulerService
-      .processAllMissingEmbeddings()
-      .then((result) => {
-        if (result.totalProcessed > 0) {
-          console.log(
-            `✓ Startup embedding processing: ${result.successful}/${result.totalProcessed} memories indexed`,
-          );
-        }
-      })
-      .catch((error) => {
-        console.warn("⚠ Startup embedding processing failed:", error);
-      });
+    // Wait 45 seconds for Weaviate and embedding services to be fully ready
+    const EMBEDDING_STARTUP_DELAY_MS = 45000;
+    console.log(
+      `⏳ Waiting ${EMBEDDING_STARTUP_DELAY_MS / 1000}s before starting embedding processing...`,
+    );
+    setTimeout(() => {
+      embeddingSchedulerService
+        .processAllMissingEmbeddings()
+        .then((result) => {
+          if (result.totalProcessed > 0) {
+            console.log(
+              `✓ Startup embedding processing: ${result.successful}/${result.totalProcessed} memories indexed`,
+            );
+          }
+        })
+        .catch((error) => {
+          console.warn("⚠ Startup embedding processing failed:", error);
+        });
+    }, EMBEDDING_STARTUP_DELAY_MS);
 
     // Create HTTP server
     const httpServer: HttpServer = createServer(app);
@@ -1831,7 +1838,8 @@ export async function startServer(port: number = 3000) {
  * Setup WebSocket server for continuous listening
  */
 function setupWebSocketServer(wss: WebSocketServer): void {
-  const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+  const JWT_SECRET =
+    process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
   // Track connections per user
   const userConnections = new Map<string, WebSocket>();
