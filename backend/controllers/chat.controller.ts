@@ -371,8 +371,14 @@ export async function chatStream(
       });
 
       // Validate max_tokens before making the request
+      // Limit the context string to avoid massive estimation errors
+      // (each message content up to ~1000 chars to prevent JSON tool results from inflating estimates)
       const messagesStr = messages
-        .map((m) => (typeof m.content === "string" ? m.content : ""))
+        .map((m) => {
+          const content = typeof m.content === "string" ? m.content : "";
+          // Limit each message to first 1000 chars to prevent tool result bloat from inflating estimate
+          return content.substring(0, 1000);
+        })
         .join(" ");
       const validation = validateMaxTokens(
         4096,

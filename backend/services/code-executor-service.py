@@ -338,7 +338,13 @@ def execute_code():
         else:
             result = executor.execute(code)
 
-        logger.info(f"Execution completed: success={result['success']}, time={result['execution_time_ms']}ms")
+        # Log execution result with error details if failed
+        if result['success']:
+            logger.info(f"Execution completed: success=True, time={result['execution_time_ms']}ms")
+        else:
+            logger.error(f"Execution completed: success=False, time={result['execution_time_ms']}ms, error={result.get('error', 'Unknown error')}")
+            if result.get('stderr'):
+                logger.error(f"Stderr output:\n{result['stderr']}")
 
         return jsonify(result)
 

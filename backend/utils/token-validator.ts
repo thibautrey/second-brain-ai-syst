@@ -40,9 +40,11 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
  * This is a rough estimate: ~4 tokens per word on average
  */
 function estimateTokensUsed(messagesStr: string): number {
-  // Rough estimate: 4 tokens per word, or 1 token per character / 4
-  const wordCount = messagesStr.split(/\s+/).length;
-  return Math.ceil(wordCount * 1.3); // Conservative estimate
+  if (!messagesStr) return 0;
+
+  // Rough estimate: 1 token per 4 characters (more accurate for real text)
+  // This avoids massive overestimation on JSON and structured data
+  return Math.ceil(messagesStr.length / 4);
 }
 
 /**
@@ -101,20 +103,26 @@ export function validateMaxTokens(
 
   // Rule 2: Ensure it doesn't exceed context window minus reserved buffer
   // Reserve 20% of context window for prompt and safety margin
-  const maxAllowedTokens =
-    Math.floor(contextWindow * 0.8) - estimatedUsedTokens;
+  const reservedBuffer = Math.floor(contextWindow * 0.2);
+  const maxAllowedTokens = Math.max(
+    256, // Minimum allowed tokens
+    contextWindow - reservedBuffer - estimatedUsedTokens,
+  );
 
   if (validatedTokens > maxAllowedTokens) {
-    validatedTokens = Math.max(1, Math.floor(maxAllowedTokens));
-    warning = `max_tokens reduced from ${requestedMaxTokens} to ${validatedTokens} to fit context window`;
+    validatedTokens = Math.min(
+      requestedMaxTokens,
+      Math.max(1, Math.floor(maxAllowedTokens)),
+    );
+    warning = `max_tokens reduced from ${requestedMaxTokens} to ${validatedTokens} to fit context window for model ${modelId}`;
   }
 
-  // Rule 3: Final sanity check - should never be negative
+  // Rule 3: Final sanity check - should never be negative or less than 1
   if (validatedTokens < 1) {
     validatedTokens = 1;
     warning =
       (warning ? warning + "; " : "") +
-      "Context too large for response, using minimum max_tokens";
+      `Context too large for model ${modelId} (estimated ${estimatedUsedTokens} tokens used), using minimum max_tokens of 1`;
   }
 
   return {
