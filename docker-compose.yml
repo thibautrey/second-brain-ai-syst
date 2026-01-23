@@ -82,6 +82,7 @@ services:
       PORT: 3000
       EMBEDDING_SERVICE_HOST: embedding-service
       EMBEDDING_SERVICE_PORT: 5001
+      AUDIO_TMP_DIR: /app/data/audio/tmp
     ports:
       - "3000:3000"
     volumes:

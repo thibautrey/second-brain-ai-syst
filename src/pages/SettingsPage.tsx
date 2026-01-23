@@ -28,7 +28,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Select } from "../components/ui/select";
+import { Select, SelectOptionGroup } from "../components/ui/select";
 import { Switch } from "../components/ui/switch";
 import {
   Tabs,
@@ -613,16 +613,31 @@ function TaskConfigCard({
 }) {
   const taskInfo = TASK_LABELS[taskType];
   const selectedProvider = providers.find((p) => p.id === config?.providerId);
-  const modelsForProvider =
+
+  // Séparer les modèles en "suggérés" (avec la capability) et "autres"
+  const suggestedModels =
     selectedProvider?.models.filter((m) => m.capabilities.includes(taskType)) ||
     [];
+  const otherModels =
+    selectedProvider?.models.filter(
+      (m) => !m.capabilities.includes(taskType),
+    ) || [];
+
+  // Séparer les providers en "suggérés" (avec au moins un modèle compatible) et "autres"
+  const enabledProviders = providers.filter((p) => p.isEnabled);
+  const suggestedProviders = enabledProviders.filter((p) =>
+    p.models.some((m) => m.capabilities.includes(taskType)),
+  );
+  const otherProviders = enabledProviders.filter(
+    (p) => !p.models.some((m) => m.capabilities.includes(taskType)),
+  );
 
   const handleProviderChange = (providerId: string) => {
     if (!providerId) {
       onUpdate(null, null);
       return;
     }
-    // Auto-select first compatible model when changing provider
+    // Auto-select first compatible model when changing provider (if exists)
     const provider = providers.find((p) => p.id === providerId);
     const firstModel = provider?.models.find((m) =>
       m.capabilities.includes(taskType),
@@ -631,6 +646,48 @@ function TaskConfigCard({
   };
 
   const isConfigured = config?.providerId && config?.modelId;
+
+  // Build provider option groups
+  const providerOptionGroups: SelectOptionGroup[] = [];
+  if (suggestedProviders.length > 0) {
+    providerOptionGroups.push({
+      label: "✓ Suggérés (modèles compatibles)",
+      options: suggestedProviders.map((p) => ({
+        value: p.id,
+        label: p.name,
+      })),
+    });
+  }
+  if (otherProviders.length > 0) {
+    providerOptionGroups.push({
+      label: "Autres providers",
+      options: otherProviders.map((p) => ({
+        value: p.id,
+        label: p.name,
+      })),
+    });
+  }
+
+  // Build model option groups
+  const modelOptionGroups: SelectOptionGroup[] = [];
+  if (suggestedModels.length > 0) {
+    modelOptionGroups.push({
+      label: "✓ Suggérés pour cette tâche",
+      options: suggestedModels.map((m) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    });
+  }
+  if (otherModels.length > 0) {
+    modelOptionGroups.push({
+      label: "Autres modèles",
+      options: otherModels.map((m) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    });
+  }
 
   return (
     <Card>
@@ -660,26 +717,19 @@ function TaskConfigCard({
                   onChange={(e) => handleProviderChange(e.target.value)}
                   disabled={isSaving}
                   placeholder="Sélectionner un provider"
-                  options={[
-                    { value: "", label: "Aucun" },
-                    ...providers
-                      .filter((p) => p.isEnabled)
-                      .map((p) => ({
-                        value: p.id,
-                        label: p.name,
-                        disabled: !p.models.some((m) =>
-                          m.capabilities.includes(taskType),
-                        ),
-                      })),
-                  ]}
+                  options={[{ value: "", label: "Aucun" }]}
+                  optionGroups={providerOptionGroups}
                 />
-                {providers.filter(
-                  (p) =>
-                    p.isEnabled &&
-                    p.models.some((m) => m.capabilities.includes(taskType)),
-                ).length === 0 && (
+                {suggestedProviders.length === 0 &&
+                  enabledProviders.length > 0 && (
+                    <p className="text-xs text-amber-600">
+                      Aucun provider suggéré pour cette tâche, mais vous pouvez
+                      choisir n'importe lequel
+                    </p>
+                  )}
+                {enabledProviders.length === 0 && (
                   <p className="text-xs text-amber-600">
-                    Aucun provider actif ne supporte cette tâche
+                    Aucun provider actif disponible
                   </p>
                 )}
               </div>
@@ -693,14 +743,17 @@ function TaskConfigCard({
                   }
                   disabled={isSaving || !config?.providerId}
                   placeholder="Sélectionner un modèle"
-                  options={[
-                    { value: "", label: "Aucun" },
-                    ...modelsForProvider.map((m) => ({
-                      value: m.id,
-                      label: m.name,
-                    })),
-                  ]}
+                  options={[{ value: "", label: "Aucun" }]}
+                  optionGroups={modelOptionGroups}
                 />
+                {selectedProvider &&
+                  suggestedModels.length === 0 &&
+                  otherModels.length > 0 && (
+                    <p className="text-xs text-amber-600">
+                      Aucun modèle suggéré, mais vous pouvez utiliser n'importe
+                      quel modèle
+                    </p>
+                  )}
               </div>
             </div>
           </div>

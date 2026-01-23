@@ -544,15 +544,17 @@ export class ContinuousListeningService extends EventEmitter {
     try {
       const embeddingService = await getEmbeddingService();
 
-      // Save temp file for embedding extraction
-      const tempPath = `/tmp/continuous_audio_${Date.now()}.wav`;
+      // Save temp file for embedding extraction - use shared volume for Docker compatibility
+      const sharedTmpDir = process.env.AUDIO_TMP_DIR || "/app/data/audio/tmp";
+      const fs = await import("fs/promises");
+      await fs.mkdir(sharedTmpDir, { recursive: true });
+      const tempPath = `${sharedTmpDir}/continuous_audio_${Date.now()}.wav`;
       await this.saveAsWav(audioData, tempPath);
 
       // Extract embedding
       const embedding = await embeddingService.extractEmbedding(tempPath);
 
       // Cleanup temp file
-      const fs = await import("fs/promises");
       await fs.unlink(tempPath).catch(() => {});
 
       // Compare with centroid
@@ -605,8 +607,11 @@ export class ContinuousListeningService extends EventEmitter {
         throw new Error("No speech-to-text provider configured");
       }
 
-      // Save audio as temp WAV file
-      const tempPath = `/tmp/transcribe_${Date.now()}.wav`;
+      // Save audio as temp WAV file - use shared volume for Docker compatibility
+      const sharedTmpDir = process.env.AUDIO_TMP_DIR || "/app/data/audio/tmp";
+      const fsPromises = await import("fs/promises");
+      await fsPromises.mkdir(sharedTmpDir, { recursive: true });
+      const tempPath = `${sharedTmpDir}/transcribe_${Date.now()}.wav`;
       await this.saveAsWav(audioData, tempPath);
 
       const fs = await import("fs");
@@ -625,7 +630,6 @@ export class ContinuousListeningService extends EventEmitter {
       });
 
       // Cleanup
-      const fsPromises = await import("fs/promises");
       await fsPromises.unlink(tempPath).catch(() => {});
 
       return {

@@ -20,6 +20,7 @@ interface EmbeddingServiceConfig {
   pythonPath?: string;
   maxRetries?: number;
   retryDelay?: number;
+  external?: boolean; // If true, don't spawn Python process (service runs externally, e.g., in Docker)
 }
 
 interface ExtractEmbeddingResponse {
@@ -71,6 +72,7 @@ export class EmbeddingService {
       pythonPath: "python3",
       maxRetries: 30,
       retryDelay: 1000,
+      external: false,
       ...config,
     };
 
@@ -81,11 +83,22 @@ export class EmbeddingService {
   }
 
   /**
-   * Start the Python embedding service
+   * Start the Python embedding service (or connect to external service)
    */
   async start(): Promise<void> {
     if (this.isReady) {
       console.log("✓ Embedding service already started");
+      return;
+    }
+
+    // In external mode (Docker), just wait for the service to be ready
+    if (this.config.external) {
+      console.log(
+        `🔗 Connecting to external embedding service at ${this.config.host}:${this.config.port}...`,
+      );
+
+      await this.waitForReady();
+      console.log("✓ Connected to external embedding service");
       return;
     }
 
@@ -353,10 +366,16 @@ export async function getEmbeddingService(
   config?: EmbeddingServiceConfig,
 ): Promise<EmbeddingService> {
   if (!instance) {
+    // Detect if running in Docker (external service mode)
+    // If EMBEDDING_SERVICE_HOST is set to something other than localhost, assume external
+    const host = process.env.EMBEDDING_SERVICE_HOST || "localhost";
+    const isExternal = host !== "localhost" && host !== "127.0.0.1";
+
     instance = new EmbeddingService(
       config || {
-        host: process.env.EMBEDDING_SERVICE_HOST || "localhost",
+        host: host,
         port: parseInt(process.env.EMBEDDING_SERVICE_PORT || "5001"),
+        external: isExternal,
       },
     );
 

@@ -500,10 +500,8 @@ export async function updateTaskConfig(
       if (!model) {
         throw new Error("Model not found for this provider");
       }
-      // Verify model has the required capability
-      if (!model.capabilities.includes(prismaTaskType)) {
-        throw new Error("Selected model does not support this task type");
-      }
+      // Note: We no longer restrict model selection based on capabilities.
+      // Users can choose any model - suggested models are just recommendations.
     }
   }
 
