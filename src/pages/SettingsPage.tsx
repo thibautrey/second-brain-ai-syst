@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   Server,
+  RefreshCw,
 } from "lucide-react";
 import {
   Card,
@@ -66,10 +67,32 @@ export function SettingsPage() {
 }
 
 function ProvidersSection() {
-  const { settings, addProvider, updateProvider, deleteProvider, isSaving } =
-    useAISettings();
+  const {
+    settings,
+    addProvider,
+    updateProvider,
+    deleteProvider,
+    syncProviderModels,
+    isSaving,
+  } = useAISettings();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+
+  const handleSyncModels = async (providerId: string) => {
+    setSyncingId(providerId);
+    try {
+      const result = await syncProviderModels(providerId);
+      // Could add a toast notification here
+      console.log(
+        `Sync complete: ${result.added} added, ${result.updated} updated, ${result.total} total`,
+      );
+    } catch (error) {
+      console.error("Failed to sync models:", error);
+    } finally {
+      setSyncingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -118,6 +141,7 @@ function ProvidersSection() {
               key={provider.id}
               provider={provider}
               isEditing={editingId === provider.id}
+              isSyncing={syncingId === provider.id}
               onEdit={() => setEditingId(provider.id)}
               onCancelEdit={() => setEditingId(null)}
               onSave={async (updates) => {
@@ -128,6 +152,7 @@ function ProvidersSection() {
               onToggleEnabled={(enabled) =>
                 updateProvider(provider.id, { isEnabled: enabled })
               }
+              onSyncModels={() => handleSyncModels(provider.id)}
               isSaving={isSaving}
             />
           ))
@@ -325,20 +350,24 @@ function ProviderForm({
 function ProviderCard({
   provider,
   isEditing,
+  isSyncing,
   onEdit,
   onCancelEdit,
   onSave,
   onDelete,
   onToggleEnabled,
+  onSyncModels,
   isSaving,
 }: {
   provider: AIProvider;
   isEditing: boolean;
+  isSyncing?: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
   onSave: (updates: Partial<ProviderFormData>) => Promise<void>;
   onDelete: () => void;
   onToggleEnabled: (enabled: boolean) => void;
+  onSyncModels: () => void;
   isSaving: boolean;
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -381,6 +410,17 @@ function ProviderCard({
               checked={provider.isEnabled}
               onCheckedChange={onToggleEnabled}
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onSyncModels}
+              disabled={isSyncing}
+              title="Synchroniser les modèles"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`}
+              />
+            </Button>
             <Button variant="ghost" size="icon" onClick={onEdit}>
               <Edit2 className="w-4 h-4" />
             </Button>

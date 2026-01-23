@@ -15,6 +15,7 @@ import {
 import { useState } from "react";
 import { TrainingPage } from "./TrainingPage";
 import { SettingsPage } from "./SettingsPage";
+import { MemoryBrowser } from "../components/memory";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -207,21 +208,7 @@ export function DashboardPage() {
               </>
             )}
 
-            {activeTab === "memories" && (
-              <div>
-                <h2 className="mb-2 text-3xl font-bold text-slate-900">
-                  Memories
-                </h2>
-                <p className="mb-8 text-slate-600">
-                  Browse and manage your stored memories.
-                </p>
-                <div className="p-8 text-center bg-white border rounded-lg shadow border-slate-200">
-                  <p className="text-slate-500">
-                    Memory browser coming soon...
-                  </p>
-                </div>
-              </div>
-            )}
+            {activeTab === "memories" && <MemoryBrowser />}
 
             {activeTab === "interactions" && (
               <div>

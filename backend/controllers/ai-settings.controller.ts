@@ -1,5 +1,6 @@
 import prisma from "../services/prisma.js";
 import { ProviderType, ModelCapability, Prisma } from "@prisma/client";
+import { modelDiscoveryService } from "../services/model-discovery.js";
 
 // ==================== Types ====================
 
@@ -627,4 +628,68 @@ export async function getConfiguredModelForTask(
       name: config.model.name,
     },
   };
+}
+
+// ==================== Model Discovery Operations ====================
+
+/**
+ * Sync models from provider API
+ * Fetches available models and updates the database
+ */
+export async function syncProviderModels(userId: string, providerId: string) {
+  // Verify ownership
+  const provider = await prisma.aIProvider.findFirst({
+    where: { id: providerId, userId },
+  });
+  if (!provider) {
+    throw new Error("Provider not found");
+  }
+
+  // Sync models
+  const result = await modelDiscoveryService.syncProviderModels(
+    userId,
+    providerId,
+  );
+
+  // Fetch updated provider with models
+  const updatedProvider = await prisma.aIProvider.findUnique({
+    where: { id: providerId },
+    include: { models: true },
+  });
+
+  return {
+    success: true,
+    added: result.added,
+    updated: result.updated,
+    total: result.total,
+    provider: updatedProvider
+      ? {
+          id: updatedProvider.id,
+          name: updatedProvider.name,
+          type: mapProviderTypeToFrontend(updatedProvider.type),
+          apiKey: maskApiKey(updatedProvider.apiKey),
+          baseUrl: updatedProvider.baseUrl,
+          isEnabled: updatedProvider.isEnabled,
+          createdAt: updatedProvider.createdAt.toISOString(),
+          updatedAt: updatedProvider.updatedAt.toISOString(),
+          models: updatedProvider.models.map((m) => ({
+            id: m.modelId,
+            name: m.name,
+            providerId: m.providerId,
+            capabilities: m.capabilities.map(mapCapabilityToFrontend),
+            isCustom: m.isCustom,
+          })),
+        }
+      : null,
+  };
+}
+
+/**
+ * Test if an API key is valid
+ */
+export async function testProviderApiKey(
+  apiKey: string,
+  baseUrl?: string | null,
+) {
+  return modelDiscoveryService.testApiKey(apiKey, baseUrl);
 }

@@ -40,11 +40,14 @@ import {
   removeModelFromProvider,
   getTaskConfigs,
   updateTaskConfig,
+  syncProviderModels,
+  testProviderApiKey,
 } from "../controllers/ai-settings.controller.js";
 import { audioUploadService } from "./audio-upload.js";
 import { speakerRecognitionService } from "./speaker-recognition.js";
 import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
 import { TrainingProcessorService } from "./training-processor.js";
+import { memorySearchService } from "./memory-search.js";
 
 import cors from "cors";
 import prisma from "./prisma.js";
@@ -633,6 +636,61 @@ app.get(
 );
 
 /**
+ * GET /api/memories/search/semantic
+ * Semantic search in memories using Weaviate
+ */
+app.get(
+  "/api/memories/search/semantic",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const query = req.query.query as string;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+
+      if (!query) {
+        return res.status(400).json({ error: "Query parameter is required" });
+      }
+
+      const results = await memorySearchService.semanticSearch(
+        req.userId,
+        query,
+        limit,
+      );
+      res.json(results);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/memories/search/status
+ * Check if semantic search is available
+ */
+app.get(
+  "/api/memories/search/status",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      res.json({
+        semanticSearchAvailable:
+          memorySearchService.isSemanticSearchAvailable(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
  * POST /api/memories/bulk
  * Bulk create memories
  */
@@ -1149,6 +1207,57 @@ app.delete(
         req.params.providerId,
         req.params.modelId,
       );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/ai-settings/providers/:providerId/sync-models
+ * Sync models from provider API (discover available models)
+ */
+app.post(
+  "/api/ai-settings/providers/:providerId/sync-models",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const result = await syncProviderModels(
+        req.userId,
+        req.params.providerId,
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/ai-settings/test-api-key
+ * Test if an API key is valid
+ */
+app.post(
+  "/api/ai-settings/test-api-key",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { apiKey, baseUrl } = req.body;
+
+      if (!apiKey) {
+        return res.status(400).json({ error: "API key is required" });
+      }
+
+      const result = await testProviderApiKey(apiKey, baseUrl);
       res.json(result);
     } catch (error) {
       next(error);

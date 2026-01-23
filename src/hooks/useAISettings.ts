@@ -276,6 +276,76 @@ export function useAISettings() {
     [],
   );
 
+  // Sync models from provider API
+  const syncProviderModels = useCallback(
+    async (
+      providerId: string,
+    ): Promise<{ added: number; updated: number; total: number }> => {
+      setIsSaving(true);
+      setError(null);
+      try {
+        const result = await apiRequest<{
+          success: boolean;
+          added: number;
+          updated: number;
+          total: number;
+          provider: AIProvider | null;
+        }>(`/ai-settings/providers/${providerId}/sync-models`, {
+          method: "POST",
+        });
+
+        // Update local state with the returned provider
+        if (result.provider) {
+          setSettings((prev) => ({
+            ...prev,
+            providers: prev.providers.map((p) =>
+              p.id === providerId ? result.provider! : p,
+            ),
+          }));
+        }
+
+        return {
+          added: result.added,
+          updated: result.updated,
+          total: result.total,
+        };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to sync models";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [],
+  );
+
+  // Test API key validity
+  const testApiKey = useCallback(
+    async (
+      apiKey: string,
+      baseUrl?: string,
+    ): Promise<{ valid: boolean; error?: string }> => {
+      try {
+        const result = await apiRequest<{ valid: boolean; error?: string }>(
+          "/ai-settings/test-api-key",
+          {
+            method: "POST",
+            body: JSON.stringify({ apiKey, baseUrl }),
+          },
+        );
+        return result;
+      } catch (err) {
+        return {
+          valid: false,
+          error: err instanceof Error ? err.message : "Test failed",
+        };
+      }
+    },
+    [],
+  );
+
   // Get models available for a specific task type
   const getModelsForTask = useCallback(
     (taskType: ModelCapability) => {
@@ -318,6 +388,8 @@ export function useAISettings() {
     updateTaskConfig,
     addModelToProvider,
     removeModelFromProvider,
+    syncProviderModels,
+    testApiKey,
     getModelsForTask,
     getTaskConfig,
     refreshSettings: loadSettings,
