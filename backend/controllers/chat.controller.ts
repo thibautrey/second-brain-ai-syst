@@ -27,7 +27,16 @@ import {
   generateToolExecutionSummary,
   createToolMetadata,
 } from "../services/sanitize-tool-results.js";
-import { injectDateIntoPrompt } from "../services/llm-router.js";
+import { injectContextIntoPrompt } from "../services/llm-router.js";
+import {
+  getUserProfile,
+  formatProfileForPrompt,
+} from "../services/user-profile.js";
+import {
+  validateMaxTokens,
+  isMaxTokensError,
+  getFallbackMaxTokens,
+} from "../utils/token-validator.js";
 
 const intentRouter = new IntentRouterService();
 
@@ -99,12 +108,37 @@ NE GÉNÈRE JAMAIS de commandes curl, http ou json en texte brut - utilise TOUJO
 - notification: Pour envoyer des rappels et notifications.
 - scheduled_task: Pour planifier des tâches récurrentes.
 - user_context: Pour chercher des informations sur l'utilisateur dans sa mémoire.
+- user_profile: Pour ENREGISTRER les informations personnelles importantes de l'utilisateur (nom, métier, localisation, préférences, relations, etc.). UTILISE CET OUTIL quand l'utilisateur partage des informations structurelles sur lui-même.
+- long_running_task: Pour les tâches longue durée (recherches approfondies, analyses complexes, etc.). Utilise cet outil quand une tâche prend plus de quelques minutes.
+
+USER PROFILE - PROFIL UTILISATEUR:
+IMPORTANT: Quand l'utilisateur partage une information personnelle importante (son nom, son métier, où il habite, ses préférences, ses proches, etc.), UTILISE IMMÉDIATEMENT l'outil user_profile pour l'enregistrer.
+- Ces informations sont ensuite toujours disponibles dans ton contexte
+- Tu n'as pas besoin de rechercher en mémoire les informations du profil
+- Exemples: "Je m'appelle Jean" → user_profile action=update name="Jean"
+- "Je travaille chez Google" → user_profile action=update company="Google"
+- "Ma femme s'appelle Marie" → user_profile action=update relationships=[{name: "Marie", relation: "wife"}]
+
+LONG RUNNING TASK - TÂCHES LONGUE DURÉE:
+Utilise long_running_task quand:
+- L'utilisateur demande une recherche ou analyse qui prendra du temps
+- Une tâche nécessite plusieurs étapes complexes
+- Tu dois exécuter quelque chose qui peut prendre des minutes ou des heures
+- L'utilisateur veut que quelque chose soit fait en arrière-plan
+
+Workflow pour créer une tâche longue durée:
+1. Crée la tâche avec action="create" (name, description, objective requis)
+2. Ajoute les étapes avec action="add_steps" (taskId + steps array)
+3. Démarre avec action="start" (taskId)
+
+Tu peux ensuite vérifier le progrès avec action="get_progress" ou "get_report".
 
 QUAND UTILISER LES OUTILS:
 - Questions météo → curl vers une API météo ou site météo
 - Gestion de tâches → todo
 - Rappels → notification ou scheduled_task
-- Questions sur l'utilisateur → user_context
+- Questions sur l'utilisateur (recherche) → user_context
+- Enregistrer info personnelle → user_profile
 
 INSTRUCTIONS IMPORTANTES:
 - Réponds de manière TRÈS CONCISE et utile
@@ -288,10 +322,13 @@ export async function chatStream(
     };
 
     // Build message history from previous messages + current message
-    // Inject current date into system prompt
-    const systemPromptWithDate = injectDateIntoPrompt(systemPrompt);
+    // Inject current date and user profile into system prompt
+    const systemPromptWithContext = await injectContextIntoPrompt(
+      systemPrompt,
+      userId,
+    );
     let messages: ChatMessage[] = [
-      { role: "system", content: systemPromptWithDate },
+      { role: "system", content: systemPromptWithContext },
     ];
 
     // Add previous conversation messages (if any)
@@ -333,116 +370,82 @@ export async function chatStream(
         data: { messagesCount: messages.length },
       });
 
-      // Non-streaming call to detect tool usage
-      const response = await openai.chat.completions.create({
-        model: modelId,
-        messages: messages as any,
-        temperature: 0.7,
-        max_tokens: 4096, // Explicit max_tokens to avoid provider auto-calculation issues
-        tools: toolSchemas.map((schema) => ({
-          type: "function",
-          function: schema,
-        })),
-        tool_choice: "auto",
-        stream: false,
-      });
+      // Validate max_tokens before making the request
+      const messagesStr = messages
+        .map((m) => (typeof m.content === "string" ? m.content : ""))
+        .join(" ");
+      const validation = validateMaxTokens(
+        4096,
+        modelId,
+        messages.length,
+        messagesStr,
+      );
 
-      const assistantMessage = response.choices[0]?.message;
+      let maxTokensToUse = validation.maxTokens;
 
-      if (!assistantMessage) {
-        break;
+      if (validation.warning) {
+        console.warn(
+          `[TokenValidator] ${validation.warning} for model ${modelId}`,
+        );
+        flowTracker.trackEvent({
+          flowId,
+          stage: `token_validation_warning_${iterationCount}`,
+          service: "TokenValidator",
+          status: "started",
+          data: {
+            warning: validation.warning,
+            adjustedMaxTokens: maxTokensToUse,
+          },
+        });
       }
 
-      // Detect if the model generated a tool call as text instead of using function calling
-      // This can happen with some models/providers that don't support function calling well
-      const textToolCallPattern =
-        /^(curl|todo|notification|scheduled_task|user_context)\s*\{/i;
-      const jsonToolCallPattern = /^\{[\s\S]*"action"\s*:\s*"[^"]+"/;
+      // Non-streaming call to detect tool usage
+      try {
+        const response = await openai.chat.completions.create({
+          model: modelId,
+          messages: messages as any,
+          temperature: 0.7,
+          max_tokens: maxTokensToUse, // Use validated max_tokens
+          tools: toolSchemas.map((schema) => ({
+            type: "function",
+            function: schema,
+          })),
+          tool_choice: "auto",
+          stream: false,
+        });
 
-      let parsedTextToolCall: {
-        toolId: string;
-        params: Record<string, any>;
-      } | null = null;
+        const assistantMessage = response.choices[0]?.message;
 
-      if (
-        assistantMessage.content &&
-        (!assistantMessage.tool_calls ||
-          assistantMessage.tool_calls.length === 0)
-      ) {
-        const content = assistantMessage.content.trim();
-
-        // Check for "toolName{json}" format (e.g., "curl{...}")
-        const toolNameMatch = content.match(
-          /^(curl|todo|notification|scheduled_task|user_context)\s*(\{[\s\S]*\})\s*$/i,
-        );
-        if (toolNameMatch) {
-          try {
-            const toolId = toolNameMatch[1].toLowerCase();
-            const params = JSON.parse(toolNameMatch[2]);
-            parsedTextToolCall = { toolId, params };
-
-            flowTracker.trackEvent({
-              flowId,
-              stage: `text_tool_call_parsed_iteration_${iterationCount}`,
-              service: "ChatController",
-              status: "started",
-              duration: 0,
-              data: { toolId, detectedFormat: "toolName{json}" },
-              decision: `Modèle a généré un appel d'outil en texte au lieu d'utiliser function calling. Outil détecté: ${toolId}`,
-            });
-          } catch (e) {
-            // JSON parse failed, not a valid tool call
-          }
+        if (!assistantMessage) {
+          break;
         }
 
-        // Check for raw JSON with action field
-        if (!parsedTextToolCall && jsonToolCallPattern.test(content)) {
-          try {
-            const params = JSON.parse(content);
-            if (params.action && typeof params.action === "string") {
-              // Try to determine tool from action or url
-              let toolId = "curl"; // Default to curl for HTTP-like actions
-              if (
-                [
-                  "create",
-                  "get",
-                  "list",
-                  "update",
-                  "complete",
-                  "delete",
-                  "stats",
-                  "overdue",
-                  "due_soon",
-                ].includes(params.action) &&
-                !params.url
-              ) {
-                toolId = "todo";
-              } else if (
-                [
-                  "send",
-                  "schedule",
-                  "mark_read",
-                  "dismiss",
-                  "unread_count",
-                ].includes(params.action) &&
-                !params.url
-              ) {
-                toolId = "notification";
-              } else if (
-                params.url ||
-                ["request", "get", "post", "put", "delete", "patch"].includes(
-                  params.action,
-                )
-              ) {
-                toolId = "curl";
-              } else if (
-                ["get_location", "get_preferences", "search_facts"].includes(
-                  params.action,
-                )
-              ) {
-                toolId = "user_context";
-              }
+        // Detect if the model generated a tool call as text instead of using function calling
+        // This can happen with some models/providers that don't support function calling well
+        const textToolCallPattern =
+          /^(curl|todo|notification|scheduled_task|user_context)\s*\{/i;
+        const jsonToolCallPattern = /^\{[\s\S]*"action"\s*:\s*"[^"]+"/;
 
+        let parsedTextToolCall: {
+          toolId: string;
+          params: Record<string, any>;
+        } | null = null;
+
+        if (
+          assistantMessage.content &&
+          (!assistantMessage.tool_calls ||
+            assistantMessage.tool_calls.length === 0)
+        ) {
+          const content = assistantMessage.content.trim();
+
+          // Check for "toolName{json}" format (e.g., "curl{...}")
+          const toolNameMatch = content.match(
+            /^(curl|todo|notification|scheduled_task|user_context)\s*(\{[\s\S]*\})\s*$/i,
+          );
+          if (toolNameMatch) {
+            try {
+              const toolId = toolNameMatch[1].toLowerCase();
+              const params = JSON.parse(toolNameMatch[2]);
               parsedTextToolCall = { toolId, params };
 
               flowTracker.trackEvent({
@@ -451,187 +454,338 @@ export async function chatStream(
                 service: "ChatController",
                 status: "started",
                 duration: 0,
-                data: { toolId, detectedFormat: "rawJson" },
-                decision: `Modèle a généré un JSON d'appel d'outil en texte. Outil détecté: ${toolId}`,
+                data: { toolId, detectedFormat: "toolName{json}" },
+                decision: `Modèle a généré un appel d'outil en texte au lieu d'utiliser function calling. Outil détecté: ${toolId}`,
               });
+            } catch (e) {
+              // JSON parse failed, not a valid tool call
             }
-          } catch (e) {
-            // JSON parse failed
+          }
+
+          // Check for raw JSON with action field
+          if (!parsedTextToolCall && jsonToolCallPattern.test(content)) {
+            try {
+              const params = JSON.parse(content);
+              if (params.action && typeof params.action === "string") {
+                // Try to determine tool from action or url
+                let toolId = "curl"; // Default to curl for HTTP-like actions
+                if (
+                  [
+                    "create",
+                    "get",
+                    "list",
+                    "update",
+                    "complete",
+                    "delete",
+                    "stats",
+                    "overdue",
+                    "due_soon",
+                  ].includes(params.action) &&
+                  !params.url
+                ) {
+                  toolId = "todo";
+                } else if (
+                  [
+                    "send",
+                    "schedule",
+                    "mark_read",
+                    "dismiss",
+                    "unread_count",
+                  ].includes(params.action) &&
+                  !params.url
+                ) {
+                  toolId = "notification";
+                } else if (
+                  params.url ||
+                  ["request", "get", "post", "put", "delete", "patch"].includes(
+                    params.action,
+                  )
+                ) {
+                  toolId = "curl";
+                } else if (
+                  ["get_location", "get_preferences", "search_facts"].includes(
+                    params.action,
+                  )
+                ) {
+                  toolId = "user_context";
+                }
+
+                parsedTextToolCall = { toolId, params };
+
+                flowTracker.trackEvent({
+                  flowId,
+                  stage: `text_tool_call_parsed_iteration_${iterationCount}`,
+                  service: "ChatController",
+                  status: "started",
+                  duration: 0,
+                  data: { toolId, detectedFormat: "rawJson" },
+                  decision: `Modèle a généré un JSON d'appel d'outil en texte. Outil détecté: ${toolId}`,
+                });
+              }
+            } catch (e) {
+              // JSON parse failed
+            }
           }
         }
-      }
 
-      // If we detected a text-based tool call, execute it
-      if (parsedTextToolCall) {
-        const { toolId, params } = parsedTextToolCall;
+        // If we detected a text-based tool call, execute it
+        if (parsedTextToolCall) {
+          const { toolId, params } = parsedTextToolCall;
 
-        flowTracker.trackEvent({
-          flowId,
-          stage: `text_tool_execution_iteration_${iterationCount}`,
-          service: "ToolExecutor",
-          status: "started",
-          duration: 0,
-          data: { toolId, action: params.action },
-        });
+          flowTracker.trackEvent({
+            flowId,
+            stage: `text_tool_execution_iteration_${iterationCount}`,
+            service: "ToolExecutor",
+            status: "started",
+            duration: 0,
+            data: { toolId, action: params.action },
+          });
 
-        // Execute the tool
-        const toolExecutionStart = Date.now();
-        const toolRequest = {
-          toolId,
-          action: params.action || "request",
-          params,
-        };
-
-        const toolResult = await toolExecutorService.executeTool(
-          userId,
-          toolRequest,
-        );
-
-        flowTracker.trackEvent({
-          flowId,
-          stage: `text_tool_executed_iteration_${iterationCount}`,
-          service: "ToolExecutor",
-          status: toolResult.success ? "success" : "failed",
-          duration: Date.now() - toolExecutionStart,
-          data: { toolId, success: toolResult.success },
-        });
-
-        // Sanitize the tool result before storing
-        const sanitizationResult = sanitizeToolResult(toolResult.data);
-        sanitizationResults.set(toolId, sanitizationResult);
-
-        // Store sanitized version of tool result
-        const sanitizedToolResult = {
-          ...toolResult,
-          data: sanitizationResult.cleaned,
-          _sanitized: sanitizationResult.hasSensitiveData,
-          _redactionCount: sanitizationResult.redactedCount,
-        };
-
-        allToolResults.push(sanitizedToolResult);
-
-        // Add the assistant message and tool result to history, then continue
-        messages.push({
-          role: "assistant",
-          content: null,
-          tool_calls: [
-            {
-              id: `text_tool_${Date.now()}`,
-              type: "function",
-              function: { name: toolId, arguments: JSON.stringify(params) },
-            },
-          ],
-        });
-
-        messages.push({
-          role: "tool",
-          tool_call_id: `text_tool_${Date.now()}`,
-          name: toolId,
-          content: JSON.stringify({
-            success: toolResult.success,
-            data: toolResult.data,
-            error: toolResult.error,
-          }),
-        });
-
-        // Continue to let AI process tool results
-        continue;
-      }
-
-      // Check if AI wants to use tools via proper function calling
-      if (
-        assistantMessage.tool_calls &&
-        assistantMessage.tool_calls.length > 0
-      ) {
-        flowTracker.trackEvent({
-          flowId,
-          stage: `tool_calls_detected_iteration_${iterationCount}`,
-          service: "ToolExecutor",
-          status: "started",
-          duration: 0,
-          data: {
-            toolCallsCount: assistantMessage.tool_calls.length,
-            tools: assistantMessage.tool_calls.map((tc) => tc.function.name),
-          },
-        });
-
-        // Add assistant message with tool calls to history
-        messages.push({
-          role: "assistant",
-          content: assistantMessage.content,
-          tool_calls: assistantMessage.tool_calls,
-        });
-
-        // Execute tools in parallel
-        const toolExecutionStart = Date.now();
-        const toolRequests = assistantMessage.tool_calls.map((toolCall) => {
-          const args = JSON.parse(toolCall.function.arguments);
-          return {
-            toolId: toolCall.function.name,
-            action: args.action,
-            params: args,
-            _toolCallId: toolCall.id, // Store for response mapping
+          // Execute the tool
+          const toolExecutionStart = Date.now();
+          const toolRequest = {
+            toolId,
+            action: params.action || "request",
+            params,
           };
-        });
 
-        const toolResults = await toolExecutorService.executeToolsInParallel(
-          userId,
-          toolRequests,
-          7000, // 7s per tool
-          60000, // 60s global
-        );
+          const toolResult = await toolExecutorService.executeTool(
+            userId,
+            toolRequest,
+          );
 
-        flowTracker.trackEvent({
-          flowId,
-          stage: `tools_executed_iteration_${iterationCount}`,
-          service: "ToolExecutor",
-          status: "success",
-          duration: Date.now() - toolExecutionStart,
-          data: {
-            toolsExecuted: toolResults.length,
-            successCount: toolResults.filter((r) => r.success).length,
-            failureCount: toolResults.filter((r) => !r.success).length,
-          },
-        });
+          flowTracker.trackEvent({
+            flowId,
+            stage: `text_tool_executed_iteration_${iterationCount}`,
+            service: "ToolExecutor",
+            status: toolResult.success ? "success" : "failed",
+            duration: Date.now() - toolExecutionStart,
+            data: { toolId, success: toolResult.success },
+          });
 
-        // Sanitize tool results before storing
-        const sanitizedToolResults = toolResults.map((result) => {
-          const sanitizationResult = sanitizeToolResult(result.data);
-          sanitizationResults.set(result.toolUsed, sanitizationResult);
+          // Sanitize the tool result before storing
+          const sanitizationResult = sanitizeToolResult(toolResult.data);
+          sanitizationResults.set(toolId, sanitizationResult);
 
-          return {
-            ...result,
+          // Store sanitized version of tool result
+          const sanitizedToolResult = {
+            ...toolResult,
             data: sanitizationResult.cleaned,
             _sanitized: sanitizationResult.hasSensitiveData,
             _redactionCount: sanitizationResult.redactedCount,
           };
-        });
 
-        // Store sanitized tool results for memory
-        allToolResults.push(...sanitizedToolResults);
+          allToolResults.push(sanitizedToolResult);
 
-        // Add tool results to messages
-        toolRequests.forEach((req, index) => {
-          const result = toolResults[index];
+          // Add the assistant message and tool result to history, then continue
+          messages.push({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: `text_tool_${Date.now()}`,
+                type: "function",
+                function: { name: toolId, arguments: JSON.stringify(params) },
+              },
+            ],
+          });
+
           messages.push({
             role: "tool",
-            tool_call_id: (req as any)._toolCallId,
-            name: req.toolId,
+            tool_call_id: `text_tool_${Date.now()}`,
+            name: toolId,
             content: JSON.stringify({
-              success: result.success,
-              data: result.data,
-              error: result.error,
+              success: toolResult.success,
+              data: toolResult.data,
+              error: toolResult.error,
             }),
           });
-        });
 
-        // Continue loop to let AI process tool results
-        continue;
+          // Continue to let AI process tool results
+          continue;
+        }
+
+        // Check if AI wants to use tools via proper function calling
+        if (
+          assistantMessage.tool_calls &&
+          assistantMessage.tool_calls.length > 0
+        ) {
+          flowTracker.trackEvent({
+            flowId,
+            stage: `tool_calls_detected_iteration_${iterationCount}`,
+            service: "ToolExecutor",
+            status: "started",
+            duration: 0,
+            data: {
+              toolCallsCount: assistantMessage.tool_calls.length,
+              tools: assistantMessage.tool_calls.map((tc) => tc.function.name),
+            },
+          });
+
+          // Add assistant message with tool calls to history
+          messages.push({
+            role: "assistant",
+            content: assistantMessage.content,
+            tool_calls: assistantMessage.tool_calls,
+          });
+
+          // Execute tools in parallel
+          const toolExecutionStart = Date.now();
+          const toolRequests = assistantMessage.tool_calls.map((toolCall) => {
+            const args = JSON.parse(toolCall.function.arguments);
+            return {
+              toolId: toolCall.function.name,
+              action: args.action,
+              params: args,
+              _toolCallId: toolCall.id, // Store for response mapping
+            };
+          });
+
+          const toolResults = await toolExecutorService.executeToolsInParallel(
+            userId,
+            toolRequests,
+            7000, // 7s per tool
+            60000, // 60s global
+          );
+
+          flowTracker.trackEvent({
+            flowId,
+            stage: `tools_executed_iteration_${iterationCount}`,
+            service: "ToolExecutor",
+            status: "success",
+            duration: Date.now() - toolExecutionStart,
+            data: {
+              toolsExecuted: toolResults.length,
+              successCount: toolResults.filter((r) => r.success).length,
+              failureCount: toolResults.filter((r) => !r.success).length,
+            },
+          });
+
+          // Sanitize tool results before storing
+          const sanitizedToolResults = toolResults.map((result) => {
+            const sanitizationResult = sanitizeToolResult(result.data);
+            sanitizationResults.set(result.toolUsed, sanitizationResult);
+
+            return {
+              ...result,
+              data: sanitizationResult.cleaned,
+              _sanitized: sanitizationResult.hasSensitiveData,
+              _redactionCount: sanitizationResult.redactedCount,
+            };
+          });
+
+          // Store sanitized tool results for memory
+          allToolResults.push(...sanitizedToolResults);
+
+          // Add tool results to messages
+          toolRequests.forEach((req, index) => {
+            const result = toolResults[index];
+            messages.push({
+              role: "tool",
+              tool_call_id: (req as any)._toolCallId,
+              name: req.toolId,
+              content: JSON.stringify({
+                success: result.success,
+                data: result.data,
+                error: result.error,
+              }),
+            });
+          });
+
+          // Continue loop to let AI process tool results
+          continue;
+        }
+
+        // No tool calls - this is the final response
+        fullResponse = assistantMessage.content || "";
+        break;
+      } catch (llmError) {
+        // Handle max_tokens or other LLM errors
+        console.error(
+          `[LLM Error - Iteration ${iterationCount}]:`,
+          llmError instanceof Error ? llmError.message : String(llmError),
+        );
+
+        if (isMaxTokensError(llmError)) {
+          // Max tokens error - try with fallback strategy
+          console.warn(
+            `[TokenFallback] Max tokens error detected. Context too large for model ${modelId}. Attempting fallback...`,
+          );
+
+          flowTracker.trackEvent({
+            flowId,
+            stage: `max_tokens_error_fallback_${iterationCount}`,
+            service: "ChatController",
+            status: "started",
+            data: {
+              iteration: iterationCount,
+              error:
+                llmError instanceof Error ? llmError.message : String(llmError),
+            },
+          });
+
+          // Strategy 1: If context is too long, try to reduce conversation history
+          if (messages.length > 10) {
+            console.log(
+              `[TokenFallback] Reducing conversation history from ${messages.length} to 5 messages`,
+            );
+            // Keep system prompt + last 4 messages (user + assistant pairs)
+            const systemMessages = messages.slice(0, 1);
+            const recentMessages = messages.slice(-4);
+            messages = [...systemMessages, ...recentMessages];
+
+            // Retry with reduced history
+            continue;
+          }
+
+          // Strategy 2: If still failing, use aggressive fallback max_tokens
+          const fallbackMaxTokens = getFallbackMaxTokens(modelId);
+          console.log(
+            `[TokenFallback] Using aggressive fallback max_tokens: ${fallbackMaxTokens}`,
+          );
+
+          try {
+            const fallbackResponse = await openai.chat.completions.create({
+              model: modelId,
+              messages: messages as any,
+              temperature: 0.7,
+              max_tokens: fallbackMaxTokens,
+              tools: toolSchemas.map((schema) => ({
+                type: "function",
+                function: schema,
+              })),
+              tool_choice: "auto",
+              stream: false,
+            });
+
+            const fallbackMessage = fallbackResponse.choices[0]?.message;
+            if (fallbackMessage) {
+              // Successfully got response with fallback
+              fullResponse = fallbackMessage.content || "";
+
+              flowTracker.trackEvent({
+                flowId,
+                stage: `fallback_success_${iterationCount}`,
+                service: "ChatController",
+                status: "success",
+                data: { fallbackMaxTokens },
+              });
+
+              break;
+            }
+          } catch (fallbackError) {
+            // Fallback also failed
+            console.error(
+              "[TokenFallback] Fallback retry also failed:",
+              fallbackError,
+            );
+            throw fallbackError;
+          }
+        } else {
+          // Not a max_tokens error, re-throw
+          throw llmError;
+        }
       }
-
-      // No tool calls - this is the final response
-      fullResponse = assistantMessage.content || "";
-      break;
     }
 
     flowTracker.trackEvent({

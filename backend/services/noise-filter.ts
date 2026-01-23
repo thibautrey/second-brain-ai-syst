@@ -18,6 +18,11 @@
 import prisma from "./prisma.js";
 import OpenAI from "openai";
 import { injectDateIntoPrompt } from "./llm-router.js";
+import {
+  validateMaxTokens,
+  isMaxTokensError,
+  getFallbackMaxTokens,
+} from "../utils/token-validator.js";
 
 // ============================================================================
 // Types & Interfaces
@@ -457,32 +462,96 @@ ${contextInfo}
 
 Est-ce du contenu significatif ou du bruit?`;
 
-      const response = await client.chat.completions.create({
-        model: modelId,
-        messages: [
-          { role: "system", content: injectDateIntoPrompt(systemPrompt) },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 256,
-        response_format: { type: "json_object" },
-      });
+      // Validate max_tokens before making the request
+      const validation = validateMaxTokens(256, modelId, 2, userPrompt);
+      let maxTokensToUse = validation.maxTokens;
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error("Empty LLM response");
+      if (validation.warning) {
+        console.warn(
+          `[TokenValidator] ${validation.warning} in noise filter for model ${modelId}`,
+        );
       }
 
-      const result = JSON.parse(content);
+      try {
+        const response = await client.chat.completions.create({
+          model: modelId,
+          messages: [
+            { role: "system", content: injectDateIntoPrompt(systemPrompt) },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: maxTokensToUse, // Use validated max_tokens
+          response_format: { type: "json_object" },
+        });
 
-      return {
-        isMeaningful: result.isMeaningful ?? false,
-        confidence: result.confidence ?? 0.5,
-        category: result.category || "environmental_noise",
-        reason: result.reason || "LLM analysis",
-        suggestedAction: result.suggestedAction || "discard",
-        contextualRelevance: result.contextualRelevance ?? 0,
-      };
+        const content = response.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error("Empty LLM response");
+        }
+
+        const result = JSON.parse(content);
+
+        return {
+          isMeaningful: result.isMeaningful ?? false,
+          confidence: result.confidence ?? 0.5,
+          category: result.category || "environmental_noise",
+          reason: result.reason || "LLM analysis",
+          suggestedAction: result.suggestedAction || "discard",
+          contextualRelevance: result.contextualRelevance ?? 0,
+        };
+      } catch (llmError) {
+        // Handle max_tokens errors specifically
+        if (isMaxTokensError(llmError)) {
+          console.warn(
+            "[TokenFallback] Max tokens error in noise filter. Using fallback max_tokens.",
+          );
+
+          // Retry with very conservative fallback
+          const fallbackMaxTokens = Math.min(
+            getFallbackMaxTokens(modelId),
+            128,
+          );
+          try {
+            const fallbackResponse = await client.chat.completions.create({
+              model: modelId,
+              messages: [
+                {
+                  role: "system",
+                  content: injectDateIntoPrompt(systemPrompt),
+                },
+                { role: "user", content: userPrompt },
+              ],
+              temperature: 0.1,
+              max_tokens: fallbackMaxTokens,
+              response_format: { type: "json_object" },
+            });
+
+            const content = fallbackResponse.choices[0]?.message?.content;
+            if (!content) {
+              throw llmError;
+            }
+
+            const result = JSON.parse(content);
+            return {
+              isMeaningful: result.isMeaningful ?? false,
+              confidence: result.confidence ?? 0.5,
+              category: result.category || "environmental_noise",
+              reason: result.reason || "LLM analysis (fallback)",
+              suggestedAction: result.suggestedAction || "discard",
+              contextualRelevance: result.contextualRelevance ?? 0,
+            };
+          } catch (fallbackError) {
+            console.error(
+              "[TokenFallback] Fallback also failed in noise filter:",
+              fallbackError,
+            );
+            throw fallbackError;
+          }
+        }
+
+        // Not a max_tokens error, use as normal error
+        throw llmError;
+      }
     } catch (error) {
       console.error("Noise filter LLM analysis failed:", error);
       // Default to discarding on error to avoid noise pollution

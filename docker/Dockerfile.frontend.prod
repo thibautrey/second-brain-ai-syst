@@ -1,6 +1,9 @@
 # Frontend Production Dockerfile - Build stage
 FROM node:22-alpine AS builder
 
+# Accept API URL from build args
+ARG VITE_API_URL=http://localhost:3000
+
 WORKDIR /app
 
 # Copy package files
@@ -13,6 +16,9 @@ RUN npm install
 COPY index.html vite.config.ts tsconfig.json tailwind.config.js components.json ./
 COPY src/ ./src/
 COPY config/ ./config/
+
+# Set API URL from build arg for Vite to inject during build
+ENV VITE_API_URL=${VITE_API_URL}
 
 # Build the frontend
 RUN npm run build

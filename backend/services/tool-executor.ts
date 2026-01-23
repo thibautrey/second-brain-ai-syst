@@ -6,8 +6,10 @@ import {
   notificationService,
   scheduledTaskService,
   curlService,
+  longRunningTaskService,
 } from "./tools/index.js";
 import { memorySearchService } from "./memory-search.js";
+import { userProfileService, UserProfile } from "./user-profile.js";
 import {
   TodoStatus,
   TodoPriority,
@@ -130,6 +132,44 @@ const BUILTIN_TOOLS: ToolConfig[] = [
       description:
         "Retrieve user context information from memory - location, preferences, facts about the user",
       actions: ["get_location", "get_preferences", "search_facts"],
+    },
+  },
+  {
+    id: "user_profile",
+    name: "User Profile",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 50,
+    timeout: 5000,
+    config: {
+      description:
+        "Manage user's permanent profile - store and update important structural information like name, preferences, goals. This data persists and is always available to the AI without needing memory search.",
+      actions: ["get", "update", "delete_fields"],
+    },
+  },
+  {
+    id: "long_running_task",
+    name: "Long Running Task",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 10,
+    timeout: 60000,
+    config: {
+      description:
+        "Start and manage long-lasting autonomous tasks that can take minutes to hours. Use for complex, multi-step operations that need to run in the background with progress tracking and error recovery.",
+      actions: [
+        "create",
+        "add_steps",
+        "start",
+        "pause",
+        "resume",
+        "cancel",
+        "get",
+        "list",
+        "get_progress",
+        "get_report",
+        "list_active",
+      ],
     },
   },
 ];
@@ -289,6 +329,10 @@ export class ToolExecutorService {
         return this.executeCurlAction(action, params);
       case "user_context":
         return this.executeUserContextAction(userId, action, params);
+      case "user_profile":
+        return this.executeUserProfileAction(userId, action, params);
+      case "long_running_task":
+        return this.executeLongRunningTaskAction(userId, action, params);
       default:
         throw new Error(`Unknown builtin tool: ${toolId}`);
     }
@@ -422,6 +466,311 @@ export class ToolExecutorService {
         throw new Error(`Unknown user_context action: ${action}`);
     }
   }
+
+  /**
+   * Execute user profile actions - manage permanent user profile
+   */
+  private async executeUserProfileAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "get": {
+        const profile = await userProfileService.getUserProfile(userId);
+        return {
+          action: "get",
+          profile,
+          isEmpty: Object.keys(profile).length === 0,
+        };
+      }
+
+      case "update": {
+        // Allow partial updates - merge with existing profile
+        const updates: Partial<UserProfile> = {};
+
+        // Map allowed fields from params to profile
+        const allowedFields = [
+          "name",
+          "firstName",
+          "lastName",
+          "nickname",
+          "age",
+          "birthdate",
+          "location",
+          "timezone",
+          "language",
+          "occupation",
+          "company",
+          "industry",
+          "skills",
+          "workStyle",
+          "communicationStyle",
+          "preferredName",
+          "interests",
+          "hobbies",
+          "currentGoals",
+          "longTermGoals",
+          "relationships",
+          "dietaryPreferences",
+          "exerciseHabits",
+          "sleepSchedule",
+          "custom",
+        ];
+
+        for (const field of allowedFields) {
+          if (params[field] !== undefined) {
+            (updates as any)[field] = params[field];
+          }
+        }
+
+        if (Object.keys(updates).length === 0) {
+          throw new Error(
+            "At least one profile field must be provided for update",
+          );
+        }
+
+        const updatedProfile = await userProfileService.mergeUserProfile(
+          userId,
+          updates,
+        );
+
+        return {
+          action: "update",
+          updatedFields: Object.keys(updates),
+          profile: updatedProfile,
+          message: `Profile updated successfully with fields: ${Object.keys(updates).join(", ")}`,
+        };
+      }
+
+      case "delete_fields": {
+        if (!params.fields || !Array.isArray(params.fields)) {
+          throw new Error("fields array is required for delete_fields");
+        }
+
+        const updatedProfile = await userProfileService.deleteProfileFields(
+          userId,
+          params.fields as (keyof UserProfile)[],
+        );
+
+        return {
+          action: "delete_fields",
+          deletedFields: params.fields,
+          profile: updatedProfile,
+          message: `Fields deleted: ${params.fields.join(", ")}`,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown user_profile action: ${action}`);
+    }
+  }
+
+  /**
+   * Execute long running task actions
+   */
+  private async executeLongRunningTaskAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "create": {
+        const task = await longRunningTaskService.createTask(userId, {
+          name: params.name,
+          description: params.description,
+          objective: params.objective,
+          estimatedDurationMinutes: params.estimatedDurationMinutes,
+          priority: params.priority,
+          completionBehavior: params.completionBehavior,
+          notifyOnProgress: params.notifyOnProgress,
+          progressIntervalMinutes: params.progressIntervalMinutes,
+          metadata: params.metadata,
+          initialContext: params.initialContext,
+        });
+        return {
+          action: "create",
+          taskId: task.id,
+          name: task.name,
+          status: task.status,
+          message: `Task "${task.name}" created successfully. Add steps and then start the task.`,
+        };
+      }
+
+      case "add_steps": {
+        if (!params.taskId) {
+          throw new Error("taskId is required");
+        }
+        if (!params.steps || !Array.isArray(params.steps)) {
+          throw new Error("steps array is required");
+        }
+        const steps = await longRunningTaskService.addSteps(
+          params.taskId,
+          params.steps,
+        );
+        return {
+          action: "add_steps",
+          taskId: params.taskId,
+          stepsAdded: steps.length,
+          message: `Added ${steps.length} steps to the task.`,
+        };
+      }
+
+      case "start": {
+        if (!params.taskId) {
+          throw new Error("taskId is required");
+        }
+        await longRunningTaskService.startTask(userId, params.taskId);
+        return {
+          action: "start",
+          taskId: params.taskId,
+          message: "Task started. It will run in the background.",
+        };
+      }
+
+      case "pause": {
+        if (!params.taskId) {
+          throw new Error("taskId is required");
+        }
+        await longRunningTaskService.pauseTask(userId, params.taskId);
+        return {
+          action: "pause",
+          taskId: params.taskId,
+          message: "Task paused. You can resume it later.",
+        };
+      }
+
+      case "resume": {
+        if (!params.taskId) {
+          throw new Error("taskId is required");
+        }
+        await longRunningTaskService.resumeTask(userId, params.taskId);
+        return {
+          action: "resume",
+          taskId: params.taskId,
+          message: "Task resumed. It will continue from where it paused.",
+        };
+      }
+
+      case "cancel": {
+        if (!params.taskId) {
+          throw new Error("taskId is required");
+        }
+        await longRunningTaskService.cancelTask(userId, params.taskId);
+        return {
+          action: "cancel",
+          taskId: params.taskId,
+          message: "Task cancelled.",
+        };
+      }
+
+      case "get": {
+        if (!params.taskId) {
+          throw new Error("taskId is required");
+        }
+        const task = await longRunningTaskService.getTask(
+          userId,
+          params.taskId,
+        );
+        if (!task) {
+          throw new Error("Task not found");
+        }
+        return {
+          action: "get",
+          task: {
+            id: task.id,
+            name: task.name,
+            description: task.description,
+            objective: task.objective,
+            status: task.status,
+            progress: task.progress,
+            totalSteps: task.totalSteps,
+            completedSteps: task.steps.filter((s) => s.status === "COMPLETED")
+              .length,
+            currentStep: task.steps.find((s) => s.status === "RUNNING")?.name,
+            startedAt: task.startedAt,
+            completedAt: task.completedAt,
+            errorMessage: task.errorMessage,
+          },
+        };
+      }
+
+      case "list": {
+        const tasks = await longRunningTaskService.listTasks(userId, {
+          status: params.status,
+          priority: params.priority,
+          limit: params.limit || 20,
+        });
+        return {
+          action: "list",
+          count: tasks.length,
+          tasks: tasks.map((t) => ({
+            id: t.id,
+            name: t.name,
+            status: t.status,
+            progress: t.progress,
+            priority: t.priority,
+            createdAt: t.createdAt,
+          })),
+        };
+      }
+
+      case "get_progress": {
+        if (!params.taskId) {
+          throw new Error("taskId is required");
+        }
+        const progress = await longRunningTaskService.getProgressSummary(
+          userId,
+          params.taskId,
+        );
+        if (!progress) {
+          throw new Error("Task not found");
+        }
+        return {
+          action: "get_progress",
+          progress,
+        };
+      }
+
+      case "get_report": {
+        if (!params.taskId) {
+          throw new Error("taskId is required");
+        }
+        const report = await longRunningTaskService.generateProgressReport(
+          userId,
+          params.taskId,
+        );
+        return {
+          action: "get_report",
+          taskId: params.taskId,
+          report,
+        };
+      }
+
+      case "list_active": {
+        const activeTasks = await longRunningTaskService.listTasks(userId, {
+          status: ["RUNNING", "PAUSED"] as any,
+          limit: 50,
+        });
+        return {
+          action: "list_active",
+          count: activeTasks.length,
+          tasks: activeTasks.map((t) => ({
+            id: t.id,
+            name: t.name,
+            status: t.status,
+            progress: t.progress,
+            currentStep: t.steps.find((s) => s.status === "RUNNING")?.name,
+            startedAt: t.startedAt,
+          })),
+        };
+      }
+
+      default:
+        throw new Error(`Unknown long_running_task action: ${action}`);
+    }
+  }
+
   /**
    * Execute todo actions
    */
@@ -1007,6 +1356,308 @@ export class ToolExecutorService {
               type: "number",
               description:
                 "Number of results to return (optional, default: 5, used with search_facts)",
+            },
+          },
+          required: ["action"],
+        },
+      },
+      {
+        name: "long_running_task",
+        description:
+          "Start and manage long-lasting autonomous tasks that run in the background. Use for complex, multi-step operations that may take minutes to hours. Tasks run asynchronously with progress tracking, error recovery, and optional user notifications on completion.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: [
+                "create",
+                "add_steps",
+                "start",
+                "pause",
+                "resume",
+                "cancel",
+                "get",
+                "list",
+                "get_progress",
+                "get_report",
+                "list_active",
+              ],
+              description:
+                "The action to perform - create: create a new task, add_steps: add execution steps, start: begin execution, get_progress: get current status summary, get_report: get detailed AI-readable report",
+            },
+            taskId: {
+              type: "string",
+              description:
+                "ID of the task (required for start, pause, resume, cancel, get, add_steps, get_progress, get_report)",
+            },
+            name: {
+              type: "string",
+              description: "Name of the task (required for create)",
+            },
+            description: {
+              type: "string",
+              description:
+                "Detailed description of the task (required for create)",
+            },
+            objective: {
+              type: "string",
+              description:
+                "Clear statement of what the task should achieve (required for create)",
+            },
+            estimatedDurationMinutes: {
+              type: "number",
+              description: "Estimated duration in minutes",
+            },
+            priority: {
+              type: "string",
+              enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+              description: "Task priority level",
+            },
+            completionBehavior: {
+              type: "string",
+              enum: ["SILENT", "NOTIFY_USER", "NOTIFY_AND_SUMMARIZE"],
+              description:
+                "What to do when task completes - SILENT: no notification, NOTIFY_USER: send notification, NOTIFY_AND_SUMMARIZE: notify with detailed summary",
+            },
+            notifyOnProgress: {
+              type: "boolean",
+              description: "Whether to send periodic progress notifications",
+            },
+            progressIntervalMinutes: {
+              type: "number",
+              description:
+                "How often to send progress notifications (in minutes)",
+            },
+            initialContext: {
+              type: "object",
+              description:
+                "Initial context data that will be available to all steps",
+            },
+            steps: {
+              type: "array",
+              description:
+                "Array of step definitions to add (used with add_steps action)",
+              items: {
+                type: "object",
+                properties: {
+                  name: {
+                    type: "string",
+                    description: "Step name",
+                  },
+                  description: {
+                    type: "string",
+                    description: "Step description",
+                  },
+                  action: {
+                    type: "string",
+                    enum: [
+                      "llm_generate",
+                      "wait",
+                      "conditional",
+                      "aggregate",
+                      "notify",
+                    ],
+                    description:
+                      "Action type - llm_generate: call LLM, wait: pause execution, conditional: branch logic, aggregate: combine results, notify: send notification",
+                  },
+                  params: {
+                    type: "object",
+                    description: "Parameters for the action",
+                  },
+                  isCheckpoint: {
+                    type: "boolean",
+                    description:
+                      "Whether this step creates a checkpoint with progress summary",
+                  },
+                  onError: {
+                    type: "string",
+                    enum: ["continue", "retry", "abort"],
+                    description: "Error handling behavior",
+                  },
+                  maxRetries: {
+                    type: "number",
+                    description: "Maximum retry attempts if onError is 'retry'",
+                  },
+                },
+                required: ["name", "action", "params"],
+              },
+            },
+            status: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: [
+                  "PENDING",
+                  "RUNNING",
+                  "PAUSED",
+                  "COMPLETED",
+                  "FAILED",
+                  "CANCELLED",
+                ],
+              },
+              description: "Filter by status (for list action)",
+            },
+            limit: {
+              type: "number",
+              description: "Maximum number of results (for list action)",
+            },
+          },
+          required: ["action"],
+        },
+      },
+      {
+        name: "user_profile",
+        description:
+          "Manage the user's permanent profile - store and update important structural information like name, occupation, preferences, goals, and relationships. This data is always available to you without needing memory search. Use this to remember important facts about the user that don't change often. IMPORTANT: When the user shares personal information (name, job, location, preferences, etc.), USE THIS TOOL to save it to their profile.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["get", "update", "delete_fields"],
+              description:
+                "The action to perform - get: retrieve current profile, update: add/modify profile fields (merges with existing), delete_fields: remove specific fields",
+            },
+            // Personal info
+            name: {
+              type: "string",
+              description: "User's full name",
+            },
+            firstName: {
+              type: "string",
+              description: "User's first name",
+            },
+            lastName: {
+              type: "string",
+              description: "User's last name",
+            },
+            nickname: {
+              type: "string",
+              description: "User's nickname",
+            },
+            preferredName: {
+              type: "string",
+              description: "How the user wants to be addressed",
+            },
+            age: {
+              type: "number",
+              description: "User's age",
+            },
+            birthdate: {
+              type: "string",
+              description: "User's birthdate (ISO format)",
+            },
+            location: {
+              type: "string",
+              description: "User's location (city, country)",
+            },
+            timezone: {
+              type: "string",
+              description: "User's timezone",
+            },
+            language: {
+              type: "string",
+              description: "User's preferred language",
+            },
+            // Professional
+            occupation: {
+              type: "string",
+              description: "User's job/occupation",
+            },
+            company: {
+              type: "string",
+              description: "User's company/employer",
+            },
+            industry: {
+              type: "string",
+              description: "User's industry",
+            },
+            skills: {
+              type: "array",
+              items: { type: "string" },
+              description: "User's skills (will be merged with existing)",
+            },
+            workStyle: {
+              type: "string",
+              description: "User's work style preferences",
+            },
+            // Preferences
+            communicationStyle: {
+              type: "string",
+              description:
+                "User's preferred communication style (e.g., 'concise', 'detailed', 'casual')",
+            },
+            interests: {
+              type: "array",
+              items: { type: "string" },
+              description: "User's interests (will be merged with existing)",
+            },
+            hobbies: {
+              type: "array",
+              items: { type: "string" },
+              description: "User's hobbies (will be merged with existing)",
+            },
+            // Goals
+            currentGoals: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "User's current goals (will be merged with existing)",
+            },
+            longTermGoals: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "User's long-term goals (will be merged with existing)",
+            },
+            // Relationships
+            relationships: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string", description: "Person's name" },
+                  relation: {
+                    type: "string",
+                    description:
+                      "Relationship type (e.g., 'wife', 'colleague', 'friend')",
+                  },
+                  notes: {
+                    type: "string",
+                    description: "Additional notes about this person",
+                  },
+                },
+                required: ["name", "relation"],
+              },
+              description:
+                "Important people in user's life (will be merged by name)",
+            },
+            // Health & Lifestyle
+            dietaryPreferences: {
+              type: "string",
+              description: "User's dietary preferences/restrictions",
+            },
+            exerciseHabits: {
+              type: "string",
+              description: "User's exercise habits",
+            },
+            sleepSchedule: {
+              type: "string",
+              description: "User's sleep schedule",
+            },
+            // Custom
+            custom: {
+              type: "object",
+              description:
+                "Any other important information about the user as key-value pairs",
+            },
+            // For delete_fields action
+            fields: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Fields to delete (required for delete_fields action)",
             },
           },
           required: ["action"],

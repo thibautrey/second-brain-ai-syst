@@ -42,6 +42,9 @@ model User {
     mcpServers       MCPServer[]
     marketplaceTools MarketplaceTool[]
 
+    // Long Running Tasks
+    longRunningTasks LongRunningTask[]
+
     @@map("users")
 }
 
@@ -76,6 +79,11 @@ model UserSettings {
     // Notification Settings
     notifyOnMemoryStored    Boolean @default(true)
     notifyOnCommandDetected Boolean @default(true)
+
+    // User Profile - Structural information about the user (name, preferences, etc.)
+    // Managed by the LLM to store important facts that shouldn't need memory search
+    // Format: JSON object with flexible structure maintained by the AI
+    userProfile Json @default("{}")
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -781,4 +789,153 @@ enum MCPTransportType {
     STDIO // Standard input/output
     HTTP // HTTP transport
     SSE // Server-Sent Events
+}
+
+// ==================== Long Running Task Models ====================
+
+// Main task entity for long-lasting autonomous operations
+model LongRunningTask {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Task definition
+    name        String
+    description String @db.Text
+    objective   String @db.Text // Clear statement of what the task should achieve
+
+    // Timing
+    estimatedDurationMinutes Int?
+    startedAt                DateTime?
+    completedAt              DateTime?
+    lastPausedAt             DateTime?
+    lastResumedAt            DateTime?
+
+    // Status tracking
+    status       LongRunningTaskStatus @default(PENDING)
+    progress     Int                   @default(0) // 0-100
+    currentStep  String?
+    errorMessage String?
+
+    // Step tracking
+    totalSteps     Int @default(0)
+    completedSteps Int @default(0)
+
+    // Checkpoint system
+    lastCheckpointAt      DateTime?
+    lastCheckpointSummary String?   @db.Text
+
+    // Configuration
+    priority                TaskPriority           @default(MEDIUM)
+    completionBehavior      TaskCompletionBehavior @default(NOTIFY_USER)
+    notifyOnProgress        Boolean                @default(false)
+    progressIntervalMinutes Int                    @default(15) // How often to send progress updates
+
+    // Context and results
+    context      Json    @default("{}") // Accumulated context from step results
+    finalSummary String? @db.Text // Final report generated on completion
+
+    // Metadata
+    metadata Json @default("{}")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    steps TaskStep[]
+    logs  TaskLog[]
+
+    @@index([userId])
+    @@index([status])
+    @@index([priority])
+    @@index([createdAt])
+    @@map("long_running_tasks")
+}
+
+// Individual step within a long running task
+model TaskStep {
+    id     String          @id @default(cuid())
+    taskId String
+    task   LongRunningTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+    // Step definition
+    stepOrder   Int // Order of execution
+    name        String
+    description String? @db.Text
+    action      String // Action type: 'llm_generate', 'wait', 'conditional', etc.
+    params      Json    @default("{}") // Parameters for the action
+
+    // Timing
+    expectedDurationMinutes Int?
+    startedAt               DateTime?
+    completedAt             DateTime?
+
+    // Status
+    status       TaskStepStatus @default(PENDING)
+    errorMessage String?
+
+    // Checkpoint
+    isCheckpoint Boolean @default(false) // Should this step trigger a checkpoint summary?
+
+    // Error handling
+    onError    String @default("abort") // 'continue', 'retry', 'abort'
+    maxRetries Int    @default(3)
+    retryCount Int    @default(0)
+
+    // Result
+    result Json? // Output from this step
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([taskId, stepOrder])
+    @@index([taskId])
+    @@index([status])
+    @@map("task_steps")
+}
+
+// Logging for task execution
+model TaskLog {
+    id     String          @id @default(cuid())
+    taskId String
+    task   LongRunningTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+    level   String // 'info', 'warn', 'error'
+    message String @db.Text
+
+    createdAt DateTime @default(now())
+
+    @@index([taskId])
+    @@index([createdAt])
+    @@map("task_logs")
+}
+
+enum LongRunningTaskStatus {
+    PENDING // Task created but not started
+    RUNNING // Task is currently executing
+    PAUSED // Task is paused (can be resumed)
+    COMPLETED // Task finished successfully
+    FAILED // Task failed with error
+    CANCELLED // Task was cancelled by user
+}
+
+enum TaskStepStatus {
+    PENDING // Step not yet executed
+    RUNNING // Step currently executing
+    COMPLETED // Step finished successfully
+    FAILED // Step failed
+    SKIPPED // Step skipped (due to error handling policy)
+}
+
+enum TaskPriority {
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
+}
+
+enum TaskCompletionBehavior {
+    SILENT // Don't notify user on completion
+    NOTIFY_USER // Send notification to user
+    NOTIFY_AND_SUMMARIZE // Notify + generate detailed summary
 }

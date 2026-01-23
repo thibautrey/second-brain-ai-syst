@@ -56,9 +56,11 @@ import { embeddingSchedulerService } from "./embedding-scheduler.js";
 import { backgroundAgentService } from "./background-agents.js";
 import { scheduledTaskService } from "./tools/scheduled-task.service.js";
 import toolsController from "../controllers/tools.controller.js";
+import longRunningTaskController from "../controllers/long-running-task.controller.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer, Server as HttpServer, IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
+import { wsBroadcastService } from "./websocket-broadcast.js";
 
 import cors from "cors";
 import prisma from "./prisma.js";
@@ -784,6 +786,109 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use("/api/tools", toolsController);
 console.log("🔧 Built-in tools routes enabled at /api/tools");
+
+// ==================== Long Running Tasks Routes ====================
+
+// List active tasks
+app.get(
+  "/api/tasks/long-running/active",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.getActiveTasks(req, res);
+  },
+);
+
+// List all tasks
+app.get(
+  "/api/tasks/long-running",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.listTasks(req, res);
+  },
+);
+
+// Create a new task
+app.post(
+  "/api/tasks/long-running",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.createTask(req, res);
+  },
+);
+
+// Get a specific task
+app.get(
+  "/api/tasks/long-running/:taskId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.getTask(req, res);
+  },
+);
+
+// Add steps to a task
+app.post(
+  "/api/tasks/long-running/:taskId/steps",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.addSteps(req, res);
+  },
+);
+
+// Start a task
+app.post(
+  "/api/tasks/long-running/:taskId/start",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.startTask(req, res);
+  },
+);
+
+// Pause a task
+app.post(
+  "/api/tasks/long-running/:taskId/pause",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.pauseTask(req, res);
+  },
+);
+
+// Resume a task
+app.post(
+  "/api/tasks/long-running/:taskId/resume",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.resumeTask(req, res);
+  },
+);
+
+// Cancel a task
+app.post(
+  "/api/tasks/long-running/:taskId/cancel",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.cancelTask(req, res);
+  },
+);
+
+// Get task progress
+app.get(
+  "/api/tasks/long-running/:taskId/progress",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.getProgress(req, res);
+  },
+);
+
+// Get task report
+app.get(
+  "/api/tasks/long-running/:taskId/report",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await longRunningTaskController.getReport(req, res);
+  },
+);
+
+console.log("🚀 Long Running Tasks routes enabled at /api/tasks/long-running");
 
 // ==================== Chat Routes ====================
 
@@ -1838,6 +1943,110 @@ app.post(
   },
 );
 
+// ==================== User Profile Routes ====================
+
+import {
+  getUserProfile as getUserProfileData,
+  updateUserProfile,
+  mergeUserProfile,
+  deleteProfileFields,
+  UserProfile,
+} from "./user-profile.js";
+
+/**
+ * GET /api/user-profile
+ * Get user's profile (structural information)
+ */
+app.get(
+  "/api/user-profile",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const profile = await getUserProfileData(req.userId);
+      res.json(profile);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PUT /api/user-profile
+ * Update user's profile (full replacement)
+ */
+app.put(
+  "/api/user-profile",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const profile: UserProfile = req.body;
+      const updatedProfile = await updateUserProfile(req.userId, profile);
+      res.json(updatedProfile);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PATCH /api/user-profile
+ * Merge updates into user's profile (partial update)
+ */
+app.patch(
+  "/api/user-profile",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const updates: Partial<UserProfile> = req.body;
+      const updatedProfile = await mergeUserProfile(req.userId, updates);
+      res.json(updatedProfile);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * DELETE /api/user-profile/fields
+ * Delete specific fields from user's profile
+ */
+app.delete(
+  "/api/user-profile/fields",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { fields } = req.body;
+      if (!fields || !Array.isArray(fields)) {
+        return res.status(400).json({ error: "fields array is required" });
+      }
+
+      const updatedProfile = await deleteProfileFields(
+        req.userId,
+        fields as (keyof UserProfile)[],
+      );
+      res.json(updatedProfile);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 // SPA fallback: serve index.html for all non-API routes
 // This must come AFTER all API route definitions
 if (process.env.NODE_ENV === "production") {
@@ -1889,6 +2098,12 @@ export async function startServer(port: number = 3000) {
     // Initialize user scheduled tasks service
     await scheduledTaskService.initialize();
     console.log("✓ User scheduled tasks service initialized");
+
+    // Initialize long-running task service (recover interrupted tasks)
+    const { longRunningTaskService } =
+      await import("./tools/long-running-task.service.js");
+    await longRunningTaskService.initialize();
+    console.log("✓ Long Running Task service initialized");
 
     // Process any missing embeddings on startup (runs in background)
     // Wait 45 seconds for Weaviate and embedding services to be fully ready
@@ -1975,6 +2190,9 @@ function setupWebSocketServer(wss: WebSocketServer): void {
       existingConn.close(4003, "New connection established");
     }
     userConnections.set(userId, ws);
+
+    // Register with broadcast service for system-wide notifications
+    wsBroadcastService.registerConnection(userId, ws);
 
     // Start continuous listening session
     let session;
@@ -2133,6 +2351,7 @@ function setupWebSocketServer(wss: WebSocketServer): void {
     ws.on("close", async () => {
       console.log(`WebSocket disconnected for user ${userId}`);
       userConnections.delete(userId);
+      wsBroadcastService.removeConnection(userId);
       await continuousListeningManager.stopSession(userId);
     });
 

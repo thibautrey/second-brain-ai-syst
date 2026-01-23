@@ -14,6 +14,10 @@ export {
   ScheduledTaskService,
 } from "./scheduled-task.service.js";
 export { curlService, CurlService } from "./curl.service.js";
+export {
+  longRunningTaskService,
+  LongRunningTaskService,
+} from "./long-running-task.service.js";
 
 // Re-export types
 export type {
@@ -36,3 +40,11 @@ export type {
 } from "./scheduled-task.service.js";
 
 export type { CurlRequest, CurlResponse } from "./curl.service.js";
+
+export type {
+  CreateLongRunningTaskInput,
+  TaskStepDefinition,
+  TaskProgressSummary,
+  TaskEvent,
+  TaskEventType,
+} from "./long-running-task.service.js";

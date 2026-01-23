@@ -3,6 +3,11 @@
 
 import prisma from "./prisma.js";
 import OpenAI from "openai";
+import {
+  getUserProfile,
+  formatProfileForPrompt,
+  UserProfile,
+} from "./user-profile.js";
 
 /**
  * Get the current date formatted for system prompts
@@ -24,6 +29,51 @@ export function injectDateIntoPrompt(systemPrompt: string): string {
   if (!systemPrompt) return systemPrompt;
   const datePrefix = `[Date actuelle: ${getCurrentDateForPrompt()}]\n\n`;
   return datePrefix + systemPrompt;
+}
+
+/**
+ * Inject user profile into system prompt
+ */
+export function injectProfileIntoPrompt(
+  systemPrompt: string,
+  profile: UserProfile,
+): string {
+  if (!systemPrompt) return systemPrompt;
+
+  const profileContext = formatProfileForPrompt(profile);
+  if (!profileContext) {
+    return systemPrompt;
+  }
+
+  return `${profileContext}\n\n${systemPrompt}`;
+}
+
+/**
+ * Inject both date and user profile into system prompt
+ */
+export async function injectContextIntoPrompt(
+  systemPrompt: string,
+  userId: string,
+): Promise<string> {
+  if (!systemPrompt) return systemPrompt;
+
+  // Get user profile
+  const profile = await getUserProfile(userId);
+
+  // Build context prefix
+  const parts: string[] = [];
+
+  // Add date
+  parts.push(`[Date actuelle: ${getCurrentDateForPrompt()}]`);
+
+  // Add profile if not empty
+  const profileContext = formatProfileForPrompt(profile);
+  if (profileContext) {
+    parts.push(profileContext);
+  }
+
+  const contextPrefix = parts.join("\n\n");
+  return `${contextPrefix}\n\n${systemPrompt}`;
 }
 
 export type LLMModel =
@@ -208,6 +258,9 @@ export class LLMRouterService {
     userMessage: string,
     options?: TaskExecutionOptions,
   ): Promise<string> {
+    const { validateMaxTokens, isMaxTokensError, getFallbackMaxTokens } =
+      await import("../utils/token-validator.js");
+
     const client = new OpenAI({
       apiKey: provider.apiKey,
       baseURL: provider.baseUrl || "https://api.openai.com/v1",
@@ -222,10 +275,27 @@ export class LLMRouterService {
     }
     messages.push({ role: "user", content: userMessage });
 
+    // Validate max_tokens before making the request
+    const messagesStr = `${systemPrompt}${userMessage}`.substring(0, 2000);
+    const validation = validateMaxTokens(
+      options?.maxTokens || 2048,
+      provider.modelId,
+      messages.length,
+      messagesStr,
+    );
+
+    const requestedMaxTokens = validation.maxTokens;
+
+    if (validation.warning) {
+      console.warn(
+        `[TokenValidator] ${validation.warning} in callLLM for model ${provider.modelId}`,
+      );
+    }
+
     const requestOptions: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
       model: provider.modelId,
       messages,
-      max_tokens: options?.maxTokens || 2048,
+      max_tokens: requestedMaxTokens,
       temperature: options?.temperature ?? 0.7,
     };
 
@@ -234,14 +304,51 @@ export class LLMRouterService {
       requestOptions.response_format = { type: "json_object" };
     }
 
-    const response = await client.chat.completions.create(requestOptions);
+    try {
+      const response = await client.chat.completions.create(requestOptions);
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("Empty response from LLM");
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("Empty response from LLM");
+      }
+
+      return content;
+    } catch (llmError) {
+      // Handle max_tokens errors specifically
+      if (isMaxTokensError(llmError)) {
+        console.warn(
+          "[TokenFallback] Max tokens error in callLLM. Using fallback max_tokens.",
+        );
+
+        // Retry with fallback max_tokens
+        const fallbackMaxTokens = getFallbackMaxTokens(provider.modelId);
+        const fallbackOptions = {
+          ...requestOptions,
+          max_tokens: Math.min(fallbackMaxTokens, 512),
+        };
+
+        try {
+          const fallbackResponse =
+            await client.chat.completions.create(fallbackOptions);
+
+          const content = fallbackResponse.choices[0]?.message?.content;
+          if (!content) {
+            throw llmError;
+          }
+
+          return content;
+        } catch (fallbackError) {
+          console.error(
+            "[TokenFallback] Fallback also failed in callLLM:",
+            fallbackError,
+          );
+          throw fallbackError;
+        }
+      }
+
+      // Not a max_tokens error, re-throw
+      throw llmError;
     }
-
-    return content;
   }
 
   /**

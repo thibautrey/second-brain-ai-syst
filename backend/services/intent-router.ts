@@ -5,6 +5,11 @@
 import prisma from "./prisma.js";
 import OpenAI from "openai";
 import { injectDateIntoPrompt } from "./llm-router.js";
+import {
+  validateMaxTokens,
+  isMaxTokensError,
+  getFallbackMaxTokens,
+} from "../utils/token-validator.js";
 
 // ============================================================================
 // PROVIDER CACHE (Optimization 4)
@@ -302,52 +307,132 @@ AI RESPONSE: "${aiResponse}"
 
 Provide a complete analysis including classification and storage decision.`;
 
-      const response = await client.chat.completions.create({
-        model: modelId,
-        messages: [
-          {
-            role: "system",
-            content: injectDateIntoPrompt(UNIFIED_ANALYSIS_SYSTEM_PROMPT),
-          },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 1024,
-        response_format: { type: "json_object" },
-      });
+      // Validate max_tokens before making the request
+      const messagesStr =
+        `${UNIFIED_ANALYSIS_SYSTEM_PROMPT}${userPrompt}`.substring(0, 2000);
+      const validation = validateMaxTokens(1024, modelId, 2, messagesStr);
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error("Empty LLM response");
+      let maxTokensToUse = validation.maxTokens;
+
+      if (validation.warning) {
+        console.warn(
+          `[TokenValidator] ${validation.warning} in analyzeExchangePostResponse for model ${modelId}`,
+        );
       }
 
-      const result = JSON.parse(content);
+      try {
+        const response = await client.chat.completions.create({
+          model: modelId,
+          messages: [
+            {
+              role: "system",
+              content: injectDateIntoPrompt(UNIFIED_ANALYSIS_SYSTEM_PROMPT),
+            },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: maxTokensToUse, // Use validated max_tokens
+          response_format: { type: "json_object" },
+        });
 
-      // Build classification result
-      const classification: ClassificationResult = {
-        inputType: result.inputType || "observation",
-        confidence: result.confidence || 0.7,
-        topic: result.topic || undefined,
-        temporalReference: result.temporalReference || undefined,
-        shouldStore: result.shouldStore ?? false,
-        shouldCallTools: false, // Post-response, tools already executed if needed
-        memoryScopes: this.determineMemoryScopes(result),
-        importanceScore: result.importanceScore || 0,
-        entities: result.entities || [],
-        sentiment: result.sentiment || "neutral",
-      };
+        const content = response.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error("Empty LLM response");
+        }
 
-      // Build value assessment result
-      const valueAssessment: ResponseValueAssessment = {
-        isValuable: result.shouldStore && result.importanceScore >= 0.3,
-        reason: result.reason || "No reason provided",
-        adjustedImportanceScore: result.importanceScore || 0,
-        shouldStore: result.shouldStore ?? false,
-        isFactualDeclaration: result.isFactualDeclaration ?? false,
-        factToStore: result.factToStore || undefined,
-      };
+        const result = JSON.parse(content);
 
-      return { classification, valueAssessment };
+        // Build classification result
+        const classification: ClassificationResult = {
+          inputType: result.inputType || "observation",
+          confidence: result.confidence || 0.7,
+          topic: result.topic || undefined,
+          temporalReference: result.temporalReference || undefined,
+          shouldStore: result.shouldStore ?? false,
+          shouldCallTools: false, // Post-response, tools already executed if needed
+          memoryScopes: this.determineMemoryScopes(result),
+          importanceScore: result.importanceScore || 0,
+          entities: result.entities || [],
+          sentiment: result.sentiment || "neutral",
+        };
+
+        // Build value assessment result
+        const valueAssessment: ResponseValueAssessment = {
+          isValuable: result.shouldStore && result.importanceScore >= 0.3,
+          reason: result.reason || "No reason provided",
+          adjustedImportanceScore: result.importanceScore || 0,
+          shouldStore: result.shouldStore ?? false,
+          isFactualDeclaration: result.isFactualDeclaration ?? false,
+          factToStore: result.factToStore || undefined,
+        };
+
+        return { classification, valueAssessment };
+      } catch (llmError) {
+        // Handle max_tokens errors specifically
+        if (isMaxTokensError(llmError)) {
+          console.warn(
+            "[TokenFallback] Max tokens error in analyzeExchangePostResponse. Using aggressive fallback.",
+          );
+
+          // Retry with more aggressive fallback max_tokens
+          const fallbackMaxTokens = getFallbackMaxTokens(modelId);
+          try {
+            const fallbackResponse = await client.chat.completions.create({
+              model: modelId,
+              messages: [
+                {
+                  role: "system",
+                  content: injectDateIntoPrompt(UNIFIED_ANALYSIS_SYSTEM_PROMPT),
+                },
+                { role: "user", content: userPrompt },
+              ],
+              temperature: 0.1,
+              max_tokens: Math.min(fallbackMaxTokens, 256), // Very conservative for post-analysis
+              response_format: { type: "json_object" },
+            });
+
+            const content = fallbackResponse.choices[0]?.message?.content;
+            if (!content) {
+              throw llmError; // Re-throw original error if fallback also fails
+            }
+
+            const result = JSON.parse(content);
+
+            const classification: ClassificationResult = {
+              inputType: result.inputType || "observation",
+              confidence: result.confidence || 0.7,
+              topic: result.topic || undefined,
+              temporalReference: result.temporalReference || undefined,
+              shouldStore: result.shouldStore ?? false,
+              shouldCallTools: false,
+              memoryScopes: this.determineMemoryScopes(result),
+              importanceScore: result.importanceScore || 0,
+              entities: result.entities || [],
+              sentiment: result.sentiment || "neutral",
+            };
+
+            const valueAssessment: ResponseValueAssessment = {
+              isValuable: result.shouldStore && result.importanceScore >= 0.3,
+              reason: result.reason || "No reason provided",
+              adjustedImportanceScore: result.importanceScore || 0,
+              shouldStore: result.shouldStore ?? false,
+              isFactualDeclaration: result.isFactualDeclaration ?? false,
+              factToStore: result.factToStore || undefined,
+            };
+
+            return { classification, valueAssessment };
+          } catch (fallbackError) {
+            console.error(
+              "[TokenFallback] Fallback also failed in analyzeExchangePostResponse:",
+              fallbackError,
+            );
+            throw fallbackError;
+          }
+        }
+
+        // Not a max_tokens error, re-throw
+        throw llmError;
+      }
     } catch (error) {
       console.error("Unified exchange analysis failed:", error);
       // Return safe defaults
@@ -432,39 +517,104 @@ Provide a complete analysis including classification and storage decision.`;
 
 ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
 
-    const response = await client.chat.completions.create({
-      model: modelId,
-      messages: [
-        {
-          role: "system",
-          content: injectDateIntoPrompt(CLASSIFICATION_SYSTEM_PROMPT),
-        },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 512,
-      response_format: { type: "json_object" },
-    });
+    // Validate max_tokens before making the request
+    const validation = validateMaxTokens(512, modelId, 2, userPrompt);
+    let maxTokensToUse = validation.maxTokens;
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("Empty LLM response");
+    if (validation.warning) {
+      console.warn(
+        `[TokenValidator] ${validation.warning} in llmClassify for model ${modelId}`,
+      );
     }
 
-    const result = JSON.parse(content);
+    try {
+      const response = await client.chat.completions.create({
+        model: modelId,
+        messages: [
+          {
+            role: "system",
+            content: injectDateIntoPrompt(CLASSIFICATION_SYSTEM_PROMPT),
+          },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: maxTokensToUse, // Use validated max_tokens
+        response_format: { type: "json_object" },
+      });
 
-    return {
-      inputType: result.inputType || "observation",
-      confidence: result.confidence || 0.7,
-      topic: result.topic || undefined,
-      temporalReference: result.temporalReference || undefined,
-      shouldStore: result.shouldStore ?? false, // Default to NOT storing
-      shouldCallTools: result.shouldCallTools ?? false,
-      memoryScopes: this.determineMemoryScopes(result),
-      importanceScore: result.importanceScore || 0,
-      entities: result.entities || [],
-      sentiment: result.sentiment || "neutral",
-    };
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("Empty LLM response");
+      }
+
+      const result = JSON.parse(content);
+
+      return {
+        inputType: result.inputType || "observation",
+        confidence: result.confidence || 0.7,
+        topic: result.topic || undefined,
+        temporalReference: result.temporalReference || undefined,
+        shouldStore: result.shouldStore ?? false, // Default to NOT storing
+        shouldCallTools: result.shouldCallTools ?? false,
+        memoryScopes: this.determineMemoryScopes(result),
+        importanceScore: result.importanceScore || 0,
+        entities: result.entities || [],
+        sentiment: result.sentiment || "neutral",
+      };
+    } catch (llmError) {
+      // Handle max_tokens errors specifically
+      if (isMaxTokensError(llmError)) {
+        console.warn(
+          "[TokenFallback] Max tokens error in llmClassify. Using fallback max_tokens.",
+        );
+
+        // Retry with fallback max_tokens
+        const fallbackMaxTokens = Math.min(getFallbackMaxTokens(modelId), 256);
+        try {
+          const fallbackResponse = await client.chat.completions.create({
+            model: modelId,
+            messages: [
+              {
+                role: "system",
+                content: injectDateIntoPrompt(CLASSIFICATION_SYSTEM_PROMPT),
+              },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.1,
+            max_tokens: fallbackMaxTokens,
+            response_format: { type: "json_object" },
+          });
+
+          const content = fallbackResponse.choices[0]?.message?.content;
+          if (!content) {
+            throw llmError;
+          }
+
+          const result = JSON.parse(content);
+          return {
+            inputType: result.inputType || "observation",
+            confidence: result.confidence || 0.7,
+            topic: result.topic || undefined,
+            temporalReference: result.temporalReference || undefined,
+            shouldStore: result.shouldStore ?? false,
+            shouldCallTools: result.shouldCallTools ?? false,
+            memoryScopes: this.determineMemoryScopes(result),
+            importanceScore: result.importanceScore || 0,
+            entities: result.entities || [],
+            sentiment: result.sentiment || "neutral",
+          };
+        } catch (fallbackError) {
+          console.error(
+            "[TokenFallback] Fallback also failed in llmClassify:",
+            fallbackError,
+          );
+          throw fallbackError;
+        }
+      }
+
+      // Not a max_tokens error, re-throw
+      throw llmError;
+    }
   }
 
   /**
