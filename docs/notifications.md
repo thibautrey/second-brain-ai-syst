@@ -1,0 +1,242 @@
+# Système de Notifications
+
+Le système de notifications du Second Brain AI est maintenant complètement implémenté avec support des notifications du navigateur, WebSocket temps réel, et Service Worker pour les notifications hors ligne.
+
+## ✨ Fonctionnalités
+
+- ✅ **Notifications en temps réel** via WebSocket
+- ✅ **Notifications du navigateur** avec l'API Notifications
+- ✅ **Service Worker** pour notifications hors ligne
+- ✅ **Persistance en base de données** (PostgreSQL)
+- ✅ **Canaux multiples** : IN_APP, PUSH, EMAIL, WEBHOOK
+- ✅ **Types de notifications** : INFO, SUCCESS, WARNING, ERROR, REMINDER, ACHIEVEMENT
+- ✅ **Notifications programmées** (pour le futur)
+- ✅ **API REST** pour que l'IA puisse envoyer des notifications
+
+## 🚀 Démarrage rapide
+
+### 1. Accéder à la page de test
+
+Allez sur : `http://localhost:5173/notifications`
+
+### 2. Activer les permissions
+
+1. Cliquez sur "Activer les notifications"
+2. Acceptez la demande de permission du navigateur
+3. Vérifiez que la connexion WebSocket est active (indicateur vert)
+
+### 3. Tester une notification
+
+1. Remplissez le formulaire de test
+2. Cliquez sur "Envoyer la notification"
+3. Vous devriez recevoir une notification du navigateur
+
+## 📡 API pour l'IA
+
+L'IA peut envoyer des notifications en utilisant l'endpoint suivant :
+
+### POST `/api/notifications`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Body:**
+
+```json
+{
+  "title": "Titre de la notification",
+  "message": "Contenu du message",
+  "type": "INFO",
+  "channels": ["IN_APP", "PUSH"],
+  "actionUrl": "/dashboard",
+  "metadata": {
+    "custom": "data"
+  }
+}
+```
+
+**Paramètres:**
+
+- `title` (string, requis) : Titre de la notification
+- `message` (string, requis) : Contenu du message
+- `type` (string, optionnel) : Type de notification (INFO, SUCCESS, WARNING, ERROR, REMINDER, ACHIEVEMENT)
+- `channels` (array, optionnel) : Canaux de diffusion (IN_APP, PUSH, EMAIL, WEBHOOK)
+- `scheduledFor` (datetime, optionnel) : Date/heure pour notification programmée
+- `sourceType` (string, optionnel) : Type de source (todo, memory, agent, etc.)
+- `sourceId` (string, optionnel) : ID de la source
+- `actionUrl` (string, optionnel) : URL de redirection au clic
+- `actionLabel` (string, optionnel) : Libellé du bouton d'action
+- `metadata` (object, optionnel) : Données personnalisées
+
+**Réponse:**
+
+```json
+{
+  "success": true,
+  "notification": {
+    "id": "clxx...",
+    "userId": "user123",
+    "title": "Titre de la notification",
+    "message": "Contenu du message",
+    "type": "INFO",
+    "channels": ["IN_APP", "PUSH"],
+    "isRead": false,
+    "createdAt": "2026-01-23T10:30:00Z"
+  }
+}
+```
+
+## 🔧 Autres endpoints
+
+### GET `/api/notifications`
+
+Liste les notifications de l'utilisateur
+
+**Query params:**
+
+- `limit` (number, défaut: 50) : Nombre de résultats
+- `offset` (number, défaut: 0) : Pagination
+- `unreadOnly` (boolean, défaut: false) : Filtrer les non lues uniquement
+
+### PATCH `/api/notifications/:id/read`
+
+Marquer une notification comme lue
+
+## 🛠️ Architecture
+
+### Frontend
+
+- **Service Worker** : `frontend/public/service-worker.js`
+  - Gère les notifications push
+  - Cache les assets pour l'offline
+  - Intercepte les clics sur les notifications
+
+- **WebSocket Client** : `frontend/services/notification-client.ts`
+  - Connexion WebSocket avec reconnexion automatique
+  - Gestion des callbacks de notifications
+  - Affichage des notifications du navigateur
+
+- **Hook React** : `frontend/hooks/useNotificationListener.ts`
+  - Enregistre le Service Worker
+  - Connecte au WebSocket
+  - Demande les permissions
+  - Gère les callbacks
+
+- **Composant UI** : `frontend/components/NotificationSettings.tsx`
+  - Affiche l'état de la connexion
+  - Bouton pour activer les permissions
+  - Indicateurs visuels
+
+### Backend
+
+- **Service** : `backend/services/notification.ts`
+  - Crée et envoie les notifications
+  - Gère les canaux multiples
+  - Traite les notifications programmées
+
+- **Controller** : `backend/controllers/notification.controller.ts`
+  - Endpoints REST
+  - Validation des données
+  - Gestion des erreurs
+
+- **WebSocket Broadcast** : `backend/services/websocket-broadcast.ts`
+  - Diffusion temps réel via WebSocket
+  - Méthode `sendNotification(userId, notification)`
+
+- **Base de données** : Modèle `Notification` dans Prisma
+  - Persistance des notifications
+  - Historique des lectures
+  - Métadonnées personnalisées
+
+## 📋 Exemples d'utilisation par l'IA
+
+### Notification simple
+
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Tâche terminée",
+  message: "Votre analyse quotidienne est prête",
+  type: "SUCCESS",
+});
+```
+
+### Notification avec action
+
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Nouveau résumé disponible",
+  message: "Votre résumé hebdomadaire a été généré",
+  type: "INFO",
+  actionUrl: "/dashboard/summaries",
+  actionLabel: "Voir le résumé",
+  sourceType: "summary",
+  sourceId: "summary-id-123",
+});
+```
+
+### Notification programmée
+
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Rappel",
+  message: "N'oubliez pas votre réunion dans 1 heure",
+  type: "REMINDER",
+  scheduledFor: new Date(Date.now() + 3600000), // +1 heure
+});
+```
+
+### Notification avec métadonnées
+
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Objectif atteint 🎉",
+  message: "Vous avez atteint votre objectif mensuel !",
+  type: "ACHIEVEMENT",
+  metadata: {
+    goalId: "goal-123",
+    progress: 100,
+    reward: "badge-super-user",
+  },
+});
+```
+
+## 🔒 Sécurité
+
+- Authentification JWT requise pour tous les endpoints
+- Notifications isolées par utilisateur (userId)
+- Service Worker en HTTPS uniquement en production
+- Validation des données côté backend
+
+## 🐛 Debugging
+
+Pour déboguer les notifications :
+
+1. **Console du navigateur** : Messages préfixés par `[NotificationClient]` ou `[Service Worker]`
+2. **Network tab** : Vérifier la connexion WebSocket
+3. **Application tab > Service Workers** : État du Service Worker
+4. **Application tab > Notifications** : Permissions actuelles
+
+## 📝 TODO / Améliorations futures
+
+- [ ] Intégration Firebase Cloud Messaging (FCM) pour notifications mobiles
+- [ ] Envoi d'emails via SendGrid/SES
+- [ ] Support des webhooks personnalisés
+- [ ] Historique complet des notifications dans l'UI
+- [ ] Préférences utilisateur (désactiver certains types)
+- [ ] Notifications groupées
+- [ ] Sons personnalisés
+- [ ] Vibrations personnalisées
+
+---
+
+**Date de création** : 23 janvier 2026  
+**Version** : 1.0.0  
+**Statut** : ✅ Opérationnel

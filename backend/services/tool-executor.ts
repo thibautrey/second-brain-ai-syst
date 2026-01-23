@@ -10,6 +10,7 @@ import {
 } from "./tools/index.js";
 import { memorySearchService } from "./memory-search.js";
 import { userProfileService, UserProfile } from "./user-profile.js";
+import { codeExecutorService } from "./code-executor-wrapper.js";
 import {
   TodoStatus,
   TodoPriority,
@@ -170,6 +171,19 @@ const BUILTIN_TOOLS: ToolConfig[] = [
         "get_report",
         "list_active",
       ],
+    },
+  },
+  {
+    id: "code_executor",
+    name: "Python Code Executor",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 10,
+    timeout: 35000,
+    config: {
+      description:
+        "Execute Python code in a secure sandbox. Useful for mathematical calculations, data processing, algorithm testing, and any computation that requires precise results. Code runs in isolation with no filesystem or network access. Available modules: math, random, datetime, json, re, itertools, functools, collections, string, decimal, fractions, statistics, operator, copy, textwrap, unicodedata.",
+      actions: ["execute", "validate", "get_limits", "get_examples"],
     },
   },
 ];
@@ -333,6 +347,8 @@ export class ToolExecutorService {
         return this.executeUserProfileAction(userId, action, params);
       case "long_running_task":
         return this.executeLongRunningTaskAction(userId, action, params);
+      case "code_executor":
+        return this.executeCodeExecutorAction(action, params);
       default:
         throw new Error(`Unknown builtin tool: ${toolId}`);
     }
@@ -391,6 +407,69 @@ export class ToolExecutorService {
         throw new Error(`Unknown curl action: ${action}`);
     }
   }
+
+  /**
+   * Execute code executor actions
+   */
+  private async executeCodeExecutorAction(
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "execute": {
+        if (!params.code) {
+          throw new Error("Missing 'code' parameter");
+        }
+        const result = await codeExecutorService.executeCode(
+          params.code,
+          params.timeout,
+        );
+        return {
+          action: "execute",
+          success: result.success,
+          result: result.result,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          error: result.error,
+          execution_time_ms: result.execution_time_ms,
+          truncated: result.truncated,
+          formatted_output: codeExecutorService.formatResult(result),
+        };
+      }
+
+      case "validate": {
+        if (!params.code) {
+          throw new Error("Missing 'code' parameter");
+        }
+        const result = await codeExecutorService.validateCode(params.code);
+        return {
+          action: "validate",
+          valid: result.valid,
+          error: result.error,
+        };
+      }
+
+      case "get_limits": {
+        const limits = await codeExecutorService.getLimits();
+        return {
+          action: "get_limits",
+          ...limits,
+        };
+      }
+
+      case "get_examples": {
+        const examples = await codeExecutorService.getExamples();
+        return {
+          action: "get_examples",
+          examples,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown code_executor action: ${action}`);
+    }
+  }
+
   /**
    * Execute user context actions
    */
@@ -871,7 +950,8 @@ export class ToolExecutorService {
   ): Promise<any> {
     switch (action) {
       case "send":
-        return notificationService.sendNotification(userId, {
+        return notificationService.createNotification({
+          userId,
           title: params.title,
           message: params.message,
           type: params.type as NotificationType,
@@ -880,72 +960,18 @@ export class ToolExecutorService {
           sourceId: params.sourceId,
           actionUrl: params.actionUrl,
           actionLabel: params.actionLabel,
+          metadata: params.metadata || {},
         });
-
-      case "schedule":
-        return notificationService.scheduleNotification(userId, {
-          title: params.title,
-          message: params.message,
-          type: params.type as NotificationType,
-          channels: params.channels,
-          scheduledFor: new Date(params.scheduledFor),
-          sourceType: params.sourceType,
-          sourceId: params.sourceId,
-        });
-
-      case "get":
-        return notificationService.getNotification(
-          userId,
-          params.notificationId,
-        );
 
       case "list":
-        return notificationService.listNotifications(
-          userId,
-          {
-            type: params.type,
-            isRead: params.isRead,
-            isDismissed: params.isDismissed,
-            sourceType: params.sourceType,
-            since: params.since ? new Date(params.since) : undefined,
-          },
-          {
-            page: params.page,
-            limit: params.limit,
-            sortBy: params.sortBy,
-            sortOrder: params.sortOrder,
-          },
-        );
-
-      case "unread_count":
-        return { count: await notificationService.getUnreadCount(userId) };
+        return notificationService.getUserNotifications(userId, {
+          limit: params.limit,
+          offset: params.offset,
+          unreadOnly: params.unreadOnly,
+        });
 
       case "mark_read":
-        if (params.all) {
-          return notificationService.markAllAsRead(userId);
-        }
         return notificationService.markAsRead(userId, params.notificationId);
-
-      case "dismiss":
-        return notificationService.dismissNotification(
-          userId,
-          params.notificationId,
-        );
-
-      case "delete":
-        return notificationService.deleteNotification(
-          userId,
-          params.notificationId,
-        );
-
-      case "clear_dismissed":
-        return notificationService.clearDismissed(userId);
-
-      case "cancel_scheduled":
-        return notificationService.cancelScheduledNotification(
-          userId,
-          params.notificationId,
-        );
 
       default:
         throw new Error(`Unknown notification action: ${action}`);
@@ -1658,6 +1684,33 @@ export class ToolExecutorService {
               items: { type: "string" },
               description:
                 "Fields to delete (required for delete_fields action)",
+            },
+          },
+          required: ["action"],
+        },
+      },
+      {
+        name: "code_executor",
+        description:
+          "Execute Python code in a secure sandbox. Use this tool for mathematical calculations, data processing, algorithm testing, statistical analysis, and any computation requiring precise results. The code runs in isolation with no filesystem or network access. IMPORTANT: Always use print() to display results - the output is captured and returned. Available modules: math, random, datetime, json, re, itertools, functools, collections, string, decimal, fractions, statistics, operator, copy, textwrap, unicodedata.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["execute", "validate", "get_limits", "get_examples"],
+              description:
+                "The action to perform - execute: run Python code, validate: check syntax without running, get_limits: get execution constraints, get_examples: get code examples",
+            },
+            code: {
+              type: "string",
+              description:
+                "Python code to execute or validate (required for execute/validate actions). Use print() to output results.",
+            },
+            timeout: {
+              type: "number",
+              description:
+                "Maximum execution time in seconds (default: 30, max: 30)",
             },
           },
           required: ["action"],

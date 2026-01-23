@@ -212,7 +212,23 @@ class WebSocketBroadcastService {
       data: { taskId, taskName },
     });
   }
+
+  // ==================== Notification Events ====================
+
+  /**
+   * Send notification to user
+   */
+  sendNotification(userId: string, notification: any): void {
+    this.sendToUser(userId, {
+      type: "notification",
+      timestamp: Date.now(),
+      data: notification,
+    });
+  }
 }
 
 // Export singleton instance
 export const wsBroadcastService = new WebSocketBroadcastService();
+
+// Also export as websocketBroadcast for compatibility
+export const websocketBroadcast = wsBroadcastService;

@@ -57,6 +57,7 @@ import { backgroundAgentService } from "./background-agents.js";
 import { scheduledTaskService } from "./tools/scheduled-task.service.js";
 import toolsController from "../controllers/tools.controller.js";
 import longRunningTaskController from "../controllers/long-running-task.controller.js";
+import { notificationController } from "../controllers/notification.controller.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer, Server as HttpServer, IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
@@ -786,6 +787,37 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use("/api/tools", toolsController);
 console.log("🔧 Built-in tools routes enabled at /api/tools");
+
+// ==================== Notification Routes ====================
+
+// Create notification (for AI)
+app.post(
+  "/api/notifications",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await notificationController.create(req, res);
+  },
+);
+
+// List user notifications
+app.get(
+  "/api/notifications",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await notificationController.list(req, res);
+  },
+);
+
+// Mark notification as read
+app.patch(
+  "/api/notifications/:id/read",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await notificationController.markRead(req, res);
+  },
+);
+
+console.log("🔔 Notification routes enabled at /api/notifications");
 
 // ==================== Long Running Tasks Routes ====================
 
