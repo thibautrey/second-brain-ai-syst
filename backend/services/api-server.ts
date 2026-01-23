@@ -2364,6 +2364,15 @@ export async function startServer(port: number = 3000) {
     setupWebSocketServer(wss);
     console.log("✓ WebSocket server initialized at /ws/continuous-listen");
 
+    // Initialize WebSocket server for notifications
+    const notificationWss = new WebSocketServer({
+      server: httpServer,
+      path: "/",
+    });
+
+    setupNotificationWebSocketServer(notificationWss);
+    console.log("✓ WebSocket notification server initialized at /");
+
     // Start server
     httpServer.listen(port, "0.0.0.0", () => {
       console.log(`✓ API server running on http://0.0.0.0:${port}`);
@@ -2591,6 +2600,76 @@ function setupWebSocketServer(wss: WebSocketServer): void {
     console.log("Shutting down WebSocket server...");
     await continuousListeningManager.stopAll();
     wss.close();
+  });
+}
+
+/**
+ * Setup WebSocket server for notifications
+ */
+function setupNotificationWebSocketServer(wss: WebSocketServer): void {
+  const JWT_SECRET =
+    process.env.JWT_SECRET || "your-secret-key-change-in-production";
+
+  wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
+    console.log("Notification WebSocket connection attempt...");
+
+    // Extract token from query string
+    const url = new URL(req.url || "", `http://${req.headers.host}`);
+    const token = url.searchParams.get("token");
+
+    if (!token) {
+      console.log("Notification WebSocket connection rejected: no token");
+      ws.close(4001, "Authentication required");
+      return;
+    }
+
+    // Verify token
+    let userId: string;
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+      userId = decoded.userId;
+    } catch (error) {
+      console.log("Notification WebSocket connection rejected: invalid token");
+      ws.close(4002, "Invalid token");
+      return;
+    }
+
+    console.log(`✓ Notification WebSocket connected for user ${userId}`);
+
+    // Register with broadcast service
+    wsBroadcastService.registerConnection(userId, ws);
+
+    // Send acknowledgement
+    ws.send(
+      JSON.stringify({
+        type: "connected",
+        timestamp: Date.now(),
+        data: { userId },
+      }),
+    );
+
+    // Handle incoming messages (ping/pong, etc)
+    ws.on("message", (data: Buffer | string) => {
+      try {
+        const message = JSON.parse(data.toString());
+
+        if (message.type === "ping") {
+          ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+        }
+      } catch (error) {
+        console.error("Error processing notification message:", error);
+      }
+    });
+
+    // Handle disconnection
+    ws.on("close", () => {
+      console.log(`Notification WebSocket disconnected for user ${userId}`);
+      wsBroadcastService.removeConnection(userId);
+    });
+
+    ws.on("error", (error: Error) => {
+      console.error(`Notification WebSocket error for user ${userId}:`, error);
+    });
   });
 }
 
