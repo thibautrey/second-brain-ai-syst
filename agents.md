@@ -405,6 +405,142 @@ Response to user
 
 ---
 
-**Last Updated**: January 22, 2026
+## 📚 Documentation & Implementation Notes Management
+
+### 🎯 Quick Rule: Where Files Go
+
+| File Type                      | Location                      | Rule                                                                                |
+| ------------------------------ | ----------------------------- | ----------------------------------------------------------------------------------- |
+| **Essential docs**             | Root directory                | `README.md`, `SETUP.md`, `SECURITY.md`, `agents.md`, `QUICK_REFERENCE.md` only      |
+| **Permanent documentation**    | `/docs/`                      | Architecture, databases, authentication, integration guides - stable reference docs |
+| **Implementation/Debug notes** | `/docs/implementation-notes/` | **ALL** temporary, feature-specific docs go here - NEVER at root                    |
+
+### ⚠️ GOLDEN RULE
+
+```
+🚫 NEVER create markdown files at root for implementation/debug
+✅ ALWAYS use /docs/implementation-notes/ for anything temporary
+```
+
+### Markdown File Organization
+
+To maintain a clean repository structure, all markdown documentation is organized as follows:
+
+#### **Root Level** (Essential files only)
+
+These files remain at the project root for critical developer reference:
+
+- `README.md` - Project overview and getting started
+- `SETUP.md` - Initial development setup guide
+- `SECURITY.md` - Security policies and best practices
+- `agents.md` - This file - Core architecture documentation
+- `QUICK_REFERENCE.md` - Quick command reference
+
+#### **Documentation** (`/docs`)
+
+Permanent architectural and reference documentation:
+
+- `docs/architecture.md` - System design and data flow
+- `docs/authentication.md` - Auth system documentation
+- `docs/database.md` - Database schema and relationships
+- `docs/input-ingestion.md` - Input processing system
+- `docs/input-integration-guide.md` - Integration instructions
+- `docs/index.md` - Documentation index
+
+#### **Implementation Notes** (`/docs/implementation-notes`)
+
+Temporary implementation documentation created during development:
+
+- Implementation guides and technical deep-dives
+- Completion summaries and status reports
+- Quick start guides for features
+- Feature checklists and verification documents
+- Architecture decision documents (ADDs)
+
+### Guidelines for Managing Implementation Notes
+
+#### ⚠️ CRITICAL RULE: Implementation notes MUST NOT be created at root level
+
+**ALL** debugging/implementation markdown files go to `/docs/implementation-notes/` directory - NEVER at project root.
+
+#### When Creating New Implementation Notes
+
+1. **Location**: ALWAYS create in `/docs/implementation-notes/` directory
+   - ❌ DO NOT create at root level
+   - ✅ DO create here: `/docs/implementation-notes/FEATURE_NAME.md`
+   - This keeps root directory clean (only 6-7 essential files)
+   - Consolidates temporary documentation in one place
+   - Easy to identify and archive when complete
+
+2. **Naming Convention**: Use `FEATURE_IMPLEMENTATION.md` or `FEATURE_STATUS.md`
+   - Example: `/docs/implementation-notes/AUDIO_TRAINING_IMPLEMENTATION.md`
+   - Example: `/docs/implementation-notes/EMBEDDING_STATUS.md`
+   - Example: `/docs/implementation-notes/SCRIPTS_ORGANIZATION_COMPLETE.md`
+   - Be descriptive so the purpose is clear
+
+3. **Content**:
+   - Focus on implementation details and decisions made
+   - Include architecture diagrams for the feature
+   - Document any setup or configuration required
+   - List files created or modified
+   - Include troubleshooting and examples
+
+#### When to Remove Implementation Notes
+
+Remove implementation notes from `/docs/implementation-notes/` after the debug/implementation process is complete when:
+
+1. **Feature is production-ready** - Core functionality is stable and tested
+2. **Knowledge is transferred** - Important information consolidated into permanent docs
+3. **No longer referenced** - Team no longer needs the implementation guide
+4. **Documentation is outdated** - Information no longer accurate after refactoring
+
+#### Migration Process
+
+When transitioning from implementation notes to production:
+
+1. Extract essential information from implementation notes
+2. Consolidate into permanent documentation in `/docs/`
+3. Update links in README.md or SETUP.md if relevant
+4. Remove the implementation note file from `/docs/implementation-notes/`
+5. Commit the changes with clear commit message
+
+Example:
+
+```bash
+# Move content from implementation notes to permanent docs
+# Update any references
+# Remove the implementation note file
+git rm docs/implementation-notes/FEATURE_IMPLEMENTATION.md
+git add docs/feature.md
+git commit -m "Move FEATURE documentation to permanent docs, archive implementation notes"
+```
+
+### Examples of Implementation Notes
+
+These are temporary and can be archived once the feature is stable:
+
+- `docs/implementation-notes/AUDIO_TRAINING_IMPLEMENTATION.md`
+- `docs/implementation-notes/AUTHENTICATION_COMPLETE.md`
+- `docs/implementation-notes/EMBEDDING_STATUS.md`
+- `docs/implementation-notes/INPUT_IMPLEMENTATION.md`
+- `docs/implementation-notes/COMPLETION_SUMMARY.md`
+
+### Maintenance Schedule
+
+**Monthly Review**:
+
+- Check `/docs/implementation-notes/` for outdated or completed features
+- Archive or remove notes for completed phases
+- Consolidate duplicate information
+
+**End of Phase**:
+
+- Migrate all relevant implementation notes to permanent documentation
+- Clean up obsolete files
+- Update the main README with new feature status
+
+---
+
+**Last Updated**: January 23, 2026
 **Version**: 0.1.0
 **Status**: In Development

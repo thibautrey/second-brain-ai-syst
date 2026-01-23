@@ -14,6 +14,9 @@ An AI-powered personal cognitive operating system that captures, organizes, summ
 ## Quick Start
 
 ```bash
+# Setup embedding service (optional, or use Docker)
+./scripts/setup-embedding-service.sh
+
 # Install dependencies
 npm install
 
@@ -22,12 +25,35 @@ cp .env.example .env
 
 # Run development
 npm run dev
+
+# Or use Docker for everything
+docker compose up --build
 ```
+
+## Scripts
+
+All utility scripts are located in `/scripts/`:
+
+- **`./scripts/setup-embedding-service.sh`** - Setup ECAPA-TDNN embedding service
+- **`./scripts/setup-input-system.sh`** - Setup input ingestion system
+- **`./scripts/archive-notes.sh`** - Manage implementation notes archival
+
+See [Scripts Documentation](./scripts/README.md) for details.
 
 ## Documentation
 
-- [Architecture & Agents](./agents.md) - Complete system design
-- [Development Roadmap](./agents.md#-development-phases) - Phase-by-phase plan
+### Essential References
+
+- [Architecture & Agents](./agents.md) - Complete system design and agent architecture
+- [Setup Guide](./SETUP.md) - Initial development setup
+- [Quick Reference](./QUICK_REFERENCE.md) - Quick command reference
+
+### Organized Documentation
+
+- [Permanent Documentation](/docs) - Architecture, authentication, database, and integration guides
+- [Implementation Notes](/docs/implementation-notes) - Temporary development documentation and feature guides
+
+**Note**: Documentation is organized to keep the repository clean. Implementation notes are archived to `/docs/implementation-notes/` during development and moved to permanent documentation when features become stable. See [Documentation Organization](./agents.md#-documentation--implementation-notes-management) for details.
 
 📄 License For Spark Template Resources
 

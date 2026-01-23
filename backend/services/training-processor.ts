@@ -7,6 +7,7 @@
 
 import prisma from "./prisma.js";
 import { SpeakerRecognitionService } from "./speaker-recognition.js";
+import { getEmbeddingService } from "./embedding-wrapper.js";
 
 interface TrainingState {
   isProcessing: boolean;
@@ -22,6 +23,20 @@ export class TrainingProcessorService {
   };
 
   constructor(private speakerService: SpeakerRecognitionService) {}
+
+  /**
+   * Initialize the training processor (starts embedding service)
+   */
+  async initialize(): Promise<void> {
+    try {
+      console.log("Initializing embedding service...");
+      await getEmbeddingService();
+      console.log("✓ Embedding service initialized");
+    } catch (error) {
+      console.error("✗ Failed to initialize embedding service:", error);
+      throw error;
+    }
+  }
 
   /**
    * Start the background training processor
@@ -108,50 +123,58 @@ export class TrainingProcessorService {
         throw new Error("No voice samples available for training");
       }
 
-      // Step 1: Load audio samples (20% progress)
-      await this.updateProgress(pendingSession.id, 15, "loading-samples");
+      // Step 1: Prepare audio paths (15% progress)
+      await this.updateProgress(pendingSession.id, 15, "preparing-samples");
 
-      const audioBuffers = await Promise.all(
-        voiceSamples.map(async (sample) => {
-          try {
-            // In production, you would load the actual audio file from disk
-            // For now, we'll use a placeholder
-            const { default: fs } = await import("fs/promises");
-            try {
-              const buffer = await fs.readFile(sample.storagePath);
-              return buffer;
-            } catch (error) {
-              console.warn(
-                `Could not read audio file at ${sample.storagePath}:`,
-                error,
-              );
-              // Return empty buffer if file not found
-              return Buffer.alloc(0);
-            }
-          } catch (error) {
-            console.error("Error loading audio sample:", error);
-            return Buffer.alloc(0);
-          }
-        }),
+      const audioPaths = voiceSamples
+        .map((sample) => sample.storagePath)
+        .filter((path) => path && path.length > 0);
+
+      if (audioPaths.length === 0) {
+        throw new Error("No valid audio file paths available for training");
+      }
+
+      console.log(
+        `Processing ${audioPaths.length} audio samples for training session ${pendingSession.id}`,
       );
 
-      // Step 2: Extract embeddings (40% progress)
+      // Step 2: Extract embeddings using ECAPA-TDNN (40% progress)
       await this.updateProgress(pendingSession.id, 40, "extracting-embeddings");
+
+      const embeddingService = await getEmbeddingService();
       const embeddings: number[][] = [];
 
-      for (let i = 0; i < audioBuffers.length; i++) {
-        try {
-          const buffer = audioBuffers[i];
-          if (buffer.length === 0) continue;
+      try {
+        // Extract embeddings in batch for efficiency
+        const batchResults =
+          await embeddingService.batchExtractEmbeddings(audioPaths);
 
-          // In a real scenario, this would call a Python service or ML model
-          // For now, simulate embedding extraction
-          const embedding = this.generateMockEmbedding(pendingSession.id, i);
-          embeddings.push(embedding);
-        } catch (error) {
-          console.error(`Failed to extract embedding from sample ${i}:`, error);
+        for (const result of batchResults) {
+          if (result.success) {
+            embeddings.push(result.embedding);
+            console.log(
+              `✓ Extracted embedding from sample ${result.index + 1}/${audioPaths.length}`,
+            );
+          } else {
+            console.warn(
+              `✗ Failed to extract embedding from ${result.audioPath}`,
+            );
+          }
         }
+      } catch (error) {
+        console.error("Failed to extract embeddings:", error);
+        throw new Error(
+          `Embedding extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
+
+      if (embeddings.length === 0) {
+        throw new Error("Failed to extract embeddings from any audio samples");
+      }
+
+      console.log(
+        `✓ Successfully extracted ${embeddings.length} embeddings (dimension: ${embeddings[0].length})`,
+      );
 
       if (embeddings.length === 0) {
         throw new Error("Failed to extract embeddings from any samples");
@@ -159,7 +182,19 @@ export class TrainingProcessorService {
 
       // Step 3: Compute centroid (60% progress)
       await this.updateProgress(pendingSession.id, 60, "computing-centroid");
-      const centroidEmbedding = this.computeCentroid(embeddings);
+
+      let centroidEmbedding: number[] = [];
+      try {
+        const embeddingService = await getEmbeddingService();
+        centroidEmbedding = await embeddingService.computeCentroid(embeddings);
+        console.log(
+          `✓ Computed centroid (dimension: ${centroidEmbedding.length})`,
+        );
+      } catch (error) {
+        console.error("Failed to compute centroid, using fallback:", error);
+        // Fallback to local computation if service fails
+        centroidEmbedding = this.computeCentroid(embeddings);
+      }
 
       // Step 4: Compute statistics (80% progress)
       await this.updateProgress(pendingSession.id, 80, "computing-statistics");
@@ -247,27 +282,8 @@ export class TrainingProcessorService {
   }
 
   /**
-   * Generate mock embedding for testing
-   * In production, this would call a real ML model
-   */
-  private generateMockEmbedding(
-    sessionId: string,
-    sampleIndex: number,
-  ): number[] {
-    const embedding: number[] = [];
-    const seed = sessionId.charCodeAt(0) + sampleIndex;
+   * Compute centroid (mean) of embeddings (fallback for local computation)
 
-    for (let i = 0; i < 192; i++) {
-      // ECAPA-TDNN uses 192-dimensional embeddings
-      const value = Math.sin((seed + i) * 0.1) * 0.5 + Math.random() * 0.3;
-      embedding.push(value);
-    }
-
-    return embedding;
-  }
-
-  /**
-   * Compute centroid (mean) of embeddings
    */
   private computeCentroid(embeddings: number[][]): number[] {
     if (embeddings.length === 0) {

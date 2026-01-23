@@ -262,10 +262,23 @@ export async function startServer(port: number = 3000) {
     await prisma.$connect();
     console.log("✓ Database connected");
 
-    // Start training processor service
+    // Initialize training processor service with embedding service
     const trainingProcessor = new TrainingProcessorService(
       speakerRecognitionService,
     );
+
+    try {
+      // Initialize embedding service (downloads model on first run)
+      await trainingProcessor.initialize();
+      console.log("✓ Embedding service initialized");
+    } catch (error) {
+      console.warn(
+        "⚠️  Embedding service initialization failed:",
+        error instanceof Error ? error.message : String(error),
+      );
+      console.warn("Training will use fallback mock embeddings");
+    }
+
     trainingProcessor.startProcessor(5000); // Process every 5 seconds
     console.log("✓ Training processor started");
 

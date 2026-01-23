@@ -2,7 +2,7 @@
 
 ## Immediate Actions
 
-- [ ] Run `./setup-input-system.sh`
+- [ ] Run `./scripts/setup-input-system.sh`
 - [ ] Review `docs/input-ingestion.md` (formats, speaker options)
 - [ ] Review `docs/input-integration-guide.md` (integration steps)
 - [ ] Configure `config/input-system.config.json` for your environment

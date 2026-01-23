@@ -29,6 +29,24 @@ services:
     volumes:
       - weaviate_data:/var/lib/weaviate
 
+  embedding-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.embedding
+    environment:
+      EMBEDDING_SERVICE_PORT: 5001
+      MODEL_CACHE_DIR: /app/models
+      HF_TOKEN: ${HF_TOKEN}
+    ports:
+      - "5001:5001"
+    volumes:
+      - embedding_models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   backend:
     build:
       context: .
@@ -39,10 +57,14 @@ services:
       WEAVIATE_URL: http://weaviate:8080
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       PORT: 3000
+      EMBEDDING_SERVICE_HOST: embedding-service
+      EMBEDDING_SERVICE_PORT: 5001
     ports:
       - "3000:3000"
     depends_on:
       postgres:
+        condition: service_healthy
+      embedding-service:
         condition: service_healthy
 
   frontend:
@@ -63,7 +85,4 @@ services:
 volumes:
   postgres_data:
   weaviate_data:
-
-networks:
-  default:
-    name: second_brain_network
+  embedding_models:

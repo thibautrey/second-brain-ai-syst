@@ -60,7 +60,7 @@ echo -e "${BLUE}[5/5] Checking documentation...${NC}"
 docs_found=0
 [ -f "docs/input-ingestion.md" ] && echo "✓ Architecture documentation found" && ((docs_found++))
 [ -f "docs/input-integration-guide.md" ] && echo "✓ Integration guide found" && ((docs_found++))
-[ -f "INPUT_IMPLEMENTATION.md" ] && echo "✓ Implementation summary found" && ((docs_found++))
+[ -f "docs/implementation-notes/INPUT_IMPLEMENTATION.md" ] && echo "✓ Implementation summary found" && ((docs_found++))
 echo ""
 
 # Summary
@@ -78,13 +78,13 @@ echo ""
 echo "📚 Documentation:"
 echo "  ✓ docs/input-ingestion.md"
 echo "  ✓ docs/input-integration-guide.md"
-echo "  ✓ INPUT_IMPLEMENTATION.md"
+echo "  ✓ docs/implementation-notes/INPUT_IMPLEMENTATION.md"
 echo ""
 echo "⚙️  Configuration:"
 echo "  ✓ config/input-system.config.json"
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo "  1. Review INPUT_IMPLEMENTATION.md for overview"
+echo "  1. Review docs/implementation-notes/INPUT_IMPLEMENTATION.md for overview"
 echo "  2. Run database migrations:"
 echo "     npx prisma migrate dev --name add_input_ingestion_tables"
 echo "  3. Integrate speaker recognition models:"
@@ -96,5 +96,5 @@ echo ""
 echo -e "${GREEN}For more information, see:${NC}"
 echo "  - docs/input-ingestion.md (Architecture & Options)"
 echo "  - docs/input-integration-guide.md (Integration Steps)"
-echo "  - INPUT_IMPLEMENTATION.md (Quick Reference)"
+echo "  - docs/implementation-notes/INPUT_IMPLEMENTATION.md (Quick Reference)"
 echo ""
