@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Trash2,
@@ -9,6 +9,13 @@ import {
   EyeOff,
   Server,
   RefreshCw,
+  Mic,
+  Volume2,
+  User,
+  Bell,
+  Sliders,
+  Play,
+  AlertCircle,
 } from "lucide-react";
 import {
   Card,
@@ -36,6 +43,7 @@ import {
   TASK_LABELS,
   DEFAULT_OPENAI_MODELS,
 } from "../types/ai-settings";
+import { useContinuousListening } from "../contexts/ContinuousListeningContext";
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState("providers");
@@ -52,6 +60,7 @@ export function SettingsPage() {
         <TabsList>
           <TabsTrigger value="providers">Providers IA</TabsTrigger>
           <TabsTrigger value="models">Configuration des Modèles</TabsTrigger>
+          <TabsTrigger value="listening">Écoute Continue</TabsTrigger>
         </TabsList>
 
         <TabsContent value="providers">
@@ -60,6 +69,10 @@ export function SettingsPage() {
 
         <TabsContent value="models">
           <ModelsConfigSection />
+        </TabsContent>
+
+        <TabsContent value="listening">
+          <ContinuousListeningSection />
         </TabsContent>
       </Tabs>
     </div>
@@ -658,5 +671,401 @@ function TaskConfigCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ==================== Continuous Listening Section ====================
+
+function ContinuousListeningSection() {
+  const { settings, isLoading, actions } = useContinuousListening();
+  const [isSaving, setIsSaving] = useState(false);
+  const [testText, setTestText] = useState("");
+  const [testResult, setTestResult] = useState<{
+    matches: boolean;
+    remainingText: string;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Local form state
+  const [formState, setFormState] = useState({
+    wakeWord: settings?.wakeWord || "Hey Brain",
+    wakeWordSensitivity: settings?.wakeWordSensitivity || 0.8,
+    minImportanceThreshold: settings?.minImportanceThreshold || 0.3,
+    silenceDetectionMs: settings?.silenceDetectionMs || 1500,
+    vadSensitivity: settings?.vadSensitivity || 0.5,
+    speakerConfidenceThreshold: settings?.speakerConfidenceThreshold || 0.7,
+    notifyOnMemoryStored: settings?.notifyOnMemoryStored ?? true,
+    notifyOnCommandDetected: settings?.notifyOnCommandDetected ?? true,
+  });
+
+  // Update form when settings load
+  useEffect(() => {
+    if (settings) {
+      setFormState({
+        wakeWord: settings.wakeWord,
+        wakeWordSensitivity: settings.wakeWordSensitivity,
+        minImportanceThreshold: settings.minImportanceThreshold,
+        silenceDetectionMs: settings.silenceDetectionMs,
+        vadSensitivity: settings.vadSensitivity,
+        speakerConfidenceThreshold: settings.speakerConfidenceThreshold,
+        notifyOnMemoryStored: settings.notifyOnMemoryStored,
+        notifyOnCommandDetected: settings.notifyOnCommandDetected,
+      });
+    }
+  }, [settings]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await actions.updateSettings(formState);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erreur lors de la sauvegarde",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTestWakeWord = async () => {
+    if (!testText.trim()) return;
+    try {
+      const result = await actions.testWakeWord(testText);
+      setTestResult(result);
+    } catch (err) {
+      console.error("Test failed:", err);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900">
+          Écoute Continue
+        </h3>
+        <p className="text-sm text-slate-500">
+          Configurez le mode d'écoute en continu pour capturer automatiquement
+          vos pensées et commandes.
+        </p>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle className="w-5 h-5 text-red-500" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {/* Wake Word Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Mic className="w-5 h-5" />
+            Mot d'Activation (Wake Word)
+          </CardTitle>
+          <CardDescription>
+            Le mot ou la phrase qui déclenche le mode commande
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="wakeWord">Mot d'activation</Label>
+              <Input
+                id="wakeWord"
+                value={formState.wakeWord}
+                onChange={(e) =>
+                  setFormState({ ...formState, wakeWord: e.target.value })
+                }
+                placeholder="Hey Brain"
+              />
+              <p className="text-xs text-slate-500">
+                Dites ce mot avant une commande pour que le système réponde
+                activement
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>
+                Sensibilité ({(formState.wakeWordSensitivity * 100).toFixed(0)}
+                %)
+              </Label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={formState.wakeWordSensitivity * 100}
+                onChange={(e) =>
+                  setFormState({
+                    ...formState,
+                    wakeWordSensitivity: parseInt(e.target.value) / 100,
+                  })
+                }
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-xs text-slate-500">
+                Augmentez pour détecter plus de variations du mot d'activation
+              </p>
+            </div>
+          </div>
+
+          {/* Test Wake Word */}
+          <div className="p-4 bg-slate-50 rounded-lg space-y-3">
+            <Label>Tester le mot d'activation</Label>
+            <div className="flex gap-2">
+              <Input
+                value={testText}
+                onChange={(e) => setTestText(e.target.value)}
+                placeholder={`Ex: ${formState.wakeWord} quelle heure est-il ?`}
+                className="flex-1"
+              />
+              <Button onClick={handleTestWakeWord} variant="outline">
+                <Play className="w-4 h-4 mr-2" />
+                Tester
+              </Button>
+            </div>
+            {testResult && (
+              <div
+                className={`p-3 rounded-lg ${testResult.matches ? "bg-green-50 border border-green-200" : "bg-orange-50 border border-orange-200"}`}
+              >
+                {testResult.matches ? (
+                  <div className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-500 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-green-700">
+                        Wake word détecté !
+                      </p>
+                      <p className="text-sm text-green-600">
+                        Commande extraite : "
+                        {testResult.remainingText || "(vide)"}"
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2">
+                    <X className="w-5 h-5 text-orange-500 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-orange-700">
+                        Wake word non détecté
+                      </p>
+                      <p className="text-sm text-orange-600">
+                        Ce texte sera traité comme observation passive
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Audio Processing */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Volume2 className="w-5 h-5" />
+            Traitement Audio
+          </CardTitle>
+          <CardDescription>
+            Paramètres de détection de voix et de silence
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>
+                Sensibilité VAD ({(formState.vadSensitivity * 100).toFixed(0)}%)
+              </Label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={formState.vadSensitivity * 100}
+                onChange={(e) =>
+                  setFormState({
+                    ...formState,
+                    vadSensitivity: parseInt(e.target.value) / 100,
+                  })
+                }
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-xs text-slate-500">
+                Détection d'activité vocale : plus sensible = détecte les voix
+                faibles
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Délai de silence ({formState.silenceDetectionMs}ms)</Label>
+              <input
+                type="range"
+                min="500"
+                max="5000"
+                step="100"
+                value={formState.silenceDetectionMs}
+                onChange={(e) =>
+                  setFormState({
+                    ...formState,
+                    silenceDetectionMs: parseInt(e.target.value),
+                  })
+                }
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-xs text-slate-500">
+                Durée de silence avant de considérer la phrase terminée
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Speaker Identification */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <User className="w-5 h-5" />
+            Identification du Locuteur
+          </CardTitle>
+          <CardDescription>
+            Paramètres pour reconnaître votre voix parmi d'autres
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>
+              Seuil de confiance (
+              {(formState.speakerConfidenceThreshold * 100).toFixed(0)}%)
+            </Label>
+            <input
+              type="range"
+              min="50"
+              max="95"
+              value={formState.speakerConfidenceThreshold * 100}
+              onChange={(e) =>
+                setFormState({
+                  ...formState,
+                  speakerConfidenceThreshold: parseInt(e.target.value) / 100,
+                })
+              }
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <p className="text-xs text-slate-500">
+              Niveau de certitude requis pour confirmer que c'est bien vous qui
+              parlez. Un seuil plus bas accepte plus de variantes de votre voix.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Memory Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sliders className="w-5 h-5" />
+            Seuil de Pertinence
+          </CardTitle>
+          <CardDescription>
+            Contrôle ce qui est enregistré en mémoire passive
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>
+              Importance minimum (
+              {(formState.minImportanceThreshold * 100).toFixed(0)}%)
+            </Label>
+            <input
+              type="range"
+              min="0"
+              max="80"
+              value={formState.minImportanceThreshold * 100}
+              onChange={(e) =>
+                setFormState({
+                  ...formState,
+                  minImportanceThreshold: parseInt(e.target.value) / 100,
+                })
+              }
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <p className="text-xs text-slate-500">
+              Seules les paroles jugées pertinentes au-dessus de ce seuil seront
+              mémorisées. Un seuil bas capture plus d'informations, un seuil
+              haut est plus sélectif.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Bell className="w-5 h-5" />
+            Notifications
+          </CardTitle>
+          <CardDescription>
+            Paramètres des alertes visuelles et sonores
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Mémoire enregistrée</Label>
+              <p className="text-sm text-slate-500">
+                Notifier quand une parole est sauvegardée en mémoire
+              </p>
+            </div>
+            <Switch
+              checked={formState.notifyOnMemoryStored}
+              onCheckedChange={(checked) =>
+                setFormState({ ...formState, notifyOnMemoryStored: checked })
+              }
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Commande détectée</Label>
+              <p className="text-sm text-slate-500">
+                Notifier quand le wake word est reconnu
+              </p>
+            </div>
+            <Switch
+              checked={formState.notifyOnCommandDetected}
+              onCheckedChange={(checked) =>
+                setFormState({ ...formState, notifyOnCommandDetected: checked })
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save Button */}
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              Sauvegarde...
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4 mr-2" />
+              Sauvegarder
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }

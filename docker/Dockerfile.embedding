@@ -18,11 +18,20 @@ COPY backend/requirements.txt .
 # Install Python dependencies with retry logic
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the embedding service
-COPY backend/services/embedding-service.py .
-
 # Create models directory
 RUN mkdir -p /app/models
+
+# Copy the model download script
+COPY backend/services/download-model.py .
+
+# Attempt to pre-download model (may fail without internet, that's OK)
+# We'll handle offline mode gracefully in the embedding service
+ENV MODEL_CACHE_DIR=/app/models
+ENV HF_HUB_OFFLINE=1
+RUN python3 download-model.py || true
+
+# Copy the embedding service
+COPY backend/services/embedding-service.py .
 
 # Expose port
 EXPOSE 5001

@@ -30,8 +30,38 @@ model User {
     summaries              Summary[]
     aiProviders            AIProvider[]
     aiTaskConfigs          AITaskConfig[]
+    settings               UserSettings?
 
     @@map("users")
+}
+
+// ==================== User Settings Model ====================
+
+model UserSettings {
+    id     String @id @default(cuid())
+    userId String @unique
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Continuous Listening Settings
+    continuousListeningEnabled Boolean @default(false)
+    wakeWord                   String  @default("Hey Brain")
+    wakeWordSensitivity        Float   @default(0.8) // 0.0 - 1.0
+    minImportanceThreshold     Float   @default(0.3) // Seuil pour stockage mémoire passive
+    silenceDetectionMs         Int     @default(1500) // Durée silence = fin de phrase
+
+    // Audio Processing Settings
+    vadSensitivity              Float   @default(0.5) // 0.0 - 1.0
+    speakerConfidenceThreshold  Float   @default(0.7) // Seuil identification speaker
+    autoDeleteAudioAfterProcess Boolean @default(true) // Supprimer audio après traitement
+
+    // Notification Settings
+    notifyOnMemoryStored    Boolean @default(true)
+    notifyOnCommandDetected Boolean @default(true)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("user_settings")
 }
 
 // ==================== Memory Models ====================
@@ -49,13 +79,13 @@ model Memory {
     timeScale TimeScale?
 
     // Source tracking
-    sourceType   String? // 'interaction', 'observation', 'reflection', 'tool_result'
-    sourceId     String? // Reference to source (e.g., ProcessedInput id)
+    sourceType    String? // 'interaction', 'observation', 'reflection', 'tool_result'
+    sourceId      String? // Reference to source (e.g., ProcessedInput id)
     interactionId String? // Direct link to ProcessedInput if applicable
 
     // Embedding for semantic search
     embeddingId String? // Reference to vector in Weaviate
-    embedding   Json?   // Optional: store embedding directly for backup
+    embedding   Json? // Optional: store embedding directly for backup
 
     // Scoring and organization
     importanceScore Float    @default(0.5) // 0.0 - 1.0
@@ -93,7 +123,7 @@ model Summary {
     user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     // Summary content
-    content String @db.Text
+    content String  @db.Text
     title   String?
 
     // Time period covered
@@ -102,14 +132,14 @@ model Summary {
     periodEnd   DateTime
 
     // Linking to source memories
-    sourceMemories Memory[] @relation("SourceMemories")
-    sourceMemoryCount Int   @default(0)
+    sourceMemories    Memory[] @relation("SourceMemories")
+    sourceMemoryCount Int      @default(0)
 
     // Extracted insights
-    keyInsights  String[] @default([])
-    topics       String[] @default([])
-    sentiment    String?  // 'positive', 'neutral', 'negative', 'mixed'
-    actionItems  String[] @default([])
+    keyInsights String[] @default([])
+    topics      String[] @default([])
+    sentiment   String? // 'positive', 'neutral', 'negative', 'mixed'
+    actionItems String[] @default([])
 
     // Embedding for semantic search
     embeddingId String?
@@ -119,8 +149,8 @@ model Summary {
     metadata Json @default("{}")
 
     // Version tracking (summaries can be regenerated)
-    version   Int      @default(1)
-    parentId  String?  // Previous version of this summary
+    version  Int     @default(1)
+    parentId String? // Previous version of this summary
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -372,8 +402,8 @@ model AIProvider {
 
     name      String
     type      ProviderType // 'OPENAI' or 'OPENAI_COMPATIBLE'
-    apiKey    String       // Encrypted API key
-    baseUrl   String?      // Required for OPENAI_COMPATIBLE type
+    apiKey    String // Encrypted API key
+    baseUrl   String? // Required for OPENAI_COMPATIBLE type
     isEnabled Boolean      @default(true)
 
     createdAt DateTime @default(now())
@@ -393,10 +423,10 @@ model AIModel {
     providerId String
     provider   AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
-    modelId      String           // The actual model ID (e.g., 'gpt-4o', 'whisper-1')
-    name         String           // Display name
+    modelId      String // The actual model ID (e.g., 'gpt-4o', 'whisper-1')
+    name         String // Display name
     capabilities ModelCapability[] // What this model can do
-    isCustom     Boolean          @default(false) // User-added vs default
+    isCustom     Boolean           @default(false) // User-added vs default
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt

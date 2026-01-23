@@ -3,7 +3,8 @@
 Speaker Embedding Service using SpeechBrain ECAPA-TDNN
 
 Automatically downloads the ECAPA-TDNN model from HuggingFace on first use.
-Provides REST API for embedding extraction.
+Caches the model locally for reuse across restarts.
+Supports offline mode when model is cached.
 """
 
 import json
@@ -11,7 +12,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Union, Tuple
+from typing import List, Dict, Any, Union, Tuple, Optional
 
 import numpy as np
 from flask import Flask, request, jsonify
@@ -32,29 +33,54 @@ MODEL_NAME = "speechbrain/spkrec-ecapa-voxceleb"
 MODEL_CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", "./models"))
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 HF_TOKEN = os.getenv("HF_TOKEN")  # Hugging Face API token
+HF_HUB_OFFLINE = os.getenv("HF_HUB_OFFLINE", "0").lower() in ("1", "true", "yes")
 
 # Global model instance
 model = None
+
+def check_model_cached() -> bool:
+    """
+    Check if the model is already cached locally.
+    Returns True if model files exist, False otherwise.
+    """
+    model_subdir = MODEL_CACHE_DIR / MODEL_NAME.split("/")[1]
+    if not model_subdir.exists():
+        return False
+    
+    # Check for key model files
+    key_files = ["hyperparams.yaml", "model.pt", "label_encoder.txt"]
+    for filename in key_files:
+        if (model_subdir / filename).exists():
+            logger.debug(f"Found cached model file: {filename}")
+            return True
+    
+    return False
 
 def authenticate_with_huggingface():
     """
     Authenticate with Hugging Face using the HF_TOKEN environment variable.
     This ensures the huggingface_hub library can access private or gated models.
+    Skipped in offline mode.
     """
+    if HF_HUB_OFFLINE:
+        logger.info("ℹ Offline mode enabled - skipping Hugging Face authentication")
+        return
+    
     if HF_TOKEN:
         try:
             login(token=HF_TOKEN, add_to_git_credential=False)
             logger.info("✓ Successfully authenticated with Hugging Face")
         except Exception as e:
             logger.warning(f"⚠ Failed to authenticate with Hugging Face: {e}")
-            logger.info("Continuing without explicit authentication (may fail for gated models)")
+            logger.info("Continuing without explicit authentication")
     else:
         logger.info("ℹ No HF_TOKEN provided, using anonymous access")
 
 def load_model() -> SpeakerRecognition:
     """
     Load ECAPA-TDNN model from SpeechBrain.
-    Automatically downloads from HuggingFace if not cached.
+    Uses cached model if available, otherwise downloads from HuggingFace.
+    Supports offline mode when model is cached.
     """
     global model
 
@@ -65,6 +91,17 @@ def load_model() -> SpeakerRecognition:
     logger.info(f"Loading ECAPA-TDNN model from {MODEL_NAME}")
     logger.info(f"Using device: {DEVICE}")
     logger.info(f"Model cache directory: {MODEL_CACHE_DIR}")
+    
+    # Check if model is cached
+    is_cached = check_model_cached()
+    logger.info(f"Model cache status: {'✓ Cached' if is_cached else '✗ Not cached'}")
+    
+    if HF_HUB_OFFLINE and is_cached:
+        logger.info("ℹ Offline mode - using cached model")
+    elif HF_HUB_OFFLINE and not is_cached:
+        logger.error("✗ Offline mode enabled but model is not cached!")
+        logger.error("The model needs to be pre-downloaded with internet access.")
+        raise RuntimeError("Model not cached and offline mode is enabled")
 
     # Create cache directory if it doesn't exist
     MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -77,13 +114,18 @@ def load_model() -> SpeakerRecognition:
             "run_opts": {"device": DEVICE}
         }
         
-        # Load model with automatic download
-        # HF_TOKEN is already set in the environment from authenticate_with_huggingface()
+        logger.info("Loading model...")
+        
+        # Load model with automatic download or from cache
         model = SpeakerRecognition.from_hparams(**kwargs)
         logger.info(f"✓ Model loaded successfully on {DEVICE}")
         return model
     except Exception as e:
         logger.error(f"✗ Failed to load model: {e}")
+        logger.error("Possible causes:")
+        logger.error("  1. Model not cached and no internet connection")
+        logger.error("  2. Corrupted cache - try deleting and re-downloading")
+        logger.error("  3. Insufficient disk space")
         raise
 
 
@@ -240,17 +282,29 @@ app = Flask(__name__)
 
 @app.route("/health", methods=["GET"])
 def health() -> Union[Dict[str, Any], Tuple]:
-    """Health check endpoint."""
+    """Health check endpoint with detailed model status."""
     try:
         model_loaded = model is not None
-        return jsonify({
-            "status": "healthy",
+        model_cached = check_model_cached()
+        
+        health_status = {
+            "status": "healthy" if model_loaded else "initializing",
             "model_loaded": model_loaded,
+            "model_cached": model_cached,
             "device": DEVICE,
-            "model_name": MODEL_NAME
-        })
+            "model_name": MODEL_NAME,
+            "offline_mode": HF_HUB_OFFLINE,
+            "cache_dir": str(MODEL_CACHE_DIR)
+        }
+        
+        status_code = 200 if model_loaded else 503
+        return jsonify(health_status), status_code
     except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "model_loaded": False
+        }), 500
 
 @app.route("/extract-embedding", methods=["POST"])
 def extract_embedding_endpoint() -> Union[Dict[str, Any], Tuple]:
@@ -424,16 +478,27 @@ if __name__ == "__main__":
     logger.info(f"Starting Embedding Service on port {port}")
     logger.info(f"Model: {MODEL_NAME}")
     logger.info(f"Device: {DEVICE}")
+    logger.info(f"Offline mode: {HF_HUB_OFFLINE}")
 
-    # Authenticate with Hugging Face first
+    # Authenticate with Hugging Face first (skipped in offline mode)
     authenticate_with_huggingface()
 
     # Pre-load model on startup
     try:
         load_model()
         logger.info("✓ Model pre-loaded successfully")
-    except Exception as e:
+    except RuntimeError as e:
         logger.error(f"✗ Failed to pre-load model: {e}")
+        if HF_HUB_OFFLINE:
+            logger.error("✗ FATAL: Offline mode enabled but model not cached.")
+            logger.error("Please ensure the model is cached before running in offline mode.")
+            sys.exit(1)
+        else:
+            logger.warning("⚠ Model will be loaded on first request.")
+            logger.warning("Ensure internet connection is available for model download.")
+    except Exception as e:
+        logger.error(f"✗ Unexpected error during model loading: {e}")
         sys.exit(1)
 
+    logger.info("✓ Embedding Service ready")
     app.run(host="0.0.0.0", port=port, debug=False)

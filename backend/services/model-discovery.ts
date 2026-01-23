@@ -146,7 +146,7 @@ export class ModelDiscoveryService {
     try {
       const client = new OpenAI({
         apiKey,
-        baseUrl: baseUrl || undefined,
+        baseURL: baseUrl || undefined,
       });
 
       console.log(
@@ -266,7 +266,7 @@ export class ModelDiscoveryService {
     try {
       const client = new OpenAI({
         apiKey,
-        baseUrl: baseUrl || undefined,
+        baseURL: baseUrl || undefined,
       });
 
       // Try to list models - this is the lightest API call we can make

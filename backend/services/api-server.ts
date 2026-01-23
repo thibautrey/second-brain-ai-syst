@@ -48,6 +48,10 @@ import { speakerRecognitionService } from "./speaker-recognition.js";
 import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
 import { TrainingProcessorService } from "./training-processor.js";
 import { memorySearchService } from "./memory-search.js";
+import { continuousListeningManager } from "./continuous-listening.js";
+import { WebSocketServer, WebSocket } from "ws";
+import { createServer, Server as HttpServer, IncomingMessage } from "http";
+import jwt from "jsonwebtoken";
 
 import cors from "cors";
 import prisma from "./prisma.js";
@@ -1311,6 +1315,204 @@ app.patch(
   },
 );
 
+// ==================== User Settings Routes ====================
+
+/**
+ * GET /api/user-settings
+ * Get user settings (creates default if none exist)
+ */
+app.get(
+  "/api/user-settings",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      let settings = await prisma.userSettings.findUnique({
+        where: { userId: req.userId },
+      });
+
+      // Create default settings if none exist
+      if (!settings) {
+        settings = await prisma.userSettings.create({
+          data: { userId: req.userId },
+        });
+      }
+
+      res.json(settings);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * PATCH /api/user-settings
+ * Update user settings
+ */
+app.patch(
+  "/api/user-settings",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const {
+        continuousListeningEnabled,
+        wakeWord,
+        wakeWordSensitivity,
+        minImportanceThreshold,
+        silenceDetectionMs,
+        vadSensitivity,
+        speakerConfidenceThreshold,
+        autoDeleteAudioAfterProcess,
+        notifyOnMemoryStored,
+        notifyOnCommandDetected,
+      } = req.body;
+
+      // Validate numeric fields
+      if (
+        wakeWordSensitivity !== undefined &&
+        (wakeWordSensitivity < 0 || wakeWordSensitivity > 1)
+      ) {
+        return res
+          .status(400)
+          .json({ error: "wakeWordSensitivity must be between 0 and 1" });
+      }
+      if (
+        vadSensitivity !== undefined &&
+        (vadSensitivity < 0 || vadSensitivity > 1)
+      ) {
+        return res
+          .status(400)
+          .json({ error: "vadSensitivity must be between 0 and 1" });
+      }
+      if (
+        minImportanceThreshold !== undefined &&
+        (minImportanceThreshold < 0 || minImportanceThreshold > 1)
+      ) {
+        return res
+          .status(400)
+          .json({ error: "minImportanceThreshold must be between 0 and 1" });
+      }
+      if (
+        speakerConfidenceThreshold !== undefined &&
+        (speakerConfidenceThreshold < 0 || speakerConfidenceThreshold > 1)
+      ) {
+        return res.status(400).json({
+          error: "speakerConfidenceThreshold must be between 0 and 1",
+        });
+      }
+
+      const settings = await prisma.userSettings.upsert({
+        where: { userId: req.userId },
+        update: {
+          ...(continuousListeningEnabled !== undefined && {
+            continuousListeningEnabled,
+          }),
+          ...(wakeWord !== undefined && { wakeWord }),
+          ...(wakeWordSensitivity !== undefined && { wakeWordSensitivity }),
+          ...(minImportanceThreshold !== undefined && {
+            minImportanceThreshold,
+          }),
+          ...(silenceDetectionMs !== undefined && { silenceDetectionMs }),
+          ...(vadSensitivity !== undefined && { vadSensitivity }),
+          ...(speakerConfidenceThreshold !== undefined && {
+            speakerConfidenceThreshold,
+          }),
+          ...(autoDeleteAudioAfterProcess !== undefined && {
+            autoDeleteAudioAfterProcess,
+          }),
+          ...(notifyOnMemoryStored !== undefined && { notifyOnMemoryStored }),
+          ...(notifyOnCommandDetected !== undefined && {
+            notifyOnCommandDetected,
+          }),
+        },
+        create: {
+          userId: req.userId,
+          ...(continuousListeningEnabled !== undefined && {
+            continuousListeningEnabled,
+          }),
+          ...(wakeWord !== undefined && { wakeWord }),
+          ...(wakeWordSensitivity !== undefined && { wakeWordSensitivity }),
+          ...(minImportanceThreshold !== undefined && {
+            minImportanceThreshold,
+          }),
+          ...(silenceDetectionMs !== undefined && { silenceDetectionMs }),
+          ...(vadSensitivity !== undefined && { vadSensitivity }),
+          ...(speakerConfidenceThreshold !== undefined && {
+            speakerConfidenceThreshold,
+          }),
+          ...(autoDeleteAudioAfterProcess !== undefined && {
+            autoDeleteAudioAfterProcess,
+          }),
+          ...(notifyOnMemoryStored !== undefined && { notifyOnMemoryStored }),
+          ...(notifyOnCommandDetected !== undefined && {
+            notifyOnCommandDetected,
+          }),
+        },
+      });
+
+      // Update active listening session if settings changed
+      await continuousListeningManager.updateSessionConfig(req.userId);
+
+      res.json(settings);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/user-settings/test-wake-word
+ * Test if a text matches the wake word
+ */
+app.post(
+  "/api/user-settings/test-wake-word",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { text } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: "text is required" });
+      }
+
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId: req.userId },
+      });
+
+      const wakeWord = settings?.wakeWord || "Hey Brain";
+      const normalizedText = text.toLowerCase().trim();
+      const normalizedWakeWord = wakeWord.toLowerCase().trim();
+
+      const matches = normalizedText.startsWith(normalizedWakeWord);
+      const remainingText = matches
+        ? text
+            .slice(normalizedWakeWord.length)
+            .trim()
+            .replace(/^[,.:;!?\s]+/, "")
+        : text;
+
+      res.json({
+        matches,
+        wakeWord,
+        remainingText,
+        originalText: text,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 /**
  * Initialize and start the API server
  */
@@ -1340,14 +1542,241 @@ export async function startServer(port: number = 3000) {
     trainingProcessor.startProcessor(5000); // Process every 5 seconds
     console.log("✓ Training processor started");
 
+    // Create HTTP server
+    const httpServer: HttpServer = createServer(app);
+
+    // Initialize WebSocket server for continuous listening
+    const wss = new WebSocketServer({
+      server: httpServer,
+      path: "/ws/continuous-listen",
+    });
+
+    setupWebSocketServer(wss);
+    console.log("✓ WebSocket server initialized at /ws/continuous-listen");
+
     // Start server
-    app.listen(port, "0.0.0.0", () => {
+    httpServer.listen(port, "0.0.0.0", () => {
       console.log(`✓ API server running on http://0.0.0.0:${port}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
   }
+}
+
+/**
+ * Setup WebSocket server for continuous listening
+ */
+function setupWebSocketServer(wss: WebSocketServer): void {
+  const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+
+  // Track connections per user
+  const userConnections = new Map<string, WebSocket>();
+
+  wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
+    console.log("WebSocket connection attempt...");
+
+    // Extract token from query string
+    const url = new URL(req.url || "", `http://${req.headers.host}`);
+    const token = url.searchParams.get("token");
+
+    if (!token) {
+      console.log("WebSocket connection rejected: no token");
+      ws.close(4001, "Authentication required");
+      return;
+    }
+
+    // Verify token
+    let userId: string;
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+      userId = decoded.userId;
+    } catch (error) {
+      console.log("WebSocket connection rejected: invalid token");
+      ws.close(4002, "Invalid token");
+      return;
+    }
+
+    console.log(`✓ WebSocket connected for user ${userId}`);
+
+    // Close existing connection if any
+    const existingConn = userConnections.get(userId);
+    if (existingConn) {
+      existingConn.close(4003, "New connection established");
+    }
+    userConnections.set(userId, ws);
+
+    // Start continuous listening session
+    let session;
+    try {
+      session = await continuousListeningManager.startSession(userId);
+    } catch (error) {
+      console.error("Failed to start listening session:", error);
+      ws.close(4004, "Failed to start session");
+      return;
+    }
+
+    // Send initial state
+    ws.send(
+      JSON.stringify({
+        type: "session_started",
+        timestamp: Date.now(),
+        data: { state: session.getState() },
+      }),
+    );
+
+    // Forward session events to WebSocket
+    session.on("vad_status", (data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({ type: "vad_status", timestamp: Date.now(), data }),
+        );
+      }
+    });
+
+    session.on("speaker_status", (data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "speaker_status",
+            timestamp: Date.now(),
+            data,
+          }),
+        );
+      }
+    });
+
+    session.on("transcript", (data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({ type: "transcript", timestamp: Date.now(), data }),
+        );
+      }
+    });
+
+    session.on("command_detected", (data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "command_detected",
+            timestamp: Date.now(),
+            data,
+          }),
+        );
+      }
+    });
+
+    session.on("memory_stored", (data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "memory_stored",
+            timestamp: Date.now(),
+            data,
+          }),
+        );
+      }
+    });
+
+    session.on("error", (error) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            timestamp: Date.now(),
+            data: {
+              message: error instanceof Error ? error.message : String(error),
+            },
+          }),
+        );
+      }
+    });
+
+    // Handle incoming audio chunks
+    ws.on("message", async (data: Buffer | string) => {
+      try {
+        // Handle binary audio data
+        if (Buffer.isBuffer(data)) {
+          await session.processAudioChunk({
+            data,
+            timestamp: Date.now(),
+            sampleRate: 16000,
+          });
+          return;
+        }
+
+        // Handle JSON messages
+        const message = JSON.parse(data.toString());
+
+        switch (message.type) {
+          case "audio_chunk":
+            // Base64 encoded audio
+            const audioBuffer = Buffer.from(message.data, "base64");
+            await session.processAudioChunk({
+              data: audioBuffer,
+              timestamp: message.timestamp || Date.now(),
+              sampleRate: message.sampleRate || 16000,
+            });
+            break;
+
+          case "config_update":
+            // User updated settings
+            await continuousListeningManager.updateSessionConfig(userId);
+            ws.send(
+              JSON.stringify({ type: "config_updated", timestamp: Date.now() }),
+            );
+            break;
+
+          case "stop":
+            // Stop session
+            await continuousListeningManager.stopSession(userId);
+            ws.send(
+              JSON.stringify({
+                type: "session_stopped",
+                timestamp: Date.now(),
+              }),
+            );
+            break;
+
+          case "ping":
+            ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+            break;
+
+          default:
+            console.warn("Unknown WebSocket message type:", message.type);
+        }
+      } catch (error) {
+        console.error("Error processing WebSocket message:", error);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              timestamp: Date.now(),
+              data: { message: "Failed to process message" },
+            }),
+          );
+        }
+      }
+    });
+
+    // Handle disconnection
+    ws.on("close", async () => {
+      console.log(`WebSocket disconnected for user ${userId}`);
+      userConnections.delete(userId);
+      await continuousListeningManager.stopSession(userId);
+    });
+
+    ws.on("error", (error: Error) => {
+      console.error(`WebSocket error for user ${userId}:`, error);
+    });
+  });
+
+  // Graceful shutdown
+  process.on("SIGTERM", async () => {
+    console.log("Shutting down WebSocket server...");
+    await continuousListeningManager.stopAll();
+    wss.close();
+  });
 }
 
 export default app;
