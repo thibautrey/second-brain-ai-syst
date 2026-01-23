@@ -22,6 +22,11 @@ import OpenAI from "openai";
 import { flowTracker } from "../services/flow-tracker.js";
 import { randomBytes } from "crypto";
 import { toolExecutorService } from "../services/tool-executor.js";
+import {
+  sanitizeToolResult,
+  generateToolExecutionSummary,
+  createToolMetadata,
+} from "../services/sanitize-tool-results.js";
 
 const intentRouter = new IntentRouterService();
 
@@ -306,6 +311,7 @@ export async function chatStream(
 
     let fullResponse = "";
     let allToolResults: any[] = [];
+    let sanitizationResults = new Map<string, any>();
     let iterationCount = 0;
     const MAX_ITERATIONS = 3;
 
@@ -485,7 +491,19 @@ export async function chatStream(
           data: { toolId, success: toolResult.success },
         });
 
-        allToolResults.push(toolResult);
+        // Sanitize the tool result before storing
+        const sanitizationResult = sanitizeToolResult(toolResult.data);
+        sanitizationResults.set(toolId, sanitizationResult);
+
+        // Store sanitized version of tool result
+        const sanitizedToolResult = {
+          ...toolResult,
+          data: sanitizationResult.cleaned,
+          _sanitized: sanitizationResult.hasSensitiveData,
+          _redactionCount: sanitizationResult.redactedCount,
+        };
+
+        allToolResults.push(sanitizedToolResult);
 
         // Add the assistant message and tool result to history, then continue
         messages.push({
@@ -571,8 +589,21 @@ export async function chatStream(
           },
         });
 
-        // Store tool results for memory
-        allToolResults.push(...toolResults);
+        // Sanitize tool results before storing
+        const sanitizedToolResults = toolResults.map((result) => {
+          const sanitizationResult = sanitizeToolResult(result.data);
+          sanitizationResults.set(result.toolUsed, sanitizationResult);
+
+          return {
+            ...result,
+            data: sanitizationResult.cleaned,
+            _sanitized: sanitizationResult.hasSensitiveData,
+            _redactionCount: sanitizationResult.redactedCount,
+          };
+        });
+
+        // Store sanitized tool results for memory
+        allToolResults.push(...sanitizedToolResults);
 
         // Add tool results to messages
         toolRequests.forEach((req, index) => {
@@ -715,18 +746,43 @@ export async function chatStream(
             contentToStore = `Question: ${message}\nRéponse: ${fullResponse}`;
           }
 
-          // Add tool results to content if any were used
+          // Add tool execution summary if tools were used
+          let toolMetadata: any = {};
           if (allToolResults.length > 0) {
-            const toolsSummary = allToolResults
-              .filter((r) => r.success)
-              .map(
-                (r) =>
-                  `- ${r.toolUsed}: ${r.data ? JSON.stringify(r.data).substring(0, 100) : "executed"}`,
-              )
-              .join("\n");
+            // Generate summary and enriched metadata (Option B approach)
+            const executionSummary = generateToolExecutionSummary(
+              allToolResults.map((r) => ({
+                toolUsed: r.toolUsed,
+                success: r.success,
+                error: r.error,
+                executionTime: r.executionTime,
+              })),
+              sanitizationResults,
+            );
 
-            if (toolsSummary) {
-              contentToStore += `\n\nOutils utilisés:\n${toolsSummary}`;
+            contentToStore += `\n\n${executionSummary}`;
+
+            // Create enriched metadata with success/failure counts
+            toolMetadata = createToolMetadata(
+              allToolResults.map((r) => ({
+                toolUsed: r.toolUsed,
+                success: r.success,
+                error: r.error,
+                executionTime: r.executionTime,
+              })),
+              executionSummary,
+            );
+
+            // Add sanitization info to metadata
+            const sanitizationSummary = Array.from(sanitizationResults.values())
+              .filter((r) => r.hasSensitiveData)
+              .map((r) => ({
+                redactedCount: r.redactedCount,
+                redactionTypes: r.redactionSummary,
+              }));
+
+            if (sanitizationSummary.length > 0) {
+              toolMetadata.sanitization = sanitizationSummary;
             }
           }
 
@@ -739,13 +795,7 @@ export async function chatStream(
               importanceScore: valueAssessment.adjustedImportanceScore,
               tags: classification.topic ? [classification.topic] : [],
               entities: classification.entities,
-              metadata: {
-                toolsUsed:
-                  allToolResults.length > 0
-                    ? allToolResults.map((r) => r.toolUsed)
-                    : undefined,
-                toolResultsCount: allToolResults.length,
-              },
+              metadata: toolMetadata.toolsUsed ? toolMetadata : undefined,
             },
           });
 

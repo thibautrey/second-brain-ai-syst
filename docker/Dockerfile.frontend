@@ -11,7 +11,7 @@ RUN npm install
 
 # Copy all necessary files
 COPY index.html vite.config.ts tsconfig.json tailwind.config.js components.json ./
-COPY frontend/ ./frontend/
+COPY src/ ./src/
 COPY config/ ./config/
 
 EXPOSE 5173
