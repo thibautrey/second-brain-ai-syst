@@ -116,6 +116,11 @@ interface ProviderConfig {
   apiKey: string;
   baseUrl: string | null;
   modelId: string;
+  fallbackProviderId?: string | null;
+  fallbackName?: string | null;
+  fallbackApiKey?: string | null;
+  fallbackBaseUrl?: string | null;
+  fallbackModelId?: string | null;
 }
 
 // Task type to AITaskConfig mapping
@@ -196,6 +201,8 @@ export class LLMRouterService {
       include: {
         provider: true,
         model: true,
+        fallbackProvider: true,
+        fallbackModel: true,
       },
     });
 
@@ -227,6 +234,11 @@ export class LLMRouterService {
       apiKey: taskConfig.provider.apiKey,
       baseUrl: taskConfig.provider.baseUrl,
       modelId: taskConfig.model?.modelId || "gpt-3.5-turbo",
+      fallbackProviderId: taskConfig.fallbackProvider?.id,
+      fallbackName: taskConfig.fallbackProvider?.name,
+      fallbackApiKey: taskConfig.fallbackProvider?.apiKey,
+      fallbackBaseUrl: taskConfig.fallbackProvider?.baseUrl,
+      fallbackModelId: taskConfig.fallbackModel?.modelId,
     };
   }
 
@@ -250,7 +262,7 @@ export class LLMRouterService {
   }
 
   /**
-   * Call LLM with provider configuration
+   * Call LLM with provider configuration and automatic fallback on failure
    */
   async callLLM(
     provider: ProviderConfig,
@@ -261,9 +273,74 @@ export class LLMRouterService {
     const { validateMaxTokens, isMaxTokensError, getFallbackMaxTokens } =
       await import("../utils/token-validator.js");
 
+    // Try primary provider first
+    try {
+      return await this.attemptLLMCall(
+        provider.apiKey,
+        provider.baseUrl,
+        provider.modelId,
+        systemPrompt,
+        userMessage,
+        validateMaxTokens,
+        isMaxTokensError,
+        getFallbackMaxTokens,
+      );
+    } catch (primaryError) {
+      // If primary failed and fallback is configured, try fallback
+      if (
+        provider.fallbackProviderId &&
+        provider.fallbackApiKey &&
+        provider.fallbackModelId
+      ) {
+        console.warn(
+          `[Fallback] Primary provider "${provider.name}" failed (${provider.modelId}). Attempting fallback provider "${provider.fallbackName}" (${provider.fallbackModelId})`,
+          primaryError,
+        );
+
+        try {
+          return await this.attemptLLMCall(
+            provider.fallbackApiKey,
+            provider.fallbackBaseUrl,
+            provider.fallbackModelId,
+            systemPrompt,
+            userMessage,
+            validateMaxTokens,
+            isMaxTokensError,
+            getFallbackMaxTokens,
+          );
+        } catch (fallbackError) {
+          console.error(
+            `[Fallback] Both primary and fallback providers failed.`,
+            { primaryError, fallbackError },
+          );
+          throw new Error(
+            `Both primary provider "${provider.name}" and fallback provider "${provider.fallbackName}" failed. Primary: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}. Fallback: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
+          );
+        }
+      }
+
+      // No fallback configured, throw the original error
+      throw primaryError;
+    }
+  }
+
+  /**
+   * Attempt a single LLM call with retry logic for token errors
+   * @private
+   */
+  private async attemptLLMCall(
+    apiKey: string,
+    baseUrl: string | null | undefined,
+    modelId: string,
+    systemPrompt: string,
+    userMessage: string,
+    validateMaxTokens: any,
+    isMaxTokensError: any,
+    getFallbackMaxTokens: any,
+  ): Promise<string> {
     const client = new OpenAI({
-      apiKey: provider.apiKey,
-      baseURL: provider.baseUrl || "https://api.openai.com/v1",
+      apiKey,
+      baseURL: baseUrl || "https://api.openai.com/v1",
     });
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
@@ -278,8 +355,8 @@ export class LLMRouterService {
     // Validate max_tokens before making the request
     const messagesStr = `${systemPrompt}${userMessage}`.substring(0, 2000);
     const validation = validateMaxTokens(
-      options?.maxTokens || 2048,
-      provider.modelId,
+      2048, // default max tokens
+      modelId,
       messages.length,
       messagesStr,
     );
@@ -288,21 +365,16 @@ export class LLMRouterService {
 
     if (validation.warning) {
       console.warn(
-        `[TokenValidator] ${validation.warning} in callLLM for model ${provider.modelId}`,
+        `[TokenValidator] ${validation.warning} in attemptLLMCall for model ${modelId}`,
       );
     }
 
     const requestOptions: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
-      model: provider.modelId,
+      model: modelId,
       messages,
       max_tokens: requestedMaxTokens,
-      temperature: options?.temperature ?? 0.7,
+      temperature: 0.7,
     };
-
-    // Add JSON response format if requested
-    if (options?.responseFormat === "json") {
-      requestOptions.response_format = { type: "json_object" };
-    }
 
     try {
       const response = await client.chat.completions.create(requestOptions);
@@ -317,11 +389,11 @@ export class LLMRouterService {
       // Handle max_tokens errors specifically
       if (isMaxTokensError(llmError)) {
         console.warn(
-          "[TokenFallback] Max tokens error in callLLM. Using fallback max_tokens.",
+          "[TokenFallback] Max tokens error. Using fallback max_tokens.",
         );
 
         // Retry with fallback max_tokens
-        const fallbackMaxTokens = getFallbackMaxTokens(provider.modelId);
+        const fallbackMaxTokens = getFallbackMaxTokens(modelId);
         const fallbackOptions = {
           ...requestOptions,
           max_tokens: Math.min(fallbackMaxTokens, 512),
@@ -337,12 +409,12 @@ export class LLMRouterService {
           }
 
           return content;
-        } catch (fallbackError) {
+        } catch (fallbackTokenError) {
           console.error(
-            "[TokenFallback] Fallback also failed in callLLM:",
-            fallbackError,
+            "[TokenFallback] Token fallback also failed:",
+            fallbackTokenError,
           );
-          throw fallbackError;
+          throw fallbackTokenError;
         }
       }
 

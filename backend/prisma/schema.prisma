@@ -437,8 +437,9 @@ model AIProvider {
     updatedAt DateTime @updatedAt
 
     // Relations
-    models      AIModel[]
-    taskConfigs AITaskConfig[]
+    models              AIModel[]
+    primaryTaskConfigs  AITaskConfig[] @relation("primaryProvider")
+    fallbackTaskConfigs AITaskConfig[] @relation("fallbackProvider")
 
     @@unique([userId, name])
     @@index([userId])
@@ -459,7 +460,8 @@ model AIModel {
     updatedAt DateTime @updatedAt
 
     // Relations
-    taskConfigs AITaskConfig[]
+    primaryTaskConfigs  AITaskConfig[] @relation("primaryModel")
+    fallbackTaskConfigs AITaskConfig[] @relation("fallbackModel")
 
     @@unique([providerId, modelId])
     @@index([providerId])
@@ -471,11 +473,19 @@ model AITaskConfig {
     userId String
     user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    taskType   ModelCapability @unique // One config per task type per user
+    taskType ModelCapability @unique // One config per task type per user
+
+    // Primary provider and model
     providerId String?
-    provider   AIProvider?     @relation(fields: [providerId], references: [id], onDelete: SetNull)
+    provider   AIProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull, name: "primaryProvider")
     modelId    String?
-    model      AIModel?        @relation(fields: [modelId], references: [id], onDelete: SetNull)
+    model      AIModel?    @relation(fields: [modelId], references: [id], onDelete: SetNull, name: "primaryModel")
+
+    // Fallback provider and model
+    fallbackProviderId String?
+    fallbackProvider   AIProvider? @relation(fields: [fallbackProviderId], references: [id], onDelete: SetNull, name: "fallbackProvider")
+    fallbackModelId    String?
+    fallbackModel      AIModel?    @relation(fields: [fallbackModelId], references: [id], onDelete: SetNull, name: "fallbackModel")
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt

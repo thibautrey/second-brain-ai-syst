@@ -182,6 +182,8 @@ export function useAISettings() {
       taskType: ModelCapability,
       providerId: string | null,
       modelId: string | null,
+      fallbackProviderId?: string | null,
+      fallbackModelId?: string | null,
     ) => {
       setIsSaving(true);
       setError(null);
@@ -190,7 +192,12 @@ export function useAISettings() {
           `/ai-settings/task-configs/${taskType}`,
           {
             method: "PATCH",
-            body: JSON.stringify({ providerId, modelId }),
+            body: JSON.stringify({
+              providerId,
+              modelId,
+              fallbackProviderId: fallbackProviderId ?? null,
+              fallbackModelId: fallbackModelId ?? null,
+            }),
           },
         );
 

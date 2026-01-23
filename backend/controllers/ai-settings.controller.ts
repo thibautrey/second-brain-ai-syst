@@ -29,6 +29,8 @@ export interface AddModelInput {
 export interface UpdateTaskConfigInput {
   providerId: string | null;
   modelId: string | null;
+  fallbackProviderId: string | null;
+  fallbackModelId: string | null;
 }
 
 // Default OpenAI models with their capabilities
@@ -432,6 +434,8 @@ export async function getTaskConfigs(userId: string) {
     include: {
       provider: { select: { id: true, name: true } },
       model: { select: { modelId: true, name: true } },
+      fallbackProvider: { select: { id: true, name: true } },
+      fallbackModel: { select: { modelId: true, name: true } },
     },
   });
 
@@ -453,6 +457,8 @@ export async function getTaskConfigs(userId: string) {
       include: {
         provider: { select: { id: true, name: true } },
         model: { select: { modelId: true, name: true } },
+        fallbackProvider: { select: { id: true, name: true } },
+        fallbackModel: { select: { modelId: true, name: true } },
       },
     });
 
@@ -462,6 +468,10 @@ export async function getTaskConfigs(userId: string) {
       providerName: c.provider?.name || null,
       modelId: c.model?.modelId || null,
       modelName: c.model?.name || null,
+      fallbackProviderId: c.fallbackProviderId,
+      fallbackProviderName: c.fallbackProvider?.name || null,
+      fallbackModelId: c.fallbackModel?.modelId || null,
+      fallbackModelName: c.fallbackModel?.name || null,
     }));
   }
 
@@ -471,6 +481,10 @@ export async function getTaskConfigs(userId: string) {
     providerName: c.provider?.name || null,
     modelId: c.model?.modelId || null,
     modelName: c.model?.name || null,
+    fallbackProviderId: c.fallbackProviderId,
+    fallbackProviderName: c.fallbackProvider?.name || null,
+    fallbackModelId: c.fallbackModel?.modelId || null,
+    fallbackModelName: c.fallbackModel?.name || null,
   }));
 }
 
@@ -484,7 +498,7 @@ export async function updateTaskConfig(
 ) {
   const prismaTaskType = mapCapability(taskType);
 
-  // Validate provider and model if provided
+  // Validate primary provider and model if provided
   if (input.providerId) {
     const provider = await prisma.aIProvider.findFirst({
       where: { id: input.providerId, userId },
@@ -505,6 +519,28 @@ export async function updateTaskConfig(
     }
   }
 
+  // Validate fallback provider and model if provided
+  if (input.fallbackProviderId) {
+    const fallbackProvider = await prisma.aIProvider.findFirst({
+      where: { id: input.fallbackProviderId, userId },
+    });
+    if (!fallbackProvider) {
+      throw new Error("Fallback provider not found");
+    }
+
+    if (input.fallbackModelId) {
+      const fallbackModel = await prisma.aIModel.findFirst({
+        where: {
+          providerId: input.fallbackProviderId,
+          modelId: input.fallbackModelId,
+        },
+      });
+      if (!fallbackModel) {
+        throw new Error("Fallback model not found for this provider");
+      }
+    }
+  }
+
   // Upsert the task config
   const config = await prisma.aITaskConfig.upsert({
     where: {
@@ -515,6 +551,10 @@ export async function updateTaskConfig(
       modelId: input.modelId
         ? await getModelDbId(input.providerId!, input.modelId)
         : null,
+      fallbackProviderId: input.fallbackProviderId,
+      fallbackModelId: input.fallbackModelId
+        ? await getModelDbId(input.fallbackProviderId!, input.fallbackModelId)
+        : null,
     },
     create: {
       userId,
@@ -523,10 +563,16 @@ export async function updateTaskConfig(
       modelId: input.modelId
         ? await getModelDbId(input.providerId!, input.modelId)
         : null,
+      fallbackProviderId: input.fallbackProviderId,
+      fallbackModelId: input.fallbackModelId
+        ? await getModelDbId(input.fallbackProviderId!, input.fallbackModelId)
+        : null,
     },
     include: {
       provider: { select: { id: true, name: true } },
       model: { select: { modelId: true, name: true } },
+      fallbackProvider: { select: { id: true, name: true } },
+      fallbackModel: { select: { modelId: true, name: true } },
     },
   });
 
@@ -536,6 +582,10 @@ export async function updateTaskConfig(
     providerName: config.provider?.name || null,
     modelId: config.model?.modelId || null,
     modelName: config.model?.name || null,
+    fallbackProviderId: config.fallbackProviderId,
+    fallbackProviderName: config.fallbackProvider?.name || null,
+    fallbackModelId: config.fallbackModel?.modelId || null,
+    fallbackModelName: config.fallbackModel?.name || null,
   };
 }
 
@@ -609,6 +659,8 @@ export async function getConfiguredModelForTask(
     include: {
       provider: true,
       model: true,
+      fallbackProvider: true,
+      fallbackModel: true,
     },
   });
 
@@ -628,6 +680,21 @@ export async function getConfiguredModelForTask(
       id: config.model.modelId,
       name: config.model.name,
     },
+    fallbackProvider: config.fallbackProvider
+      ? {
+          id: config.fallbackProvider.id,
+          name: config.fallbackProvider.name,
+          type: mapProviderTypeToFrontend(config.fallbackProvider.type),
+          apiKey: config.fallbackProvider.apiKey,
+          baseUrl: config.fallbackProvider.baseUrl,
+        }
+      : null,
+    fallbackModel: config.fallbackModel
+      ? {
+          id: config.fallbackModel.modelId,
+          name: config.fallbackModel.name,
+        }
+      : null,
   };
 }
 

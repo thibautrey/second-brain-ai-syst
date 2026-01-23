@@ -34,6 +34,8 @@ export interface AITaskConfig {
   taskType: ModelCapability;
   providerId: string | null;
   modelId: string | null;
+  fallbackProviderId: string | null;
+  fallbackModelId: string | null;
 }
 
 export interface AISettings {
@@ -108,10 +110,40 @@ export const TASK_LABELS: Record<
 export const DEFAULT_AI_SETTINGS: AISettings = {
   providers: [],
   taskConfigs: [
-    { taskType: "speech-to-text", providerId: null, modelId: null },
-    { taskType: "routing", providerId: null, modelId: null },
-    { taskType: "reflection", providerId: null, modelId: null },
-    { taskType: "image-generation", providerId: null, modelId: null },
-    { taskType: "embeddings", providerId: null, modelId: null },
+    {
+      taskType: "speech-to-text",
+      providerId: null,
+      modelId: null,
+      fallbackProviderId: null,
+      fallbackModelId: null,
+    },
+    {
+      taskType: "routing",
+      providerId: null,
+      modelId: null,
+      fallbackProviderId: null,
+      fallbackModelId: null,
+    },
+    {
+      taskType: "reflection",
+      providerId: null,
+      modelId: null,
+      fallbackProviderId: null,
+      fallbackModelId: null,
+    },
+    {
+      taskType: "image-generation",
+      providerId: null,
+      modelId: null,
+      fallbackProviderId: null,
+      fallbackModelId: null,
+    },
+    {
+      taskType: "embeddings",
+      providerId: null,
+      modelId: null,
+      fallbackProviderId: null,
+      fallbackModelId: null,
+    },
   ],
 };

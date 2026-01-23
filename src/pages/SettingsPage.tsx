@@ -581,8 +581,19 @@ function ModelsConfigSection() {
               taskType={taskType}
               config={getTaskConfig(taskType)}
               availableModels={getModelsForTask(taskType)}
-              onUpdate={(providerId, modelId) =>
-                updateTaskConfig(taskType, providerId, modelId)
+              onUpdate={(
+                providerId,
+                modelId,
+                fallbackProviderId,
+                fallbackModelId,
+              ) =>
+                updateTaskConfig(
+                  taskType,
+                  providerId,
+                  modelId,
+                  fallbackProviderId,
+                  fallbackModelId,
+                )
               }
               providers={settings.providers}
               isSaving={isSaving}
@@ -607,12 +618,20 @@ function TaskConfigCard({
   availableModels: ReturnType<
     ReturnType<typeof useAISettings>["getModelsForTask"]
   >;
-  onUpdate: (providerId: string | null, modelId: string | null) => void;
+  onUpdate: (
+    providerId: string | null,
+    modelId: string | null,
+    fallbackProviderId?: string | null,
+    fallbackModelId?: string | null,
+  ) => void;
   providers: AIProvider[];
   isSaving: boolean;
 }) {
   const taskInfo = TASK_LABELS[taskType];
   const selectedProvider = providers.find((p) => p.id === config?.providerId);
+  const selectedFallbackProvider = providers.find(
+    (p) => p.id === config?.fallbackProviderId,
+  );
 
   // Séparer les modèles en "suggérés" (avec la capability) et "autres"
   const suggestedModels =
@@ -620,6 +639,16 @@ function TaskConfigCard({
     [];
   const otherModels =
     selectedProvider?.models.filter(
+      (m) => !m.capabilities.includes(taskType),
+    ) || [];
+
+  // Fallback models
+  const suggestedFallbackModels =
+    selectedFallbackProvider?.models.filter((m) =>
+      m.capabilities.includes(taskType),
+    ) || [];
+  const otherFallbackModels =
+    selectedFallbackProvider?.models.filter(
       (m) => !m.capabilities.includes(taskType),
     ) || [];
 
@@ -642,10 +671,35 @@ function TaskConfigCard({
     const firstModel = provider?.models.find((m) =>
       m.capabilities.includes(taskType),
     );
-    onUpdate(providerId, firstModel?.id || null);
+    onUpdate(
+      providerId,
+      firstModel?.id || null,
+      config?.fallbackProviderId,
+      config?.fallbackModelId,
+    );
+  };
+
+  const handleFallbackProviderChange = (providerId: string) => {
+    if (!providerId) {
+      onUpdate(config?.providerId || null, config?.modelId || null, null, null);
+      return;
+    }
+    // Auto-select first compatible model when changing fallback provider (if exists)
+    const provider = providers.find((p) => p.id === providerId);
+    const firstModel = provider?.models.find((m) =>
+      m.capabilities.includes(taskType),
+    );
+    onUpdate(
+      config?.providerId || null,
+      config?.modelId || null,
+      providerId,
+      firstModel?.id || null,
+    );
   };
 
   const isConfigured = config?.providerId && config?.modelId;
+  const isFallbackConfigured =
+    config?.fallbackProviderId && config?.fallbackModelId;
 
   // Build provider option groups
   const providerOptionGroups: SelectOptionGroup[] = [];
@@ -689,6 +743,48 @@ function TaskConfigCard({
     });
   }
 
+  // Build fallback provider option groups
+  const fallbackProviderOptionGroups: SelectOptionGroup[] = [];
+  if (suggestedProviders.length > 0) {
+    fallbackProviderOptionGroups.push({
+      label: "✓ Suggérés (modèles compatibles)",
+      options: suggestedProviders.map((p) => ({
+        value: p.id,
+        label: p.name,
+      })),
+    });
+  }
+  if (otherProviders.length > 0) {
+    fallbackProviderOptionGroups.push({
+      label: "Autres providers",
+      options: otherProviders.map((p) => ({
+        value: p.id,
+        label: p.name,
+      })),
+    });
+  }
+
+  // Build fallback model option groups
+  const fallbackModelOptionGroups: SelectOptionGroup[] = [];
+  if (suggestedFallbackModels.length > 0) {
+    fallbackModelOptionGroups.push({
+      label: "✓ Suggérés pour cette tâche",
+      options: suggestedFallbackModels.map((m) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    });
+  }
+  if (otherFallbackModels.length > 0) {
+    fallbackModelOptionGroups.push({
+      label: "Autres modèles",
+      options: otherFallbackModels.map((m) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    });
+  }
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -709,51 +805,124 @@ function TaskConfigCard({
             </div>
             <p className="text-sm text-slate-500">{taskInfo.description}</p>
 
-            <div className="grid gap-4 mt-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Provider</Label>
-                <Select
-                  value={config?.providerId || ""}
-                  onChange={(e) => handleProviderChange(e.target.value)}
-                  disabled={isSaving}
-                  placeholder="Sélectionner un provider"
-                  options={[{ value: "", label: "Aucun" }]}
-                  optionGroups={providerOptionGroups}
-                />
-                {suggestedProviders.length === 0 &&
-                  enabledProviders.length > 0 && (
+            {/* Primary Configuration */}
+            <div className="mt-4 p-3 bg-slate-50 rounded-lg">
+              <h5 className="text-sm font-medium text-slate-700 mb-3">
+                Configuration Primaire
+              </h5>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Provider</Label>
+                  <Select
+                    value={config?.providerId || ""}
+                    onChange={(e) => handleProviderChange(e.target.value)}
+                    disabled={isSaving}
+                    placeholder="Sélectionner un provider"
+                    options={[{ value: "", label: "Aucun" }]}
+                    optionGroups={providerOptionGroups}
+                  />
+                  {suggestedProviders.length === 0 &&
+                    enabledProviders.length > 0 && (
+                      <p className="text-xs text-amber-600">
+                        Aucun provider suggéré pour cette tâche, mais vous
+                        pouvez choisir n'importe lequel
+                      </p>
+                    )}
+                  {enabledProviders.length === 0 && (
                     <p className="text-xs text-amber-600">
-                      Aucun provider suggéré pour cette tâche, mais vous pouvez
-                      choisir n'importe lequel
+                      Aucun provider actif disponible
                     </p>
                   )}
-                {enabledProviders.length === 0 && (
-                  <p className="text-xs text-amber-600">
-                    Aucun provider actif disponible
-                  </p>
-                )}
-              </div>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Modèle</Label>
-                <Select
-                  value={config?.modelId || ""}
-                  onChange={(e) =>
-                    onUpdate(config?.providerId || null, e.target.value || null)
-                  }
-                  disabled={isSaving || !config?.providerId}
-                  placeholder="Sélectionner un modèle"
-                  options={[{ value: "", label: "Aucun" }]}
-                  optionGroups={modelOptionGroups}
-                />
-                {selectedProvider &&
-                  suggestedModels.length === 0 &&
-                  otherModels.length > 0 && (
-                    <p className="text-xs text-amber-600">
-                      Aucun modèle suggéré, mais vous pouvez utiliser n'importe
-                      quel modèle
+                <div className="space-y-2">
+                  <Label>Modèle</Label>
+                  <Select
+                    value={config?.modelId || ""}
+                    onChange={(e) =>
+                      onUpdate(
+                        config?.providerId || null,
+                        e.target.value || null,
+                        config?.fallbackProviderId,
+                        config?.fallbackModelId,
+                      )
+                    }
+                    disabled={isSaving || !config?.providerId}
+                    placeholder="Sélectionner un modèle"
+                    options={[{ value: "", label: "Aucun" }]}
+                    optionGroups={modelOptionGroups}
+                  />
+                  {selectedProvider &&
+                    suggestedModels.length === 0 &&
+                    otherModels.length > 0 && (
+                      <p className="text-xs text-amber-600">
+                        Aucun modèle suggéré, mais vous pouvez utiliser
+                        n'importe quel modèle
+                      </p>
+                    )}
+                </div>
+              </div>
+            </div>
+
+            {/* Fallback Configuration */}
+            <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+              <h5 className="text-sm font-medium text-slate-700 mb-3">
+                ⚡ Configuration de Secours
+              </h5>
+              <p className="text-xs text-slate-500 mb-3">
+                Utilisé automatiquement en cas d'échec du provider primaire
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Provider de Secours</Label>
+                  <Select
+                    value={config?.fallbackProviderId || ""}
+                    onChange={(e) =>
+                      handleFallbackProviderChange(e.target.value)
+                    }
+                    disabled={isSaving}
+                    placeholder="Sélectionner un provider"
+                    options={[{ value: "", label: "Aucun" }]}
+                    optionGroups={fallbackProviderOptionGroups}
+                  />
+                  {isFallbackConfigured && (
+                    <p className="text-xs text-green-600">
+                      ✓ Fallback configuré
                     </p>
                   )}
+                  {!isFallbackConfigured && (
+                    <p className="text-xs text-amber-600">
+                      Optionnel : configurez un fallback pour plus de résilience
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Modèle de Secours</Label>
+                  <Select
+                    value={config?.fallbackModelId || ""}
+                    onChange={(e) =>
+                      onUpdate(
+                        config?.providerId || null,
+                        config?.modelId || null,
+                        config?.fallbackProviderId || null,
+                        e.target.value || null,
+                      )
+                    }
+                    disabled={isSaving || !config?.fallbackProviderId}
+                    placeholder="Sélectionner un modèle"
+                    options={[{ value: "", label: "Aucun" }]}
+                    optionGroups={fallbackModelOptionGroups}
+                  />
+                  {selectedFallbackProvider &&
+                    suggestedFallbackModels.length === 0 &&
+                    otherFallbackModels.length > 0 && (
+                      <p className="text-xs text-amber-600">
+                        Aucun modèle suggéré, mais vous pouvez utiliser
+                        n'importe quel modèle
+                      </p>
+                    )}
+                </div>
               </div>
             </div>
           </div>
