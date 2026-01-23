@@ -135,6 +135,8 @@ class RestrictedExecutor:
         'math', 'random', 'datetime', 'json', 're', 'itertools',
         'functools', 'collections', 'string', 'decimal', 'fractions',
         'statistics', 'operator', 'copy', 'textwrap', 'unicodedata',
+        # Type hints
+        'typing', 'typing_extensions',
         # Network & HTTP
         'requests', 'httpx', 'urllib', 'urllib.request', 'urllib.parse', 'urllib.error',
         'http', 'http.client', 'ssl', 'socket',
@@ -147,6 +149,8 @@ class RestrictedExecutor:
         'time', 'calendar',
         # OS utilities
         'os', 'os.path', 'pathlib',
+        # Additional utilities
+        'sys', 'subprocess', 'shutil', 'tempfile', 'uuid', 'locale', 'codecs',
     }
 
     def __init__(self, timeout: int = MAX_EXECUTION_TIME, network_enabled: bool = False):
