@@ -1100,7 +1100,7 @@ export class ToolExecutorService {
       {
         name: "todo",
         description:
-          "Manage user's todo list - create, update, complete, and list tasks",
+          "Manage user's todo list - create, read, update, delete, and complete tasks. You have full CRUD capability: list existing todos, create new ones, modify their properties (title, priority, due date, etc.), mark them complete, and delete them entirely.",
         parameters: {
           type: "object",
           properties: {
@@ -1119,47 +1119,52 @@ export class ToolExecutorService {
                 "categories",
                 "tags",
               ],
-              description: "The action to perform",
+              description:
+                "The action to perform. MODIFY: use 'update' to change any todo properties. DELETE: use 'delete' to remove a todo entirely. COMPLETE: use 'complete' to mark as done.",
             },
             todoId: {
               type: "string",
               description:
-                "ID of the todo (required for get, update, complete, delete)",
+                "ID of the todo (required for get, update, complete, delete). Always get or list todos first to find the ID.",
             },
             title: {
               type: "string",
-              description: "Title of the todo (required for create)",
+              description:
+                "Title of the todo (required for create, optional for update)",
             },
             description: {
               type: "string",
-              description: "Description of the todo",
+              description: "Description of the todo (optional, can be updated)",
             },
             priority: {
               type: "string",
               enum: ["LOW", "MEDIUM", "HIGH", "URGENT"],
-              description: "Priority level",
+              description: "Priority level (can be updated anytime)",
             },
             status: {
               type: "string",
               enum: ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"],
-              description: "Status of the todo",
+              description:
+                "Status of the todo (can be updated, or use 'complete' action for COMPLETED)",
             },
             category: {
               type: "string",
-              description: "Category to organize todos",
+              description: "Category to organize todos (can be updated)",
             },
             tags: {
               type: "array",
               items: { type: "string" },
-              description: "Tags for the todo",
+              description: "Tags for the todo (can be updated)",
             },
             dueDate: {
               type: "string",
-              description: "Due date in ISO format",
+              description:
+                "Due date in ISO format (can be updated or cleared with 'null')",
             },
             search: {
               type: "string",
-              description: "Search query for listing todos",
+              description:
+                "Search query for listing todos (searches title and description)",
             },
           },
           required: ["action"],
@@ -1228,7 +1233,7 @@ export class ToolExecutorService {
       {
         name: "scheduled_task",
         description:
-          "Schedule tasks to run in the future - supports cron expressions, one-time, and interval scheduling",
+          "Schedule tasks to run in the future with full management capabilities - create, modify, enable/disable, delete, and execute on-demand. Supports cron expressions, one-time execution, and interval-based scheduling. You can update existing tasks (change schedule, action payload, etc.), delete them, enable/disable them temporarily, and trigger immediate execution.",
         parameters: {
           type: "object",
           properties: {
@@ -1245,38 +1250,42 @@ export class ToolExecutorService {
                 "execute_now",
                 "history",
               ],
-              description: "The action to perform",
+              description:
+                "The action to perform. MODIFY: use 'update' to change schedule or action. DISABLE: temporarily pause without deleting. DELETE: permanently remove. ENABLE: re-activate disabled tasks.",
             },
             taskId: {
               type: "string",
               description:
-                "ID of the task (for get, update, enable, disable, delete, execute_now, history)",
+                "ID of the task (required for get, update, enable, disable, delete, execute_now, history). Always get or list tasks first to find the ID.",
             },
             name: {
               type: "string",
-              description: "Name of the scheduled task",
+              description: "Name of the scheduled task (can be updated)",
             },
             description: {
               type: "string",
-              description: "Description of what the task does",
+              description: "Description of what the task does (can be updated)",
             },
             scheduleType: {
               type: "string",
               enum: ["ONE_TIME", "CRON", "INTERVAL"],
-              description: "Type of schedule",
+              description:
+                "Type of schedule. ONE_TIME: run once at specific time. CRON: recurring schedule. INTERVAL: repeat every N minutes.",
             },
             cronExpression: {
               type: "string",
               description:
-                "Cron expression (for CRON type, e.g., '0 9 * * *' for daily at 9 AM)",
+                "Cron expression for CRON type (e.g., '0 9 * * *' for daily at 9 AM, '0 9 * * MON' for Monday at 9 AM, '*/30 * * * *' for every 30 minutes)",
             },
             executeAt: {
               type: "string",
-              description: "When to execute (ISO format, for ONE_TIME type)",
+              description:
+                "When to execute in ISO format for ONE_TIME type (can be updated)",
             },
             interval: {
               type: "number",
-              description: "Interval in minutes (for INTERVAL type)",
+              description:
+                "Interval in minutes for INTERVAL type (can be updated)",
             },
             actionType: {
               type: "string",
@@ -1288,11 +1297,13 @@ export class ToolExecutorService {
                 "WEBHOOK",
                 "CUSTOM",
               ],
-              description: "Type of action to perform when task runs",
+              description:
+                "Type of action to perform when task runs. Can be changed via update.",
             },
             actionPayload: {
               type: "object",
-              description: "Parameters for the action",
+              description:
+                "Parameters for the action (e.g., for SEND_NOTIFICATION: {title, message}). Can be updated.",
             },
           },
           required: ["action"],

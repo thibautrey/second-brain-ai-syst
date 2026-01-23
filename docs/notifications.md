@@ -237,6 +237,6 @@ Pour déboguer les notifications :
 
 ---
 
-**Date de création** : 23 janvier 2026  
-**Version** : 1.0.0  
+**Date de création** : 23 janvier 2026
+**Version** : 1.0.0
 **Statut** : ✅ Opérationnel

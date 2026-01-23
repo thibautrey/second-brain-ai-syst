@@ -22,6 +22,7 @@ import { MemoryBrowser } from "../components/memory";
 import { TodoList } from "../components/todos";
 import { ScheduleList } from "../components/schedule";
 import { useDashboardStats } from "../hooks/useDashboardStats";
+import { useRecentActivity } from "../hooks/useRecentActivity";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -31,6 +32,11 @@ export function DashboardPage() {
   const activeTab = tab || "dashboard";
   const { totalMemories, totalInteractions, dailySummaries, isLoading, error } =
     useDashboardStats();
+  const {
+    items: recentActivityItems,
+    isLoading: activityLoading,
+    error: activityError,
+  } = useRecentActivity(10);
 
   function handleLogout() {
     logout();
@@ -145,7 +151,7 @@ export function DashboardPage() {
               </p>
               <p className="text-xs text-slate-500">{user?.email}</p>
             </div>
-            <div className="flex items-center justify-center w-10 h-10 font-semibold text-white rounded-full bg-gradient-to-br from-blue-400 to-blue-600">
+            <div className="flex items-center justify-center w-10 h-10 font-semibold text-white rounded-full bg-linear-to-br from-blue-400 to-blue-600">
               {(user?.name || user?.email)?.charAt(0).toUpperCase()}
             </div>
           </div>
@@ -237,13 +243,39 @@ export function DashboardPage() {
                     <h3 className="mb-4 text-lg font-semibold text-slate-900">
                       Recent Activity
                     </h3>
-                    <div className="space-y-3">
-                      <ActivityItem
-                        title="System Initialized"
-                        description="Your Second Brain is ready to use"
-                        time="Just now"
-                      />
-                    </div>
+                    {activityError && (
+                      <div className="p-3 text-sm text-orange-700 bg-orange-50 rounded border border-orange-200">
+                        {activityError}
+                      </div>
+                    )}
+                    {activityLoading ? (
+                      <div className="space-y-3">
+                        {[...Array(3)].map((_, i) => (
+                          <div
+                            key={i}
+                            className="h-12 bg-slate-100 rounded animate-pulse"
+                          />
+                        ))}
+                      </div>
+                    ) : recentActivityItems.length > 0 ? (
+                      <div className="space-y-3">
+                        {recentActivityItems.map((item) => (
+                          <ActivityItem
+                            key={item.id}
+                            title={item.title}
+                            description={item.description}
+                            time={formatTimeAgo(item.timestamp)}
+                            icon={item.icon}
+                            type={item.type}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500 py-4">
+                        No recent activity yet. Start by capturing your thoughts
+                        or creating tasks!
+                      </p>
+                    )}
                   </div>
                 </div>
               </>
@@ -381,19 +413,44 @@ function ActivityItem({
   title,
   description,
   time,
+  icon = "📌",
+  type = "memory",
 }: {
   title: string;
   description: string;
   time: string;
+  icon?: string;
+  type?: "memory" | "interaction" | "todo" | "summary";
 }) {
   return (
     <div className="flex items-start gap-4 pb-3 border-b border-slate-100 last:border-0">
-      <div className="flex-shrink-0 w-2 h-2 mt-2 bg-blue-500 rounded-full" />
-      <div className="flex-1">
-        <p className="text-sm font-medium text-slate-900">{title}</p>
+      <div className="shrink-0 text-lg mt-1">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-slate-900 truncate">{title}</p>
         <p className="mt-1 text-xs text-slate-500">{description}</p>
       </div>
-      <p className="flex-shrink-0 text-xs text-slate-400">{time}</p>
+      <p className="shrink-0 text-xs text-slate-400 whitespace-nowrap">
+        {time}
+      </p>
     </div>
   );
+}
+
+function formatTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - new Date(date).getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  const weeks = Math.floor(diffDays / 7);
+  if (weeks < 4) return `${weeks}w ago`;
+
+  const months = Math.floor(diffDays / 30);
+  return `${months}mo ago`;
 }

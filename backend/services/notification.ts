@@ -1,5 +1,5 @@
 import prisma from "./prisma.js";
-import { websocketBroadcast } from "./websocket-broadcast";
+import { websocketBroadcast } from "./websocket-broadcast.js";
 import type { NotificationType, NotificationChannel } from "@prisma/client";
 
 export interface CreateNotificationInput {

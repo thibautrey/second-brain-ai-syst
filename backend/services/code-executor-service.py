@@ -53,7 +53,7 @@ class TimeoutError(Exception):
 
 class OutputCapture:
     """Captures stdout and stderr with size limits"""
-    
+
     def __init__(self, max_size: int = MAX_OUTPUT_SIZE):
         self.max_size = max_size
         self.stdout = StringIO()
@@ -61,7 +61,7 @@ class OutputCapture:
         self._stdout_size = 0
         self._stderr_size = 0
         self.truncated = False
-        
+
     def write_stdout(self, text: str):
         if self._stdout_size < self.max_size:
             remaining = self.max_size - self._stdout_size
@@ -71,7 +71,7 @@ class OutputCapture:
             else:
                 self.stdout.write(text)
             self._stdout_size += len(text)
-    
+
     def write_stderr(self, text: str):
         if self._stderr_size < self.max_size:
             remaining = self.max_size - self._stderr_size
@@ -81,7 +81,7 @@ class OutputCapture:
             else:
                 self.stderr.write(text)
             self._stderr_size += len(text)
-    
+
     def get_output(self) -> Dict[str, Any]:
         result = {
             "stdout": self.stdout.getvalue(),
@@ -98,14 +98,14 @@ class RestrictedExecutor:
     Executes Python code with restrictions using RestrictedPython
     as a fallback when Pyodide is not available.
     """
-    
+
     # Dangerous builtins to remove
     FORBIDDEN_BUILTINS = {
         'eval', 'exec', 'compile', '__import__', 'open', 'input',
         'breakpoint', 'memoryview', 'globals', 'locals', 'vars',
         'dir', 'getattr', 'setattr', 'delattr', 'hasattr',
     }
-    
+
     # Safe builtins to allow
     SAFE_BUILTINS = {
         'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'bytearray',
@@ -121,100 +121,100 @@ class RestrictedExecutor:
         'Exception', 'ValueError', 'TypeError', 'KeyError',
         'IndexError', 'AttributeError', 'RuntimeError', 'StopIteration',
     }
-    
+
     # Safe modules whitelist
     SAFE_MODULES = {
         'math', 'random', 'datetime', 'json', 're', 'itertools',
         'functools', 'collections', 'string', 'decimal', 'fractions',
         'statistics', 'operator', 'copy', 'textwrap', 'unicodedata',
     }
-    
+
     def __init__(self, timeout: int = MAX_EXECUTION_TIME):
         self.timeout = timeout
         self._setup_safe_globals()
-    
+
     def _setup_safe_globals(self):
         """Create a restricted global namespace"""
         import builtins
-        
+
         # Build safe builtins
         safe_builtins = {}
         for name in self.SAFE_BUILTINS:
             if hasattr(builtins, name):
                 safe_builtins[name] = getattr(builtins, name)
-        
+
         # Custom safe import
         def safe_import(name, *args, **kwargs):
             if name in self.SAFE_MODULES:
                 return __import__(name)
             raise ImportError(f"Import of '{name}' is not allowed in sandbox")
-        
+
         safe_builtins['__import__'] = safe_import
-        
+
         self.safe_globals = {
             '__builtins__': safe_builtins,
             '__name__': '__sandbox__',
             '__doc__': None,
         }
-        
+
         # Pre-import safe modules
         for module_name in self.SAFE_MODULES:
             try:
                 self.safe_globals[module_name] = __import__(module_name)
             except ImportError:
                 pass
-    
+
     def execute(self, code: str) -> Dict[str, Any]:
         """Execute code with restrictions and timeout"""
         output = OutputCapture()
         start_time = time.time()
         result = None
         error = None
-        
+
         # Redirect stdout/stderr
         old_stdout = sys.stdout
         old_stderr = sys.stderr
-        
+
         class StdoutCapture:
             def write(self, text):
                 output.write_stdout(text)
             def flush(self):
                 pass
-        
+
         class StderrCapture:
             def write(self, text):
                 output.write_stderr(text)
             def flush(self):
                 pass
-        
+
         def timeout_handler(signum, frame):
             raise TimeoutError(f"Code execution timed out after {self.timeout} seconds")
-        
+
         try:
             sys.stdout = StdoutCapture()
             sys.stderr = StderrCapture()
-            
+
             # Set timeout (Unix only)
             if hasattr(signal, 'SIGALRM'):
                 signal.signal(signal.SIGALRM, timeout_handler)
                 signal.alarm(self.timeout)
-            
+
             # Compile and execute
             compiled = compile(code, '<sandbox>', 'exec')
-            
+
             # Create fresh namespace for each execution (stateless)
             exec_globals = self.safe_globals.copy()
             exec_locals = {}
-            
+
             exec(compiled, exec_globals, exec_locals)
-            
+
             # Try to get return value from last expression
             # Check if there's a variable named 'result' or '_'
             if '_result_' in exec_locals:
                 result = exec_locals['_result_']
             elif 'result' in exec_locals:
                 result = exec_locals['result']
-            
+
         except TimeoutError as e:
             error = str(e)
         except SyntaxError as e:
@@ -230,12 +230,12 @@ class RestrictedExecutor:
             # Reset timeout
             if hasattr(signal, 'SIGALRM'):
                 signal.alarm(0)
-            
+
             sys.stdout = old_stdout
             sys.stderr = old_stderr
-        
+
         execution_time = time.time() - start_time
-        
+
         return {
             "success": error is None,
             "result": self._serialize_result(result),
@@ -243,12 +243,12 @@ class RestrictedExecutor:
             "execution_time_ms": round(execution_time * 1000, 2),
             **output.get_output()
         }
-    
+
     def _serialize_result(self, result: Any) -> Any:
         """Serialize result to JSON-safe format"""
         if result is None:
             return None
-        
+
         try:
             # Test if JSON serializable
             json.dumps(result)
@@ -286,13 +286,13 @@ def health_check():
 def execute_code():
     """
     Execute Python code in sandbox
-    
+
     Request body:
     {
         "code": "print('Hello, World!')",
         "timeout": 30  // optional, default 30 seconds
     }
-    
+
     Response:
     {
         "success": true,
@@ -305,43 +305,43 @@ def execute_code():
     """
     try:
         data = request.get_json()
-        
+
         if not data or "code" not in data:
             return jsonify({
                 "success": False,
                 "error": "Missing 'code' in request body"
             }), 400
-        
+
         code = data["code"]
         timeout = min(data.get("timeout", MAX_EXECUTION_TIME), MAX_EXECUTION_TIME)
-        
+
         # Validate code size
         if len(code) > MAX_CODE_SIZE:
             return jsonify({
                 "success": False,
                 "error": f"Code exceeds maximum size of {MAX_CODE_SIZE} bytes"
             }), 400
-        
+
         # Validate code is not empty
         if not code.strip():
             return jsonify({
                 "success": False,
                 "error": "Code cannot be empty"
             }), 400
-        
+
         logger.info(f"Executing code ({len(code)} bytes, timeout={timeout}s)")
-        
+
         # Execute with custom timeout if specified
         if timeout != MAX_EXECUTION_TIME:
             local_executor = RestrictedExecutor(timeout=timeout)
             result = local_executor.execute(code)
         else:
             result = executor.execute(code)
-        
+
         logger.info(f"Execution completed: success={result['success']}, time={result['execution_time_ms']}ms")
-        
+
         return jsonify(result)
-        
+
     except Exception as e:
         logger.error(f"Error executing code: {e}")
         return jsonify({
@@ -360,7 +360,7 @@ def get_limits():
         "safe_modules": sorted(RestrictedExecutor.SAFE_MODULES),
         "forbidden_operations": [
             "file_operations",
-            "network_access", 
+            "network_access",
             "system_calls",
             "subprocess",
             "eval/exec",
@@ -373,12 +373,12 @@ def get_limits():
 def validate_code():
     """
     Validate Python code syntax without executing
-    
+
     Request body:
     {
         "code": "print('Hello')"
     }
-    
+
     Response:
     {
         "valid": true,
@@ -387,15 +387,15 @@ def validate_code():
     """
     try:
         data = request.get_json()
-        
+
         if not data or "code" not in data:
             return jsonify({
                 "valid": False,
                 "error": "Missing 'code' in request body"
             }), 400
-        
+
         code = data["code"]
-        
+
         try:
             compile(code, '<validation>', 'exec')
             return jsonify({
@@ -407,7 +407,7 @@ def validate_code():
                 "valid": False,
                 "error": f"SyntaxError: {e.msg} at line {e.lineno}"
             })
-            
+
     except Exception as e:
         logger.error(f"Error validating code: {e}")
         return jsonify({
@@ -545,5 +545,5 @@ if __name__ == "__main__":
     logger.info(f"📦 Max output size: {MAX_OUTPUT_SIZE} bytes")
     logger.info(f"📝 Max code size: {MAX_CODE_SIZE} bytes")
     logger.info(f"🔒 Mode: Restricted Python (safe builtins + whitelisted modules)")
-    
+
     app.run(host="0.0.0.0", port=SERVICE_PORT, threaded=True)

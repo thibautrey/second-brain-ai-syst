@@ -1331,6 +1331,128 @@ app.post(
   },
 );
 
+// ==================== Activities Routes ====================
+
+/**
+ * GET /api/activities/recent
+ * Get recent activities (memories, interactions, todos) for dashboard
+ */
+app.get(
+  "/api/activities/recent",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+
+      // Fetch recent data from different sources
+      const [recentMemories, recentTodos, recentInteractions] =
+        await Promise.all([
+          prisma.memory.findMany({
+            where: {
+              userId: req.userId,
+              isArchived: false,
+            },
+            take: limit,
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              content: true,
+              type: true,
+              createdAt: true,
+              tags: true,
+              importanceScore: true,
+            },
+          }),
+          prisma.todo.findMany({
+            where: { userId: req.userId },
+            take: Math.ceil(limit / 2),
+            orderBy: { updatedAt: "desc" },
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              createdAt: true,
+              completedAt: true,
+            },
+          }),
+          prisma.processedInput.findMany({
+            where: { userId: req.userId },
+            take: Math.ceil(limit / 2),
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              content: true,
+              format: true,
+              createdAt: true,
+              status: true,
+              speakerId: true,
+            },
+          }),
+        ]);
+
+      // Transform and combine into activity items
+      const activityItems = [
+        // Memory items
+        ...recentMemories.map((memory) => ({
+          id: memory.id,
+          title: `${memory.content.substring(0, 50)}${memory.content.length > 50 ? "..." : ""}`,
+          description: `Memory captured - ${memory.type.toLowerCase()}`,
+          type: "memory" as const,
+          timestamp: new Date(memory.createdAt),
+          icon: "📝",
+          metadata: {
+            content: memory.content,
+            tags: memory.tags,
+            importance: memory.importanceScore,
+          },
+        })),
+        // Todo items
+        ...recentTodos.map((todo) => ({
+          id: todo.id,
+          title: todo.title,
+          description:
+            todo.status === "COMPLETED" ? "Task completed" : "Task created",
+          type: "todo" as const,
+          timestamp: new Date(
+            todo.status === "COMPLETED"
+              ? todo.completedAt || todo.createdAt
+              : todo.createdAt,
+          ),
+          icon: todo.status === "COMPLETED" ? "✅" : "📋",
+          metadata: {
+            status: todo.status,
+          },
+        })),
+        // Interaction items
+        ...recentInteractions.map((interaction) => ({
+          id: interaction.id,
+          title: `${interaction.content.substring(0, 50)}${interaction.content.length > 50 ? "..." : ""}`,
+          description: `${interaction.format} input - ${interaction.status}`,
+          type: "interaction" as const,
+          timestamp: new Date(interaction.createdAt),
+          icon: interaction.format.includes("audio") ? "🎤" : "💬",
+          metadata: {
+            format: interaction.format,
+            status: interaction.status,
+          },
+        })),
+      ]
+        // Sort by timestamp descending
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        // Take top N
+        .slice(0, limit);
+
+      res.json({ items: activityItems });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 // ==================== Summary Routes ====================
 
 /**
