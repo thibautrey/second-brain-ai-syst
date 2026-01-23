@@ -5,11 +5,13 @@
  * with fallback to PostgreSQL text search.
  *
  * Uses Weaviate REST API via axios for simplicity.
+ * API keys are fetched dynamically from user settings and passed via headers.
  */
 
-import axios, { AxiosInstance } from "axios";
+import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
 import prisma from "./prisma.js";
 import { Memory, Prisma } from "@prisma/client";
+import { getConfiguredModelForTask } from "../controllers/ai-settings.controller.js";
 
 interface SemanticSearchResult {
   memory: Memory;
@@ -29,25 +31,74 @@ class MemorySearchService {
   private isWeaviateAvailable = false;
   private readonly COLLECTION_NAME = "Memory";
   private weaviateUrl: string;
+  private initializationPromise: Promise<void> | null = null;
+  private readonly MAX_RETRIES = 10;
+  private readonly RETRY_DELAY_MS = 3000;
 
   constructor() {
     this.weaviateUrl = process.env.WEAVIATE_URL || "http://localhost:8080";
-    this.initializeWeaviate();
+    this.initializationPromise = this.initializeWeaviateWithRetry();
+  }
+
+  /**
+   * Wait for Weaviate initialization to complete
+   */
+  async waitForReady(): Promise<boolean> {
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+    }
+    return this.isWeaviateAvailable;
+  }
+
+  /**
+   * Initialize Weaviate client with retry mechanism
+   */
+  private async initializeWeaviateWithRetry(): Promise<void> {
+    this.weaviateClient = axios.create({
+      baseURL: this.weaviateUrl,
+      timeout: 15000,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
+      try {
+        await this.initializeWeaviate();
+        if (this.isWeaviateAvailable) {
+          return;
+        }
+      } catch (error) {
+        console.warn(
+          `⚠ Weaviate connection attempt ${attempt}/${this.MAX_RETRIES} failed`,
+        );
+      }
+
+      if (attempt < this.MAX_RETRIES) {
+        console.log(`  Retrying in ${this.RETRY_DELAY_MS / 1000}s...`);
+        await this.sleep(this.RETRY_DELAY_MS);
+      }
+    }
+
+    console.warn(
+      "⚠ Weaviate not available after all retries, using text search fallback",
+    );
+  }
+
+  /**
+   * Sleep helper
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * Initialize Weaviate client
    */
   private async initializeWeaviate(): Promise<void> {
-    try {
-      this.weaviateClient = axios.create({
-        baseURL: this.weaviateUrl,
-        timeout: 10000,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    if (!this.weaviateClient) return;
 
+    try {
       // Test connection
       const response = await this.weaviateClient.get("/v1/meta");
       console.log("✓ Weaviate connected:", response.data.version);
@@ -55,14 +106,54 @@ class MemorySearchService {
 
       // Ensure collection exists
       await this.ensureCollection();
-    } catch (error) {
-      console.warn("⚠ Weaviate not available, using text search fallback");
+    } catch (error: any) {
+      const errorMessage =
+        error.code === "ECONNABORTED" ? "timeout" : error.message;
+      console.warn(`⚠ Weaviate connection failed: ${errorMessage}`);
       this.isWeaviateAvailable = false;
+      throw error;
     }
   }
 
   /**
+   * Get embedding provider configuration for a user
+   * Returns the API key and model to use for vectorization
+   */
+  private async getEmbeddingConfig(
+    userId: string,
+  ): Promise<{ apiKey: string; model: string; baseUrl?: string } | null> {
+    try {
+      const config = await getConfiguredModelForTask(userId, "embeddings");
+      if (!config) {
+        console.warn(`⚠ No embedding provider configured for user ${userId}`);
+        return null;
+      }
+
+      return {
+        apiKey: config.provider.apiKey,
+        model: config.model.id,
+        baseUrl: config.provider.baseUrl || undefined,
+      };
+    } catch (error) {
+      console.error("Failed to get embedding config:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Create headers with API key for Weaviate requests
+   */
+  private getWeaviateHeaders(apiKey: string): Record<string, string> {
+    return {
+      "Content-Type": "application/json",
+      "X-OpenAI-Api-Key": apiKey,
+    };
+  }
+
+  /**
    * Ensure the Memory collection exists in Weaviate
+   * The collection is created with text2vec-openai vectorizer
+   * API key will be provided at runtime via headers
    */
   private async ensureCollection(): Promise<void> {
     if (!this.weaviateClient) return;
@@ -76,7 +167,8 @@ class MemorySearchService {
       );
 
       if (!collectionExists) {
-        // Create collection
+        // Create collection with text2vec-openai vectorizer
+        // The actual API key will be passed via headers on each request
         await this.weaviateClient.post("/v1/schema", {
           class: this.COLLECTION_NAME,
           vectorizer: "text2vec-openai",
@@ -122,21 +214,37 @@ class MemorySearchService {
 
   /**
    * Index a memory in Weaviate
+   * Requires embedding provider to be configured for the user
    */
   async indexMemory(memory: Memory): Promise<void> {
     if (!this.weaviateClient || !this.isWeaviateAvailable) return;
 
+    // Get embedding config for the user
+    const embeddingConfig = await this.getEmbeddingConfig(memory.userId);
+    if (!embeddingConfig) {
+      console.warn(
+        `⚠ Cannot index memory ${memory.id}: no embedding provider configured`,
+      );
+      return;
+    }
+
     try {
-      await this.weaviateClient.post(`/v1/objects`, {
-        class: this.COLLECTION_NAME,
-        properties: {
-          content: memory.content,
-          memoryId: memory.id,
-          userId: memory.userId,
-          tags: memory.tags,
-          createdAt: memory.createdAt.toISOString(),
+      await this.weaviateClient.post(
+        `/v1/objects`,
+        {
+          class: this.COLLECTION_NAME,
+          properties: {
+            content: memory.content,
+            memoryId: memory.id,
+            userId: memory.userId,
+            tags: memory.tags,
+            createdAt: memory.createdAt.toISOString(),
+          },
         },
-      });
+        {
+          headers: this.getWeaviateHeaders(embeddingConfig.apiKey),
+        },
+      );
     } catch (error) {
       console.error("Failed to index memory in Weaviate:", error);
     }
@@ -183,6 +291,7 @@ class MemorySearchService {
 
   /**
    * Perform semantic search
+   * Requires embedding provider to be configured for the user
    */
   async semanticSearch(
     userId: string,
@@ -191,6 +300,15 @@ class MemorySearchService {
   ): Promise<SemanticSearchResponse> {
     // Try Weaviate semantic search first
     if (this.weaviateClient && this.isWeaviateAvailable) {
+      // Get embedding config for the user
+      const embeddingConfig = await this.getEmbeddingConfig(userId);
+      if (!embeddingConfig) {
+        console.warn(
+          `⚠ No embedding provider configured, falling back to text search`,
+        );
+        return this.textSearch(userId, query, limit);
+      }
+
       try {
         const graphqlQuery = {
           query: `{
@@ -223,6 +341,9 @@ class MemorySearchService {
         const response = await this.weaviateClient.post(
           "/v1/graphql",
           graphqlQuery,
+          {
+            headers: this.getWeaviateHeaders(embeddingConfig.apiKey),
+          },
         );
         const weaviateResults =
           response.data?.data?.Get?.[this.COLLECTION_NAME] || [];
@@ -312,10 +433,23 @@ class MemorySearchService {
 
   /**
    * Reindex all memories for a user
+   * Requires embedding provider to be configured
    */
-  async reindexUserMemories(userId: string): Promise<{ indexed: number }> {
+  async reindexUserMemories(
+    userId: string,
+  ): Promise<{ indexed: number; error?: string }> {
     if (!this.weaviateClient || !this.isWeaviateAvailable) {
-      return { indexed: 0 };
+      return { indexed: 0, error: "Weaviate not available" };
+    }
+
+    // Check if embedding provider is configured
+    const embeddingConfig = await this.getEmbeddingConfig(userId);
+    if (!embeddingConfig) {
+      return {
+        indexed: 0,
+        error:
+          "No embedding provider configured. Please configure an embedding provider in Settings.",
+      };
     }
 
     const memories = await prisma.memory.findMany({
@@ -340,6 +474,14 @@ class MemorySearchService {
    */
   isSemanticSearchAvailable(): boolean {
     return this.isWeaviateAvailable;
+  }
+
+  /**
+   * Check if a user has embedding provider configured
+   */
+  async hasEmbeddingConfigured(userId: string): Promise<boolean> {
+    const config = await this.getEmbeddingConfig(userId);
+    return config !== null;
   }
 }
 

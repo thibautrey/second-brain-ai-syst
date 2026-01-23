@@ -491,7 +491,8 @@ export class ModelDiscoveryService {
 
       for (const model of modelsList) {
         // Support both OpenAI format (model.id) and GPUStack format (model.name)
-        let modelId = model.id || model.name;
+        // Prioritize model.name for GPUStack, fallback to model.id for OpenAI
+        let modelId = model.name || model.id;
 
         // Ensure modelId is a string
         if (typeof modelId !== "string") {

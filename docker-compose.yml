@@ -22,8 +22,9 @@ services:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
       PERSISTENCE_DATA_PATH: /var/lib/weaviate
-      DEFAULT_VECTORIZER_MODULE: text2vec-openai
-      OPENAI_APIKEY: ${OPENAI_API_KEY}
+      # Activer les modules sans API key globale - les clés seront passées via headers
+      ENABLE_MODULES: text2vec-openai
+      DEFAULT_VECTORIZER_MODULE: none
     ports:
       - "8080:8080"
     volumes:
@@ -72,6 +73,8 @@ services:
         condition: service_healthy
       embedding-service:
         condition: service_healthy
+      weaviate:
+        condition: service_started
 
   frontend:
     build:
