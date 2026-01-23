@@ -670,13 +670,27 @@ function TaskConfigCard({
       return;
     }
     // Auto-select first compatible model when changing provider (if exists)
+    // Otherwise keep current model selection or set to null
     const provider = providers.find((p) => p.id === providerId);
     const firstModel = provider?.models.find((m) =>
       m.capabilities.includes(taskType),
     );
+
+    // If there's no compatible model but provider has models, allow selecting any model later
+    // If current model is from the new provider, keep it
+    let modelId = firstModel?.id || null;
+    if (!modelId && config?.modelId) {
+      const currentModel = provider?.models.find(
+        (m) => m.id === config.modelId,
+      );
+      if (currentModel) {
+        modelId = config.modelId;
+      }
+    }
+
     onUpdate(
       providerId,
-      firstModel?.id || null,
+      modelId,
       config?.fallbackProviderId,
       config?.fallbackModelId,
     );
@@ -688,15 +702,29 @@ function TaskConfigCard({
       return;
     }
     // Auto-select first compatible model when changing fallback provider (if exists)
+    // Otherwise keep current model selection or set to null
     const provider = providers.find((p) => p.id === providerId);
     const firstModel = provider?.models.find((m) =>
       m.capabilities.includes(taskType),
     );
+
+    // If there's no compatible model but provider has models, allow selecting any model later
+    // If current fallback model is from the new provider, keep it
+    let modelId = firstModel?.id || null;
+    if (!modelId && config?.fallbackModelId) {
+      const currentModel = provider?.models.find(
+        (m) => m.id === config.fallbackModelId,
+      );
+      if (currentModel) {
+        modelId = config.fallbackModelId;
+      }
+    }
+
     onUpdate(
       config?.providerId || null,
       config?.modelId || null,
       providerId,
-      firstModel?.id || null,
+      modelId,
     );
   };
 
