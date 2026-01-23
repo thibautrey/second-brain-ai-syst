@@ -176,7 +176,6 @@ class DynamicToolRegistry {
       // Build code with parameter injection
       const paramsJson = JSON.stringify(params);
       const fullCode = `
-import os
 import json
 
 # Injected parameters

@@ -128,7 +128,7 @@ class RestrictedExecutor:
         'functools', 'collections', 'string', 'decimal', 'fractions',
         'statistics', 'operator', 'copy', 'textwrap', 'unicodedata',
     }
-    
+
     # Extended modules for network mode (generated tools)
     NETWORK_MODULES = {
         # All safe modules
@@ -145,8 +145,8 @@ class RestrictedExecutor:
         'csv', 'io',
         # Time
         'time', 'calendar',
-        # OS utilities (limited)
-        'os.path', 'pathlib',
+        # OS utilities
+        'os', 'os.path', 'pathlib',
     }
 
     def __init__(self, timeout: int = MAX_EXECUTION_TIME, network_enabled: bool = False):
@@ -199,7 +199,7 @@ class RestrictedExecutor:
 
     def execute(self, code: str, env_vars: Dict[str, str] = None) -> Dict[str, Any]:
         """Execute code with restrictions and timeout
-        
+
         Args:
             code: Python code to execute
             env_vars: Environment variables to inject (for secrets)
@@ -208,7 +208,7 @@ class RestrictedExecutor:
         start_time = time.time()
         result = None
         error = None
-        
+
         # Inject environment variables if provided
         old_environ = {}
         if env_vars:
@@ -287,7 +287,7 @@ class RestrictedExecutor:
 
             sys.stdout = old_stdout
             sys.stderr = old_stderr
-            
+
             # Restore environment variables
             if env_vars:
                 for key in env_vars:
@@ -396,7 +396,7 @@ def execute_code():
                 "success": False,
                 "error": "Code cannot be empty"
             }), 400
-        
+
         # Validate env_vars is a dict
         if not isinstance(env_vars, dict):
             return jsonify({
