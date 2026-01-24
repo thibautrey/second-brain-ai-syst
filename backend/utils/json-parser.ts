@@ -15,8 +15,14 @@
  * ```
  */
 export function stripMarkdownCodeBlocks(text: string): string {
-  if (!text || typeof text !== 'string') {
-    // Return empty string for invalid inputs to maintain type safety
+  if (!text) {
+    // Return empty string for null/undefined to avoid crashes
+    return '';
+  }
+  
+  if (typeof text !== 'string') {
+    // For non-string inputs, return empty string with warning
+    console.warn('[JSON Parser] Expected string input, got:', typeof text);
     return '';
   }
 
@@ -30,9 +36,13 @@ export function stripMarkdownCodeBlocks(text: string): string {
     cleaned = text.replace(/```(?:json)?\s*\n([\s\S]*?)\n```/g, '$1');
   }
   
-  // Also handle inline code blocks without newlines (less common but possible)
-  cleaned = cleaned.replace(/```(?:json)?\s*/g, '');
-  cleaned = cleaned.replace(/```\s*$/g, '');
+  // Only apply fallback cleanup if we haven't already extracted content from code blocks
+  // This minimizes risk of corrupting JSON that might contain backticks
+  if (cleaned === text && text.includes('```')) {
+    // Handle inline code blocks without newlines (less common)
+    cleaned = cleaned.replace(/^```(?:json)?\s*/g, '');
+    cleaned = cleaned.replace(/```\s*$/g, '');
+  }
   
   return cleaned.trim();
 }
