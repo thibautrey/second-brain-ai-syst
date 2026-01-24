@@ -8,6 +8,7 @@
 import prisma from "./prisma.js";
 import { Memory, Summary, TimeScale } from "@prisma/client";
 import { llmRouterService, type LLMTaskType } from "./llm-router.js";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
 
 export interface SummarizationResult {
   content: string;
@@ -237,7 +238,7 @@ Generate a comprehensive summary that captures the essence of this period.`;
         { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      const result = parseJSONFromLLMResponse(response);
 
       return {
         content: result.content || this.generateFallbackContent(memories),
@@ -404,7 +405,7 @@ Generate a comprehensive summary that captures the essence of this period.`;
         { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      const result = parseJSONFromLLMResponse(response);
 
       return await prisma.summary.create({
         data: {
