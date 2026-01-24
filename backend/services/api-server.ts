@@ -70,6 +70,11 @@ import multer from "multer";
 import debugController from "../controllers/debug.controller.js";
 import secretsController from "../controllers/secrets.controller.js";
 import generatedToolsController from "../controllers/generated-tools.controller.js";
+import {
+  runProactiveAnalysis,
+  runHealthCheck,
+  getProactiveStatus,
+} from "../controllers/proactive-agent.controller.js";
 
 const app: Express = express();
 
@@ -831,6 +836,46 @@ app.patch(
 );
 
 console.log("🔔 Notification routes enabled at /api/notifications");
+
+// ==================== Proactive Agent Routes ====================
+
+/**
+ * POST /api/proactive/analyze
+ * Run proactive analysis for current user
+ */
+app.post(
+  "/api/proactive/analyze",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await runProactiveAnalysis(req, res, next);
+  },
+);
+
+/**
+ * POST /api/proactive/health-check
+ * Run health check for current user
+ */
+app.post(
+  "/api/proactive/health-check",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await runHealthCheck(req, res, next);
+  },
+);
+
+/**
+ * GET /api/proactive/status
+ * Get proactive agent status
+ */
+app.get(
+  "/api/proactive/status",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await getProactiveStatus(req, res, next);
+  },
+);
+
+console.log("🤖 Proactive agent routes enabled at /api/proactive");
 
 // ==================== Long Running Tasks Routes ====================
 

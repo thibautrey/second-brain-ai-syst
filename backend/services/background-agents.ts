@@ -479,6 +479,9 @@ export class BackgroundAgentService {
     results.push(await this.runGoalTracker(userId));
     results.push(await this.runHabitAnalyzer(userId));
 
+    // Note: Proactive agent runs separately on its own schedule
+    // See proactive-agent.ts for the proactive coaching agent
+
     return results;
   }
 

@@ -218,6 +218,21 @@ Daily → 3-day → Weekly → Bi-weekly → Monthly → Quarterly → 6-month �
 - Tracks knowledge evolution
 - Recommends skill development
 
+#### 8.7 Proactive Agent (NEW)
+
+- **Purpose**: Analyzes memories proactively to help user in daily life
+- **Runs**: Twice daily (8 AM and 6 PM)
+- **Special Mode**: Health check (Mon/Thu at 10 AM)
+- **Non-invasive**: Gentle suggestions, never demanding
+- **Categories**: Health, mental wellbeing, productivity, goals, habits, relationships, learning
+- **Features**:
+  - Detects patterns requiring attention
+  - Provides actionable steps
+  - Sends priority-based notifications
+  - Acts as personal coach for physical and mental health
+  - Avoids repetitive suggestions
+- **Documentation**: See `/docs/proactive-agent.md` for details
+
 ---
 
 ## 🏗️ Backend Service Architecture
