@@ -27,6 +27,16 @@ async function getBackgroundAgentService() {
   return backgroundAgentService;
 }
 
+// Import proactive agent lazily to avoid circular dependencies
+let proactiveAgentService: any = null;
+async function getProactiveAgentService() {
+  if (!proactiveAgentService) {
+    const module = await import("./proactive-agent.js");
+    proactiveAgentService = module.proactiveAgentService;
+  }
+  return proactiveAgentService;
+}
+
 interface ScheduledTask {
   id: string;
   name: string;
@@ -172,6 +182,44 @@ export class SchedulerService {
       isEnabled: true,
       handler: async () => {
         await this.runMemoryCleaner();
+      },
+    });
+
+    // Proactive agent - runs twice daily (morning and evening)
+    this.registerTask({
+      id: "proactive-agent-morning",
+      name: "Proactive Suggestions (Morning)",
+      cronExpression: "0 8 * * *", // 8:00 AM daily
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runProactiveAgent();
+      },
+    });
+
+    this.registerTask({
+      id: "proactive-agent-evening",
+      name: "Proactive Suggestions (Evening)",
+      cronExpression: "0 18 * * *", // 6:00 PM daily
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runProactiveAgent();
+      },
+    });
+
+    // Health check - runs every Monday and Thursday
+    this.registerTask({
+      id: "health-check",
+      name: "Health & Wellbeing Check",
+      cronExpression: "0 10 * * 1,4", // 10:00 AM on Mondays and Thursdays
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runHealthCheck();
       },
     });
   }
@@ -538,6 +586,48 @@ export class SchedulerService {
         }
       } catch (error) {
         console.warn(`  ⚠ Memory cleaner failed for ${user.id}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Run proactive agent to analyze memories and provide suggestions
+   */
+  private async runProactiveAgent(): Promise<void> {
+    const users = await prisma.user.findMany({ select: { id: true } });
+    const proactiveAgent = await getProactiveAgentService();
+
+    for (const user of users) {
+      try {
+        const result = await proactiveAgent.runProactiveAnalysis(user.id, 7);
+        if (result.success && result.suggestionsGenerated > 0) {
+          console.log(
+            `  ✓ Proactive agent: ${result.suggestionsGenerated} suggestions for user ${user.id}`,
+          );
+        }
+      } catch (error) {
+        console.warn(`  ⚠ Proactive agent failed for ${user.id}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Run health check to analyze health and wellbeing patterns
+   */
+  private async runHealthCheck(): Promise<void> {
+    const users = await prisma.user.findMany({ select: { id: true } });
+    const proactiveAgent = await getProactiveAgentService();
+
+    for (const user of users) {
+      try {
+        const result = await proactiveAgent.runHealthCheck(user.id);
+        if (result.success && result.suggestionsGenerated > 0) {
+          console.log(
+            `  ✓ Health check: ${result.suggestionsGenerated} health suggestions for user ${user.id}`,
+          );
+        }
+      } catch (error) {
+        console.warn(`  ⚠ Health check failed for ${user.id}:`, error);
       }
     }
   }
