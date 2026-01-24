@@ -208,8 +208,8 @@ export function VerificationRecording({
     <div className="p-6 space-y-6 bg-white border rounded-lg border-slate-200">
       {/* Instructions */}
       <div className="space-y-2">
-        <div className="flex items-start gap-3 p-4 border-2 border-blue-200 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
-          <Zap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 p-4 border-2 border-blue-200 rounded-lg bg-linear-to-r from-blue-50 to-indigo-50">
+          <Zap className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold text-slate-900">
               Quick Verification Recording
@@ -234,7 +234,7 @@ export function VerificationRecording({
           </div>
           <div className="w-full h-2 overflow-hidden rounded-full bg-slate-200">
             <div
-              className="h-full transition-all duration-75 bg-gradient-to-r from-green-500 to-blue-500"
+              className="h-full transition-all duration-75 bg-linear-to-r from-green-500 to-blue-500"
               style={{ width: `${audioLevel}%` }}
             />
           </div>

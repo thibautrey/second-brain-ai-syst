@@ -84,7 +84,7 @@ export function FloatingChat() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white"
+              className="flex items-center justify-between px-4 py-3 bg-linear-to-r from-blue-600 to-blue-700 text-white"
             >
               <div className="flex items-center gap-2">
                 <motion.div
@@ -167,7 +167,7 @@ export function FloatingChat() {
                         delay: index * 0.05,
                       }}
                       className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                         msg.role === "user"
                           ? "bg-blue-600 text-white"
                           : "bg-white text-slate-600 shadow-sm border border-slate-200",

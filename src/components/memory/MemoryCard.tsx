@@ -87,7 +87,7 @@ export function MemoryCard({
         )}
 
         {/* Timeline dot */}
-        <div className="flex-shrink-0 mt-2">
+        <div className="shrink-0 mt-2">
           <div
             className={cn(
               "w-3 h-3 rounded-full border-2",
@@ -143,7 +143,7 @@ export function MemoryCard({
         {/* Actions */}
         <div
           className={cn(
-            "flex-shrink-0 flex items-center gap-1 transition-opacity",
+            "shrink-0 flex items-center gap-1 transition-opacity",
             isHovered ? "opacity-100" : "opacity-0",
           )}
         >

@@ -141,7 +141,7 @@ export function ContinuousListeningPanel({
         {/* Error Display */}
         {state.error && (
           <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
             <p className="text-sm text-red-700">{state.error}</p>
           </div>
         )}
@@ -150,7 +150,7 @@ export function ContinuousListeningPanel({
         {state.isConnected && state.currentTranscript && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-start gap-2">
-              <MessageSquare className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <MessageSquare className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
               <div>
                 <p className="text-xs font-medium text-blue-700 mb-1">
                   Transcription en cours
@@ -210,7 +210,7 @@ export function ContinuousListeningPanel({
           {/* Last Command */}
           {state.lastCommand && (
             <div className="flex items-start gap-2 p-2 bg-purple-50 border border-purple-200 rounded-lg">
-              <Brain className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+              <Brain className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-purple-700">
                   Commande détectée
@@ -219,14 +219,14 @@ export function ContinuousListeningPanel({
                   {state.lastCommand.text}
                 </p>
               </div>
-              <CheckCircle className="w-4 h-4 text-purple-500 flex-shrink-0" />
+              <CheckCircle className="w-4 h-4 text-purple-500 shrink-0" />
             </div>
           )}
 
           {/* Last Memory */}
           {state.lastMemory && (
             <div className="flex items-start gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-              <MessageSquare className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+              <MessageSquare className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-emerald-700">
                   Mémoire enregistrée
@@ -235,7 +235,7 @@ export function ContinuousListeningPanel({
                   {state.lastMemory.text}
                 </p>
               </div>
-              <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
             </div>
           )}
 

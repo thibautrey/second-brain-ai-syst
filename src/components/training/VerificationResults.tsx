@@ -78,7 +78,7 @@ export function VerificationResults({
         {/* Key Metrics Grid */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           {/* Confidence Score */}
-          <div className="p-4 border border-blue-200 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+          <div className="p-4 border border-blue-200 rounded-lg bg-linear-to-br from-blue-50 to-indigo-50">
             <p className="mb-1 text-xs font-medium text-slate-600">
               Confidence Score
             </p>
@@ -91,7 +91,7 @@ export function VerificationResults({
           </div>
 
           {/* Samples Recorded */}
-          <div className="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50">
+          <div className="p-4 border border-purple-200 rounded-lg bg-linear-to-br from-purple-50 to-pink-50">
             <p className="mb-1 text-xs font-medium text-slate-600">
               Samples Recorded
             </p>
@@ -100,7 +100,7 @@ export function VerificationResults({
           </div>
 
           {/* Training Time */}
-          <div className="p-4 border rounded-lg bg-gradient-to-br from-emerald-50 to-cyan-50 border-emerald-200">
+          <div className="p-4 border rounded-lg bg-linear-to-br from-emerald-50 to-cyan-50 border-emerald-200">
             <p className="mb-1 text-xs font-medium text-slate-600">
               Training Duration
             </p>
@@ -114,7 +114,7 @@ export function VerificationResults({
         {/* Profile Quality Info */}
         <div className="p-4 border-2 border-green-200 rounded-lg bg-green-50">
           <div className="flex items-start gap-3">
-            <TrendingUp className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <TrendingUp className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
             <div>
               <p className="font-semibold text-green-900">
                 {confidenceScore >= 0.9
@@ -175,9 +175,9 @@ export function VerificationResults({
           >
             <div className="flex items-start gap-3">
               {verificationResult.recognized ? (
-                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
               )}
               <div>
                 <p
@@ -214,40 +214,40 @@ export function VerificationResults({
 
         {verificationError && (
           <div className="flex gap-3 p-4 mt-6 border border-red-200 rounded-lg bg-red-50">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <p className="text-sm text-red-900">{verificationError}</p>
           </div>
         )}
       </div>
 
       {/* Next Steps */}
-      <div className="p-6 mb-6 space-y-4 border border-blue-200 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+      <div className="p-6 mb-6 space-y-4 border border-blue-200 rounded-lg bg-linear-to-r from-blue-50 to-indigo-50">
         <h3 className="flex items-center gap-2 font-semibold text-slate-900">
           <CheckCircle2 className="w-5 h-5 text-blue-600" />
           What's Next?
         </h3>
         <ul className="space-y-3 text-sm text-slate-700">
           <li className="flex gap-3">
-            <span className="flex-shrink-0 font-bold text-blue-600">1.</span>
+            <span className="shrink-0 font-bold text-blue-600">1.</span>
             <span>
               Your voice profile is now active and ready to use for
               authentication
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex-shrink-0 font-bold text-blue-600">2.</span>
+            <span className="shrink-0 font-bold text-blue-600">2.</span>
             <span>
               Use your voice to unlock the system or authorize transactions
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex-shrink-0 font-bold text-blue-600">3.</span>
+            <span className="shrink-0 font-bold text-blue-600">3.</span>
             <span>
               You can record additional samples anytime to improve accuracy
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex-shrink-0 font-bold text-blue-600">4.</span>
+            <span className="shrink-0 font-bold text-blue-600">4.</span>
             <span>
               Create additional profiles for different voice variations
             </span>

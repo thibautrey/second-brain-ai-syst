@@ -266,7 +266,7 @@ export function RecordSamplesStep({
       </div>
 
       {/* Language Selector */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 p-4 mb-6">
+      <div className="bg-linear-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 p-4 mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Globe className="w-5 h-5 text-indigo-600" />
@@ -393,7 +393,7 @@ export function RecordSamplesStep({
 
         {error && (
           <div className="mt-4 flex gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <p className="text-sm text-red-900">{error}</p>
           </div>
         )}
@@ -413,7 +413,7 @@ export function RecordSamplesStep({
 
         {recordingError && (
           <div className="mt-4 flex gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
             <p className="text-sm text-red-900">{recordingError}</p>
           </div>
         )}
@@ -477,7 +477,7 @@ export function RecordSamplesStep({
                   key={recording.id}
                   className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg hover:border-slate-300"
                 >
-                  <div className="flex-shrink-0 text-lg" title={langInfo?.name}>
+                  <div className="shrink-0 text-lg" title={langInfo?.name}>
                     {langInfo?.flag || "🌐"}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -497,7 +497,7 @@ export function RecordSamplesStep({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => {
                         const audio = new Audio(recording.url);
@@ -516,13 +516,13 @@ export function RecordSamplesStep({
                       <Trash2 className="w-4 h-4 text-red-600" />
                     </button>
                     {recording.uploadStatus === "completed" && (
-                      <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
                     )}
                     {recording.uploadStatus === "uploading" && (
-                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
                     )}
                     {recording.uploadStatus === "failed" && (
-                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                     )}
                   </div>
                 </div>

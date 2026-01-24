@@ -87,7 +87,7 @@ export function ProfileSetupStep({
         {/* Error Message */}
         {(error || formError) && (
           <div className="flex gap-3 p-4 border border-red-200 rounded-lg bg-red-50">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-red-900">Error</p>
               <p className="mt-1 text-sm text-red-800">{error || formError}</p>

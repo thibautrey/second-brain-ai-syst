@@ -428,7 +428,7 @@ function ProviderCard({
       <CardContent className="pt-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center w-12 h-12 overflow-hidden rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+            <div className="flex items-center justify-center w-12 h-12 overflow-hidden rounded-lg bg-linear-to-br from-blue-500 to-purple-600">
               {faviconUrl && !faviconError ? (
                 <img
                   src={faviconUrl}
