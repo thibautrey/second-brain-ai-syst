@@ -36,8 +36,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = await authService.getToken();
       
       if (token) {
-        const profile = await authService.getProfile();
-        setUser(profile);
+        try {
+          // Verify token is still valid by fetching profile
+          const profile = await authService.getProfile();
+          setUser(profile);
+        } catch (profileErr) {
+          // Token exists but is invalid/expired, clear it
+          console.log('Token expired or invalid, clearing auth');
+          await authService.logout();
+        }
       }
     } catch (err: any) {
       console.error('Failed to initialize auth:', err);

@@ -16,6 +16,8 @@ A simple iOS/Android mobile application for the Second Brain AI system built wit
 - Expo CLI
 - iOS Simulator (for iOS development on macOS) or physical device with Expo Go app
 
+**Note**: This app uses Expo SDK 54 with React 19 and React Native 0.81.5. These versions are set by Expo and are compatible within the Expo ecosystem.
+
 ## Installation
 
 1. Install dependencies:

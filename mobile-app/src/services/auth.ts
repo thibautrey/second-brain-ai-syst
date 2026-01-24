@@ -96,6 +96,10 @@ export class AuthService {
     this.token = token;
   }
 
+  /**
+   * Check if user has a token stored (doesn't verify token validity)
+   * For actual auth verification, the backend will validate on API calls
+   */
   isAuthenticated(): boolean {
     return this.token !== null;
   }

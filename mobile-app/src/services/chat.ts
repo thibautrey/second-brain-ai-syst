@@ -92,8 +92,10 @@ export class ChatService {
               } else if (parsed.type === 'error') {
                 throw new Error(parsed.data);
               }
-            } catch (e) {
-              // Ignore parse errors for non-JSON lines
+            } catch (parseError) {
+              // Ignore JSON parse errors for non-JSON SSE lines (e.g., comments, heartbeats)
+              // Only actual data lines should be valid JSON
+              console.debug('SSE parse error (expected for non-data lines):', parseError);
             }
           }
         }
