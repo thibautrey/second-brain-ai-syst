@@ -21,14 +21,14 @@ export function stripMarkdownCodeBlocks(text: string): string {
   }
   
   if (typeof text !== 'string') {
-    // For non-string inputs, return empty string with warning
-    console.warn('[JSON Parser] Expected string input, got:', typeof text);
+    // For non-string inputs, return empty string
+    // (In production Node.js environment, this should never happen due to TypeScript)
     return '';
   }
 
   // First, try to match complete code blocks (with anchors for start/end)
   // This handles the most common case where LLM wraps entire response
-  let cleaned = text.replace(/^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/gm, '$1');
+  let cleaned = text.replace(/^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/m, '$1');
   
   // If that didn't change anything, try removing code blocks anywhere in text
   // This handles cases where code blocks aren't at the start/end
