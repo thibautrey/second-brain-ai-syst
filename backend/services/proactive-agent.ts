@@ -19,6 +19,12 @@ import { llmRouterService } from "./llm-router.js";
 import { notificationService } from "./notification.js";
 import { TimeScale, MemoryType } from "@prisma/client";
 
+// Configuration constants
+const MAX_MEMORIES_FOR_ANALYSIS = 100;
+const DEFAULT_ANALYSIS_TIMEFRAME_DAYS = 7;
+const HEALTH_CHECK_TIMEFRAME_DAYS = 14;
+const RECENT_SUGGESTIONS_DAYS = 3;
+
 export interface ProactiveAgentResult {
   agentId: string;
   userId: string;
@@ -97,7 +103,7 @@ export class ProactiveAgentService {
    * Run proactive analysis for a user
    * Analyzes recent memories to identify opportunities to help
    */
-  async runProactiveAnalysis(userId: string, timeframeDays: number = 7): Promise<ProactiveAgentResult> {
+  async runProactiveAnalysis(userId: string, timeframeDays: number = DEFAULT_ANALYSIS_TIMEFRAME_DAYS): Promise<ProactiveAgentResult> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - timeframeDays);
 
@@ -109,7 +115,7 @@ export class ProactiveAgentService {
         isArchived: false,
       },
       orderBy: { createdAt: "desc" },
-      take: 100, // Analyze last 100 memories
+      take: MAX_MEMORIES_FOR_ANALYSIS,
     });
 
     // Get recent summaries for additional context
@@ -119,7 +125,7 @@ export class ProactiveAgentService {
         periodStart: { gte: startDate },
       },
       orderBy: { periodStart: "desc" },
-      take: 7, // Last week of summaries
+      take: timeframeDays,
     });
 
     if (memories.length < 5) {
@@ -137,7 +143,7 @@ export class ProactiveAgentService {
     }
 
     // Check for recent proactive suggestions to avoid repetition
-    const recentSuggestions = await this.getRecentSuggestions(userId, 3); // Last 3 days
+    const recentSuggestions = await this.getRecentSuggestions(userId, RECENT_SUGGESTIONS_DAYS);
 
     // Format memories and summaries for analysis
     const context = this.buildAnalysisContext(memories, summaries, recentSuggestions);
@@ -157,7 +163,13 @@ Based on this information, provide 1-3 high-quality, actionable suggestions that
         { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      let result;
+      try {
+        result = JSON.parse(response);
+      } catch (parseError) {
+        console.error("Failed to parse LLM response as JSON:", response);
+        throw new Error(`Invalid JSON response from LLM: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
 
       // Store suggestions as a special memory
       const suggestionMemory = await prisma.memory.create({
@@ -209,13 +221,13 @@ Based on this information, provide 1-3 high-quality, actionable suggestions that
    * Specifically focuses on physical and mental health patterns
    */
   async runHealthCheck(userId: string): Promise<ProactiveAgentResult> {
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - HEALTH_CHECK_TIMEFRAME_DAYS);
 
     const memories = await prisma.memory.findMany({
       where: {
         userId,
-        createdAt: { gte: twoWeeksAgo },
+        createdAt: { gte: startDate },
         isArchived: false,
       },
       orderBy: { createdAt: "desc" },
@@ -256,7 +268,13 @@ Respond with suggestions prioritizing health and well-being.`;
         { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      let result;
+      try {
+        result = JSON.parse(response);
+      } catch (parseError) {
+        console.error("Failed to parse LLM response as JSON:", response);
+        throw new Error(`Invalid JSON response from LLM: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
 
       // Filter to only health-related suggestions
       const healthSuggestions = result.suggestions.filter(
