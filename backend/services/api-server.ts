@@ -862,7 +862,7 @@ app.get(
       if (!settings) {
         const newSettings = await prisma.userSettings.create({
           data: {
-            userId: req.userId,
+            userId: req.userId!,
           },
           select: {
             pushoverUserKey: true,
@@ -907,9 +907,9 @@ app.put(
 
       // Upsert settings
       const settings = await prisma.userSettings.upsert({
-        where: { userId: req.userId },
+        where: { userId: req.userId! },
         create: {
-          userId: req.userId,
+          userId: req.userId!,
           pushoverUserKey: pushoverUserKey || null,
           pushoverApiToken: pushoverApiToken || null,
           notifyOnMemoryStored: notifyOnMemoryStored ?? true,
@@ -970,7 +970,7 @@ app.post(
         user: settings.pushoverUserKey,
         title: "Second Brain AI - Test Notification",
         message: "Your Pushover integration is working correctly! 🎉",
-        priority: 0,
+        priority: "0",
       };
 
       const response = await axios.post(

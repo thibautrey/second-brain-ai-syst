@@ -71,6 +71,22 @@ export async function apiPatch<T>(
   return handleResponse<T>(response);
 }
 
+export async function apiPut<T>(
+  endpoint: string,
+  data?: unknown,
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: data ? JSON.stringify(data) : undefined,
+  });
+
+  return handleResponse<T>(response);
+}
+
 export async function apiDelete<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: "DELETE",

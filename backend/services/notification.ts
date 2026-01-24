@@ -182,8 +182,8 @@ class NotificationService {
         return;
       }
 
-      // Prepare Pushover payload
-      const payload: any = {
+      // Prepare Pushover payload (all values must be strings for URLSearchParams)
+      const payload: Record<string, string> = {
         token: apiToken,
         user: settings.pushoverUserKey,
         title: notification.title,
@@ -193,19 +193,19 @@ class NotificationService {
       // Add priority based on notification type
       switch (notification.type) {
         case "ERROR":
-          payload.priority = 1; // High priority
+          payload.priority = "1"; // High priority
           payload.sound = "siren";
           break;
         case "WARNING":
-          payload.priority = 0; // Normal priority
+          payload.priority = "0"; // Normal priority
           payload.sound = "pushover";
           break;
         case "SUCCESS":
-          payload.priority = -1; // Low priority, no sound
+          payload.priority = "-1"; // Low priority, no sound
           payload.sound = "magic";
           break;
         default:
-          payload.priority = 0;
+          payload.priority = "0";
       }
 
       // Add action URL if available

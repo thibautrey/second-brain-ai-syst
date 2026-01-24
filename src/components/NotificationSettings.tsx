@@ -5,7 +5,7 @@ import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Bell, BellOff, CheckCircle, XCircle, Send, Loader2 } from "lucide-react";
-import { api } from "../services/api";
+import { apiGet, apiPost, apiPut } from "../services/api";
 
 interface NotificationSettingsData {
   pushoverUserKey: string | null;
@@ -35,10 +35,10 @@ export function NotificationSettings() {
   const loadSettings = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get("/api/settings/notifications");
-      setSettings(response.data);
-      setPushoverUserKey(response.data.pushoverUserKey || "");
-      setPushoverApiToken(response.data.pushoverApiToken || "");
+      const data = await apiGet<NotificationSettingsData>("/settings/notifications");
+      setSettings(data);
+      setPushoverUserKey(data.pushoverUserKey || "");
+      setPushoverApiToken(data.pushoverApiToken || "");
     } catch (error) {
       console.error("Failed to load notification settings:", error);
     } finally {
@@ -64,14 +64,14 @@ export function NotificationSettings() {
     setIsSaving(true);
     setTestResult(null);
     try {
-      const response = await api.put("/api/settings/notifications", {
+      const data = await apiPut<NotificationSettingsData>("/settings/notifications", {
         pushoverUserKey: pushoverUserKey || null,
         pushoverApiToken: pushoverApiToken || null,
       });
-      setSettings(response.data);
+      setSettings(data);
       alert("Paramètres Pushover enregistrés avec succès !");
     } catch (error: any) {
-      alert(`Erreur : ${error.response?.data?.error || error.message}`);
+      alert(`Erreur : ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -81,15 +81,15 @@ export function NotificationSettings() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const response = await api.post("/api/settings/notifications/test-pushover");
+      const data = await apiPost<{ success: boolean; message: string }>("/settings/notifications/test-pushover");
       setTestResult({
         success: true,
-        message: response.data.message || "Test notification envoyée !",
+        message: data.message || "Test notification envoyée !",
       });
     } catch (error: any) {
       setTestResult({
         success: false,
-        message: error.response?.data?.error || error.message,
+        message: error.message,
       });
     } finally {
       setIsTesting(false);
