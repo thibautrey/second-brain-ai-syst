@@ -8,6 +8,7 @@
 import prisma from "./prisma.js";
 import { llmRouterService } from "./llm-router.js";
 import { MemoryType } from "@prisma/client";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
 
 export interface CleanupResult {
   userId: string;
@@ -114,7 +115,7 @@ export class MemoryCleanerService {
         { responseFormat: "json" },
       );
 
-      const analysis = JSON.parse(response);
+      const analysis = parseJSONFromLLMResponse(response);
 
       // Apply cleanup decisions
       const cleanup = await this.applyCleanupDecisions(
