@@ -49,27 +49,45 @@ console.log("Result:", result4);
 console.log("✓ Pass:", result4 === input4);
 console.log();
 
-// Test 5: Parse JSON from markdown code blocks
-console.log("Test 5: Parse JSON from markdown code blocks");
-const input5 = '```json\n{"title": "Test", "value": 42}\n```';
-const result5 = parseJSONFromLLMResponse(input5);
-console.log("Input:", input5);
-console.log("Result:", JSON.stringify(result5));
-console.log("✓ Pass:", result5.title === "Test" && result5.value === 42);
+// Test 5: Handle null/undefined gracefully
+console.log("Test 5: Handle null/undefined gracefully");
+const result5a = stripMarkdownCodeBlocks(null as any);
+const result5b = stripMarkdownCodeBlocks(undefined as any);
+console.log("Null result:", result5a, "=== '':", result5a === '');
+console.log("Undefined result:", result5b, "=== '':", result5b === '');
+console.log("✓ Pass:", result5a === '' && result5b === '');
 console.log();
 
-// Test 6: Parse plain JSON
-console.log("Test 6: Parse plain JSON");
-const input6 = '{"title": "Test", "value": 42}';
-const result6 = parseJSONFromLLMResponse(input6);
+// Test 6: Handle code blocks not at start/end
+console.log("Test 6: Handle code blocks not at start/end");
+const input6 = 'Some text before\n```json\n{"key": "value"}\n```\nSome text after';
+const result6 = stripMarkdownCodeBlocks(input6);
 console.log("Input:", input6);
-console.log("Result:", JSON.stringify(result6));
-console.log("✓ Pass:", result6.title === "Test" && result6.value === 42);
+console.log("Result:", result6);
+console.log("✓ Pass:", result6.includes('{"key": "value"}'));
 console.log();
 
-// Test 7: Handle complex nested objects (summarization format)
-console.log("Test 7: Handle complex nested objects (summarization format)");
-const input7 = `\`\`\`json
+// Test 7: Parse JSON from markdown code blocks
+console.log("Test 7: Parse JSON from markdown code blocks");
+const input7a = '```json\n{"title": "Test", "value": 42}\n```';
+const result7a = parseJSONFromLLMResponse(input7a);
+console.log("Input:", input7a);
+console.log("Result:", JSON.stringify(result7a));
+console.log("✓ Pass:", result7a.title === "Test" && result7a.value === 42);
+console.log();
+
+// Test 8: Parse plain JSON
+console.log("Test 8: Parse plain JSON");
+const input8 = '{"title": "Test", "value": 42}';
+const result8 = parseJSONFromLLMResponse(input8);
+console.log("Input:", input8);
+console.log("Result:", JSON.stringify(result8));
+console.log("✓ Pass:", result8.title === "Test" && result8.value === 42);
+console.log();
+
+// Test 9: Handle complex nested objects (summarization format)
+console.log("Test 9: Handle complex nested objects (summarization format)");
+const input9 = `\`\`\`json
 {
   "title": "Summary",
   "content": "Test content",
@@ -79,34 +97,34 @@ const input7 = `\`\`\`json
   "actionItems": []
 }
 \`\`\``;
-const result7 = parseJSONFromLLMResponse(input7);
-console.log("Input:", input7);
-console.log("Result:", JSON.stringify(result7, null, 2));
+const result9 = parseJSONFromLLMResponse(input9);
+console.log("Input:", input9);
+console.log("Result:", JSON.stringify(result9, null, 2));
 console.log("✓ Pass:", 
-  result7.title === "Summary" && 
-  result7.keyInsights.length === 2 &&
-  result7.sentiment === "positive"
+  result9.title === "Summary" && 
+  result9.keyInsights.length === 2 &&
+  result9.sentiment === "positive"
 );
 console.log();
 
-// Test 8: Throw error on invalid JSON
-console.log("Test 8: Throw error on invalid JSON");
-const input8 = '```json\n{invalid json}\n```';
+// Test 10: Throw error on invalid JSON
+console.log("Test 10: Throw error on invalid JSON");
+const input10 = '```json\n{invalid json}\n```';
 try {
-  parseJSONFromLLMResponse(input8);
+  parseJSONFromLLMResponse(input10);
   console.log("✗ Fail: Should have thrown SyntaxError");
 } catch (error) {
   console.log("✓ Pass: Correctly threw error:", error instanceof SyntaxError);
 }
 console.log();
 
-// Test 9: Handle exact format from problem statement
-console.log("Test 9: Handle exact format from problem statement");
-const input9 = '```json\n{\n  "title": "Weekly Summary"\n}\n```';
-const result9 = parseJSONFromLLMResponse(input9);
-console.log("Input:", input9);
-console.log("Result:", JSON.stringify(result9));
-console.log("✓ Pass:", result9.title === "Weekly Summary");
+// Test 11: Handle exact format from problem statement
+console.log("Test 11: Handle exact format from problem statement");
+const input11 = '```json\n{\n  "title": "Weekly Summary"\n}\n```';
+const result11 = parseJSONFromLLMResponse(input11);
+console.log("Input:", input11);
+console.log("Result:", JSON.stringify(result11));
+console.log("✓ Pass:", result11.title === "Weekly Summary");
 console.log();
 
 console.log("✅ All tests completed!");

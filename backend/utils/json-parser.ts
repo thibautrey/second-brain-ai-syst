@@ -16,16 +16,23 @@
  */
 export function stripMarkdownCodeBlocks(text: string): string {
   if (!text || typeof text !== 'string') {
-    return text;
+    // Return empty string for invalid inputs to maintain type safety
+    return '';
   }
 
-  // Remove markdown code blocks with optional language identifier
-  // Pattern matches: ```json\n...\n``` or ```\n...\n```
+  // First, try to match complete code blocks (with anchors for start/end)
+  // This handles the most common case where LLM wraps entire response
   let cleaned = text.replace(/^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/gm, '$1');
   
-  // Also handle inline code blocks at the start/end
-  cleaned = cleaned.replace(/^```(?:json)?\s*/gm, '');
-  cleaned = cleaned.replace(/```\s*$/gm, '');
+  // If that didn't change anything, try removing code blocks anywhere in text
+  // This handles cases where code blocks aren't at the start/end
+  if (cleaned === text) {
+    cleaned = text.replace(/```(?:json)?\s*\n([\s\S]*?)\n```/g, '$1');
+  }
+  
+  // Also handle inline code blocks without newlines (less common but possible)
+  cleaned = cleaned.replace(/```(?:json)?\s*/g, '');
+  cleaned = cleaned.replace(/```\s*$/g, '');
   
   return cleaned.trim();
 }
