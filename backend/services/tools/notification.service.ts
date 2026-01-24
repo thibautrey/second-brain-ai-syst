@@ -364,6 +364,10 @@ export class NotificationService {
           case NotificationChannel.WEBHOOK:
             await this.sendWebhookNotification(notification);
             break;
+
+          case NotificationChannel.PUSHOVER:
+            await this.sendPushoverNotification(notification);
+            break;
         }
       } catch (error) {
         console.error(`Failed to deliver notification via ${channel}:`, error);
@@ -396,6 +400,15 @@ export class NotificationService {
     // TODO: Implement webhook delivery
     // Would POST to configured webhook URL
     console.log(`[WEBHOOK] Would send: ${notification.title}`);
+  }
+
+  /**
+   * Send Pushover notification
+   */
+  private async sendPushoverNotification(notification: any) {
+    // Import notification service to leverage existing Pushover implementation
+    const { notificationService } = await import("../notification.js");
+    await notificationService.sendPushover(notification);
   }
 
   // ==================== Helper Notifications ====================

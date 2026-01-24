@@ -76,6 +76,10 @@ import {
   getProactiveStatus,
 } from "../controllers/proactive-agent.controller.js";
 
+// Constants
+const PUSHOVER_USER_KEY_LENGTH = 30;
+const PUSHOVER_USER_KEY_REGEX = /^[a-zA-Z0-9]{30}$/;
+
 const app: Express = express();
 
 // Multer configuration for file uploads
@@ -836,6 +840,172 @@ app.patch(
 );
 
 console.log("🔔 Notification routes enabled at /api/notifications");
+
+// ==================== Notification Settings Routes ====================
+
+/**
+ * GET /api/settings/notifications
+ * Get notification settings including Pushover config
+ */
+app.get(
+  "/api/settings/notifications",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId: req.userId },
+        select: {
+          pushoverUserKey: true,
+          pushoverApiToken: true,
+          notifyOnMemoryStored: true,
+          notifyOnCommandDetected: true,
+        },
+      });
+
+      // Create default settings if they don't exist
+      if (!settings) {
+        const newSettings = await prisma.userSettings.create({
+          data: {
+            userId: req.userId!,
+          },
+          select: {
+            pushoverUserKey: true,
+            pushoverApiToken: true,
+            notifyOnMemoryStored: true,
+            notifyOnCommandDetected: true,
+          },
+        });
+        return res.json(newSettings);
+      }
+
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error fetching notification settings:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+/**
+ * PUT /api/settings/notifications
+ * Update notification settings including Pushover config
+ */
+app.put(
+  "/api/settings/notifications",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const {
+        pushoverUserKey,
+        pushoverApiToken,
+        notifyOnMemoryStored,
+        notifyOnCommandDetected,
+      } = req.body;
+
+      // Validate Pushover credentials if provided
+      if (pushoverUserKey && !PUSHOVER_USER_KEY_REGEX.test(pushoverUserKey)) {
+        return res.status(400).json({
+          error: `Invalid Pushover user key format (should be ${PUSHOVER_USER_KEY_LENGTH} alphanumeric characters)`,
+        });
+      }
+
+      // Upsert settings
+      const settings = await prisma.userSettings.upsert({
+        where: { userId: req.userId! },
+        create: {
+          userId: req.userId!,
+          pushoverUserKey: pushoverUserKey || null,
+          pushoverApiToken: pushoverApiToken || null,
+          notifyOnMemoryStored: notifyOnMemoryStored ?? true,
+          notifyOnCommandDetected: notifyOnCommandDetected ?? true,
+        },
+        update: {
+          ...(pushoverUserKey !== undefined && { pushoverUserKey: pushoverUserKey || null }),
+          ...(pushoverApiToken !== undefined && { pushoverApiToken: pushoverApiToken || null }),
+          ...(notifyOnMemoryStored !== undefined && { notifyOnMemoryStored }),
+          ...(notifyOnCommandDetected !== undefined && { notifyOnCommandDetected }),
+        },
+        select: {
+          pushoverUserKey: true,
+          pushoverApiToken: true,
+          notifyOnMemoryStored: true,
+          notifyOnCommandDetected: true,
+        },
+      });
+
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error updating notification settings:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+/**
+ * POST /api/settings/notifications/test-pushover
+ * Test Pushover configuration by sending a test notification
+ */
+app.post(
+  "/api/settings/notifications/test-pushover",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId: req.userId },
+      });
+
+      if (!settings?.pushoverUserKey) {
+        return res.status(400).json({
+          error: "Pushover user key not configured",
+        });
+      }
+
+      const apiToken = settings.pushoverApiToken || process.env.PUSHOVER_APP_TOKEN;
+      if (!apiToken) {
+        return res.status(400).json({
+          error: "Pushover API token not configured",
+        });
+      }
+
+      // Send test notification
+      const axios = (await import("axios")).default;
+      const payload = {
+        token: apiToken,
+        user: settings.pushoverUserKey,
+        title: "Second Brain AI - Test Notification",
+        message: "Your Pushover integration is working correctly! 🎉",
+        priority: "0",
+      };
+
+      const response = await axios.post(
+        "https://api.pushover.net/1/messages.json",
+        new URLSearchParams(payload).toString(),
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        },
+      );
+
+      if (response.data.status === 1) {
+        res.json({ success: true, message: "Test notification sent successfully" });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: response.data.errors?.join(", ") || "Failed to send notification",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error testing Pushover:", error);
+      res.status(500).json({
+        success: false,
+        error: error.response?.data?.errors?.join(", ") || error.message,
+      });
+    }
+  },
+);
+
+console.log("⚙️  Notification settings routes enabled at /api/settings/notifications");
 
 // ==================== Proactive Agent Routes ====================
 

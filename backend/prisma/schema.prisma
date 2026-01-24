@@ -83,6 +83,10 @@ model UserSettings {
     // Notification Settings
     notifyOnMemoryStored    Boolean @default(true)
     notifyOnCommandDetected Boolean @default(true)
+    
+    // Pushover Integration Settings
+    pushoverUserKey  String? // Pushover user key for notifications
+    pushoverApiToken String? // Pushover API token (optional, defaults to app token)
 
     // AI Generation Settings
     defaultMaxTokens Int @default(4096) // Default max tokens for LLM responses
@@ -728,6 +732,7 @@ enum NotificationChannel {
     EMAIL // Email notification
     PUSH // Push notification (mobile/desktop)
     WEBHOOK // External webhook
+    PUSHOVER // Pushover notification service
 }
 
 // ==================== Tool Configuration Models ====================
