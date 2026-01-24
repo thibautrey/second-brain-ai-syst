@@ -76,6 +76,10 @@ import {
   getProactiveStatus,
 } from "../controllers/proactive-agent.controller.js";
 
+// Constants
+const PUSHOVER_USER_KEY_LENGTH = 30;
+const PUSHOVER_USER_KEY_REGEX = /^[a-zA-Z0-9]{30}$/;
+
 const app: Express = express();
 
 // Multer configuration for file uploads
@@ -899,9 +903,9 @@ app.put(
       } = req.body;
 
       // Validate Pushover credentials if provided
-      if (pushoverUserKey && !/^[a-zA-Z0-9]{30}$/.test(pushoverUserKey)) {
+      if (pushoverUserKey && !PUSHOVER_USER_KEY_REGEX.test(pushoverUserKey)) {
         return res.status(400).json({
-          error: "Invalid Pushover user key format (should be 30 alphanumeric characters)",
+          error: `Invalid Pushover user key format (should be ${PUSHOVER_USER_KEY_LENGTH} alphanumeric characters)`,
         });
       }
 

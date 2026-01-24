@@ -8,10 +8,11 @@ Le système de notifications du Second Brain AI est maintenant complètement imp
 - ✅ **Notifications du navigateur** avec l'API Notifications
 - ✅ **Service Worker** pour notifications hors ligne
 - ✅ **Persistance en base de données** (PostgreSQL)
-- ✅ **Canaux multiples** : IN_APP, PUSH, EMAIL, WEBHOOK
+- ✅ **Canaux multiples** : IN_APP, PUSH, EMAIL, WEBHOOK, **PUSHOVER**
 - ✅ **Types de notifications** : INFO, SUCCESS, WARNING, ERROR, REMINDER, ACHIEVEMENT
 - ✅ **Notifications programmées** (pour le futur)
 - ✅ **API REST** pour que l'IA puisse envoyer des notifications
+- ✅ **Intégration Pushover** pour notifications mobiles multi-plateformes
 
 ## 🚀 Démarrage rapide
 
@@ -64,7 +65,7 @@ Content-Type: application/json
 - `title` (string, requis) : Titre de la notification
 - `message` (string, requis) : Contenu du message
 - `type` (string, optionnel) : Type de notification (INFO, SUCCESS, WARNING, ERROR, REMINDER, ACHIEVEMENT)
-- `channels` (array, optionnel) : Canaux de diffusion (IN_APP, PUSH, EMAIL, WEBHOOK)
+- `channels` (array, optionnel) : Canaux de diffusion (IN_APP, PUSH, EMAIL, WEBHOOK, PUSHOVER)
 - `scheduledFor` (datetime, optionnel) : Date/heure pour notification programmée
 - `sourceType` (string, optionnel) : Type de source (todo, memory, agent, etc.)
 - `sourceId` (string, optionnel) : ID de la source
@@ -106,6 +107,76 @@ Liste les notifications de l'utilisateur
 
 Marquer une notification comme lue
 
+## 🔔 Configuration Pushover
+
+Le système supporte maintenant [Pushover](https://pushover.net) pour envoyer des notifications sur vos appareils mobiles (iOS, Android) et desktop.
+
+### Configuration
+
+1. **Créer un compte Pushover**
+   - Allez sur [pushover.net](https://pushover.net)
+   - Créez un compte gratuit
+   - Installez l'application mobile Pushover
+
+2. **Obtenir votre User Key**
+   - Connectez-vous au tableau de bord Pushover
+   - Votre User Key est affichée en haut de la page (30 caractères)
+
+3. **Configurer dans Second Brain**
+   - Allez dans **Paramètres > Notifications**
+   - Entrez votre **Pushover User Key**
+   - (Optionnel) Entrez un **API Token personnalisé** si vous avez créé une application Pushover
+   - Cliquez sur **Enregistrer**
+   - Testez la configuration avec le bouton **Tester**
+
+### Utilisation avec l'IA
+
+Pour envoyer une notification via Pushover, incluez `PUSHOVER` dans le tableau `channels` :
+
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Alerte importante",
+  message: "Une action est requise",
+  type: "WARNING",
+  channels: ["IN_APP", "PUSHOVER"], // Notification in-app ET Pushover
+});
+```
+
+### Priorités et sons
+
+Le système configure automatiquement la priorité et le son en fonction du type de notification :
+
+- **ERROR** : Priorité haute (1), son "siren"
+- **WARNING** : Priorité normale (0), son "pushover"
+- **SUCCESS** : Priorité basse (-1), son "magic"
+- **Autres** : Priorité normale (0), son par défaut
+
+### Configuration avancée
+
+Variables d'environnement (backend) :
+- `PUSHOVER_APP_TOKEN` : Token API par défaut pour l'application (optionnel)
+
+Si vous ne spécifiez pas de token API personnalisé dans les paramètres utilisateur, le système utilisera `PUSHOVER_APP_TOKEN` s'il est défini.
+
+### Endpoints API
+
+**GET `/api/settings/notifications`**
+Récupère les paramètres de notification incluant la configuration Pushover
+
+**PUT `/api/settings/notifications`**
+Met à jour les paramètres de notification
+
+```json
+{
+  "pushoverUserKey": "votre-user-key-30-caracteres",
+  "pushoverApiToken": "votre-api-token-optionnel"
+}
+```
+
+**POST `/api/settings/notifications/test-pushover`**
+Envoie une notification de test via Pushover pour vérifier la configuration
+
 ## 🛠️ Architecture
 
 ### Frontend
@@ -135,8 +206,9 @@ Marquer une notification comme lue
 
 - **Service** : `backend/services/notification.ts`
   - Crée et envoie les notifications
-  - Gère les canaux multiples
+  - Gère les canaux multiples (IN_APP, PUSH, EMAIL, WEBHOOK, PUSHOVER)
   - Traite les notifications programmées
+  - Intégration Pushover avec gestion des priorités et sons
 
 - **Controller** : `backend/controllers/notification.controller.ts`
   - Endpoints REST
@@ -226,6 +298,7 @@ Pour déboguer les notifications :
 
 ## 📝 TODO / Améliorations futures
 
+- [x] **Intégration Pushover pour notifications mobiles** ✅
 - [ ] Intégration Firebase Cloud Messaging (FCM) pour notifications mobiles
 - [ ] Envoi d'emails via SendGrid/SES
 - [ ] Support des webhooks personnalisés
@@ -238,5 +311,6 @@ Pour déboguer les notifications :
 ---
 
 **Date de création** : 23 janvier 2026
-**Version** : 1.0.0
+**Dernière mise à jour** : 24 janvier 2026 (Ajout Pushover)
+**Version** : 1.1.0
 **Statut** : ✅ Opérationnel

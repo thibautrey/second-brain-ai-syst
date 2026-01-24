@@ -408,8 +408,7 @@ export class NotificationService {
   private async sendPushoverNotification(notification: any) {
     // Import notification service to leverage existing Pushover implementation
     const { notificationService } = await import("../notification.js");
-    // @ts-ignore - Access private method
-    await notificationService["sendPushover"](notification);
+    await notificationService.sendPushover(notification);
   }
 
   // ==================== Helper Notifications ====================

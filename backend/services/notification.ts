@@ -155,9 +155,9 @@ class NotificationService {
   }
 
   /**
-   * Send Pushover notification
+   * Send Pushover notification (public method for use by notification tool)
    */
-  private async sendPushover(notification: any) {
+  async sendPushover(notification: any) {
     try {
       // Get user settings with Pushover credentials
       const settings = await prisma.userSettings.findUnique({
