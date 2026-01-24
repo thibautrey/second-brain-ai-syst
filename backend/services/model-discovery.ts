@@ -491,8 +491,10 @@ export class ModelDiscoveryService {
 
       for (const model of modelsList) {
         // Support both OpenAI format (model.id) and GPUStack format (model.name)
-        // Prioritize model.name for GPUStack, fallback to model.id for OpenAI
-        let modelId = model.name || model.id;
+        // Prioritize model.id for OpenAI/OpenRouter, fallback to model.name for GPUStack
+        // Note: OpenRouter returns `id` as the actual model identifier (e.g., "zhipu/glm-4-flash")
+        // and `name` as the display name (e.g., "Z.AI: GLM 4.7 Flash")
+        let modelId = model.id || model.name;
 
         // Ensure modelId is a string
         if (typeof modelId !== "string") {
@@ -532,9 +534,11 @@ export class ModelDiscoveryService {
 
         // Include ALL models from the provider
         // Even if we don't recognize the model type, user can manually associate capabilities later
+        // Use the API-provided name if available, otherwise generate from modelId
+        const displayName = model.name || getModelDisplayName(modelId);
         models.push({
           modelId: modelId,
-          name: getModelDisplayName(modelId),
+          name: displayName,
           capabilities,
         });
 
