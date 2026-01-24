@@ -111,6 +111,23 @@ interface UserToolConfig {
   timeout?: number;
 }
 
+interface GeneratedTool {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  category: string;
+  tags: string[];
+  requiredSecrets: string[];
+  usageCount: number;
+  lastUsedAt?: string;
+  enabled: boolean;
+  isVerified: boolean;
+  version: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ==================== API Helpers ====================
 
 const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
@@ -184,6 +201,9 @@ export function ToolsConfigPage() {
     useState<MarketplaceTool | null>(null);
   const [toolConfig, setToolConfig] = useState<Record<string, string>>({});
 
+  // State for generated tools
+  const [generatedTools, setGeneratedTools] = useState<GeneratedTool[]>([]);
+
   // Loading states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,20 +219,28 @@ export function ToolsConfigPage() {
     setError(null);
 
     try {
-      const [toolsRes, configsRes, mcpRes, catalogRes, installedRes] =
-        await Promise.all([
-          fetchWithAuth("/tools"),
-          fetchWithAuth("/tools/config"),
-          fetchWithAuth("/tools/mcp"),
-          fetchWithAuth("/tools/marketplace"),
-          fetchWithAuth("/tools/marketplace-installed"),
-        ]);
+      const [
+        toolsRes,
+        configsRes,
+        mcpRes,
+        catalogRes,
+        installedRes,
+        generatedRes,
+      ] = await Promise.all([
+        fetchWithAuth("/tools"),
+        fetchWithAuth("/tools/config"),
+        fetchWithAuth("/tools/mcp"),
+        fetchWithAuth("/tools/marketplace"),
+        fetchWithAuth("/tools/marketplace-installed"),
+        fetchWithAuth("/generated-tools"),
+      ]);
 
       setBuiltinTools(toolsRes.tools || []);
       setToolConfigs(configsRes.configs || []);
       setMcpServers(mcpRes.servers || []);
       setMarketplaceCatalog(catalogRes.catalog || []);
       setInstalledTools(installedRes.installed || []);
+      setGeneratedTools(generatedRes.tools || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -364,6 +392,35 @@ export function ToolsConfigPage() {
     }
   }
 
+  // ==================== Generated Tools Handlers ====================
+
+  async function toggleGeneratedTool(toolId: string, enabled: boolean) {
+    try {
+      await fetchWithAuth(`/generated-tools/${toolId}/toggle`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
+      });
+
+      setGeneratedTools((prev) =>
+        prev.map((t) => (t.id === toolId ? { ...t, enabled } : t)),
+      );
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  async function deleteGeneratedTool(toolId: string) {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet outil généré ?"))
+      return;
+
+    try {
+      await fetchWithAuth(`/generated-tools/${toolId}`, { method: "DELETE" });
+      setGeneratedTools((prev) => prev.filter((t) => t.id !== toolId));
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
   // ==================== Render ====================
 
   if (loading) {
@@ -462,7 +519,7 @@ export function ToolsConfigPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="builtin" className="flex items-center gap-2">
             <Wrench className="w-4 h-4" />
             Outils Intégrés
@@ -474,6 +531,10 @@ export function ToolsConfigPage() {
           <TabsTrigger value="marketplace" className="flex items-center gap-2">
             <ShoppingBag className="w-4 h-4" />
             Marketplace
+          </TabsTrigger>
+          <TabsTrigger value="generated" className="flex items-center gap-2">
+            <Star className="w-4 h-4" />
+            Outils Générés
           </TabsTrigger>
         </TabsList>
 
@@ -891,6 +952,136 @@ export function ToolsConfigPage() {
                   ))}
               </div>
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Generated Tools Tab */}
+        <TabsContent value="generated">
+          <div className="space-y-4">
+            {generatedTools.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Star className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                  <p className="text-slate-500">
+                    Aucun outil généré pour le moment
+                  </p>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Les outils générés par l'IA apparaîtront ici une fois créés
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {generatedTools.map((tool) => (
+                  <Card key={tool.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            {tool.displayName}
+                            {tool.isVerified && (
+                              <Check className="w-4 h-4 text-green-600" />
+                            )}
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            {tool.description}
+                          </CardDescription>
+                        </div>
+                        <Switch
+                          checked={tool.enabled}
+                          onCheckedChange={(checked) =>
+                            toggleGeneratedTool(tool.id, checked)
+                          }
+                        />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="outline">{tool.category}</Badge>
+                        {tool.tags.slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="secondary">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {tool.tags.length > 3 && (
+                          <Badge variant="outline">
+                            +{tool.tags.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
+                        <div>
+                          <span className="font-medium">Version:</span> v
+                          {tool.version}
+                        </div>
+                        <div>
+                          <span className="font-medium">Utilisations:</span>{" "}
+                          {tool.usageCount}
+                        </div>
+                        <div className="col-span-2">
+                          <span className="font-medium">Créé le:</span>{" "}
+                          {new Date(tool.createdAt).toLocaleDateString("fr-FR")}
+                        </div>
+                        {tool.lastUsedAt && (
+                          <div className="col-span-2">
+                            <span className="font-medium">
+                              Dernière utilisation:
+                            </span>{" "}
+                            {new Date(tool.lastUsedAt).toLocaleDateString(
+                              "fr-FR",
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {tool.requiredSecrets.length > 0 && (
+                        <div className="pt-2 border-t">
+                          <p className="mb-1 text-xs font-medium text-slate-700">
+                            Secrets requis:
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {tool.requiredSecrets.map((secret) => (
+                              <Badge
+                                key={secret}
+                                variant="outline"
+                                className="text-xs"
+                              >
+                                {secret}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            // Copier l'ID du tool
+                            navigator.clipboard.writeText(tool.id);
+                          }}
+                        >
+                          <Check className="w-3 h-3 mr-1" />
+                          Copier ID
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => deleteGeneratedTool(tool.id)}
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Supprimer
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

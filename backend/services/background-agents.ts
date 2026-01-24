@@ -8,6 +8,7 @@
 import prisma from "./prisma.js";
 import { llmRouterService } from "./llm-router.js";
 import { TimeScale, MemoryType } from "@prisma/client";
+import { memoryCleanerService } from "./memory-cleaner.js";
 
 export interface AgentResult {
   agentId: string;
@@ -427,6 +428,39 @@ export class BackgroundAgentService {
       console.error("Habit analyzer failed:", error);
       return {
         agentId: "habit-analyzer",
+        userId,
+        success: false,
+        metadata: { error: error.message },
+        createdAt: new Date(),
+      };
+    }
+  }
+
+  /**
+   * Run memory cleaner agent
+   * Analyzes and removes non-useful short-term memories
+   */
+  async runMemoryCleaner(userId: string): Promise<AgentResult> {
+    try {
+      const result = await memoryCleanerService.runMemoryCleanup(userId);
+
+      return {
+        agentId: "memory-cleaner",
+        userId,
+        success: result.success,
+        output: `Analyzed ${result.memoriesAnalyzed} memories, archived ${result.memoriesArchived}, deleted ${result.memoriesDeleted}`,
+        metadata: {
+          memoriesAnalyzed: result.memoriesAnalyzed,
+          memoriesArchived: result.memoriesArchived,
+          memoriesDeleted: result.memoriesDeleted,
+          details: result.details,
+        },
+        createdAt: new Date(),
+      };
+    } catch (error: any) {
+      console.error("Memory cleaner failed:", error);
+      return {
+        agentId: "memory-cleaner",
         userId,
         success: false,
         metadata: { error: error.message },

@@ -161,6 +161,19 @@ export class SchedulerService {
         await this.runScheduledNotifications();
       },
     });
+
+    // Memory cleaner - runs every 5 minutes
+    this.registerTask({
+      id: "memory-cleaner",
+      name: "Clean Short-Term Memories",
+      cronExpression: "*/5 * * * *", // Every 5 minutes
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runMemoryCleaner();
+      },
+    });
   }
 
   /**
@@ -506,6 +519,30 @@ export class SchedulerService {
   }
 
   /**
+   * Run memory cleaner to remove non-useful short-term memories
+   */
+  private async runMemoryCleaner(): Promise<void> {
+    const users = await prisma.user.findMany({ select: { id: true } });
+    const agentService = await getBackgroundAgentService();
+
+    for (const user of users) {
+      try {
+        const result = await agentService.runMemoryCleaner(user.id);
+        if (
+          result.metadata.memoriesDeleted > 0 ||
+          result.metadata.memoriesArchived > 0
+        ) {
+          console.log(
+            `  ✓ Memory cleaner: archived ${result.metadata.memoriesArchived}, deleted ${result.metadata.memoriesDeleted} for user ${user.id}`,
+          );
+        }
+      } catch (error) {
+        console.warn(`  ⚠ Memory cleaner failed for ${user.id}:`, error);
+      }
+    }
+  }
+
+  /**
    * Verify and generate missing long-term memory summaries on startup
    */
   private async verifyAndGenerateMissingSummaries(): Promise<void> {
@@ -599,8 +636,7 @@ export class SchedulerService {
 
     // Check if enough time has passed since the last summary
     const daysSinceLastSummary =
-      (now.getTime() - lastSummary.periodEnd.getTime()) /
-      (1000 * 60 * 60 * 24);
+      (now.getTime() - lastSummary.periodEnd.getTime()) / (1000 * 60 * 60 * 24);
 
     return daysSinceLastSummary >= intervalDays;
   }

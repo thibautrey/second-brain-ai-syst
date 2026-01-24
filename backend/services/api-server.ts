@@ -54,6 +54,7 @@ import { continuousListeningManager } from "./continuous-listening.js";
 import { schedulerService } from "./scheduler.js";
 import { embeddingSchedulerService } from "./embedding-scheduler.js";
 import { backgroundAgentService } from "./background-agents.js";
+import { memoryCleanerService } from "./memory-cleaner.js";
 import { scheduledTaskService } from "./tools/scheduled-task.service.js";
 import toolsController from "../controllers/tools.controller.js";
 import longRunningTaskController from "../controllers/long-running-task.controller.js";
@@ -1337,6 +1338,50 @@ app.post(
 
       const memory = await unpinMemory(req.userId, req.params.memoryId);
       res.json(memory);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ==================== Memory Cleaner Routes ====================
+
+/**
+ * GET /api/memories/cleaner/stats
+ * Get memory cleaner statistics (short-term, long-term, archived counts)
+ */
+app.get(
+  "/api/memories/cleaner/stats",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const stats = await memoryCleanerService.getCleanupStats(req.userId);
+      res.json(stats);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/memories/cleaner/run
+ * Manually trigger memory cleanup for current user
+ */
+app.post(
+  "/api/memories/cleaner/run",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const result = await memoryCleanerService.runMemoryCleanup(req.userId);
+      res.json(result);
     } catch (error) {
       next(error);
     }

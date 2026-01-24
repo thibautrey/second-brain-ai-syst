@@ -16,6 +16,9 @@ import {
   Sliders,
   Play,
   AlertCircle,
+  Lock,
+  Calendar,
+  Copy,
 } from "lucide-react";
 import { getFaviconUrl } from "../utils/favicon";
 import {
@@ -37,6 +40,7 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { useAISettings } from "../hooks/useAISettings";
+import { useSecrets } from "../hooks/useSecrets";
 import {
   AIProvider,
   ProviderType,
@@ -61,6 +65,7 @@ export function SettingsPage() {
         <TabsList>
           <TabsTrigger value="providers">Providers IA</TabsTrigger>
           <TabsTrigger value="models">Configuration des Modèles</TabsTrigger>
+          <TabsTrigger value="secrets">Secrets & Clés API</TabsTrigger>
           <TabsTrigger value="listening">Écoute Continue</TabsTrigger>
         </TabsList>
 
@@ -70,6 +75,10 @@ export function SettingsPage() {
 
         <TabsContent value="models">
           <ModelsConfigSection />
+        </TabsContent>
+
+        <TabsContent value="secrets">
+          <SecretsSection />
         </TabsContent>
 
         <TabsContent value="listening">
@@ -1380,5 +1389,535 @@ function ContinuousListeningSection() {
         </Button>
       </div>
     </div>
+  );
+}
+
+// ==================== Secrets Section ====================
+
+function SecretsSection() {
+  const {
+    secrets,
+    isLoading,
+    isSaving,
+    error,
+    createSecret,
+    updateSecret,
+    deleteSecret,
+  } = useSecrets();
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [showValues, setShowValues] = useState<Set<string>>(new Set());
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const CATEGORIES = [
+    "general",
+    "ai_provider",
+    "mcp",
+    "integration",
+    "generated_tool",
+  ];
+
+  const toggleShowValue = (key: string) => {
+    const newSet = new Set(showValues);
+    if (newSet.has(key)) {
+      newSet.delete(key);
+    } else {
+      newSet.add(key);
+    }
+    setShowValues(newSet);
+  };
+
+  const copyToClipboard = (key: string) => {
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleAddClick = () => {
+    setEditingKey(null);
+    setIsAdding(true);
+  };
+
+  const handleEditClick = (key: string) => {
+    setEditingKey(key);
+    setIsAdding(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsAdding(false);
+    setEditingKey(null);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            Secrets & Clés API
+          </h3>
+          <p className="text-sm text-slate-500">
+            Stockez vos clés API et secrets de manière sécurisée avec
+            chiffrement AES-256-GCM.
+          </p>
+        </div>
+        <Button
+          onClick={handleAddClick}
+          disabled={isAdding || editingKey !== null}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Ajouter un Secret
+        </Button>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 border border-red-200 rounded-lg bg-red-50">
+          <AlertCircle className="w-5 h-5 text-red-500" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {isAdding && (
+        <SecretForm
+          onSave={async (data) => {
+            await createSecret(data);
+            setIsAdding(false);
+          }}
+          onCancel={handleCancelEdit}
+          isSaving={isSaving}
+          categories={CATEGORIES}
+        />
+      )}
+
+      <div className="space-y-4">
+        {secrets.length === 0 && !isAdding ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Lock className="w-12 h-12 mb-4 text-slate-300" />
+              <p className="text-center text-slate-500">
+                Aucun secret configuré.
+                <br />
+                Ajoutez vos clés API pour utiliser les outils générés et
+                l'intégration MCP.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          secrets.map((secret) => (
+            <SecretCard
+              key={secret.key}
+              secret={secret}
+              isEditing={editingKey === secret.key}
+              isShown={showValues.has(secret.key)}
+              isCopied={copiedKey === secret.key}
+              onEdit={() => handleEditClick(secret.key)}
+              onCancelEdit={handleCancelEdit}
+              onUpdate={(data) => updateSecret(secret.key, data)}
+              onDelete={() => deleteSecret(secret.key)}
+              onToggleShow={() => toggleShowValue(secret.key)}
+              onCopy={() => copyToClipboard(secret.key)}
+              isSaving={isSaving}
+              categories={CATEGORIES}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface SecretFormData {
+  key: string;
+  value: string;
+  displayName: string;
+  category: string;
+  description?: string;
+  expiresAt?: string;
+}
+
+function SecretForm({
+  initialData,
+  onSave,
+  onCancel,
+  isSaving,
+  categories,
+}: {
+  initialData?: Partial<SecretFormData>;
+  onSave: (data: SecretFormData) => Promise<void>;
+  onCancel: () => void;
+  isSaving: boolean;
+  categories: string[];
+}) {
+  const [formData, setFormData] = useState<SecretFormData>({
+    key: initialData?.key || "",
+    value: initialData?.value || "",
+    displayName: initialData?.displayName || "",
+    category: initialData?.category || "general",
+    description: initialData?.description || "",
+    expiresAt: initialData?.expiresAt || "",
+  });
+  const [showValue, setShowValue] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const isEditing = !!initialData?.key;
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.key.trim()) {
+      newErrors.key = "La clé est requise";
+    } else if (!/^[a-z][a-z0-9_]*$/.test(formData.key)) {
+      newErrors.key =
+        "La clé doit commencer par une lettre minuscule et contenir uniquement des lettres minuscules, chiffres et underscores";
+    }
+
+    if (!formData.value.trim()) {
+      newErrors.value = "La valeur est requise";
+    }
+
+    if (!formData.displayName.trim()) {
+      newErrors.displayName = "Le nom d'affichage est requis";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+    await onSave(formData);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          {isEditing ? "Modifier le Secret" : "Nouveau Secret"}
+        </CardTitle>
+        <CardDescription>
+          {isEditing
+            ? "Modifiez votre clé API ou secret"
+            : "Créez un nouveau secret sécurisé"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="key">Clé (identifiant unique)</Label>
+              <Input
+                id="key"
+                value={formData.key}
+                onChange={(e) =>
+                  setFormData({ ...formData, key: e.target.value })
+                }
+                placeholder="openai_api_key"
+                disabled={isEditing}
+                className={isEditing ? "bg-slate-50" : ""}
+              />
+              {errors.key && (
+                <p className="text-sm text-red-500">{errors.key}</p>
+              )}
+              <p className="text-xs text-slate-500">
+                Format: minuscules, chiffres, underscores uniquement
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="displayName">Nom d'affichage</Label>
+              <Input
+                id="displayName"
+                value={formData.displayName}
+                onChange={(e) =>
+                  setFormData({ ...formData, displayName: e.target.value })
+                }
+                placeholder="OpenAI API Key"
+              />
+              {errors.displayName && (
+                <p className="text-sm text-red-500">{errors.displayName}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="value">Valeur</Label>
+            <div className="relative">
+              <Input
+                id="value"
+                type={showValue ? "text" : "password"}
+                value={formData.value}
+                onChange={(e) =>
+                  setFormData({ ...formData, value: e.target.value })
+                }
+                placeholder="sk-... ou votre valeur secrète"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowValue(!showValue)}
+                className="absolute -translate-y-1/2 right-3 top-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showValue ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            {errors.value && (
+              <p className="text-sm text-red-500">{errors.value}</p>
+            )}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="category">Catégorie</Label>
+              <Select
+                id="category"
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value })
+                }
+                options={categories.map((cat) => ({
+                  value: cat,
+                  label:
+                    {
+                      general: "Général",
+                      ai_provider: "Provider IA",
+                      mcp: "MCP Server",
+                      integration: "Intégration",
+                      generated_tool: "Outil Généré",
+                    }[cat] || cat,
+                }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="expiresAt">Expiration (optionnel)</Label>
+              <Input
+                id="expiresAt"
+                type="datetime-local"
+                value={formData.expiresAt}
+                onChange={(e) =>
+                  setFormData({ ...formData, expiresAt: e.target.value })
+                }
+              />
+              <p className="text-xs text-slate-500">
+                Laissez vide pour pas d'expiration
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (optionnel)</Label>
+            <Input
+              id="description"
+              value={formData.description || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              placeholder="Ex: Clé pour accéder à l'API GPT-4"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSaving}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving
+                ? "Enregistrement..."
+                : isEditing
+                  ? "Modifier"
+                  : "Créer"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SecretCard({
+  secret,
+  isEditing,
+  isShown,
+  isCopied,
+  onEdit,
+  onCancelEdit,
+  onUpdate,
+  onDelete,
+  onToggleShow,
+  onCopy,
+  isSaving,
+  categories,
+}: {
+  secret: any;
+  isEditing: boolean;
+  isShown: boolean;
+  isCopied: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onUpdate: (data: Partial<SecretFormData>) => Promise<any>;
+  onDelete: () => void;
+  onToggleShow: () => void;
+  onCopy: () => void;
+  isSaving: boolean;
+  categories: string[];
+}) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const categoryLabels: Record<string, string> = {
+    general: "Général",
+    ai_provider: "Provider IA",
+    mcp: "MCP Server",
+    integration: "Intégration",
+    generated_tool: "Outil Généré",
+  };
+
+  if (isEditing) {
+    return (
+      <SecretForm
+        initialData={secret}
+        onSave={onUpdate}
+        onCancel={onCancelEdit}
+        isSaving={isSaving}
+        categories={categories}
+      />
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h4 className="font-semibold text-slate-900">
+                {secret.displayName}
+              </h4>
+              <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-600">
+                {categoryLabels[secret.category] || secret.category}
+              </span>
+            </div>
+
+            {secret.description && (
+              <p className="mt-1 text-sm text-slate-600">
+                {secret.description}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 mt-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-50 border border-slate-200">
+                <code className="font-mono text-xs text-slate-500">
+                  {secret.key}
+                </code>
+                <button
+                  onClick={onCopy}
+                  className="p-1 rounded hover:bg-slate-200"
+                  title="Copier la clé"
+                >
+                  <Copy
+                    className={`w-3 h-3 ${isCopied ? "text-green-500" : "text-slate-400"}`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+              {secret.expiresAt && (
+                <>
+                  <Calendar className="w-3 h-3" />
+                  <span>
+                    Expire le{" "}
+                    {new Date(secret.expiresAt).toLocaleDateString("fr-FR")}
+                  </span>
+                </>
+              )}
+              {secret.lastUsedAt && (
+                <span>
+                  · Utilisé le{" "}
+                  {new Date(secret.lastUsedAt).toLocaleDateString("fr-FR")}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleShow}
+              title="Afficher/Masquer la valeur"
+            >
+              {isShown ? (
+                <Eye className="w-4 h-4 text-slate-400" />
+              ) : (
+                <EyeOff className="w-4 h-4 text-slate-400" />
+              )}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onEdit}>
+              <Edit2 className="w-4 h-4" />
+            </Button>
+            {showDeleteConfirm ? (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    onDelete();
+                    setShowDeleteConfirm(false);
+                  }}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-slate-400 hover:text-red-500"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Show value if toggled */}
+        {isShown && (
+          <div className="p-3 mt-4 border rounded-lg bg-amber-50 border-amber-200">
+            <p className="mb-2 text-xs font-semibold text-amber-700">
+              Valeur :
+            </p>
+            <div className="p-2 font-mono text-sm break-all bg-white border rounded border-amber-100 text-slate-900">
+              {secret.value || "••••••••"}
+            </div>
+            <p className="mt-2 text-xs text-amber-600">
+              ⚠️ Ne partagez pas cette valeur. Elle est chiffrée en base de
+              données.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
