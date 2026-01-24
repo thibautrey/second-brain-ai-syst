@@ -1,6 +1,7 @@
 import prisma from "./prisma.js";
 import { websocketBroadcast } from "./websocket-broadcast.js";
 import type { NotificationType, NotificationChannel } from "@prisma/client";
+import axios from "axios";
 
 export interface CreateNotificationInput {
   userId: string;
@@ -86,6 +87,8 @@ class NotificationService {
             return this.sendEmail(notification);
           case "WEBHOOK":
             return this.sendWebhook(notification);
+          case "PUSHOVER":
+            return this.sendPushover(notification);
           default:
             return Promise.resolve();
         }
@@ -149,6 +152,95 @@ class NotificationService {
     console.log(
       `[NotificationService] Webhook notification: ${notification.title}`,
     );
+  }
+
+  /**
+   * Send Pushover notification
+   */
+  private async sendPushover(notification: any) {
+    try {
+      // Get user settings with Pushover credentials
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId: notification.userId },
+      });
+
+      if (!settings?.pushoverUserKey) {
+        console.log(
+          `[NotificationService] Pushover user key not configured for user ${notification.userId}`,
+        );
+        return;
+      }
+
+      // Use user's API token or fall back to a default app token
+      const apiToken =
+        settings.pushoverApiToken || process.env.PUSHOVER_APP_TOKEN;
+
+      if (!apiToken) {
+        console.log(
+          `[NotificationService] Pushover API token not configured`,
+        );
+        return;
+      }
+
+      // Prepare Pushover payload
+      const payload: any = {
+        token: apiToken,
+        user: settings.pushoverUserKey,
+        title: notification.title,
+        message: notification.message,
+      };
+
+      // Add priority based on notification type
+      switch (notification.type) {
+        case "ERROR":
+          payload.priority = 1; // High priority
+          payload.sound = "siren";
+          break;
+        case "WARNING":
+          payload.priority = 0; // Normal priority
+          payload.sound = "pushover";
+          break;
+        case "SUCCESS":
+          payload.priority = -1; // Low priority, no sound
+          payload.sound = "magic";
+          break;
+        default:
+          payload.priority = 0;
+      }
+
+      // Add action URL if available
+      if (notification.actionUrl) {
+        payload.url = notification.actionUrl;
+        payload.url_title = notification.actionLabel || "Open";
+      }
+
+      // Send to Pushover API
+      const response = await axios.post(
+        "https://api.pushover.net/1/messages.json",
+        new URLSearchParams(payload).toString(),
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        },
+      );
+
+      if (response.data.status === 1) {
+        console.log(
+          `[NotificationService] Pushover notification sent: ${notification.title}`,
+        );
+      } else {
+        console.error(
+          `[NotificationService] Pushover error:`,
+          response.data,
+        );
+      }
+    } catch (error: any) {
+      console.error(
+        `[NotificationService] Failed to send Pushover notification:`,
+        error.message,
+      );
+    }
   }
 
   /**
