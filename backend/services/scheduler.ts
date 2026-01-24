@@ -569,9 +569,10 @@ export class SchedulerService {
           await summarizationService.generateSummary(userId, scale, now);
           console.log(`  ✓ Generated ${name} summary for ${userId}`);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If error is about insufficient memories, it's expected - skip silently
         if (
+          error instanceof Error &&
           error.message &&
           error.message.includes("Not enough memories for")
         ) {
@@ -587,7 +588,7 @@ export class SchedulerService {
    * Determine if a summary should be generated based on the last summary date
    */
   private shouldGenerateSummary(
-    lastSummary: any | null,
+    lastSummary: { periodEnd: Date } | null,
     now: Date,
     intervalDays: number,
   ): boolean {
