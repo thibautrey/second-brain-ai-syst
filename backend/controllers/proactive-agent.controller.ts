@@ -18,7 +18,7 @@ export async function runProactiveAnalysis(
   next: NextFunction,
 ) {
   try {
-    const userId = req.user?.userId;
+    const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -59,7 +59,7 @@ export async function runHealthCheck(
   next: NextFunction,
 ) {
   try {
-    const userId = req.user?.userId;
+    const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -94,7 +94,7 @@ export async function getProactiveStatus(
   next: NextFunction,
 ) {
   try {
-    const userId = req.user?.userId;
+    const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -123,7 +123,7 @@ export async function getProactiveStatus(
         id: s.id,
         createdAt: s.createdAt,
         sourceType: s.sourceType,
-        suggestionsCount: s.metadata?.suggestionsCount || 0,
+        suggestionsCount: (s.metadata as any)?.suggestionsCount || 0,
         tags: s.tags,
       })),
     });
