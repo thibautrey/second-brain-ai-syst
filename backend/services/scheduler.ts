@@ -58,11 +58,11 @@ export class SchedulerService {
    * Register default scheduled tasks
    */
   private registerDefaultTasks(): void {
-    // Daily summarization - runs at 2 AM
+    // Daily summarization - runs at midnight
     this.registerTask({
       id: "daily-summarization",
       name: "Daily Memory Summarization",
-      cronExpression: "0 2 * * *", // 2:00 AM daily
+      cronExpression: "0 0 * * *", // Midnight daily
       lastRun: null,
       nextRun: null,
       isEnabled: true,
@@ -71,11 +71,11 @@ export class SchedulerService {
       },
     });
 
-    // Weekly summarization - runs Sunday at 3 AM
+    // Weekly summarization - runs Sunday at midnight
     this.registerTask({
       id: "weekly-summarization",
       name: "Weekly Memory Summarization",
-      cronExpression: "0 3 * * 0", // 3:00 AM every Sunday
+      cronExpression: "0 0 * * 0", // Midnight every Sunday
       lastRun: null,
       nextRun: null,
       isEnabled: true,
@@ -84,11 +84,11 @@ export class SchedulerService {
       },
     });
 
-    // Monthly summarization - runs 1st of month at 4 AM
+    // Monthly summarization - runs 1st of month at midnight
     this.registerTask({
       id: "monthly-summarization",
       name: "Monthly Memory Summarization",
-      cronExpression: "0 4 1 * *", // 4:00 AM on the 1st
+      cronExpression: "0 0 1 * *", // Midnight on the 1st
       lastRun: null,
       nextRun: null,
       isEnabled: true,
@@ -209,6 +209,11 @@ export class SchedulerService {
     }
 
     console.log(`✓ Scheduler started with ${this.tasks.size} tasks`);
+
+    // Verify and generate missing long-term memory summaries on startup
+    this.verifyAndGenerateMissingSummaries().catch((error) => {
+      console.error("⚠ Error during missing summaries verification:", error);
+    });
   }
 
   /**
@@ -498,6 +503,105 @@ export class SchedulerService {
     } catch (error) {
       console.warn(`  ⚠ Scheduled notifications processing failed:`, error);
     }
+  }
+
+  /**
+   * Verify and generate missing long-term memory summaries on startup
+   */
+  private async verifyAndGenerateMissingSummaries(): Promise<void> {
+    console.log("\n🔍 Verifying long-term memory summaries...");
+
+    try {
+      const users = await prisma.user.findMany({ select: { id: true } });
+
+      for (const user of users) {
+        try {
+          await this.checkAndGenerateMissingSummariesForUser(user.id);
+        } catch (error) {
+          console.warn(
+            `  ⚠ Could not verify summaries for user ${user.id}:`,
+            error,
+          );
+        }
+      }
+
+      console.log("✓ Missing summaries verification completed");
+    } catch (error) {
+      console.error("✗ Failed to verify missing summaries:", error);
+    }
+  }
+
+  /**
+   * Check and generate missing summaries for a specific user
+   */
+  private async checkAndGenerateMissingSummariesForUser(
+    userId: string,
+  ): Promise<void> {
+    const now = new Date();
+
+    // Define the time scales to check with their expected intervals in days
+    const timeScales: Array<{
+      scale: TimeScale;
+      intervalDays: number;
+      name: string;
+    }> = [
+      { scale: TimeScale.DAILY, intervalDays: 1, name: "daily" },
+      { scale: TimeScale.WEEKLY, intervalDays: 7, name: "weekly" },
+      { scale: TimeScale.MONTHLY, intervalDays: 30, name: "monthly" },
+    ];
+
+    for (const { scale, intervalDays, name } of timeScales) {
+      try {
+        // Get the most recent summary of this type
+        const lastSummary = await prisma.summary.findFirst({
+          where: { userId, timeScale: scale },
+          orderBy: { periodEnd: "desc" },
+        });
+
+        const shouldGenerate = this.shouldGenerateSummary(
+          lastSummary,
+          now,
+          intervalDays,
+        );
+
+        if (shouldGenerate) {
+          console.log(`  → Generating missing ${name} summary for ${userId}`);
+          await summarizationService.generateSummary(userId, scale, now);
+          console.log(`  ✓ Generated ${name} summary for ${userId}`);
+        }
+      } catch (error: any) {
+        // If error is about insufficient memories, it's expected - skip silently
+        if (
+          error.message &&
+          error.message.includes("Not enough memories for")
+        ) {
+          // Skip - not enough data yet
+        } else {
+          console.warn(`  ⚠ Error generating ${name} summary:`, error);
+        }
+      }
+    }
+  }
+
+  /**
+   * Determine if a summary should be generated based on the last summary date
+   */
+  private shouldGenerateSummary(
+    lastSummary: any | null,
+    now: Date,
+    intervalDays: number,
+  ): boolean {
+    if (!lastSummary) {
+      // No summary exists - generate one if there's data
+      return true;
+    }
+
+    // Check if enough time has passed since the last summary
+    const daysSinceLastSummary =
+      (now.getTime() - lastSummary.periodEnd.getTime()) /
+      (1000 * 60 * 60 * 24);
+
+    return daysSinceLastSummary >= intervalDays;
   }
 
   // ==================== Utilities ====================
