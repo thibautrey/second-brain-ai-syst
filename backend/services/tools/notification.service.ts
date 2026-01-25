@@ -42,16 +42,65 @@ export interface NotificationListOptions {
 
 export class NotificationService {
   /**
+   * Automatically configure notification channels based on user settings.
+   * If Pushover is configured, it replaces browser PUSH notifications with PUSHOVER
+   * and ensures PUSHOVER is included in the channels list (unless explicitly empty).
+   * 
+   * Note: This method performs a database query to check user settings.
+   * For high-volume scenarios, consider implementing caching of user settings.
+   */
+  private async configureChannels(
+    userId: string,
+    channels?: NotificationChannel[],
+  ): Promise<NotificationChannel[]> {
+    // Get user settings to check if Pushover is configured
+    const userSettings = await prisma.userSettings.findUnique({
+      where: { userId },
+      select: { pushoverUserKey: true },
+    });
+
+    // If channels were explicitly provided (even if empty), use them as base
+    // If not provided (undefined), default to IN_APP
+    let configuredChannels =
+      channels !== undefined ? [...channels] : [NotificationChannel.IN_APP];
+
+    // Only apply Pushover routing if user has it configured AND channels is not explicitly empty
+    if (
+      userSettings?.pushoverUserKey &&
+      userSettings.pushoverUserKey.trim() !== "" &&
+      configuredChannels.length > 0
+    ) {
+      // Replace PUSH channel with PUSHOVER for better mobile notifications
+      configuredChannels = configuredChannels.map((channel) =>
+        channel === NotificationChannel.PUSH
+          ? NotificationChannel.PUSHOVER
+          : channel,
+      );
+
+      // Auto-add PUSHOVER if not already included
+      // This ensures Pushover is always used when configured, unless user explicitly chose no channels
+      if (!configuredChannels.includes(NotificationChannel.PUSHOVER)) {
+        configuredChannels.push(NotificationChannel.PUSHOVER);
+      }
+    }
+
+    return configuredChannels;
+  }
+
+  /**
    * Create and send a notification immediately
    */
   async sendNotification(userId: string, input: CreateNotificationInput) {
+    // Automatically configure channels based on user settings
+    const channels = await this.configureChannels(userId, input.channels);
+
     const notification = await prisma.notification.create({
       data: {
         userId,
         title: input.title,
         message: input.message,
         type: input.type ?? NotificationType.INFO,
-        channels: input.channels ?? [NotificationChannel.IN_APP],
+        channels,
         scheduledFor: null,
         sentAt: new Date(),
         sourceType: input.sourceType,
@@ -76,13 +125,16 @@ export class NotificationService {
       throw new Error("scheduledFor is required for scheduled notifications");
     }
 
+    // Automatically configure channels based on user settings
+    const channels = await this.configureChannels(userId, input.channels);
+
     const notification = await prisma.notification.create({
       data: {
         userId,
         title: input.title,
         message: input.message,
         type: input.type ?? NotificationType.INFO,
-        channels: input.channels ?? [NotificationChannel.IN_APP],
+        channels,
         scheduledFor: input.scheduledFor,
         sentAt: null,
         sourceType: input.sourceType,
