@@ -100,6 +100,20 @@ const defaultTheme = {
       "2xl": "var(--radius-2xl)",
       full: "var(--radius-full)",
     },
+    keyframes: {
+      "accordion-down": {
+        from: { height: "0" },
+        to: { height: "var(--radix-accordion-content-height)" },
+      },
+      "accordion-up": {
+        from: { height: "var(--radix-accordion-content-height)" },
+        to: { height: "0" },
+      },
+    },
+    animation: {
+      "accordion-down": "accordion-down 0.2s ease-out",
+      "accordion-up": "accordion-up 0.2s ease-out",
+    },
   },
   spacing: {
     px: "var(--size-px)",
