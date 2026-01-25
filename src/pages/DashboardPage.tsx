@@ -10,7 +10,6 @@ import {
   Home,
   Brain,
   FileText,
-  BarChart3,
   Mic,
   CheckSquare,
   Calendar,
@@ -118,12 +117,6 @@ export function DashboardPage() {
             label="Interactions"
             onClick={() => navigate("/dashboard/interactions")}
             isActive={activeTab === "interactions"}
-          />
-          <NavItem
-            icon={<BarChart3 className="w-5 h-5" />}
-            label="Analytics"
-            onClick={() => navigate("/dashboard/analytics")}
-            isActive={activeTab === "analytics"}
           />
           <NavItem
             icon={<Mic className="w-5 h-5" />}
@@ -278,12 +271,6 @@ export function DashboardPage() {
                         onClick={() => navigate("/dashboard/memories")}
                       />
                       <QuickStartButton
-                        title="Today's Summary"
-                        description="See today's highlights"
-                        icon="📊"
-                        onClick={() => navigate("/dashboard/analytics")}
-                      />
-                      <QuickStartButton
                         title="Settings"
                         description="Customize your system"
                         icon="⚙️"
@@ -348,22 +335,6 @@ export function DashboardPage() {
                 <div className="p-8 text-center bg-white border rounded-lg shadow border-slate-200">
                   <p className="text-slate-500">
                     Interactions log coming soon...
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "analytics" && (
-              <div>
-                <h2 className="mb-2 text-3xl font-bold text-slate-900">
-                  Analytics
-                </h2>
-                <p className="mb-8 text-slate-600">
-                  Analyze your patterns and insights.
-                </p>
-                <div className="p-8 text-center bg-white border rounded-lg shadow border-slate-200">
-                  <p className="text-slate-500">
-                    Analytics dashboard coming soon...
                   </p>
                 </div>
               </div>

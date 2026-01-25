@@ -8,7 +8,6 @@ import {
   Home,
   Brain,
   FileText,
-  BarChart3,
   Mic,
   MessageSquare,
   Wrench,
@@ -64,12 +63,6 @@ export function DashboardPage() {
             label="Interactions"
             onClick={() => setActiveTab("interactions")}
             isActive={activeTab === "interactions"}
-          />
-          <NavItem
-            icon={<BarChart3 className="w-5 h-5" />}
-            label="Analytics"
-            onClick={() => setActiveTab("analytics")}
-            isActive={activeTab === "analytics"}
           />
           <NavItem
             icon={<Mic className="w-5 h-5" />}
@@ -189,12 +182,6 @@ export function DashboardPage() {
                       onClick={() => setActiveTab("memories")}
                     />
                     <QuickStartButton
-                      title="Today's Summary"
-                      description="See today's highlights"
-                      icon="📊"
-                      onClick={() => setActiveTab("analytics")}
-                    />
-                    <QuickStartButton
                       title="Mes Tâches"
                       description="Gérer mes todos"
                       icon="✅"
@@ -263,22 +250,6 @@ export function DashboardPage() {
               <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
                 <p className="text-slate-500">
                   Interactions log coming soon...
-                </p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "analytics" && (
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                Analytics
-              </h2>
-              <p className="text-slate-600 mb-8">
-                Analyze your patterns and insights.
-              </p>
-              <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
-                <p className="text-slate-500">
-                  Analytics dashboard coming soon...
                 </p>
               </div>
             </div>
