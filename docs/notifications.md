@@ -162,10 +162,34 @@ await notificationService.createNotification({
   title: "Alerte importante",
   message: "Une action est requise",
   type: "WARNING",
+  channels: ["IN_APP"], // L'IA spécifie IN_APP seulement
+});
+// Résultat si Pushover est configuré : ["IN_APP", "PUSHOVER"] (auto-ajouté)
+// Résultat si Pushover n'est pas configuré : ["IN_APP"]
+```
+
+**Exemple avec remplacement PUSH :**
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Alerte importante",
+  message: "Une action est requise",
+  type: "WARNING",
   channels: ["IN_APP", "PUSH"], // L'IA demande PUSH
 });
 // Résultat si Pushover est configuré : ["IN_APP", "PUSHOVER"] (PUSH → PUSHOVER)
 // Résultat si Pushover n'est pas configuré : ["IN_APP", "PUSH"]
+```
+
+**Cas spécial - canaux vides :**
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Notification silencieuse",
+  message: "Stockée en DB seulement",
+  channels: [], // Explicitement aucun canal
+});
+// Résultat : [] (respecte le choix explicite)
 ```
 
 **Avantages :**

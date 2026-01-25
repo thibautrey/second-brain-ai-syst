@@ -44,7 +44,7 @@ export class NotificationService {
   /**
    * Automatically configure notification channels based on user settings.
    * If Pushover is configured, it replaces browser PUSH notifications with PUSHOVER
-   * and ensures PUSHOVER is included in the channels list.
+   * and ensures PUSHOVER is included in the channels list (unless explicitly empty).
    */
   private async configureChannels(
     userId: string,
@@ -56,11 +56,13 @@ export class NotificationService {
       select: { pushoverUserKey: true },
     });
 
-    // Start with provided channels or default to IN_APP
-    let configuredChannels = channels ?? [NotificationChannel.IN_APP];
+    // If channels were explicitly provided (even if empty), use them as base
+    // If not provided (undefined), default to IN_APP
+    let configuredChannels =
+      channels !== undefined ? [...channels] : [NotificationChannel.IN_APP];
 
-    // If Pushover is configured, use it instead of browser push notifications
-    if (userSettings?.pushoverUserKey) {
+    // Only apply Pushover routing if user has it configured AND channels is not explicitly empty
+    if (userSettings?.pushoverUserKey && configuredChannels.length > 0) {
       // Replace PUSH channel with PUSHOVER for better mobile notifications
       configuredChannels = configuredChannels.map((channel) =>
         channel === NotificationChannel.PUSH
@@ -69,6 +71,7 @@ export class NotificationService {
       );
 
       // Auto-add PUSHOVER if not already included
+      // This ensures Pushover is always used when configured, unless user explicitly chose no channels
       if (!configuredChannels.includes(NotificationChannel.PUSHOVER)) {
         configuredChannels.push(NotificationChannel.PUSHOVER);
       }
