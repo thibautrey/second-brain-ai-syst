@@ -311,19 +311,28 @@ export function DashboardPage() {
                             title="View Memories"
                             description="Browse your knowledge base"
                             icon="🧠"
-                            onClick={() => navigate("/dashboard/memories")}
+                            onClick={() => {
+                              navigate("/dashboard/memories");
+                              if (isMobile) setSidebarOpen(false);
+                            }}
                           />
                           <QuickStartButton
                             title="Today's Summary"
                             description="See today's highlights"
                             icon="📊"
-                            onClick={() => navigate("/dashboard/analytics")}
+                            onClick={() => {
+                              navigate("/dashboard/analytics");
+                              if (isMobile) setSidebarOpen(false);
+                            }}
                           />
                           <QuickStartButton
                             title="Settings"
                             description="Customize your system"
                             icon="⚙️"
-                            onClick={() => navigate("/dashboard/settings")}
+                            onClick={() => {
+                              navigate("/dashboard/settings");
+                              if (isMobile) setSidebarOpen(false);
+                            }}
                           />
                         </div>
                       </div>
