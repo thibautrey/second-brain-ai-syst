@@ -28,11 +28,20 @@ import { NotificationTestPage } from "./NotificationTestPage";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useRecentActivity } from "../hooks/useRecentActivity";
 
+// Breakpoint for mobile/desktop distinction (Tailwind's lg breakpoint)
+const DESKTOP_BREAKPOINT = 1024;
+
 export function DashboardPage() {
   const navigate = useNavigate();
   const { tab } = useParams();
   const { user, logout } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Initialize sidebar state based on screen size (closed on mobile, open on desktop)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // Check if window is defined (for safety, though not SSR in this Vite app)
+    if (typeof window === "undefined") return false;
+    // Default to closed on mobile, open on desktop
+    return window.innerWidth >= DESKTOP_BREAKPOINT;
+  });
   const activeTab = tab || "dashboard";
   const { totalMemories, totalInteractions, dailySummaries, isLoading, error } =
     useDashboardStats();
@@ -41,6 +50,35 @@ export function DashboardPage() {
     isLoading: activityLoading,
     error: activityError,
   } = useRecentActivity(10);
+
+  // Handle window resize to update sidebar state on screen size changes
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const handleResize = () => {
+      // Debounce resize events to avoid excessive state updates
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
+        // Only update state if it actually needs to change
+        setSidebarOpen((prevOpen) => {
+          if (prevOpen !== isDesktop) {
+            return isDesktop;
+          }
+          return prevOpen;
+        });
+      }, 150);
+    };
+
+    // Add event listener for window resize
+    window.addEventListener("resize", handleResize);
+
+    // Cleanup event listener and timeout on component unmount
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   function handleLogout() {
     logout();
