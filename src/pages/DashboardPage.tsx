@@ -32,7 +32,11 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const { tab } = useParams();
   const { user, logout } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Initialize sidebar state based on screen size (closed on mobile, open on desktop)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // Default to closed on mobile (< 1024px), open on desktop
+    return window.innerWidth >= 1024;
+  });
   const activeTab = tab || "dashboard";
   const { totalMemories, totalInteractions, dailySummaries, isLoading, error } =
     useDashboardStats();
@@ -41,6 +45,21 @@ export function DashboardPage() {
     isLoading: activityLoading,
     error: activityError,
   } = useRecentActivity(10);
+
+  // Handle window resize to update sidebar state on screen size changes
+  useEffect(() => {
+    const handleResize = () => {
+      // Auto-close sidebar on mobile, auto-open on desktop
+      const isDesktop = window.innerWidth >= 1024;
+      setSidebarOpen(isDesktop);
+    };
+
+    // Add event listener for window resize
+    window.addEventListener("resize", handleResize);
+
+    // Cleanup event listener on component unmount
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   function handleLogout() {
     logout();
