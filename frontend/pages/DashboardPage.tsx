@@ -13,11 +13,14 @@ import {
   Wrench,
   CheckSquare,
   Calendar,
+  Target,
+  Trophy,
 } from "lucide-react";
 import { useState } from "react";
 import { ToolsConfigPage } from "./ToolsConfigPage";
 import { TodoList } from "../components/todos";
 import { ScheduleList } from "../components/schedule";
+import { GoalsList, AchievementsList } from "../components/goals-achievements";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -87,6 +90,18 @@ export function DashboardPage() {
             label="Planifications"
             onClick={() => setActiveTab("schedule")}
             isActive={activeTab === "schedule"}
+          />
+          <NavItem
+            icon={<Target className="w-5 h-5" />}
+            label="Goals"
+            onClick={() => setActiveTab("goals")}
+            isActive={activeTab === "goals"}
+          />
+          <NavItem
+            icon={<Trophy className="w-5 h-5" />}
+            label="Achievements"
+            onClick={() => setActiveTab("achievements")}
+            isActive={activeTab === "achievements"}
           />
           <NavItem
             icon={<Wrench className="w-5 h-5" />}
@@ -283,6 +298,10 @@ export function DashboardPage() {
           {activeTab === "todos" && <TodoList />}
 
           {activeTab === "schedule" && <ScheduleList />}
+
+          {activeTab === "goals" && <GoalsList />}
+
+          {activeTab === "achievements" && <AchievementsList />}
 
           {activeTab === "tools" && <ToolsConfigPage />}
 

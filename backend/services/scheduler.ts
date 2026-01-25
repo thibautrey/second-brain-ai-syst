@@ -222,6 +222,19 @@ export class SchedulerService {
         await this.runHealthCheck();
       },
     });
+
+    // Goals & Achievements analysis - runs daily at 11 PM
+    this.registerTask({
+      id: "goals-achievements-analysis",
+      name: "Goals & Achievements Analysis",
+      cronExpression: "0 23 * * *", // 11:00 PM daily
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runGoalsAchievementsAnalysis();
+      },
+    });
   }
 
   /**
@@ -628,6 +641,29 @@ export class SchedulerService {
         }
       } catch (error) {
         console.warn(`  ⚠ Health check failed for ${user.id}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Run goals & achievements analysis
+   */
+  private async runGoalsAchievementsAnalysis(): Promise<void> {
+    const users = await prisma.user.findMany({ select: { id: true } });
+    
+    // Lazy load the agent
+    const { goalsAchievementsAgent } = await import("./goals-achievements-agent.js");
+
+    for (const user of users) {
+      try {
+        const result = await goalsAchievementsAgent.runFullAnalysis(user.id, 7);
+        if (result.success) {
+          console.log(
+            `  ✓ Goals analysis: ${result.goalsDetected} new goals, ${result.achievementsUnlocked} achievements unlocked for user ${user.id}`,
+          );
+        }
+      } catch (error) {
+        console.warn(`  ⚠ Goals analysis failed for ${user.id}:`, error);
       }
     }
   }

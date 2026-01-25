@@ -810,6 +810,86 @@ console.log("🔐 Secrets routes enabled at /api/secrets");
 app.use("/api/generated-tools", generatedToolsController);
 console.log("🤖 Generated tools routes enabled at /api/generated-tools");
 
+// ==================== Goals Routes ====================
+
+import { goalsController } from "../controllers/goals.controller.js";
+
+app.get("/api/goals", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.listGoals(req, res);
+});
+
+app.get("/api/goals/stats", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.getStats(req, res);
+});
+
+app.get("/api/goals/categories", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.getCategories(req, res);
+});
+
+app.get("/api/goals/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.getGoal(req, res);
+});
+
+app.post("/api/goals", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.createGoal(req, res);
+});
+
+app.patch("/api/goals/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.updateGoal(req, res);
+});
+
+app.delete("/api/goals/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.deleteGoal(req, res);
+});
+
+app.patch("/api/goals/:id/progress", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.updateProgress(req, res);
+});
+
+app.post("/api/goals/:id/milestones", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await goalsController.addMilestone(req, res);
+});
+
+console.log("🎯 Goals routes enabled at /api/goals");
+
+// ==================== Achievements Routes ====================
+
+import { achievementsController } from "../controllers/achievements.controller.js";
+
+app.get("/api/achievements", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await achievementsController.listAchievements(req, res);
+});
+
+app.get("/api/achievements/stats", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await achievementsController.getStats(req, res);
+});
+
+app.get("/api/achievements/categories", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await achievementsController.getCategories(req, res);
+});
+
+app.get("/api/achievements/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await achievementsController.getAchievement(req, res);
+});
+
+app.post("/api/achievements", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await achievementsController.createAchievement(req, res);
+});
+
+app.patch("/api/achievements/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await achievementsController.updateAchievement(req, res);
+});
+
+app.delete("/api/achievements/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await achievementsController.deleteAchievement(req, res);
+});
+
+app.post("/api/achievements/:id/unlock", authMiddleware, async (req: AuthRequest, res: Response) => {
+  await achievementsController.unlockAchievement(req, res);
+});
+
+console.log("🏆 Achievements routes enabled at /api/achievements");
+
 // ==================== Notification Routes ====================
 
 // Create notification (for AI)
