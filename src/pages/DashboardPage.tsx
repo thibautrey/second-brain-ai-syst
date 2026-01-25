@@ -16,7 +16,7 @@ import {
   Wrench,
   Bell,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TrainingPage } from "./TrainingPage";
 import { SettingsPage } from "./SettingsPage";
 import { MemoryBrowser } from "../components/memory";
@@ -27,6 +27,7 @@ import { NotificationTestPage } from "./NotificationTestPage";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useIsMobile } from "../hooks/use-mobile";
+import { MobileDashboard } from "../components/dashboard/MobileDashboard";
 
 // Breakpoint for mobile/desktop distinction (Tailwind's lg breakpoint)
 const DESKTOP_BREAKPOINT = 1024;
@@ -35,14 +36,18 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const { tab } = useParams();
   const { user, logout } = useAuth();
-  // Initialize sidebar state based on screen size (closed on mobile, open on desktop)
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    // Check if window is defined (for safety, though not SSR in this Vite app)
-    if (typeof window === "undefined") return false;
-    // Default to closed on mobile, open on desktop
-    return window.innerWidth >= DESKTOP_BREAKPOINT;
-  });
   const isMobile = useIsMobile();
+  // Initialize sidebar state based on screen size to avoid flash on mobile
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // SSR-safe: window is not available during server rendering
+    if (typeof window === "undefined") {
+      return true;
+    }
+    // Match common Tailwind md breakpoint (768px): open on desktop, closed on mobile
+    return window.innerWidth >= 768;
+  });
+  // Track if user manually toggled sidebar to respect their preference
+  const userToggledSidebar = useRef(false);
   const activeTab = tab || "dashboard";
   const { totalMemories, totalInteractions, dailySummaries, isLoading, error } =
     useDashboardStats();
@@ -52,38 +57,23 @@ export function DashboardPage() {
     error: activityError,
   } = useRecentActivity(10);
 
-  // Handle window resize to update sidebar state on screen size changes
+  // Only auto-close sidebar on mobile if user hasn't manually toggled it
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    const handleResize = () => {
-      // Debounce resize events to avoid excessive state updates
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
-        // Only update state if it actually needs to change
-        setSidebarOpen((prevOpen) => {
-          if (prevOpen !== isDesktop) {
-            return isDesktop;
-          }
-          return prevOpen;
-        });
-      }, 150);
-    };
-
-    // Add event listener for window resize
-    window.addEventListener("resize", handleResize);
-
-    // Cleanup event listener and timeout on component unmount
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
+    if (isMobile && !userToggledSidebar.current) {
+      setSidebarOpen(false);
+    } else if (!isMobile && !userToggledSidebar.current) {
+      setSidebarOpen(true);
+    }
+  }, [isMobile]);
 
   function handleLogout() {
     logout();
     navigate("/login");
+  }
+
+  function handleSidebarToggle() {
+    setSidebarOpen(!sidebarOpen);
+    userToggledSidebar.current = true;
   }
 
   return (
@@ -179,8 +169,10 @@ export function DashboardPage() {
           className={`fixed top-0 flex items-center gap-4 p-4 bg-white border-b border-slate-200 z-40 ${sidebarOpen ? "left-64" : "left-0"} right-0 transition-all duration-300`}
         >
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            onClick={handleSidebarToggle}
             className="p-2 transition-colors rounded-lg hover:bg-slate-100"
+            aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={sidebarOpen}
           >
             <Menu className="w-5 h-5 text-slate-700" />
           </button>
@@ -213,96 +205,19 @@ export function DashboardPage() {
               <>
                 {isMobile ? (
                   // Mobile Dashboard - Simple and Slick
-                  <div className="space-y-6">
-                    {/* Mobile Header */}
-                    <div className="text-center">
-                      <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                        Welcome back!
-                      </h2>
-                      <p className="text-sm text-slate-600">
-                        {user?.name || user?.email?.split("@")[0]}
-                      </p>
-                    </div>
-
-                    {/* Key Insights - Text Format */}
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
-                      <h3 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">
-                        Your Second Brain
-                      </h3>
-                      {error && (
-                        <div className="p-3 mb-4 text-sm text-red-700 border border-red-200 rounded-lg bg-red-50">
-                          {error}
-                        </div>
-                      )}
-                      <div className="space-y-2 text-sm">
-                        <InsightLine
-                          icon="📚"
-                          label="Memories captured"
-                          value={isLoading ? "..." : totalMemories}
-                        />
-                        <InsightLine
-                          icon="💬"
-                          label="Interactions logged"
-                          value={isLoading ? "..." : totalInteractions}
-                        />
-                        <InsightLine
-                          icon="📝"
-                          label="Daily summaries"
-                          value={isLoading ? "..." : dailySummaries}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Primary Actions */}
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1">
-                        Quick Actions
-                      </h3>
-                      <MobileActionButton
-                        icon="🎤"
-                        title="Record Thought"
-                        description="Capture your ideas now"
-                        onClick={() => {}}
-                        variant="primary"
-                      />
-                      <MobileActionButton
-                        icon="🧠"
-                        title="View Memories"
-                        description="Browse your knowledge"
-                        onClick={() => navigate("/dashboard/memories")}
-                      />
-                      <QuickStartButton
-                        title="Settings"
-                        description="Customize your system"
-                        icon="⚙️"
-                        onClick={() => navigate("/dashboard/settings")}
-                      />
-                    </div>
-
-                    {/* Recent Activity - Minimal */}
-                    {!activityLoading && recentActivityItems.length > 0 && (
-                      <div className="bg-white rounded-xl p-5 border border-slate-200">
-                        <h3 className="text-sm font-semibold text-slate-700 mb-3">
-                          Recent Activity
-                        </h3>
-                        {activityError && (
-                          <div className="p-2 text-xs text-orange-700 bg-orange-50 rounded border border-orange-200 mb-3">
-                            {activityError}
-                          </div>
-                        )}
-                        <div className="space-y-3">
-                          {recentActivityItems.slice(0, 3).map((item) => (
-                            <MobileActivityItem
-                              key={item.id}
-                              title={item.title}
-                              time={formatTimeAgo(item.timestamp)}
-                              icon={item.icon}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <MobileDashboard
+                    user={user}
+                    totalMemories={totalMemories}
+                    totalInteractions={totalInteractions}
+                    dailySummaries={dailySummaries}
+                    isLoading={isLoading}
+                    error={error}
+                    recentActivityItems={recentActivityItems}
+                    activityLoading={activityLoading}
+                    activityError={activityError}
+                    formatTimeAgo={formatTimeAgo}
+                    navigate={navigate}
+                  />
                 ) : (
                   // Desktop Dashboard - Original Layout
                   <>
@@ -587,87 +502,4 @@ function formatTimeAgo(date: Date): string {
 
   const months = Math.floor(diffDays / 30);
   return `${months}mo ago`;
-}
-
-// Mobile-specific components
-function InsightLine({
-  icon,
-  label,
-  value,
-}: {
-  icon: string;
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="flex items-center justify-between py-2">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{icon}</span>
-        <span className="text-slate-700">{label}</span>
-      </div>
-      <span className="font-bold text-slate-900 text-lg">{value}</span>
-    </div>
-  );
-}
-
-function MobileActionButton({
-  icon,
-  title,
-  description,
-  onClick,
-  variant = "default",
-}: {
-  icon: string;
-  title: string;
-  description: string;
-  onClick?: () => void;
-  variant?: "primary" | "default";
-}) {
-  const isPrimary = variant === "primary";
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-        isPrimary
-          ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400 text-white shadow-lg hover:shadow-xl"
-          : "bg-white border-slate-200 hover:border-blue-300 hover:bg-blue-50"
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <div className="text-2xl">{icon}</div>
-        <div className="flex-1">
-          <p
-            className={`font-semibold text-base ${isPrimary ? "text-white" : "text-slate-900"}`}
-          >
-            {title}
-          </p>
-          <p
-            className={`text-sm mt-0.5 ${isPrimary ? "text-blue-100" : "text-slate-500"}`}
-          >
-            {description}
-          </p>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function MobileActivityItem({
-  title,
-  time,
-  icon = "📌",
-}: {
-  title: string;
-  time: string;
-  icon?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 pb-2 border-b border-slate-100 last:border-0">
-      <div className="text-base">{icon}</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-slate-900 truncate">{title}</p>
-      </div>
-      <p className="text-xs text-slate-400 whitespace-nowrap">{time}</p>
-    </div>
-  );
 }
