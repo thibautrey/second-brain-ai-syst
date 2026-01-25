@@ -100,6 +100,9 @@ model UserSettings {
     // Format: JSON object with flexible structure maintained by the AI
     userProfile Json @default("{}")
 
+    // Metadata - Additional flexible metadata (e.g., lastGoalsCleanup timestamp)
+    metadata Json @default("{}")
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
