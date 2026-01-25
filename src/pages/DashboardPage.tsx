@@ -26,6 +26,7 @@ import { ToolsConfigPage } from "./ToolsConfigPage";
 import { NotificationTestPage } from "./NotificationTestPage";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useRecentActivity } from "../hooks/useRecentActivity";
+import { useIsMobile } from "../hooks/use-mobile";
 
 // Breakpoint for mobile/desktop distinction (Tailwind's lg breakpoint)
 const DESKTOP_BREAKPOINT = 1024;
@@ -41,6 +42,7 @@ export function DashboardPage() {
     // Default to closed on mobile, open on desktop
     return window.innerWidth >= DESKTOP_BREAKPOINT;
   });
+  const isMobile = useIsMobile();
   const activeTab = tab || "dashboard";
   const { totalMemories, totalInteractions, dailySummaries, isLoading, error } =
     useDashboardStats();
@@ -187,16 +189,16 @@ export function DashboardPage() {
 
           <div className="flex items-center gap-4">
             {/* Continuous Listening Button */}
-            <ContinuousListeningCompact />
+            {!isMobile && <ContinuousListeningCompact />}
 
             {/* Training Progress Widget */}
-            <TrainingProgressWidget />
+            {!isMobile && <TrainingProgressWidget />}
 
             <div className="text-right">
               <p className="text-sm font-medium text-slate-900">
                 {user?.name || user?.email}
               </p>
-              <p className="text-xs text-slate-500">{user?.email}</p>
+              {!isMobile && <p className="text-xs text-slate-500">{user?.email}</p>}
             </div>
             <div className="flex items-center justify-center w-10 h-10 font-semibold text-white rounded-full bg-linear-to-br from-blue-400 to-blue-600">
               {(user?.name || user?.email)?.charAt(0).toUpperCase()}
@@ -205,69 +207,68 @@ export function DashboardPage() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-8 pt-24 overflow-auto">
+        <div className={`flex-1 overflow-auto ${isMobile ? "p-4 pt-20" : "p-8 pt-24"}`}>
           <div className="max-w-6xl mx-auto">
             {activeTab === "dashboard" && (
               <>
-                <h2 className="mb-2 text-3xl font-bold text-slate-900">
-                  Welcome back, {user?.name}!
-                </h2>
-                <p className="mb-8 text-slate-600">
-                  Your personal cognitive operating system is ready to enhance
-                  your memory and reasoning.
-                </p>
+                {isMobile ? (
+                  // Mobile Dashboard - Simple and Slick
+                  <div className="space-y-6">
+                    {/* Mobile Header */}
+                    <div className="text-center">
+                      <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                        Welcome back!
+                      </h2>
+                      <p className="text-sm text-slate-600">
+                        {user?.name || user?.email?.split("@")[0]}
+                      </p>
+                    </div>
 
-                {/* Error Display */}
-                {error && (
-                  <div className="p-4 mb-6 text-red-700 border border-red-200 rounded-lg bg-red-50">
-                    <p className="font-medium">
-                      Error loading dashboard stats:
-                    </p>
-                    <p className="text-sm">{error}</p>
-                  </div>
-                )}
+                    {/* Key Insights - Text Format */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+                      <h3 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">
+                        Your Second Brain
+                      </h3>
+                      {error && (
+                        <div className="p-3 mb-4 text-sm text-red-700 border border-red-200 rounded-lg bg-red-50">
+                          {error}
+                        </div>
+                      )}
+                      <div className="space-y-2 text-sm">
+                        <InsightLine
+                          icon="📚"
+                          label="Memories captured"
+                          value={isLoading ? "..." : totalMemories}
+                        />
+                        <InsightLine
+                          icon="💬"
+                          label="Interactions logged"
+                          value={isLoading ? "..." : totalInteractions}
+                        />
+                        <InsightLine
+                          icon="📝"
+                          label="Daily summaries"
+                          value={isLoading ? "..." : dailySummaries}
+                        />
+                      </div>
+                    </div>
 
-                {/* Dashboard Grid */}
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {/* Stats Card */}
-                  <DashboardCard
-                    title="Total Memories"
-                    value={isLoading ? "..." : String(totalMemories)}
-                    description="Memories captured"
-                    icon="📚"
-                    isLoading={isLoading}
-                  />
-                  <DashboardCard
-                    title="Interactions"
-                    value={isLoading ? "..." : String(totalInteractions)}
-                    description="Interactions logged"
-                    icon="💬"
-                    isLoading={isLoading}
-                  />
-                  <DashboardCard
-                    title="Daily Summaries"
-                    value={isLoading ? "..." : String(dailySummaries)}
-                    description="Summaries generated"
-                    icon="📝"
-                    isLoading={isLoading}
-                  />
-
-                  {/* Quick Start */}
-                  <div className="p-6 bg-white border rounded-lg shadow md:col-span-3 border-slate-200">
-                    <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                      Quick Start
-                    </h3>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                      <QuickStartButton
-                        title="Record Thought"
-                        description="Capture your current thoughts"
+                    {/* Primary Actions */}
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1">
+                        Quick Actions
+                      </h3>
+                      <MobileActionButton
                         icon="🎤"
+                        title="Record Thought"
+                        description="Capture your ideas now"
                         onClick={() => {}}
+                        variant="primary"
                       />
-                      <QuickStartButton
-                        title="View Memories"
-                        description="Browse your knowledge base"
+                      <MobileActionButton
                         icon="🧠"
+                        title="View Memories"
+                        description="Browse your knowledge"
                         onClick={() => navigate("/dashboard/memories")}
                       />
                       <QuickStartButton
@@ -277,48 +278,152 @@ export function DashboardPage() {
                         onClick={() => navigate("/dashboard/settings")}
                       />
                     </div>
-                  </div>
 
-                  {/* Recent Activity */}
-                  <div className="p-6 bg-white border rounded-lg shadow md:col-span-3 border-slate-200">
-                    <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                      Recent Activity
-                    </h3>
-                    {activityError && (
-                      <div className="p-3 text-sm text-orange-700 bg-orange-50 rounded border border-orange-200">
-                        {activityError}
+                    {/* Recent Activity - Minimal */}
+                    {!activityLoading && recentActivityItems.length > 0 && (
+                      <div className="bg-white rounded-xl p-5 border border-slate-200">
+                        <h3 className="text-sm font-semibold text-slate-700 mb-3">
+                          Recent Activity
+                        </h3>
+                        {activityError && (
+                          <div className="p-2 text-xs text-orange-700 bg-orange-50 rounded border border-orange-200 mb-3">
+                            {activityError}
+                          </div>
+                        )}
+                        <div className="space-y-3">
+                          {recentActivityItems.slice(0, 3).map((item) => (
+                            <MobileActivityItem
+                              key={item.id}
+                              title={item.title}
+                              time={formatTimeAgo(item.timestamp)}
+                              icon={item.icon}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    )}
-                    {activityLoading ? (
-                      <div className="space-y-3">
-                        {[...Array(3)].map((_, i) => (
-                          <div
-                            key={i}
-                            className="h-12 bg-slate-100 rounded animate-pulse"
-                          />
-                        ))}
-                      </div>
-                    ) : recentActivityItems.length > 0 ? (
-                      <div className="space-y-3">
-                        {recentActivityItems.map((item) => (
-                          <ActivityItem
-                            key={item.id}
-                            title={item.title}
-                            description={item.description}
-                            time={formatTimeAgo(item.timestamp)}
-                            icon={item.icon}
-                            type={item.type}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-slate-500 py-4">
-                        No recent activity yet. Start by capturing your thoughts
-                        or creating tasks!
-                      </p>
                     )}
                   </div>
-                </div>
+                ) : (
+                  // Desktop Dashboard - Original Layout
+                  <>
+                    <h2 className="mb-2 text-3xl font-bold text-slate-900">
+                      Welcome back, {user?.name}!
+                    </h2>
+                    <p className="mb-8 text-slate-600">
+                      Your personal cognitive operating system is ready to enhance
+                      your memory and reasoning.
+                    </p>
+
+                    {/* Error Display */}
+                    {error && (
+                      <div className="p-4 mb-6 text-red-700 border border-red-200 rounded-lg bg-red-50">
+                        <p className="font-medium">
+                          Error loading dashboard stats:
+                        </p>
+                        <p className="text-sm">{error}</p>
+                      </div>
+                    )}
+
+                    {/* Dashboard Grid */}
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {/* Stats Card */}
+                      <DashboardCard
+                        title="Total Memories"
+                        value={isLoading ? "..." : String(totalMemories)}
+                        description="Memories captured"
+                        icon="📚"
+                        isLoading={isLoading}
+                      />
+                      <DashboardCard
+                        title="Interactions"
+                        value={isLoading ? "..." : String(totalInteractions)}
+                        description="Interactions logged"
+                        icon="💬"
+                        isLoading={isLoading}
+                      />
+                      <DashboardCard
+                        title="Daily Summaries"
+                        value={isLoading ? "..." : String(dailySummaries)}
+                        description="Summaries generated"
+                        icon="📝"
+                        isLoading={isLoading}
+                      />
+
+                      {/* Quick Start */}
+                      <div className="p-6 bg-white border rounded-lg shadow md:col-span-3 border-slate-200">
+                        <h3 className="mb-4 text-lg font-semibold text-slate-900">
+                          Quick Start
+                        </h3>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                          <QuickStartButton
+                            title="Record Thought"
+                            description="Capture your current thoughts"
+                            icon="🎤"
+                            onClick={() => {}}
+                          />
+                          <QuickStartButton
+                            title="View Memories"
+                            description="Browse your knowledge base"
+                            icon="🧠"
+                            onClick={() => navigate("/dashboard/memories")}
+                          />
+                          <QuickStartButton
+                            title="Today's Summary"
+                            description="See today's highlights"
+                            icon="📊"
+                            onClick={() => navigate("/dashboard/analytics")}
+                          />
+                          <QuickStartButton
+                            title="Settings"
+                            description="Customize your system"
+                            icon="⚙️"
+                            onClick={() => navigate("/dashboard/settings")}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Recent Activity */}
+                      <div className="p-6 bg-white border rounded-lg shadow md:col-span-3 border-slate-200">
+                        <h3 className="mb-4 text-lg font-semibold text-slate-900">
+                          Recent Activity
+                        </h3>
+                        {activityError && (
+                          <div className="p-3 text-sm text-orange-700 bg-orange-50 rounded border border-orange-200">
+                            {activityError}
+                          </div>
+                        )}
+                        {activityLoading ? (
+                          <div className="space-y-3">
+                            {[...Array(3)].map((_, i) => (
+                              <div
+                                key={i}
+                                className="h-12 bg-slate-100 rounded animate-pulse"
+                              />
+                            ))}
+                          </div>
+                        ) : recentActivityItems.length > 0 ? (
+                          <div className="space-y-3">
+                            {recentActivityItems.map((item) => (
+                              <ActivityItem
+                                key={item.id}
+                                title={item.title}
+                                description={item.description}
+                                time={formatTimeAgo(item.timestamp)}
+                                icon={item.icon}
+                                type={item.type}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-slate-500 py-4">
+                            No recent activity yet. Start by capturing your thoughts
+                            or creating tasks!
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
@@ -482,4 +587,87 @@ function formatTimeAgo(date: Date): string {
 
   const months = Math.floor(diffDays / 30);
   return `${months}mo ago`;
+}
+
+// Mobile-specific components
+function InsightLine({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{icon}</span>
+        <span className="text-slate-700">{label}</span>
+      </div>
+      <span className="font-bold text-slate-900 text-lg">{value}</span>
+    </div>
+  );
+}
+
+function MobileActionButton({
+  icon,
+  title,
+  description,
+  onClick,
+  variant = "default",
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  onClick?: () => void;
+  variant?: "primary" | "default";
+}) {
+  const isPrimary = variant === "primary";
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+        isPrimary
+          ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400 text-white shadow-lg hover:shadow-xl"
+          : "bg-white border-slate-200 hover:border-blue-300 hover:bg-blue-50"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="text-2xl">{icon}</div>
+        <div className="flex-1">
+          <p
+            className={`font-semibold text-base ${isPrimary ? "text-white" : "text-slate-900"}`}
+          >
+            {title}
+          </p>
+          <p
+            className={`text-sm mt-0.5 ${isPrimary ? "text-blue-100" : "text-slate-500"}`}
+          >
+            {description}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function MobileActivityItem({
+  title,
+  time,
+  icon = "📌",
+}: {
+  title: string;
+  time: string;
+  icon?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 pb-2 border-b border-slate-100 last:border-0">
+      <div className="text-base">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-slate-900 truncate">{title}</p>
+      </div>
+      <p className="text-xs text-slate-400 whitespace-nowrap">{time}</p>
+    </div>
+  );
 }
