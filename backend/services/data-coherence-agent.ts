@@ -12,13 +12,15 @@
 
 import prisma from "./prisma.js";
 import { llmRouterService } from "./llm-router.js";
-import { notificationService } from "./notification.js";
+import { notificationService } from "./tools/notification.service.js";
 import { TodoStatus, GoalStatus } from "@prisma/client";
 
 // Configuration constants
 const COHERENCE_CHECK_LOOKBACK_DAYS = 14; // Look back 14 days for pattern analysis
 const MIN_CONFIDENCE_FOR_SUGGESTION = 0.7;
 const MAX_QUESTIONS_PER_RUN = 3; // Don't overwhelm the user
+const MAX_MEMORIES_FOR_ANALYSIS = 30; // Limit memory context to avoid token limits
+const MIN_HOURS_BETWEEN_STORAGE = 2; // Only store results if at least 2 hours have passed
 
 export interface CoherenceAgentResult {
   agentId: string;
@@ -179,7 +181,7 @@ export class DataCoherenceAgentService {
             isArchived: false,
           },
           orderBy: { createdAt: "desc" },
-          take: 100,
+          take: MAX_MEMORIES_FOR_ANALYSIS,
         }),
         prisma.scheduledTask.findMany({
           where: {
@@ -308,8 +310,8 @@ export class DataCoherenceAgentService {
 
     // Recent Memories (sample for context)
     context += "## Recent Memories (Sample)\n\n";
-    const recentMemories = memories.slice(0, 20);
-    recentMemories.forEach((memory, i) => {
+    // Use all fetched memories for context
+    memories.forEach((memory, i) => {
       const date = memory.createdAt.toISOString().split('T')[0];
       context += `[${i + 1}] ${date}: ${memory.content.substring(0, 200)}${memory.content.length > 200 ? '...' : ''}\n`;
     });
@@ -426,27 +428,49 @@ export class DataCoherenceAgentService {
       }
     }
 
-    // Store analysis result as a memory for future reference
+    // Store analysis result as a memory for future reference, but only if:
+    // 1. There are significant issues or questions
+    // 2. Enough time has passed since the last coherence check memory (avoid spam)
     if (significantIssues.length > 0 || questionsResult.questions.length > 0) {
-      const content = this.formatResultsAsMarkdown(coherenceResult, questionsResult);
-      
-      await prisma.memory.create({
-        data: {
+      // Check for recent coherence check memories
+      const recentCoherenceCheck = await prisma.memory.findFirst({
+        where: {
           userId,
-          content,
-          type: "LONG_TERM",
-          timeScale: "DAILY",
           sourceType: "agent:data-coherence",
-          importanceScore: 0.7,
-          tags: ["coherence", "data-quality", "proactive"],
-          metadata: {
-            agentId: "data-coherence",
-            issuesFound: significantIssues.length,
-            questionsAsked: questionsResult.questions.length,
-            suggestionsCount: coherenceResult.suggestions?.length || 0,
+          createdAt: {
+            gte: new Date(Date.now() - MIN_HOURS_BETWEEN_STORAGE * 60 * 60 * 1000),
           },
         },
+        orderBy: { createdAt: "desc" },
       });
+
+      // Only store if no recent coherence check or if there are high-priority items
+      const hasHighPriorityItems = 
+        significantIssues.some((i: CoherenceIssue) => i.severity === "high") ||
+        questionsResult.questions.some((q: ProactiveQuestion) => q.priority === "high");
+
+      if (!recentCoherenceCheck || hasHighPriorityItems) {
+        const content = this.formatResultsAsMarkdown(coherenceResult, questionsResult);
+        
+        await prisma.memory.create({
+          data: {
+            userId,
+            content,
+            type: "LONG_TERM",
+            timeScale: "DAILY",
+            sourceType: "agent:data-coherence",
+            importanceScore: hasHighPriorityItems ? 0.8 : 0.6,
+            tags: ["coherence", "data-quality", "proactive"],
+            metadata: {
+              agentId: "data-coherence",
+              issuesFound: significantIssues.length,
+              questionsAsked: questionsResult.questions.length,
+              suggestionsCount: coherenceResult.suggestions?.length || 0,
+              hasHighPriority: hasHighPriorityItems,
+            },
+          },
+        });
+      }
     }
   }
 
