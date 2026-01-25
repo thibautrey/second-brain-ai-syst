@@ -15,6 +15,7 @@ import {
   Calendar,
   Wrench,
   Bell,
+  BarChart3,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { TrainingPage } from "./TrainingPage";
@@ -95,55 +96,91 @@ export function DashboardPage() {
           <NavItem
             icon={<Home className="w-5 h-5" />}
             label="Dashboard"
-            onClick={() => navigate("/dashboard/dashboard")}
+            onClick={() => {
+              navigate("/dashboard/dashboard");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "dashboard"}
           />
           <NavItem
             icon={<Brain className="w-5 h-5" />}
             label="Memories"
-            onClick={() => navigate("/dashboard/memories")}
+            onClick={() => {
+              navigate("/dashboard/memories");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "memories"}
           />
           <NavItem
             icon={<FileText className="w-5 h-5" />}
             label="Interactions"
-            onClick={() => navigate("/dashboard/interactions")}
+            onClick={() => {
+              navigate("/dashboard/interactions");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "interactions"}
           />
           <NavItem
-            icon={<Mic className="w-5 h-5" />}
+            icon={<BarChart3 className="w-5 h-5" />}
+            label="Analytics"
+            onClick={() => {
+              navigate("/dashboard/analytics");
+              if (isMobile) setSidebarOpen(false);
+            }}
+            isActive={activeTab === "analytics"}
+          />
+          <NavItem
+            icon={<Mic className="w-5 h-5" />}}
             label="Voice Training"
-            onClick={() => navigate("/dashboard/training")}
+            onClick={() => {
+              navigate("/dashboard/training");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "training"}
           />
           <NavItem
             icon={<CheckSquare className="w-5 h-5" />}
             label="Tâches"
-            onClick={() => navigate("/dashboard/todos")}
+            onClick={() => {
+              navigate("/dashboard/todos");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "todos"}
           />
           <NavItem
             icon={<Calendar className="w-5 h-5" />}
             label="Planifications"
-            onClick={() => navigate("/dashboard/schedule")}
+            onClick={() => {
+              navigate("/dashboard/schedule");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "schedule"}
           />
           <NavItem
             icon={<Wrench className="w-5 h-5" />}
             label="Tools"
-            onClick={() => navigate("/dashboard/tools")}
+            onClick={() => {
+              navigate("/dashboard/tools");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "tools"}
           />
           <NavItem
             icon={<Bell className="w-5 h-5" />}
             label="Notifications"
-            onClick={() => navigate("/dashboard/notifications")}
+            onClick={() => {
+              navigate("/dashboard/notifications");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "notifications"}
           />
           <NavItem
             icon={<Settings className="w-5 h-5" />}
             label="Settings"
-            onClick={() => navigate("/dashboard/settings")}
+            onClick={() => {
+              navigate("/dashboard/settings");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "settings"}
           />
         </nav>
