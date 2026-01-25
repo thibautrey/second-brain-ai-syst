@@ -45,6 +45,9 @@ export class NotificationService {
    * Automatically configure notification channels based on user settings.
    * If Pushover is configured, it replaces browser PUSH notifications with PUSHOVER
    * and ensures PUSHOVER is included in the channels list (unless explicitly empty).
+   * 
+   * Note: This method performs a database query to check user settings.
+   * For high-volume scenarios, consider implementing caching of user settings.
    */
   private async configureChannels(
     userId: string,
@@ -62,7 +65,11 @@ export class NotificationService {
       channels !== undefined ? [...channels] : [NotificationChannel.IN_APP];
 
     // Only apply Pushover routing if user has it configured AND channels is not explicitly empty
-    if (userSettings?.pushoverUserKey && configuredChannels.length > 0) {
+    if (
+      userSettings?.pushoverUserKey &&
+      userSettings.pushoverUserKey.trim() !== "" &&
+      configuredChannels.length > 0
+    ) {
       // Replace PUSH channel with PUSHOVER for better mobile notifications
       configuredChannels = configuredChannels.map((channel) =>
         channel === NotificationChannel.PUSH
