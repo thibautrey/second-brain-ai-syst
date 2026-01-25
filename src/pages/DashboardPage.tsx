@@ -53,14 +53,20 @@ export function DashboardPage() {
 
   // Handle window resize to update sidebar state on screen size changes
   useEffect(() => {
-    let timeoutId: number;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const handleResize = () => {
       // Debounce resize events to avoid excessive state updates
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
-        setSidebarOpen(isDesktop);
+        // Only update state if it actually needs to change
+        setSidebarOpen((prevOpen) => {
+          if (prevOpen !== isDesktop) {
+            return isDesktop;
+          }
+          return prevOpen;
+        });
       }, 150);
     };
 
