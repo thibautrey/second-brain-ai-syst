@@ -110,7 +110,7 @@ export function MemoryStatsWidget({
         </Accordion>
 
         {/* Desktop view - always visible */}
-        <div className="hidden lg:grid grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="hidden lg:grid grid-cols-6 gap-3">
           {statItems.map((item) => (
             <div
               key={item.label}
