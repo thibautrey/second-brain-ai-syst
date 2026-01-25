@@ -93,82 +93,92 @@ export function DashboardPage() {
           <NavItem
             icon={<Home className="w-5 h-5" />}
             label="Dashboard"
-            onClick={() => navigate("/dashboard/dashboard")}
+            onClick={() => {
+              navigate("/dashboard/dashboard");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "dashboard"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<Brain className="w-5 h-5" />}
             label="Memories"
-            onClick={() => navigate("/dashboard/memories")}
+            onClick={() => {
+              navigate("/dashboard/memories");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "memories"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<FileText className="w-5 h-5" />}
             label="Interactions"
-            onClick={() => navigate("/dashboard/interactions")}
+            onClick={() => {
+              navigate("/dashboard/interactions");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "interactions"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<BarChart3 className="w-5 h-5" />}
             label="Analytics"
-            onClick={() => navigate("/dashboard/analytics")}
+            onClick={() => {
+              navigate("/dashboard/analytics");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "analytics"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<Mic className="w-5 h-5" />}
             label="Voice Training"
-            onClick={() => navigate("/dashboard/training")}
+            onClick={() => {
+              navigate("/dashboard/training");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "training"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<CheckSquare className="w-5 h-5" />}
             label="Tâches"
-            onClick={() => navigate("/dashboard/todos")}
+            onClick={() => {
+              navigate("/dashboard/todos");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "todos"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<Calendar className="w-5 h-5" />}
             label="Planifications"
-            onClick={() => navigate("/dashboard/schedule")}
+            onClick={() => {
+              navigate("/dashboard/schedule");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "schedule"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<Wrench className="w-5 h-5" />}
             label="Tools"
-            onClick={() => navigate("/dashboard/tools")}
+            onClick={() => {
+              navigate("/dashboard/tools");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "tools"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<Bell className="w-5 h-5" />}
             label="Notifications"
-            onClick={() => navigate("/dashboard/notifications")}
+            onClick={() => {
+              navigate("/dashboard/notifications");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "notifications"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
           <NavItem
             icon={<Settings className="w-5 h-5" />}
             label="Settings"
-            onClick={() => navigate("/dashboard/settings")}
+            onClick={() => {
+              navigate("/dashboard/settings");
+              if (isMobile) setSidebarOpen(false);
+            }}
             isActive={activeTab === "settings"}
-            isMobile={isMobile}
-            onNavigate={() => isMobile && setSidebarOpen(false)}
           />
         </nav>
 
@@ -420,24 +430,15 @@ function NavItem({
   label,
   onClick,
   isActive = false,
-  isMobile = false,
-  onNavigate,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick?: () => void;
   isActive?: boolean;
-  isMobile?: boolean;
-  onNavigate?: () => void;
 }) {
-  const handleClick = () => {
-    onClick?.();
-    onNavigate?.();
-  };
-
   return (
     <button
-      onClick={handleClick}
+      onClick={onClick}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
         isActive
           ? "bg-blue-600 text-white"
