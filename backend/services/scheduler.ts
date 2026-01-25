@@ -37,6 +37,16 @@ async function getProactiveAgentService() {
   return proactiveAgentService;
 }
 
+// Import data coherence agent lazily to avoid circular dependencies
+let dataCoherenceAgentService: any = null;
+async function getDataCoherenceAgentService() {
+  if (!dataCoherenceAgentService) {
+    const module = await import("./data-coherence-agent.js");
+    dataCoherenceAgentService = module.dataCoherenceAgentService;
+  }
+  return dataCoherenceAgentService;
+}
+
 interface ScheduledTask {
   id: string;
   name: string;
@@ -233,6 +243,19 @@ export class SchedulerService {
       isEnabled: true,
       handler: async () => {
         await this.runGoalsAchievementsAnalysis();
+      },
+    });
+
+    // Data Coherence Agent - runs every 15 minutes
+    this.registerTask({
+      id: "data-coherence-check",
+      name: "Data Coherence & Proactive Questions",
+      cronExpression: "*/15 * * * *", // Every 15 minutes
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runDataCoherenceCheck();
       },
     });
   }
@@ -664,6 +687,27 @@ export class SchedulerService {
         }
       } catch (error) {
         console.warn(`  ⚠ Goals analysis failed for ${user.id}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Run data coherence check and proactive questions
+   */
+  private async runDataCoherenceCheck(): Promise<void> {
+    const users = await prisma.user.findMany({ select: { id: true } });
+    const coherenceAgent = await getDataCoherenceAgentService();
+
+    for (const user of users) {
+      try {
+        const result = await coherenceAgent.runCoherenceCheck(user.id);
+        if (result.success && (result.issuesFound > 0 || result.questionsAsked > 0)) {
+          console.log(
+            `  ✓ Coherence check: ${result.issuesFound} issues, ${result.suggestionsGenerated} suggestions, ${result.questionsAsked} questions for user ${user.id}`,
+          );
+        }
+      } catch (error) {
+        console.warn(`  ⚠ Coherence check failed for ${user.id}:`, error);
       }
     }
   }
