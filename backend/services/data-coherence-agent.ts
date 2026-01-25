@@ -395,8 +395,7 @@ export class DataCoherenceAgentService {
     if (coherenceResult.suggestions && coherenceResult.suggestions.length > 0) {
       for (const suggestion of coherenceResult.suggestions) {
         if (suggestion.priority === "high" || suggestion.priority === "medium") {
-          await notificationService.createNotification({
-            userId,
+          await notificationService.sendNotification(userId, {
             title: `💡 ${suggestion.title}`,
             message: suggestion.message,
             type: suggestion.priority === "high" ? "REMINDER" : "INFO",
@@ -415,8 +414,7 @@ export class DataCoherenceAgentService {
     if (questionsResult.questions && questionsResult.questions.length > 0) {
       for (const question of questionsResult.questions) {
         if (question.priority === "high" || question.priority === "medium") {
-          await notificationService.createNotification({
-            userId,
+          await notificationService.sendNotification(userId, {
             title: "❓ Quick Check-in",
             message: question.question,
             type: "INFO",
