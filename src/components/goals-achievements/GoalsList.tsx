@@ -9,7 +9,7 @@ import { Badge } from "../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Progress } from "../ui/progress";
 import { useGoals } from "../../hooks/useGoals";
-import type { Goal, GoalStatus } from "../../types/goals-achievements";
+import type { Goal, GoalStatus, Milestone } from "../../types/goals-achievements";
 
 export function GoalsList() {
   const { goals, stats, categories, loading, error, updateGoal, updateProgress, deleteGoal } = useGoals({
@@ -228,7 +228,7 @@ export function GoalsList() {
                     <div className="pt-2 border-t">
                       <p className="text-sm font-medium text-slate-700 mb-2">Milestones</p>
                       <div className="space-y-1">
-                        {goal.milestones.map((milestone: any, i: number) => (
+                        {goal.milestones.map((milestone: Milestone, i: number) => (
                           <div key={i} className="flex items-center gap-2 text-sm">
                             {milestone.completed ? (
                               <CheckCircle2 className="w-4 h-4 text-green-500" />

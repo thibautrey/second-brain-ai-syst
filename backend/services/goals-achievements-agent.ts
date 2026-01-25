@@ -15,6 +15,11 @@ import { goalsService } from "./goals.service.js";
 import { achievementsService } from "./achievements.service.js";
 import { GoalStatus } from "@prisma/client";
 
+// Configuration constants
+const MIN_CONFIDENCE_THRESHOLD = 0.7; // Minimum confidence for auto-detected goals/achievements
+const CLEANUP_PROBABILITY = 0.2; // Probability of running cleanup during analysis (20%)
+const CLEANUP_INTERVAL_DAYS = 7; // Minimum days between cleanup runs
+
 const GOALS_DETECTION_PROMPT = `You are a goals detection assistant for a Second Brain system.
 Analyze the user's memories and interactions to identify goals they're pursuing.
 
@@ -165,11 +170,14 @@ export class GoalsAchievementsAgent {
       result.achievementsDetected = achievementsResult.detected;
       result.achievementsUnlocked = achievementsResult.unlocked;
       
-      // Step 4: Cleanup (run less frequently)
-      const shouldCleanup = Math.random() < 0.2; // 20% chance
+      // Step 4: Cleanup (run based on last cleanup date)
+      const shouldCleanup = await this.shouldRunCleanup(userId);
       if (shouldCleanup) {
         const cleanupResult = await this.cleanupGoalsAndAchievements(userId);
         result.cleanupActions = cleanupResult.actions;
+        
+        // Store last cleanup date in user metadata
+        await this.updateLastCleanupDate(userId);
       }
 
       result.details = {
@@ -238,7 +246,7 @@ export class GoalsAchievementsAgent {
       let detectedCount = 0;
 
       for (const goalData of result.newGoals || []) {
-        if (goalData.confidence >= 0.7) {
+        if (goalData.confidence >= MIN_CONFIDENCE_THRESHOLD) {
           await goalsService.createGoal(userId, {
             title: goalData.title,
             description: goalData.description,
@@ -368,7 +376,7 @@ export class GoalsAchievementsAgent {
       let unlockedCount = 0;
 
       for (const achData of result.newAchievements || []) {
-        if (achData.confidence >= 0.7) {
+        if (achData.confidence >= MIN_CONFIDENCE_THRESHOLD) {
           const achievement = await achievementsService.createAchievement(userId, {
             title: achData.title,
             description: achData.description,
@@ -457,6 +465,53 @@ export class GoalsAchievementsAgent {
     } catch (error: any) {
       console.error("Cleanup failed:", error);
       return { actions: 0 };
+    }
+  }
+
+  /**
+   * Check if cleanup should run based on last cleanup date
+   */
+  private async shouldRunCleanup(userId: string): Promise<boolean> {
+    try {
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId },
+      });
+
+      if (!settings) return true; // First time, run cleanup
+
+      const lastCleanup = (settings.metadata as any)?.lastGoalsCleanup;
+      if (!lastCleanup) return true; // No previous cleanup
+
+      const daysSinceLastCleanup = 
+        (Date.now() - new Date(lastCleanup).getTime()) / (1000 * 60 * 60 * 24);
+
+      return daysSinceLastCleanup >= CLEANUP_INTERVAL_DAYS;
+    } catch (error) {
+      console.error("Error checking cleanup schedule:", error);
+      return false; // Don't cleanup if there's an error
+    }
+  }
+
+  /**
+   * Update last cleanup date in user settings
+   */
+  private async updateLastCleanupDate(userId: string): Promise<void> {
+    try {
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId },
+      });
+
+      if (settings) {
+        const metadata = settings.metadata as any || {};
+        metadata.lastGoalsCleanup = new Date().toISOString();
+
+        await prisma.userSettings.update({
+          where: { userId },
+          data: { metadata },
+        });
+      }
+    } catch (error) {
+      console.error("Error updating cleanup date:", error);
     }
   }
 
