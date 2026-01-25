@@ -132,14 +132,14 @@ export function TodoList() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-3xl font-bold text-slate-900">Tâches</h2>
           <p className="text-slate-600 mt-1">
             Gérez vos tâches et suivez votre progression
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Nouvelle tâche
         </Button>
