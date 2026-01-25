@@ -105,7 +105,7 @@ export function FloatingActionButtons() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="flex items-center justify-between px-4 py-3 bg-linear-to-r from-blue-600 to-blue-700 text-white"
+              className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white"
             >
               <div className="flex items-center gap-2">
                 <motion.div
