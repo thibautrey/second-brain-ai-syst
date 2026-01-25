@@ -1,5 +1,12 @@
 import { useNavigate } from "react-router-dom";
 
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  createdAt: string;
+}
+
 // Mobile-specific components
 export function InsightLine({
   icon,
@@ -104,10 +111,7 @@ export function MobileActivityItem({
 }
 
 interface MobileDashboardProps {
-  user: {
-    name?: string;
-    email?: string;
-  };
+  user: User | null;
   totalMemories: number;
   totalInteractions: number;
   dailySummaries: number;
