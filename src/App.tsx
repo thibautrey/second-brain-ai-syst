@@ -11,7 +11,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TrainingPage } from "./pages/TrainingPage";
-import { FloatingChat } from "./components/FloatingChat";
+import { FloatingActionButtons } from "./components/FloatingActionButtons";
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
@@ -38,8 +38,8 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
 
-      {/* Global Floating Chat - only visible when authenticated */}
-      {isAuthenticated && <FloatingChat />}
+      {/* Global Floating Action Buttons - only visible when authenticated */}
+      {isAuthenticated && <FloatingActionButtons />}
     </>
   );
 }
