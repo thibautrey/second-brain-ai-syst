@@ -79,7 +79,8 @@ const BUILTIN_TOOLS: ToolConfig[] = [
     rateLimit: 50,
     timeout: 5000,
     config: {
-      description: "Send notifications to the user",
+      description:
+        "Send notifications to the user. Automatically routes to the best channel based on user configuration (Pushover for mobile if configured, otherwise browser).",
       actions: [
         "send",
         "schedule",
@@ -1485,7 +1486,8 @@ export class ToolExecutorService {
       },
       {
         name: "notification",
-        description: "Send notifications to the user - immediate or scheduled",
+        description:
+          "Send notifications to the user - immediate or scheduled. The system automatically selects the best delivery channel based on user configuration (e.g., Pushover for mobile notifications if configured, otherwise browser notifications).",
         parameters: {
           type: "object",
           properties: {
