@@ -18,9 +18,11 @@ import { TodoStatus, GoalStatus } from "@prisma/client";
 // Configuration constants
 const COHERENCE_CHECK_LOOKBACK_DAYS = 14; // Look back 14 days for pattern analysis
 const MIN_CONFIDENCE_FOR_SUGGESTION = 0.7;
+const MIN_CONFIDENCE_FOR_ISSUE = 0.7; // Minimum confidence for considering an issue significant
 const MAX_QUESTIONS_PER_RUN = 3; // Don't overwhelm the user
 const MAX_MEMORIES_FOR_ANALYSIS = 30; // Limit memory context to avoid token limits
 const MIN_HOURS_BETWEEN_STORAGE = 2; // Only store results if at least 2 hours have passed
+const MEMORY_CONTENT_PREVIEW_LENGTH = 200; // Character limit for memory content in context
 
 export interface CoherenceAgentResult {
   agentId: string;
@@ -313,7 +315,9 @@ export class DataCoherenceAgentService {
     // Use all fetched memories for context
     memories.forEach((memory, i) => {
       const date = memory.createdAt.toISOString().split('T')[0];
-      context += `[${i + 1}] ${date}: ${memory.content.substring(0, 200)}${memory.content.length > 200 ? '...' : ''}\n`;
+      const preview = memory.content.substring(0, MEMORY_CONTENT_PREVIEW_LENGTH);
+      const truncated = memory.content.length > MEMORY_CONTENT_PREVIEW_LENGTH ? '...' : '';
+      context += `[${i + 1}] ${date}: ${preview}${truncated}\n`;
     });
 
     return context;
@@ -384,7 +388,7 @@ export class DataCoherenceAgentService {
   private async processResults(userId: string, coherenceResult: any, questionsResult: any): Promise<void> {
     // Filter high-confidence issues
     const significantIssues = (coherenceResult.issues || []).filter(
-      (issue: CoherenceIssue) => issue.confidence >= MIN_CONFIDENCE_FOR_SUGGESTION
+      (issue: CoherenceIssue) => issue.confidence >= MIN_CONFIDENCE_FOR_ISSUE
     );
 
     // Send notifications for high-priority suggestions
