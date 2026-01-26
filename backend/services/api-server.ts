@@ -86,6 +86,7 @@ import {
 import audioIngestionController from "../controllers/audio-ingestion.controller.js";
 import { audioSessionManager } from "./audio-session-manager.js";
 import factCheckController from "../controllers/fact-check.controller.js";
+import analyticsController from "../controllers/analytics.controller.js";
 
 // Environment validation
 function validateEnvironment() {
@@ -896,6 +897,11 @@ console.log("🤖 Generated tools routes enabled at /api/generated-tools");
 
 app.use("/api/fact-check", factCheckController);
 console.log("✅ Fact-check routes enabled at /api/fact-check");
+
+// ==================== Analytics Routes ====================
+
+app.use("/api/analytics", analyticsController);
+console.log("📊 Analytics routes enabled at /api/analytics");
 
 // ==================== Universal Audio Ingestion Routes ====================
 

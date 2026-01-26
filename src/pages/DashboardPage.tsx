@@ -26,6 +26,7 @@ import { TodoList } from "../components/todos";
 import { ScheduleList } from "../components/schedule";
 import { ToolsConfigPage } from "./ToolsConfigPage";
 import { NotificationTestPage } from "./NotificationTestPage";
+import { AnalyticsPage } from "../components/analytics";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useIsMobile } from "../hooks/use-mobile";
@@ -152,16 +153,66 @@ export function DashboardPage() {
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          <NavItem icon={<Home className="w-5 h-5" />} label="Dashboard" onClick={() => handleNavigation("/dashboard/dashboard")} isActive={activeTab === "dashboard"} />
-          <NavItem icon={<Brain className="w-5 h-5" />} label="Memories" onClick={() => handleNavigation("/dashboard/memories")} isActive={activeTab === "memories"} />
-          <NavItem icon={<FileText className="w-5 h-5" />} label="Interactions" onClick={() => handleNavigation("/dashboard/interactions")} isActive={activeTab === "interactions"} />
-          <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Analytics" onClick={() => handleNavigation("/dashboard/analytics")} isActive={activeTab === "analytics"} />
-          <NavItem icon={<Mic className="w-5 h-5" />} label="Voice Training" onClick={() => handleNavigation("/dashboard/training")} isActive={activeTab === "training"} />
-          <NavItem icon={<CheckSquare className="w-5 h-5" />} label="Tâches" onClick={() => handleNavigation("/dashboard/todos")} isActive={activeTab === "todos"} />
-          <NavItem icon={<Calendar className="w-5 h-5" />} label="Planifications" onClick={() => handleNavigation("/dashboard/schedule")} isActive={activeTab === "schedule"} />
-          <NavItem icon={<Wrench className="w-5 h-5" />} label="Tools" onClick={() => handleNavigation("/dashboard/tools")} isActive={activeTab === "tools"} />
-          <NavItem icon={<Bell className="w-5 h-5" />} label="Notifications" onClick={() => handleNavigation("/dashboard/notifications")} isActive={activeTab === "notifications"} />
-          <NavItem icon={<Settings className="w-5 h-5" />} label="Settings" onClick={() => handleNavigation("/dashboard/settings")} isActive={activeTab === "settings"} />
+          <NavItem
+            icon={<Home className="w-5 h-5" />}
+            label="Dashboard"
+            onClick={() => handleNavigation("/dashboard/dashboard")}
+            isActive={activeTab === "dashboard"}
+          />
+          <NavItem
+            icon={<Brain className="w-5 h-5" />}
+            label="Memories"
+            onClick={() => handleNavigation("/dashboard/memories")}
+            isActive={activeTab === "memories"}
+          />
+          <NavItem
+            icon={<FileText className="w-5 h-5" />}
+            label="Interactions"
+            onClick={() => handleNavigation("/dashboard/interactions")}
+            isActive={activeTab === "interactions"}
+          />
+          <NavItem
+            icon={<BarChart3 className="w-5 h-5" />}
+            label="Analytics"
+            onClick={() => handleNavigation("/dashboard/analytics")}
+            isActive={activeTab === "analytics"}
+          />
+          <NavItem
+            icon={<Mic className="w-5 h-5" />}
+            label="Voice Training"
+            onClick={() => handleNavigation("/dashboard/training")}
+            isActive={activeTab === "training"}
+          />
+          <NavItem
+            icon={<CheckSquare className="w-5 h-5" />}
+            label="Tâches"
+            onClick={() => handleNavigation("/dashboard/todos")}
+            isActive={activeTab === "todos"}
+          />
+          <NavItem
+            icon={<Calendar className="w-5 h-5" />}
+            label="Planifications"
+            onClick={() => handleNavigation("/dashboard/schedule")}
+            isActive={activeTab === "schedule"}
+          />
+          <NavItem
+            icon={<Wrench className="w-5 h-5" />}
+            label="Tools"
+            onClick={() => handleNavigation("/dashboard/tools")}
+            isActive={activeTab === "tools"}
+          />
+          <NavItem
+            icon={<Bell className="w-5 h-5" />}
+            label="Notifications"
+            onClick={() => handleNavigation("/dashboard/notifications")}
+            isActive={activeTab === "notifications"}
+          />
+          <NavItem
+            icon={<Settings className="w-5 h-5" />}
+            label="Settings"
+            onClick={() => handleNavigation("/dashboard/settings")}
+            isActive={activeTab === "settings"}
+          />
         </nav>
 
         {/* Tips Carousel - Bottom of sidebar */}
@@ -195,7 +246,9 @@ export function DashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className={`flex flex-col flex-1 ${sidebarOpen ? "ml-64" : "ml-0"} transition-all duration-300`}>
+      <div
+        className={`flex flex-col flex-1 ${sidebarOpen ? "ml-64" : "ml-0"} transition-all duration-300`}
+      >
         {/* Top Bar */}
         <div
           className={`fixed top-0 flex items-center gap-4 p-4 bg-white border-b border-slate-200 z-40 ${sidebarOpen ? "left-64" : "left-0"} right-0 transition-all duration-300`}
@@ -203,7 +256,9 @@ export function DashboardPage() {
           <button
             onClick={handleSidebarToggle}
             className="p-2 transition-colors rounded-lg hover:bg-slate-100"
-            aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-label={
+              sidebarOpen ? "Close navigation menu" : "Open navigation menu"
+            }
             aria-expanded={sidebarOpen}
           >
             <Menu className="w-5 h-5 text-slate-700" />
@@ -218,7 +273,9 @@ export function DashboardPage() {
               <p className="text-sm font-medium text-slate-900">
                 {user?.name || user?.email}
               </p>
-              {!isMobile && <p className="text-xs text-slate-500">{user?.email}</p>}
+              {!isMobile && (
+                <p className="text-xs text-slate-500">{user?.email}</p>
+              )}
             </div>
             <div className="flex items-center justify-center w-10 h-10 font-semibold text-white rounded-full bg-blue-600">
               {(user?.name || user?.email)?.charAt(0).toUpperCase()}
@@ -227,7 +284,9 @@ export function DashboardPage() {
         </div>
 
         {/* Content */}
-        <div className={`flex-1 overflow-auto ${isMobile ? "p-4 pt-20" : "p-8 pt-24"}`}>
+        <div
+          className={`flex-1 overflow-auto ${isMobile ? "p-4 pt-20" : "p-8 pt-24"}`}
+        >
           <div className="max-w-6xl mx-auto">
             {activeTab === "dashboard" && (
               <>
@@ -262,6 +321,7 @@ export function DashboardPage() {
             )}
 
             {activeTab === "memories" && <MemoryBrowser />}
+            {activeTab === "analytics" && <AnalyticsPage />}
             {activeTab === "training" && <TrainingPage />}
             {activeTab === "todos" && <TodoList />}
             {activeTab === "schedule" && <ScheduleList />}

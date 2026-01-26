@@ -147,7 +147,7 @@ export class LLMRouterService {
     if (isSensitiveData) {
       return {
         model: "local-llm",
-        maxTokens: 2000,
+        maxTokens: 10000,
         temperature: 0.7,
         costEstimate: 0,
         reason: "Sensitive data - using local model",

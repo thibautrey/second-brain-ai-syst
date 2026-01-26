@@ -144,5 +144,42 @@
   },
   "notifications": {
     "errorSaving": "Erreur lors de la sauvegarde"
+  },
+  "analytics": {
+    "title": "Vos Insights",
+    "subtitle": "Découvrez les tendances et patterns de votre pensée",
+    "today": "Aujourd'hui",
+    "thisWeek": "Cette semaine",
+    "thisMonth": "Ce mois",
+    "thisYear": "Cette année",
+    "memories": "Mémoires",
+    "interactions": "Interactions",
+    "goalsTracked": "Objectifs suivis",
+    "achievements": "Accomplissements",
+    "aiSummary": "Résumé généré par IA",
+    "yourRecentActivity": "Votre activité récente",
+    "activityPattern": "Vos habitudes d'activité",
+    "whatsOnYourMind": "Ce qui vous occupe",
+    "moodOverview": "Aperçu de votre humeur",
+    "keyInsights": "Points clés",
+    "streak": "Jours consécutifs",
+    "keepCapturing": "Continuez à capturer vos pensées !",
+    "bestStreak": "Record",
+    "days": "jours",
+    "weekAtGlance": "Votre semaine en un coup d'œil",
+    "mostActive": "Vous êtes le plus actif vers",
+    "positive": "Positif",
+    "neutral": "Neutre",
+    "negative": "Négatif",
+    "emptyState": {
+      "title": "Votre Second Brain est prêt !",
+      "description": "Commencez à capturer vos pensées, idées et souvenirs. Au fur et à mesure de votre utilisation, nous vous montrerons de belles insights sur vos schémas de pensée.",
+      "aiSummaries": "Résumés par IA",
+      "moodTracking": "Suivi de l'humeur",
+      "activityTrends": "Tendances d'activité"
+    },
+    "noDataYet": "Pas encore de données",
+    "startCapturing": "Commencez à capturer des mémoires pour voir vos sujets favoris !",
+    "analyzing": "Analyse de vos mémoires..."
   }
 }

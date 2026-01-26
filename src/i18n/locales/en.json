@@ -144,5 +144,42 @@
   },
   "notifications": {
     "errorSaving": "Error saving"
+  },
+  "analytics": {
+    "title": "Your Insights",
+    "subtitle": "Discover patterns and trends in your thinking",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "thisYear": "This Year",
+    "memories": "Memories",
+    "interactions": "Interactions",
+    "goalsTracked": "Goals Tracked",
+    "achievements": "Achievements",
+    "aiSummary": "AI-Generated Summary",
+    "yourRecentActivity": "Your Recent Activity",
+    "activityPattern": "Your Activity Pattern",
+    "whatsOnYourMind": "What's on Your Mind",
+    "moodOverview": "Mood Overview",
+    "keyInsights": "Key Insights",
+    "streak": "Day Streak",
+    "keepCapturing": "Keep capturing your thoughts!",
+    "bestStreak": "Best",
+    "days": "days",
+    "weekAtGlance": "Your Week at a Glance",
+    "mostActive": "You're most active around",
+    "positive": "Positive",
+    "neutral": "Neutral",
+    "negative": "Negative",
+    "emptyState": {
+      "title": "Your Second Brain is Ready!",
+      "description": "Start capturing your thoughts, ideas, and memories. As you use your Second Brain, we'll show you beautiful insights about your thinking patterns.",
+      "aiSummaries": "AI-powered summaries",
+      "moodTracking": "Mood tracking",
+      "activityTrends": "Activity trends"
+    },
+    "noDataYet": "No data yet",
+    "startCapturing": "Start capturing memories to see your top topics!",
+    "analyzing": "Analyzing your memories..."
   }
 }

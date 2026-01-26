@@ -38,8 +38,8 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   "mistral-tiny": 32000,
 
   // Local models (conservative estimate)
-  "local-llm": 4096,
-  ollama: 4096,
+  "local-llm": 10000,
+  ollama: 10000,
 };
 
 /**
@@ -71,7 +71,7 @@ function getContextWindow(modelId: string): number {
   }
 
   // Default fallback
-  return 4096;
+  return 10000;
 }
 
 /**

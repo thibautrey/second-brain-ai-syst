@@ -6,6 +6,7 @@ import { PrismaClient, GeneratedTool } from "@prisma/client";
 import { codeExecutorService } from "./code-executor-wrapper.js";
 import { secretsService } from "./secrets.js";
 import { llmRouterService } from "./llm-router.js";
+import { wsBroadcastService } from "./websocket-broadcast.js";
 
 const prisma = new PrismaClient();
 
@@ -103,19 +104,74 @@ export class DynamicToolGeneratorService {
   private maxIterations = 5;
 
   /**
+   * Emit a tool generation step to the user via WebSocket and optional callback
+   */
+  private emitStep(
+    userId: string,
+    step: {
+      phase:
+        | "starting"
+        | "checking"
+        | "generating"
+        | "executing"
+        | "fixing"
+        | "schema"
+        | "saving"
+        | "completed"
+        | "error";
+      message: string;
+      iteration?: number;
+      maxIterations?: number;
+      details?: Record<string, any>;
+    },
+    onStep?: (step: any) => void,
+  ): void {
+    // Emit via WebSocket for background processes
+    wsBroadcastService.sendToUser(userId, {
+      type: "tool:generation:step",
+      timestamp: Date.now(),
+      data: step,
+    });
+    // Call optional callback for SSE streaming in chat
+    if (onStep) {
+      onStep(step);
+    }
+  }
+
+  /**
    * Generate a new tool from an objective
+   * @param userId User ID
+   * @param request Tool generation request
+   * @param onStep Optional callback for each generation step (for SSE streaming)
    */
   async generateTool(
     userId: string,
     request: ToolGenerationRequest,
+    onStep?: (step: any) => void,
   ): Promise<ToolGenerationResult> {
     const logs: string[] = [];
     let iterations = 0;
 
     try {
       logs.push(`Starting tool generation for: ${request.objective}`);
+      this.emitStep(
+        userId,
+        {
+          phase: "starting",
+          message: `Démarrage de la génération d'outil: ${request.objective}`,
+        },
+        onStep,
+      );
 
       // Step 1: Check if a similar tool already exists
+      this.emitStep(
+        userId,
+        {
+          phase: "checking",
+          message: "Recherche d'outils similaires existants...",
+        },
+        onStep,
+      );
       const existingTool = await this.findSimilarTool(
         userId,
         request.objective,
@@ -139,8 +195,30 @@ export class DynamicToolGeneratorService {
         request.suggestedSecrets,
       );
       logs.push(`Available secrets: ${availableSecrets.join(", ") || "none"}`);
+      this.emitStep(
+        userId,
+        {
+          phase: "checking",
+          message:
+            availableSecrets.length > 0
+              ? `Secrets disponibles: ${availableSecrets.join(", ")}`
+              : "Aucun secret configuré - génération sans clé API",
+          details: { secrets: availableSecrets },
+        },
+        onStep,
+      );
 
       // Step 3: Generate initial code
+      this.emitStep(
+        userId,
+        {
+          phase: "generating",
+          message: "Génération du code Python...",
+          iteration: 1,
+          maxIterations: this.maxIterations,
+        },
+        onStep,
+      );
       let code = await this.generateCode(userId, request, availableSecrets);
       logs.push(`Generated initial code (${code.length} chars)`);
 
@@ -151,6 +229,17 @@ export class DynamicToolGeneratorService {
       while (iterations < this.maxIterations) {
         iterations++;
         logs.push(`Iteration ${iterations}/${this.maxIterations}`);
+
+        this.emitStep(
+          userId,
+          {
+            phase: "executing",
+            message: `Test d'exécution (tentative ${iterations}/${this.maxIterations})...`,
+            iteration: iterations,
+            maxIterations: this.maxIterations,
+          },
+          onStep,
+        );
 
         // Get secret values for execution
         const secretValues = await secretsService.getSecretsValues(
@@ -167,6 +256,17 @@ export class DynamicToolGeneratorService {
 
         if (result.success && result.result !== null) {
           logs.push(`Execution successful!`);
+          this.emitStep(
+            userId,
+            {
+              phase: "executing",
+              message: "✓ Exécution réussie!",
+              iteration: iterations,
+              maxIterations: this.maxIterations,
+              details: { success: true },
+            },
+            onStep,
+          );
           executionResult = result.result;
           break;
         }
@@ -175,7 +275,28 @@ export class DynamicToolGeneratorService {
         lastError = result.error || "Unknown error";
         logs.push(`Execution failed: ${lastError}`);
 
+        this.emitStep(
+          userId,
+          {
+            phase: "fixing",
+            message: `Erreur détectée, correction en cours...`,
+            iteration: iterations,
+            maxIterations: this.maxIterations,
+            details: { error: lastError.substring(0, 100) },
+          },
+          onStep,
+        );
+
         if (iterations >= this.maxIterations) {
+          this.emitStep(
+            userId,
+            {
+              phase: "error",
+              message: `Échec après ${iterations} tentatives`,
+              details: { lastError },
+            },
+            onStep,
+          );
           return {
             success: false,
             error: `Failed after ${iterations} iterations. Last error: ${lastError}`,
@@ -191,6 +312,14 @@ export class DynamicToolGeneratorService {
 
       // Step 5: Generate tool schema
       logs.push(`Generating tool schema...`);
+      this.emitStep(
+        userId,
+        {
+          phase: "schema",
+          message: "Génération du schéma de l'outil...",
+        },
+        onStep,
+      );
       const toolInput = await this.generateToolSchema(
         userId,
         request.objective,
@@ -200,7 +329,31 @@ export class DynamicToolGeneratorService {
 
       // Step 6: Save the tool
       logs.push(`Saving tool: ${toolInput.name}`);
+      this.emitStep(
+        userId,
+        {
+          phase: "saving",
+          message: `Sauvegarde de l'outil: ${toolInput.displayName}...`,
+          details: { name: toolInput.name, category: toolInput.category },
+        },
+        onStep,
+      );
       const tool = await this.saveTool(userId, toolInput, code);
+
+      this.emitStep(
+        userId,
+        {
+          phase: "completed",
+          message: `✓ Outil "${toolInput.displayName}" créé avec succès!`,
+          details: {
+            toolId: tool.id,
+            name: tool.name,
+            displayName: tool.displayName,
+            iterations,
+          },
+        },
+        onStep,
+      );
 
       return {
         success: true,
@@ -211,6 +364,15 @@ export class DynamicToolGeneratorService {
       };
     } catch (error: any) {
       logs.push(`Error: ${error.message}`);
+      this.emitStep(
+        userId,
+        {
+          phase: "error",
+          message: `Erreur: ${error.message}`,
+          details: { error: error.message },
+        },
+        onStep,
+      );
       return {
         success: false,
         error: error.message,

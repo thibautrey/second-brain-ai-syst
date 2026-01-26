@@ -1,7 +1,7 @@
 /**
  * Chat Panel Component
  *
- * Simple chat interface with message stream
+ * Simple chat interface with message stream and tool call display
  */
 
 import React, { useState, useRef, useEffect } from "react";
@@ -10,10 +10,18 @@ import { Button } from "./ui/button";
 import { useChatMessages } from "../hooks/useChatMessages";
 import { cn } from "../lib/utils";
 import { MarkdownContent } from "./MarkdownContent";
+import { ToolCallDisplay } from "./Chat/ToolCallDisplay";
 
 export function ChatPanel() {
-  const { messages, isLoading, error, sendMessage, clearMessages } =
-    useChatMessages();
+  const {
+    messages,
+    isLoading,
+    error,
+    currentToolCall,
+    currentToolGeneration,
+    sendMessage,
+    clearMessages,
+  } = useChatMessages();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -21,7 +29,7 @@ export function ChatPanel() {
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, currentToolCall, currentToolGeneration]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,13 +124,31 @@ export function ChatPanel() {
           ))
         )}
 
-        {/* Loading indicator */}
-        {isLoading && messages[messages.length - 1]?.content === "" && (
-          <div className="flex items-center gap-2 text-slate-400">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">Réflexion en cours...</span>
+        {/* Tool Call Display - Shows only the latest tool with animation */}
+        {(currentToolCall || currentToolGeneration) && (
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-slate-200 text-slate-600">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div className="flex-1 max-w-[75%]">
+              <ToolCallDisplay
+                toolCall={currentToolCall}
+                generationStep={currentToolGeneration}
+              />
+            </div>
           </div>
         )}
+
+        {/* Loading indicator - only show when no tool call is active */}
+        {isLoading &&
+          !currentToolCall &&
+          !currentToolGeneration &&
+          messages[messages.length - 1]?.content === "" && (
+            <div className="flex items-center gap-2 text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Réflexion en cours...</span>
+            </div>
+          )}
 
         {/* Error display */}
         {error && (

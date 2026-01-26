@@ -1,11 +1,16 @@
 /**
  * Chat Messages Hook
  *
- * Manages chat state and SSE streaming
+ * Manages chat state and SSE streaming with tool call support
  */
 
 import { useState, useCallback, useRef } from "react";
-import { ChatMessage, ChatState } from "../types/chat";
+import {
+  ChatMessage,
+  ChatState,
+  ToolCallData,
+  ToolGenerationStepData,
+} from "../types/chat";
 
 const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
 
@@ -19,6 +24,8 @@ export function useChatMessages() {
     isLoading: false,
     error: null,
     conversationId: null,
+    currentToolCall: null,
+    currentToolGeneration: null,
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -48,6 +55,8 @@ export function useChatMessages() {
         messages: [...prev.messages, userMessage, assistantMessage],
         isLoading: true,
         error: null,
+        currentToolCall: null,
+        currentToolGeneration: null,
       }));
 
       // Cancel any existing request
@@ -107,11 +116,30 @@ export function useChatMessages() {
                     }
                     return { ...prev, messages };
                   });
+                } else if (event.type === "tool_call") {
+                  // Handle tool call events
+                  const toolCallData = event.data as ToolCallData;
+                  setState((prev) => ({
+                    ...prev,
+                    currentToolCall: toolCallData,
+                    // Clear tool generation when a regular tool call comes in
+                    currentToolGeneration: null,
+                  }));
+                } else if (event.type === "tool_generation") {
+                  // Handle tool generation step events
+                  const generationData = event.data as ToolGenerationStepData;
+                  setState((prev) => ({
+                    ...prev,
+                    currentToolGeneration: generationData,
+                    currentToolCall: null,
+                  }));
                 } else if (event.type === "error") {
                   setState((prev) => ({
                     ...prev,
-                    error: event.data,
+                    error: event.data as string,
                     isLoading: false,
+                    currentToolCall: null,
+                    currentToolGeneration: null,
                   }));
                 } else if (event.type === "end") {
                   setState((prev) => {
@@ -120,7 +148,13 @@ export function useChatMessages() {
                     if (lastMsg && lastMsg.role === "assistant") {
                       lastMsg.isStreaming = false;
                     }
-                    return { ...prev, messages, isLoading: false };
+                    return {
+                      ...prev,
+                      messages,
+                      isLoading: false,
+                      currentToolCall: null,
+                      currentToolGeneration: null,
+                    };
                   });
                 }
               } catch {
@@ -150,13 +184,20 @@ export function useChatMessages() {
       isLoading: false,
       error: null,
       conversationId: null,
+      currentToolCall: null,
+      currentToolGeneration: null,
     });
   }, []);
 
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      setState((prev) => ({ ...prev, isLoading: false }));
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        currentToolCall: null,
+        currentToolGeneration: null,
+      }));
     }
   }, []);
 
@@ -164,6 +205,8 @@ export function useChatMessages() {
     messages: state.messages,
     isLoading: state.isLoading,
     error: state.error,
+    currentToolCall: state.currentToolCall,
+    currentToolGeneration: state.currentToolGeneration,
     sendMessage,
     clearMessages,
     cancelStream,

@@ -781,7 +781,7 @@ export async function getDefaultMaxTokens(userId: string) {
   // Create default settings if they don't exist
   if (!settings) {
     settings = await prisma.userSettings.create({
-      data: { userId, defaultMaxTokens: 4096 },
+      data: { userId, defaultMaxTokens: 10000 },
       select: { defaultMaxTokens: true },
     });
   }

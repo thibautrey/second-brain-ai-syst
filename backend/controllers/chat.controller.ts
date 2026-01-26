@@ -707,10 +707,43 @@ export async function chatStream(
               params,
             };
 
+            // Send tool_call event to frontend (executing status)
+            res.write(
+              `data: ${JSON.stringify({
+                type: "tool_call",
+                data: {
+                  id: toolCallId,
+                  toolName: toolId,
+                  action: params.action,
+                  status: "executing",
+                  startTime: toolExecutionStart,
+                },
+              })}\n\n`,
+            );
+
             try {
+              // Create callback for generation steps (only for generate_tool)
+              const executionOptions =
+                toolId === "generate_tool"
+                  ? {
+                      onGenerationStep: (step: any) => {
+                        res.write(
+                          `data: ${JSON.stringify({
+                            type: "tool_generation",
+                            data: {
+                              ...step,
+                              toolCallId,
+                            },
+                          })}\n\n`,
+                        );
+                      },
+                    }
+                  : undefined;
+
               const toolResult = await toolExecutorService.executeTool(
                 userId,
                 toolRequest,
+                executionOptions,
               );
 
               // Sanitize the tool result before storing
@@ -736,6 +769,23 @@ export async function chatStream(
                 error: toolResult.error,
               });
 
+              // Send tool_call event to frontend (success/error status)
+              res.write(
+                `data: ${JSON.stringify({
+                  type: "tool_call",
+                  data: {
+                    id: toolCallId,
+                    toolName: toolId,
+                    action: params.action,
+                    status: toolResult.success ? "success" : "error",
+                    startTime: toolExecutionStart,
+                    endTime: Date.now(),
+                    result: toolResult.success ? toolResult.data : undefined,
+                    error: toolResult.error,
+                  },
+                })}\n\n`,
+              );
+
               flowTracker.trackEvent({
                 flowId,
                 stage: `text_tool_executed_iteration_${iterationCount}`,
@@ -760,6 +810,25 @@ export async function chatStream(
                     ? toolError.message
                     : String(toolError),
               });
+
+              // Send tool_call event to frontend (error status)
+              res.write(
+                `data: ${JSON.stringify({
+                  type: "tool_call",
+                  data: {
+                    id: toolCallId,
+                    toolName: toolId,
+                    action: params.action,
+                    status: "error",
+                    startTime: toolExecutionStart,
+                    endTime: Date.now(),
+                    error:
+                      toolError instanceof Error
+                        ? toolError.message
+                        : String(toolError),
+                  },
+                })}\n\n`,
+              );
 
               flowTracker.trackEvent({
                 flowId,
@@ -845,12 +914,49 @@ export async function chatStream(
             };
           });
 
+          // Send tool_call events for each tool (executing status)
+          toolRequests.forEach((req) => {
+            res.write(
+              `data: ${JSON.stringify({
+                type: "tool_call",
+                data: {
+                  id: (req as any)._toolCallId,
+                  toolName: req.toolId,
+                  action: req.action,
+                  status: "executing",
+                  startTime: toolExecutionStart,
+                },
+              })}\n\n`,
+            );
+          });
+
           const toolResults = await toolExecutorService.executeToolsInParallel(
             userId,
             toolRequests,
             7000, // 7s per tool
             60000, // 60s global
           );
+
+          // Send tool_call events for each tool (success/error status)
+          const endTime = Date.now();
+          toolRequests.forEach((req, index) => {
+            const result = toolResults[index];
+            res.write(
+              `data: ${JSON.stringify({
+                type: "tool_call",
+                data: {
+                  id: (req as any)._toolCallId,
+                  toolName: req.toolId,
+                  action: req.action,
+                  status: result.success ? "success" : "error",
+                  startTime: toolExecutionStart,
+                  endTime,
+                  result: result.success ? result.data : undefined,
+                  error: result.error,
+                },
+              })}\n\n`,
+            );
+          });
 
           flowTracker.trackEvent({
             flowId,
