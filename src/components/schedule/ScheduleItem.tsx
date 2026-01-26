@@ -113,14 +113,15 @@ export function ScheduleItem({
 }: ScheduleItemProps) {
   return (
     <div
-      className={`group flex items-start gap-4 p-4 rounded-lg border transition-all hover:shadow-sm ${
+      className={`group flex flex-col sm:flex-row sm:items-start gap-4 p-3 sm:p-4 rounded-lg border transition-all hover:shadow-sm ${
         task.isEnabled
           ? "bg-white border-slate-200 hover:border-slate-300"
           : "bg-slate-50 border-slate-200 opacity-75"
       }`}
     >
       {/* Toggle */}
-      <div className="shrink-0 pt-1">
+      <div className="shrink-0 pt-0 sm:pt-1 flex items-center justify-between sm:block">
+        <span className="sm:hidden text-sm font-medium text-slate-600">Actif</span>
         <Switch
           checked={task.isEnabled}
           onCheckedChange={(checked) => onToggle(task.id, checked)}
@@ -129,20 +130,22 @@ export function ScheduleItem({
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
           <h4
             className={`font-medium ${task.isEnabled ? "text-slate-900" : "text-slate-500"}`}
           >
             {task.name}
           </h4>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="flex items-center gap-1">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="flex items-center gap-1 flex-shrink-0">
               {actionTypeIcons[task.actionType]}
-              {actionTypeLabels[task.actionType]}
+              <span className="hidden sm:inline">{actionTypeLabels[task.actionType]}</span>
+              <span className="sm:hidden text-xs">{actionTypeLabels[task.actionType]?.split(" ")[0]}</span>
             </Badge>
-            <Badge variant="secondary" className="flex items-center gap-1">
+            <Badge variant="secondary" className="flex items-center gap-1 flex-shrink-0">
               {scheduleTypeIcons[task.scheduleType]}
-              {scheduleTypeLabels[task.scheduleType]}
+              <span className="hidden sm:inline">{scheduleTypeLabels[task.scheduleType]}</span>
+              <span className="sm:hidden text-xs">{scheduleTypeLabels[task.scheduleType]?.split(" ")[0]}</span>
             </Badge>
           </div>
         </div>
@@ -153,40 +156,41 @@ export function ScheduleItem({
           </p>
         )}
 
-        <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-slate-500">
+        <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-slate-500 overflow-x-auto pb-1">
           {/* Schedule info */}
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 flex-shrink-0">
             <Clock className="w-3 h-3" />
-            {formatSchedule(task)}
+            <span className="truncate">{formatSchedule(task)}</span>
           </span>
 
           {/* Next run */}
           {task.isEnabled && task.nextRunAt && (
-            <span className="flex items-center gap-1 text-blue-600">
+            <span className="flex items-center gap-1 text-blue-600 flex-shrink-0">
               <Calendar className="w-3 h-3" />
-              Prochaine: {formatNextRun(task.nextRunAt)}
+              <span className="hidden sm:inline">Prochaine:</span>
+              {formatNextRun(task.nextRunAt)}
             </span>
           )}
 
           {/* Run count */}
           {task.runCount > 0 && (
-            <span className="text-slate-400">
-              Exécutions: {task.runCount}
-              {task.maxRuns && ` / ${task.maxRuns}`}
+            <span className="text-slate-400 flex-shrink-0">
+              Ex: {task.runCount}
+              {task.maxRuns && `/${task.maxRuns}`}
             </span>
           )}
 
           {/* Last run */}
           {task.lastRunAt && (
-            <span className="text-slate-400">
-              Dernière: {new Date(task.lastRunAt).toLocaleString("fr-FR")}
+            <span className="text-slate-400 flex-shrink-0 hidden sm:inline">
+              Derni\u00e8re: {new Date(task.lastRunAt).toLocaleString("fr-FR")}
             </span>
           )}
         </div>
       </div>
 
       {/* Actions */}
-      <div className="shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="shrink-0 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity justify-end sm:justify-start">
         <Button
           variant="ghost"
           size="icon"

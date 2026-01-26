@@ -194,10 +194,10 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-auto py-8">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 my-auto">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 overflow-auto py-0 sm:py-8">
+      <div className="bg-white rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-lg sm:mx-4 my-0 sm:my-auto max-h-[90vh] sm:max-h-none flex flex-col">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b bg-slate-50 sm:bg-white rounded-t-lg sm:rounded-t-none">
+          <h3 className="text-base sm:text-lg font-semibold">
             {isEditing
               ? "Modifier la tâche planifiée"
               : "Nouvelle tâche planifiée"}
@@ -209,7 +209,7 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
 
         <form
           onSubmit={handleSubmit}
-          className="p-4 space-y-4 max-h-[70vh] overflow-y-auto"
+          className="p-3 sm:p-4 space-y-4 overflow-y-auto flex-1"
         >
           {/* Name */}
           <div className="space-y-2">
@@ -242,7 +242,7 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
           {/* Schedule Type */}
           <div className="space-y-2">
             <Label>Type de planification *</Label>
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {scheduleTypes.map((type) => (
                 <label
                   key={type.value}
@@ -304,7 +304,7 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
                 placeholder="0 9 * * *"
                 required
               />
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-1 sm:gap-2 mt-2">
                 {cronExamples.map((ex) => (
                   <button
                     key={ex.value}
@@ -312,7 +312,7 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
                     onClick={() =>
                       setFormData({ ...formData, cronExpression: ex.value })
                     }
-                    className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600"
+                    className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 whitespace-nowrap"
                   >
                     {ex.label}
                   </button>
@@ -385,7 +385,7 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
           </div>
 
           {/* Optional limits */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="maxRuns">Nombre max d'exécutions</Label>
               <Input
@@ -412,11 +412,11 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t bg-slate-50 sm:bg-white p-3 sm:p-4 -m-3 sm:-m-4 mt-auto">
             <Button type="button" variant="outline" onClick={onClose}>
               Annuler
             </Button>
-            <Button type="submit" disabled={loading || !formData.name.trim()}>
+            <Button type="submit" disabled={loading || !formData.name.trim()} className="w-full sm:w-auto">
               {loading
                 ? "Enregistrement..."
                 : isEditing

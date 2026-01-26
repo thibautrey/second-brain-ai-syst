@@ -23,6 +23,12 @@ import type {
   UpdateScheduledTaskInput,
 } from "../../types/tools";
 import { Badge } from "../ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion";
 
 type FilterType =
   | "all"
@@ -168,57 +174,108 @@ export function ScheduleList() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
             Tâches planifiées
           </h2>
-          <p className="mt-1 text-slate-600">
+          <p className="mt-1 text-sm sm:text-base text-slate-600">
             Automatisez vos actions avec des tâches programmées
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Nouvelle planification
         </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-slate-900">
-              {stats.total}
-            </div>
-            <p className="text-sm text-slate-500">Total</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">
-              {stats.enabled}
-            </div>
-            <p className="text-sm text-slate-500">Actives</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-blue-600">{stats.cron}</div>
-            <p className="text-sm text-slate-500">Récurrentes</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-purple-600">
-              {stats.oneTime}
-            </div>
-            <p className="text-sm text-slate-500">Uniques</p>
-          </CardContent>
-        </Card>
+      <div className="lg:block">
+        <Accordion type="single" collapsible className="lg:hidden">
+          <AccordionItem value="stats" className="border-none">
+            <AccordionTrigger className="p-4 bg-white border border-slate-200 rounded-lg hover:no-underline">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-600" />
+                <span className="text-sm font-medium text-slate-700">
+                  Statistiques
+                </span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-xl font-bold text-slate-900">
+                      {stats.total}
+                    </div>
+                    <p className="text-xs text-slate-500">Total</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-xl font-bold text-green-600">
+                      {stats.enabled}
+                    </div>
+                    <p className="text-xs text-slate-500">Actives</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-xl font-bold text-blue-600">
+                      {stats.cron}
+                    </div>
+                    <p className="text-xs text-slate-500">Récurrentes</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-xl font-bold text-purple-600">
+                      {stats.oneTime}
+                    </div>
+                    <p className="text-xs text-slate-500">Uniques</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+        {/* Desktop View - Always visible */}
+        <div className="hidden lg:grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-slate-900">
+                {stats.total}
+              </div>
+              <p className="text-sm text-slate-500">Total</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-green-600">
+                {stats.enabled}
+              </div>
+              <p className="text-sm text-slate-500">Actives</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-blue-600">{stats.cron}</div>
+              <p className="text-sm text-slate-500">Récurrentes</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-purple-600">
+                {stats.oneTime}
+              </div>
+              <p className="text-sm text-slate-500">Uniques</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
         {filters.map((filter) => (
           <Button
             key={filter.key}

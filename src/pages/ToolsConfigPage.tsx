@@ -494,7 +494,7 @@ export function ToolsConfigPage() {
             Gérez les outils intégrés, serveurs MCP et outils du marketplace
           </p>
         </div>
-        <Button onClick={loadData} variant="outline" size="sm">
+        <Button onClick={loadData} variant="outline" size="sm" className="hidden md:inline-flex">
           <RefreshCw className="w-4 h-4 mr-2" />
           Actualiser
         </Button>
@@ -525,27 +525,26 @@ export function ToolsConfigPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-          <TabsTrigger value="builtin" className="flex items-center gap-2">
-            <Wrench className="w-4 h-4" />
-            <span className="hidden sm:inline">Outils Intégrés</span>
-            <span className="sm:hidden">Intégrés</span>
-          </TabsTrigger>
-          <TabsTrigger value="mcp" className="flex items-center gap-2">
-            <Server className="w-4 h-4" />
-            <span className="hidden sm:inline">Serveurs MCP</span>
-            <span className="sm:hidden">MCP</span>
-          </TabsTrigger>
-          <TabsTrigger value="marketplace" className="flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4" />
-            Marketplace
-          </TabsTrigger>
-          <TabsTrigger value="generated" className="flex items-center gap-2">
-            <Star className="w-4 h-4" />
-            <span className="hidden sm:inline">Outils Générés</span>
-            <span className="sm:hidden">Générés</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto overflow-y-hidden">
+          <TabsList className="inline-flex gap-1">
+            <TabsTrigger value="builtin" className="flex items-center gap-2 whitespace-nowrap">
+              <Wrench className="w-4 h-4" />
+              <span>Outils Intégrés</span>
+            </TabsTrigger>
+            <TabsTrigger value="mcp" className="flex items-center gap-2 whitespace-nowrap">
+              <Server className="w-4 h-4" />
+              <span>Serveurs MCP</span>
+            </TabsTrigger>
+            <TabsTrigger value="marketplace" className="flex items-center gap-2 whitespace-nowrap">
+              <ShoppingBag className="w-4 h-4" />
+              <span>Marketplace</span>
+            </TabsTrigger>
+            <TabsTrigger value="generated" className="flex items-center gap-2 whitespace-nowrap">
+              <Star className="w-4 h-4" />
+              <span>Outils Générés</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Built-in Tools Tab */}
         <TabsContent value="builtin">
