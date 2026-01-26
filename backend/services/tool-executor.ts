@@ -51,6 +51,7 @@ export interface ToolExecutionResult {
 const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "todo",
+    name: "Todo Manager",
     emoji: "✅",
     category: "builtin",
     enabled: true,

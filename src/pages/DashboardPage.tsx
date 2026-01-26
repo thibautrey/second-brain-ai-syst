@@ -28,6 +28,7 @@ import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useIsMobile } from "../hooks/use-mobile";
 import { MobileDashboard } from "../components/dashboard/MobileDashboard";
+import { DesktopDashboard } from "../components/dashboard/DesktopDashboard";
 
 const DESKTOP_BREAKPOINT = 1024;
 
@@ -92,7 +93,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
       <div
         className={`${
@@ -157,7 +158,7 @@ export function DashboardPage() {
               </p>
               {!isMobile && <p className="text-xs text-slate-500">{user?.email}</p>}
             </div>
-            <div className="flex items-center justify-center w-10 h-10 font-semibold text-white rounded-full bg-linear-to-br from-blue-400 to-blue-600">
+            <div className="flex items-center justify-center w-10 h-10 font-semibold text-white rounded-full bg-blue-600">
               {(user?.name || user?.email)?.charAt(0).toUpperCase()}
             </div>
           </div>
@@ -182,9 +183,18 @@ export function DashboardPage() {
                     formatTimeAgo={formatTimeAgo}
                   />
                 ) : (
-                  <>
-                    {/* desktop dashboard contenu inchangé */}
-                  </>
+                  <DesktopDashboard
+                    user={user}
+                    totalMemories={totalMemories}
+                    totalInteractions={totalInteractions}
+                    dailySummaries={dailySummaries}
+                    isLoading={isLoading}
+                    error={error}
+                    recentActivityItems={recentActivityItems}
+                    activityLoading={activityLoading}
+                    activityError={activityError}
+                    formatTimeAgo={formatTimeAgo}
+                  />
                 )}
               </>
             )}
