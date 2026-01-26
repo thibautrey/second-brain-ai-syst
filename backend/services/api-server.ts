@@ -85,6 +85,7 @@ import {
 } from "../controllers/proactive-agent.controller.js";
 import audioIngestionController from "../controllers/audio-ingestion.controller.js";
 import { audioSessionManager } from "./audio-session-manager.js";
+import factCheckController from "../controllers/fact-check.controller.js";
 
 // Environment validation
 function validateEnvironment() {
@@ -890,6 +891,11 @@ console.log("🔐 Secrets routes enabled at /api/secrets");
 
 app.use("/api/generated-tools", generatedToolsController);
 console.log("🤖 Generated tools routes enabled at /api/generated-tools");
+
+// ==================== Fact-Check Routes ====================
+
+app.use("/api/fact-check", factCheckController);
+console.log("✅ Fact-check routes enabled at /api/fact-check");
 
 // ==================== Universal Audio Ingestion Routes ====================
 

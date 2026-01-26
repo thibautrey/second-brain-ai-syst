@@ -73,6 +73,10 @@ model User {
     audioDevices  AudioDevice[]
     audioSessions UniversalAudioSession[]
 
+    // Fact-Checking System
+    factCheckResults        FactCheckResult[]
+    correctionNotifications CorrectionNotification[]
+
     @@map("users")
 }
 
@@ -1527,4 +1531,98 @@ model UserPresence {
     updatedAt DateTime @updatedAt
 
     @@map("user_presence")
+}
+
+// ==================== Fact-Checking System ====================
+// Background verification of LLM responses for accuracy
+// Stores fact-checks, corrections, and verification history
+
+model FactCheckResult {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Linking to the response being fact-checked
+    conversationId String // Chat/conversation ID
+    messageId      String // Specific message ID being checked
+    originalAnswer String @db.Text
+
+    // Claim extraction and analysis
+    claimsIdentified String[] @default([]) // Array of identified claims from the response
+    claimsAnalyzed   Int      @default(0) // Number of claims actually verified
+
+    // Verification status
+    status              FactCheckStatus @default(PENDING)
+    confidenceScore     Float           @default(0.0) // 0.0 - 1.0, confidence in the verification
+    overallAccuracy     String? // 'mostly_correct', 'partially_correct', 'mostly_incorrect', 'incorrect'
+    needsCorrection     Boolean         @default(false)
+    correctionNeeded    String?         @db.Text // Description of what needs correcting
+    suggestedCorrection String?         @db.Text // The corrected information
+
+    // Verification details
+    verificationMethod String? // 'web_search', 'tool_execution', 'database_query', 'manual'
+    sources            String[] @default([]) // Array of sources used for verification
+    verificationNotes  String?  @db.Text // Detailed notes about the verification process
+
+    // Correction notification
+    notificationId String? // Link to notification if correction was sent
+    correctionSent Boolean   @default(false)
+    sentAt         DateTime?
+
+    // Metadata
+    metadata Json @default("{}")
+
+    createdAt               DateTime                 @default(now())
+    updatedAt               DateTime                 @updatedAt
+    verifiedAt              DateTime? // When verification was completed
+    correctionNotifications CorrectionNotification[]
+
+    @@index([userId])
+    @@index([status])
+    @@index([conversationId])
+    @@index([needsCorrection])
+    @@index([createdAt])
+    @@map("fact_check_results")
+}
+
+model CorrectionNotification {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Link to fact-check
+    factCheckId String
+    factCheck   FactCheckResult? @relation(fields: [factCheckId], references: [id], onDelete: SetNull)
+
+    // Notification details
+    title         String
+    message       String  @db.Text
+    correction    String  @db.Text // The corrected information
+    originalClaim String? @db.Text // What was originally said (optional)
+
+    // Delivery tracking
+    notificationId String? // Link to actual notification sent
+    isRead         Boolean   @default(false)
+    readAt         DateTime?
+    isDismissed    Boolean   @default(false)
+
+    // Metadata
+    metadata Json @default("{}")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([factCheckId])
+    @@index([isRead])
+    @@index([createdAt])
+    @@map("correction_notifications")
+}
+
+enum FactCheckStatus {
+    PENDING // Waiting to be verified
+    IN_PROGRESS // Currently being verified
+    COMPLETED // Verification complete
+    FAILED // Verification failed/couldn't verify
+    PARTIAL // Partially verified (some claims checked)
 }

@@ -1156,6 +1156,30 @@ export async function chatStream(
     res.write(`data: ${JSON.stringify({ type: "end", messageId })}\n\n`);
     res.end();
 
+    // ===== FACT-CHECKING (ASYNC AFTER RESPONSE) =====
+    // Trigger background fact-check for substantial responses
+    if (fullResponse && fullResponse.length > 100) {
+      setImmediate(async () => {
+        try {
+          const { factCheckerService } =
+            await import("../services/fact-checker.js");
+          await factCheckerService.scheduleFactCheck({
+            userId,
+            conversationId: messageId,
+            messageId: messageId,
+            response: fullResponse,
+            userQuestion: message,
+          });
+        } catch (error) {
+          console.error(
+            "[ChatController] Fact-check scheduling failed:",
+            error,
+          );
+          // Don't block chat on fact-check errors
+        }
+      });
+    }
+
     // Update conversation cache with the exchange (Opt 2)
     responseCacheService.updateConversationContext(
       userId,
