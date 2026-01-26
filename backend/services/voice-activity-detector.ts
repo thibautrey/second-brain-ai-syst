@@ -22,6 +22,7 @@
 
 import * as fs from "fs/promises";
 import * as path from "path";
+
 import { fileURLToPath } from "url";
 
 // Lazy-load ONNX runtime to allow the app to start even if not installed
@@ -125,8 +126,34 @@ export class VoiceActivityDetector {
     };
 
     // Set model path - use bundled Silero VAD model
+    // Default path, will be updated in initialize()
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     this.modelPath = path.join(__dirname, "../models/silero_vad_16000.onnx");
+  }
+
+  /**
+   * Find the actual model path by checking multiple locations
+   * Returns the first path that exists, or null if none found
+   */
+  private async findModelPath(): Promise<string | null> {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const possiblePaths = [
+      path.join(__dirname, "../models/silero_vad_16000.onnx"), // compiled source
+      path.join(process.cwd(), "models/silero_vad_16000.onnx"), // backend root
+      path.join(process.cwd(), "../models/silero_vad_16000.onnx"), // project root
+      "/app/backend/models/silero_vad_16000.onnx", // docker path
+      "/app/models/silero_vad_16000.onnx", // docker alternative
+    ];
+
+    for (const p of possiblePaths) {
+      try {
+        await fs.access(p);
+        return p; // Path exists
+      } catch {
+        // Continue to next path
+      }
+    }
+    return null; // No path found
   }
 
   /**
@@ -137,6 +164,12 @@ export class VoiceActivityDetector {
     if (this.initialized) return;
 
     try {
+      // Find the model path (check multiple locations)
+      const modelPath = await this.findModelPath();
+      if (modelPath) {
+        this.modelPath = modelPath;
+      }
+
       // Check if model file exists
       try {
         await fs.access(this.modelPath);
