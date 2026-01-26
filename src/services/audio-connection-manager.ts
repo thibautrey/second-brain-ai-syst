@@ -16,6 +16,12 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
+// Protocol configuration
+// Cloudflare Free plan has limited WebSocket support, so default to SSE in production
+const FORCE_PROTOCOL = import.meta.env.VITE_AUDIO_PROTOCOL as ConnectionProtocol | undefined;
+const IS_PRODUCTION = import.meta.env.PROD || API_BASE_URL.startsWith("https://");
+const DEFAULT_PROTOCOL: ConnectionProtocol = FORCE_PROTOCOL || (IS_PRODUCTION ? "sse" : "websocket");
+
 // ==================== Types ====================
 
 export type ConnectionProtocol = "websocket" | "sse" | "polling";
@@ -118,7 +124,7 @@ export class AudioConnectionManager {
         sampleRate: 16000,
         channels: 1,
       },
-      preferredProtocol: config.preferredProtocol || "websocket",
+      preferredProtocol: config.preferredProtocol || DEFAULT_PROTOCOL,
       enableFallback: config.enableFallback ?? true,
       maxReconnectAttempts: config.maxReconnectAttempts ?? 10,
       initialReconnectDelay: config.initialReconnectDelay ?? 1000,
@@ -348,6 +354,10 @@ export class AudioConnectionManager {
 
       const ws = new WebSocket(wsUrl);
       this.ws = ws;
+      
+      // Set binary type to arraybuffer for proper frame handling
+      // This is important for Cloudflare and other proxies
+      ws.binaryType = "arraybuffer";
 
       const timeout = setTimeout(() => {
         if (ws.readyState !== WebSocket.OPEN) {
@@ -365,26 +375,49 @@ export class AudioConnectionManager {
 
       ws.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data);
+          // Handle both string and ArrayBuffer messages
+          const data = event.data instanceof ArrayBuffer 
+            ? new TextDecoder().decode(event.data)
+            : event.data;
+          const message = JSON.parse(data);
           this.handleEvent(message);
         } catch (error) {
           console.error("AudioConnectionManager: Failed to parse message", error);
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (error) => {
         // Don't log error details - handle silently
+        // But check for frame errors which indicate Cloudflare/proxy issues
         clearTimeout(timeout);
+        
+        // If we get an error while connecting, immediately try fallback
+        // This helps with Cloudflare Free plan which may reject WebSocket upgrades
+        if (this.state === "connecting" && this.config.enableFallback) {
+          console.log("AudioConnectionManager: WebSocket error during connect, will fallback to SSE");
+        }
       };
 
       ws.onclose = (event) => {
         clearTimeout(timeout);
+        
+        // Check for specific close codes that indicate proxy/Cloudflare issues
+        // 1006 = Abnormal closure (often from proxy interference)
+        // 1015 = TLS handshake failure
+        const isProxyError = event.code === 1006 || event.code === 1015 || !event.wasClean;
+        
         if (this.state === "connected") {
           // Unexpected close - try to reconnect or fallback
-          this.handleConnectionLost();
+          if (isProxyError && this.config.enableFallback) {
+            // Skip reconnect attempts, go straight to fallback for proxy errors
+            console.log("AudioConnectionManager: Proxy/Cloudflare error detected, falling back to SSE");
+            this.tryFallback();
+          } else {
+            this.handleConnectionLost();
+          }
         } else if (this.state === "connecting") {
           // Failed to connect - try fallback
-          reject(new Error(`WebSocket closed: ${event.code}`));
+          reject(new Error(`WebSocket closed: ${event.code} (${event.reason || 'no reason'})`));
         }
       };
     });
@@ -406,7 +439,8 @@ export class AudioConnectionManager {
 
       eventSource.onopen = () => {
         clearTimeout(timeout);
-        this.setState("fallback"); // SSE is a fallback state
+        // Set to 'connected' if SSE is the preferred protocol, 'fallback' otherwise
+        this.setState(this.config.preferredProtocol === "sse" ? "connected" : "fallback");
         this.reconnectAttempts = 0;
         resolve();
       };
