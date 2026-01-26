@@ -4,9 +4,13 @@
  * Handles chat requests with SSE streaming responses
  *
  * OPTIMIZATIONS IMPLEMENTED:
+ * - Opt 1: Parallel Processing Pipeline
+ * - Opt 2: Aggressive Response Caching (conversation context, user profile, memories)
  * - Opt 4: Provider cache with 5-minute TTL
  * - Opt 5: Single LLM call for classification+assessment AFTER response
  * - Opt 7: Parallel fetch of provider + memory search
+ * - Opt 8: Speculative Execution (predict and pre-fetch follow-up queries)
+ * - Opt 9: Precomputed Memory Indices
  * - Fallback provider chain with user notifications
  * - Dynamic token buffer (10% for small models, 20% for large)
  */
@@ -41,6 +45,12 @@ import {
   getFallbackMaxTokens,
 } from "../utils/token-validator.js";
 import { getDefaultMaxTokens } from "./ai-settings.controller.js";
+// Performance optimization imports
+import { parallelProcessor } from "../services/parallel-processor.js";
+import { responseCacheService } from "../services/response-cache.js";
+import { precomputedMemoryIndex } from "../services/precomputed-memory-index.js";
+import { speculativeExecutor } from "../services/speculative-executor.js";
+import { optimizedRetrieval } from "../services/optimized-retrieval.js";
 
 const intentRouter = new IntentRouterService();
 
@@ -265,28 +275,49 @@ export async function chatStream(
     // Send start event
     res.write(`data: ${JSON.stringify({ type: "start", messageId })}\n\n`);
 
-    // 1. PARALLEL: Memory search + Provider fetch (Optimization 7)
-    // NO pre-classification - we'll do unified analysis AFTER response (Optimization 5)
+    // Record query for speculative execution patterns (Opt 8)
+    speculativeExecutor.recordQuery(userId, message);
+
+    // Check for speculative pre-fetched results first (Opt 8)
+    const prefetchedResults = speculativeExecutor.getPrefetchedResults(userId, message);
+
+    // 1. PARALLEL PROCESSING PIPELINE (Opt 1, 2, 4, 7, 9)
+    // Fetch everything in parallel: memories, provider, user context, conversation context
     const parallelStart = Date.now();
 
-    const [memorySearchResult, providerResult] = await Promise.all([
-      // Memory search (wrapped to handle errors gracefully)
-      memorySearchService.semanticSearch(userId, message, 5).catch((error) => {
-        console.warn(
-          "Memory search failed, continuing without context:",
-          error,
-        );
-        return { results: [], error };
-      }),
-      // Provider fetch (using cache - Optimization 4 & 7)
+    const [memorySearchResult, providerResult, userContext, conversationContext] = await Promise.all([
+      // Memory search - use prefetched if available, or optimized retrieval
+      prefetchedResults 
+        ? Promise.resolve(prefetchedResults)
+        : optimizedRetrieval.fastSearch(userId, message, 5).catch((error) => {
+            console.warn("Optimized search failed, trying standard:", error);
+            return memorySearchService.semanticSearch(userId, message, 5).catch((err) => {
+              console.warn("Memory search failed, continuing without context:", err);
+              return { results: [], error: err };
+            });
+          }),
+      // Provider fetch (using cache - Opt 4)
       getChatProvider(userId),
+      // User context from precomputed index (Opt 9)
+      precomputedMemoryIndex.getOrComputeContext(userId).catch(() => null),
+      // Conversation context from cache (Opt 2)
+      Promise.resolve(responseCacheService.getConversationContext(userId)),
     ]);
 
     const parallelDuration = Date.now() - parallelStart;
 
+    // Start speculative pre-fetch for likely follow-ups (Opt 8 - non-blocking)
+    const userTopics = userContext?.recentTopics || [];
+    speculativeExecutor.speculativeFetch(userId, message, userTopics).catch(() => {});
+
     // 2. Process memory search results (already fetched in parallel)
     let memoryContext: string[] = [];
-    if ("error" in memorySearchResult) {
+    // Handle both optimizedRetrieval results and memorySearchService results
+    const searchResults = Array.isArray(memorySearchResult) 
+      ? memorySearchResult.map(r => ({ memory: { createdAt: r.createdAt, content: r.content }, score: r.certainty }))
+      : ('results' in memorySearchResult ? memorySearchResult.results : []);
+    
+    if ("error" in memorySearchResult && !Array.isArray(memorySearchResult)) {
       flowTracker.trackEvent({
         flowId,
         stage: "memory_search",
@@ -301,14 +332,17 @@ export async function chatStream(
           "Recherche mémoire échouée. Continuation sans contexte mémoire.",
       });
     } else {
-      memoryContext = memorySearchResult.results.map(
-        (r) =>
-          `[Mémoire du ${new Date(r.memory.createdAt).toLocaleDateString()}]: ${r.memory.content}`,
+      memoryContext = searchResults.map(
+        (r: any) =>
+          `[Mémoire du ${new Date(r.memory?.createdAt || r.createdAt).toLocaleDateString()}]: ${r.memory?.content || r.content}`,
       );
 
+      const avgScore = searchResults.length > 0 
+        ? searchResults.reduce((sum: number, r: any) => sum + (r.score || r.certainty || 0), 0) / searchResults.length 
+        : 0;
       const memoryDecision =
-        `${memorySearchResult.results.length} mémoire(s) pertinente(s) trouvée(s). ` +
-        `Score moyen: ${((memorySearchResult.results.reduce((sum, r) => sum + (r.score || 0), 0) / memorySearchResult.results.length) * 100).toFixed(1)}%.`;
+        `${searchResults.length} mémoire(s) pertinente(s) trouvée(s). ` +
+        `Score moyen: ${(avgScore * 100).toFixed(1)}%.`;
 
       flowTracker.trackEvent({
         flowId,
@@ -317,15 +351,18 @@ export async function chatStream(
         status: "success",
         duration: parallelDuration,
         data: {
-          resultsFound: memorySearchResult.results.length,
+          resultsFound: searchResults.length,
           query: message,
-          topResults: memorySearchResult.results.slice(0, 3).map((r, i) => ({
+          topResults: searchResults.slice(0, 3).map((r: any, i: number) => ({
             rank: i + 1,
-            score: r.score,
+            score: r.score || r.certainty,
             distance: r.distance,
-            dateCreated: r.memory.createdAt,
+            dateCreated: r.memory?.createdAt || r.createdAt,
           })),
           parallelExecution: true,
+          usedPrefetch: !!prefetchedResults,
+          userContextAvailable: !!userContext,
+          conversationContextAvailable: !!conversationContext,
         },
         decision: memoryDecision,
       });
@@ -1035,6 +1072,17 @@ export async function chatStream(
     // Send end event to user - RESPONSE IS NOW COMPLETE
     res.write(`data: ${JSON.stringify({ type: "end", messageId })}\n\n`);
     res.end();
+
+    // Update conversation cache with the exchange (Opt 2)
+    responseCacheService.updateConversationContext(
+      userId,
+      { role: "user", content: message },
+      userTopics
+    );
+    responseCacheService.updateConversationContext(
+      userId,
+      { role: "assistant", content: fullResponse }
+    );
 
     // 7. ASYNC: Unified analysis AFTER response (Optimization 5)
     // Single LLM call that does BOTH classification AND value assessment

@@ -7,6 +7,10 @@ import { Router, Request, Response } from "express";
 import { flowTracker } from "../services/flow-tracker.js";
 import { embeddingSchedulerService } from "../services/embedding-scheduler.js";
 import { noiseFilterService } from "../services/noise-filter.js";
+import { responseCacheService } from "../services/response-cache.js";
+import { precomputedMemoryIndex } from "../services/precomputed-memory-index.js";
+import { speculativeExecutor } from "../services/speculative-executor.js";
+import { optimizedRetrieval } from "../services/optimized-retrieval.js";
 
 const router = Router();
 
@@ -666,6 +670,105 @@ router.post("/noise-filter/test", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error testing noise filter:", error);
     res.status(500).json({ error: "Failed to test noise filter" });
+  }
+});
+
+// ============================================================================
+// PERFORMANCE OPTIMIZATION STATS
+// ============================================================================
+
+/**
+ * GET /debug/performance-stats
+ * Returns performance optimization statistics
+ */
+router.get("/performance-stats", (req: Request, res: Response) => {
+  try {
+    const stats = {
+      responseCaches: responseCacheService.getStats(),
+      precomputedIndex: precomputedMemoryIndex.getStats(),
+      speculativeExecution: speculativeExecutor.getStats(),
+      optimizedRetrieval: {
+        available: optimizedRetrieval.isServiceAvailable(),
+      },
+      flowTracker: flowTracker.getStatistics(),
+    };
+
+    res.json(stats);
+  } catch (error) {
+    console.error("Error getting performance stats:", error);
+    res.status(500).json({ error: "Failed to get performance stats" });
+  }
+});
+
+/**
+ * POST /debug/warm-cache/:userId
+ * Warm up caches for a specific user
+ */
+router.post("/warm-cache/:userId", async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    
+    const startTime = Date.now();
+    
+    await Promise.all([
+      responseCacheService.warmUpCaches(userId),
+      precomputedMemoryIndex.getOrComputeContext(userId),
+    ]);
+
+    res.json({
+      success: true,
+      userId,
+      duration: Date.now() - startTime,
+      message: "Caches warmed up successfully",
+    });
+  } catch (error) {
+    console.error("Error warming cache:", error);
+    res.status(500).json({ error: "Failed to warm cache" });
+  }
+});
+
+/**
+ * POST /debug/clear-caches
+ * Clear all performance caches (for testing)
+ */
+router.post("/clear-caches", (req: Request, res: Response) => {
+  try {
+    responseCacheService.clearAll();
+    precomputedMemoryIndex.clearAll();
+    speculativeExecutor.clearAll();
+
+    res.json({
+      success: true,
+      message: "All performance caches cleared",
+    });
+  } catch (error) {
+    console.error("Error clearing caches:", error);
+    res.status(500).json({ error: "Failed to clear caches" });
+  }
+});
+
+/**
+ * GET /debug/user-context/:userId
+ * Get precomputed context for a user
+ */
+router.get("/user-context/:userId", async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    
+    const context = await precomputedMemoryIndex.getOrComputeContext(userId);
+    const conversationContext = responseCacheService.getConversationContext(userId);
+    const profileCache = responseCacheService.getUserProfileCache(userId);
+    const memoryCache = responseCacheService.getMemoryCache(userId);
+
+    res.json({
+      precomputedContext: context,
+      conversationContext,
+      profileCache,
+      memoryCacheSize: memoryCache?.memories?.length || 0,
+    });
+  } catch (error) {
+    console.error("Error getting user context:", error);
+    res.status(500).json({ error: "Failed to get user context" });
   }
 });
 

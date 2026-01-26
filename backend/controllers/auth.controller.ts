@@ -4,6 +4,8 @@ import {
   generateToken,
 } from "../services/auth.js";
 import prisma from "../services/prisma.js";
+import { responseCacheService } from "../services/response-cache.js";
+import { precomputedMemoryIndex } from "../services/precomputed-memory-index.js";
 
 /**
  * Signup controller
@@ -74,6 +76,10 @@ export async function signin(email: string, password: string) {
 
   // Generate token
   const token = generateToken(user.id);
+
+  // Warm up caches for the user (non-blocking)
+  responseCacheService.warmUpCaches(user.id).catch(() => {});
+  precomputedMemoryIndex.getOrComputeContext(user.id).catch(() => {});
 
   return {
     user: {
