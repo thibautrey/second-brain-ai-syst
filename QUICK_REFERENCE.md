@@ -1,20 +1,39 @@
 # 🧠 Second Brain AI System - Quick Reference
 
-## What Was Cleaned Up
+## 🚀 Quick Setup (< 1 minute)
 
-❌ **Removed**:
+```bash
+git clone <your-repo-url>
+cd second-brain-ai-syst
+./scripts/setup.sh
+docker compose up --build
+```
 
-- `spark-template` branding and configurations
-- 46 unnecessary UI components (kept foundation with shadcn/ui)
-- `@github/spark`, `@octokit/core`, `@phosphor-icons/react` dependencies
-- Template configuration files (`runtime.config.json`, `spark.meta.json`, `theme.json`)
+**Access**: http://localhost:5173
 
-✅ **Kept**:
+## 🤖 Add AI Features (Optional)
 
-- React + TypeScript foundation
-- Tailwind CSS + Radix UI components
-- Vite build configuration
-- Core build tooling
+### Local AI (Privacy-focused):
+```bash
+./scripts/setup-local-llm.sh  # Sets up Ollama + local models
+```
+
+### Cloud AI (More powerful):
+Configure in web interface: Settings → AI Configuration
+
+## 📦 What You Get
+
+✅ **Core Features** (No API keys needed):
+- Audio training and speaker recognition  
+- Voice profile creation
+- Memory storage and semantic search
+- Database with encryption
+
+🤖 **AI Features** (After LLM setup):
+- Chat and conversation
+- Memory summarization  
+- Intent classification
+- Proactive coaching
 
 ---
 

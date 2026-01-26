@@ -4,6 +4,49 @@ This directory contains all utility scripts for the Second Brain AI System.
 
 ## Available Scripts
 
+### `setup.sh` ⭐
+
+**NEW** - Unified setup script for quick system installation.
+
+**Usage:**
+
+```bash
+./scripts/setup.sh
+```
+
+**What it does:**
+
+- Checks prerequisites (Docker, Docker Compose, Node.js)
+- Copies `.env.example` to `.env`
+- Auto-generates secure `JWT_SECRET` and `ENCRYPTION_KEY`
+- Sets up environment for Docker deployment
+- Provides next steps for starting the system
+
+**Time:** < 30 seconds
+
+---
+
+### `setup-local-llm.sh` 🤖
+
+**NEW** - Sets up local AI (Ollama) for chat and analysis features.
+
+**Usage:**
+
+```bash
+./scripts/setup-local-llm.sh
+```
+
+**What it does:**
+
+- Installs Ollama (local LLM server)
+- Downloads `llama3.1:3b` model (~2GB)
+- Provides configuration instructions for web interface
+- Enables fully offline AI features
+
+**First run time:** 5-15 minutes (model download)
+
+---
+
 ### `setup-embedding-service.sh`
 
 Sets up the ECAPA-TDNN embedding service environment.

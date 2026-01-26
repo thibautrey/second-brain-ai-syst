@@ -7,6 +7,8 @@ interface User {
   email: string;
   name?: string;
   createdAt: string;
+  hasCompletedOnboarding?: boolean;
+  onboardingCompletedAt?: string;
 }
 
 interface AuthContextType {
@@ -14,9 +16,11 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasCompletedOnboarding: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
+  completeOnboarding: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -119,6 +123,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("authToken");
   }
 
+  async function completeOnboarding() {
+    if (user) {
+      const updatedUser = {
+        ...user,
+        hasCompletedOnboarding: true,
+        onboardingCompletedAt: new Date().toISOString(),
+      };
+      setUser(updatedUser);
+    }
+  }
+
+  const hasCompletedOnboarding = user?.hasCompletedOnboarding ?? false;
+
   return (
     <AuthContext.Provider
       value={{
@@ -126,9 +143,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         isLoading,
         isAuthenticated: !!user,
+        hasCompletedOnboarding,
         login,
         signup,
         logout,
+        completeOnboarding,
       }}
     >
       {children}

@@ -2,77 +2,80 @@
 
 An AI-powered personal cognitive operating system that captures, organizes, summarizes, and recalls information to augment human memory and decision-making.
 
-## Features
-
-- **Continuous Memory**: Captures interactions and structures them automatically
-- **Multi-scale Summaries**: Generates summaries from daily to yearly timescales
-- **Semantic Search**: Find memories by meaning, not just keywords
-- **Autonomous Agents**: Background processes for reflection, goals, habits
-- **Proactive Coaching**: AI agent that analyzes patterns and provides helpful suggestions for health, productivity, and wellbeing
-- **Privacy-First**: Self-hosted, encrypted storage, zero telemetry
-- **Tool Integration**: Browser automation, APIs, custom tools
-- **Mobile App**: iOS/Android app for chat access on the go (see `/mobile-app`)
-
-## Quick Start
-
-### Web Application
+## 🚀 Quick Start (< 1 minute)
 
 ```bash
-# Setup embedding service (optional, or use Docker)
-./scripts/setup-embedding-service.sh
-
-# Install dependencies
-npm install
-
-# Setup environment
-cp .env.example .env
-
-# Run development
-npm run dev
-
-# Or use Docker for everything
+git clone <your-repo-url>
+cd second-brain-ai-syst
+./scripts/setup.sh
 docker compose up --build
 ```
 
-### Mobile App (iOS/Android)
+**That's it!** Open http://localhost:5173 to access your personal AI system.
 
-For mobile access to the chat feature:
+### What You Get Immediately
 
+✅ **Core Features** (No API keys needed):
+- Audio training and speaker recognition
+- Voice profile creation
+- Memory storage and semantic search
+- User authentication and settings
+- Database with encryption
+
+🤖 **AI Features** (Optional setup):
+- **Local AI**: Run `./scripts/setup-local-llm.sh` for offline chat/analysis
+- **Cloud AI**: Configure OpenAI/Anthropic in web interface for advanced features
+
+## Features Overview
+
+### Core System (Always Available)
+- **Continuous Memory**: Captures interactions and structures them automatically
+- **Audio Processing**: ECAPA-TDNN speaker recognition (completely local)
+- **Semantic Search**: Find memories by meaning using vector embeddings
+- **Privacy-First**: Self-hosted, encrypted storage, zero telemetry
+- **Voice Profiles**: Create and manage speaker recognition profiles
+
+### AI-Powered Features (Requires LLM Setup)
+- **Multi-scale Summaries**: Generates summaries from daily to yearly timescales
+- **Autonomous Agents**: Background processes for reflection, goals, habits
+- **Proactive Coaching**: AI agent that analyzes patterns for health and productivity
+- **Smart Chat**: Conversational interface with memory context
+- **Tool Integration**: Browser automation, APIs, custom tools
+
+## Add AI Chat Features
+
+Choose your preferred AI setup:
+
+### Option A: Local AI (Recommended for Privacy)
 ```bash
-cd mobile-app
-npm install
-cp .env.example .env
-# Edit .env to set EXPO_PUBLIC_API_URL
-npm start
+./scripts/setup-local-llm.sh  # Sets up Ollama + local models
 ```
 
-See [mobile-app/QUICKSTART.md](./mobile-app/QUICKSTART.md) for detailed mobile setup instructions.
+### Option B: Cloud AI (More Powerful)
+1. Get API keys from:
+   - **OpenAI**: https://platform.openai.com/api-keys
+   - **Anthropic**: https://console.anthropic.com/
+   - **Others**: Any OpenAI-compatible provider
 
-## Scripts
-
-All utility scripts are located in `/scripts/`:
-
-- **`./scripts/setup-embedding-service.sh`** - Setup ECAPA-TDNN embedding service
-- **`./scripts/setup-input-system.sh`** - Setup input ingestion system
-- **`./scripts/archive-notes.sh`** - Manage implementation notes archival
-
-See [Scripts Documentation](./scripts/README.md) for details.
+2. Configure in web interface: Settings → AI Configuration
 
 ## Documentation
 
-### Essential References
+### Quick References
+- [Setup Guide](./SETUP.md) - Detailed development setup
+- [Architecture & Agents](./agents.md) - Complete system design
+- [Quick Reference](./QUICK_REFERENCE.md) - Command reference
 
-- [Architecture & Agents](./agents.md) - Complete system design and agent architecture
-- [Setup Guide](./SETUP.md) - Initial development setup
-- [Quick Reference](./QUICK_REFERENCE.md) - Quick command reference
+### Detailed Docs
+- [📁 /docs](./docs/) - Architecture, authentication, database guides
+- [📁 /docs/implementation-notes](./docs/implementation-notes/) - Development documentation
 
-### Organized Documentation
-
-- [Permanent Documentation](/docs) - Architecture, authentication, database, and integration guides
-  - [Proactive Agent](/docs/proactive-agent.md) - AI coaching system for health and productivity
-- [Implementation Notes](/docs/implementation-notes) - Temporary development documentation and feature guides
-
-**Note**: Documentation is organized to keep the repository clean. Implementation notes are archived to `/docs/implementation-notes/` during development and moved to permanent documentation when features become stable. See [Documentation Organization](./agents.md#-documentation--implementation-notes-management) for details.
+### Scripts & Tools
+- [📁 /scripts](./scripts/) - Setup and utility scripts
+- **Key Scripts**:
+  - `./scripts/setup.sh` - Main setup script
+  - `./scripts/setup-local-llm.sh` - Local AI setup
+  - `./scripts/setup-embedding-service.sh` - Audio processing setup
 
 📄 License For Spark Template Resources
 

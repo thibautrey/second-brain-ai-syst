@@ -13,9 +13,10 @@ import { SignupPage } from "./pages/SignupPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TrainingPage } from "./pages/TrainingPage";
 import { FloatingActionButtons } from "./components/FloatingActionButtons";
+import { OnboardingWizard } from "./components/onboarding/OnboardingWizard";
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasCompletedOnboarding } = useAuth();
 
   return (
     <>
@@ -24,23 +25,50 @@ function AppContent() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 
+        {/* Onboarding Route */}
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <OnboardingWizard />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Protected Routes */}
         <Route
           path="/dashboard/:tab?"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              {hasCompletedOnboarding ? (
+                <DashboardPage />
+              ) : (
+                <Navigate to="/onboarding" replace />
+              )}
             </ProtectedRoute>
           }
         />
 
         {/* Redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/"
+          element={
+            isAuthenticated ? (
+              hasCompletedOnboarding ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/onboarding" replace />
+              )
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* Global Floating Action Buttons - only visible when authenticated */}
-      {isAuthenticated && <FloatingActionButtons />}
+      {/* Global Floating Action Buttons - only visible when authenticated and onboarded */}
+      {isAuthenticated && hasCompletedOnboarding && <FloatingActionButtons />}
     </>
   );
 }

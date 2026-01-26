@@ -38,6 +38,8 @@ export async function signup(email: string, password: string, name?: string) {
       email: true,
       name: true,
       createdAt: true,
+      hasCompletedOnboarding: true,
+      onboardingCompletedAt: true,
     },
   });
 
@@ -79,6 +81,8 @@ export async function signin(email: string, password: string) {
       email: user.email,
       name: user.name,
       createdAt: user.createdAt,
+      hasCompletedOnboarding: user.hasCompletedOnboarding,
+      onboardingCompletedAt: user.onboardingCompletedAt,
     },
     token,
   };
@@ -96,6 +100,8 @@ export async function getUserProfile(userId: string) {
       name: true,
       createdAt: true,
       updatedAt: true,
+      hasCompletedOnboarding: true,
+      onboardingCompletedAt: true,
     },
   });
 

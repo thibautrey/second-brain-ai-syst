@@ -17,6 +17,10 @@ model User {
   password String
   name     String?
 
+  // Onboarding tracking
+  hasCompletedOnboarding Boolean   @default(false)
+  onboardingCompletedAt  DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -63,8 +67,8 @@ model User {
   notificationTopicTrackers NotificationTopicTracker[]
 
   // Universal Audio Ingestion (multi-device support)
-  audioDevices       AudioDevice[]
-  audioSessions      UniversalAudioSession[]
+  audioDevices  AudioDevice[]
+  audioSessions UniversalAudioSession[]
 
   @@map("users")
 }
@@ -426,10 +430,10 @@ model AudioDevice {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Device identification
-  deviceType   DeviceType
-  deviceName   String? // User-friendly name (e.g., "My Apple Watch", "Chrome Browser")
-  deviceToken  String  @unique // Unique token for this device
-  userAgent    String? // User agent or device fingerprint
+  deviceType  DeviceType
+  deviceName  String? // User-friendly name (e.g., "My Apple Watch", "Chrome Browser")
+  deviceToken String     @unique // Unique token for this device
+  userAgent   String? // User agent or device fingerprint
 
   // Device capabilities
   capabilities Json @default("{}") // { codecs: [], sampleRates: [], protocols: [], maxChunkDuration: number }
@@ -471,25 +475,25 @@ model UniversalAudioSession {
   audioFormat Json @default("{}") // { codec: "pcm16", sampleRate: 16000, channels: 1, bitDepth: 16 }
 
   // Chunk tracking for resumable uploads
-  chunksReceived   Int      @default(0)
-  bytesReceived    Int      @default(0)
-  lastChunkSeq     Int      @default(0) // Last received sequence number
-  missingChunks    Int[]    @default([]) // Sequence numbers of missing chunks for re-request
-  lastChunkAt      DateTime?
+  chunksReceived Int       @default(0)
+  bytesReceived  Int       @default(0)
+  lastChunkSeq   Int       @default(0) // Last received sequence number
+  missingChunks  Int[]     @default([]) // Sequence numbers of missing chunks for re-request
+  lastChunkAt    DateTime?
 
   // Event delivery tracking
-  pendingEvents     Json[]  @default([]) // Buffered events awaiting delivery
-  lastEventId       Int     @default(0) // Auto-incrementing event ID for polling
+  pendingEvents     Json[]    @default([]) // Buffered events awaiting delivery
+  lastEventId       Int       @default(0) // Auto-incrementing event ID for polling
   lastEventDelivery DateTime?
 
   // Processing results
-  totalTranscripts Int @default(0) // Number of transcripts generated
+  totalTranscripts Int   @default(0) // Number of transcripts generated
   totalDuration    Float @default(0) // Total audio duration in seconds
 
   // Error tracking
-  errorCount   Int     @default(0)
-  lastError    String?
-  lastErrorAt  DateTime?
+  errorCount  Int       @default(0)
+  lastError   String?
+  lastErrorAt DateTime?
 
   // Session metadata
   metadata Json @default("{}") // Additional session-specific data
@@ -533,9 +537,9 @@ model AudioChunk {
   errorMessage String?
 
   // Transcription result (if processed)
-  transcript   String?
-  vadDetected  Boolean? // Voice activity detected in this chunk
-  speakerId    String? // Identified speaker (if applicable)
+  transcript  String?
+  vadDetected Boolean? // Voice activity detected in this chunk
+  speakerId   String? // Identified speaker (if applicable)
 
   receivedAt DateTime @default(now())
 

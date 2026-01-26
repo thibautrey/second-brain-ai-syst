@@ -26,15 +26,24 @@ ENV MODEL_CACHE_DIR=/app/models
 ENV HF_HOME=/app/models
 ENV HF_HUB_CACHE=/app/models/hub
 
-# Copy the model download script
+# Copy the model download script and embedding service
 COPY backend/services/download-model.py .
-
-# Attempt to pre-download model (may fail without internet, that's OK)
-# We'll handle offline mode gracefully in the embedding service
-RUN python3 download-model.py || true
-
-# Copy the embedding service
 COPY backend/services/embedding-service.py .
+
+# Pre-download ECAPA-TDNN model during build (~150MB, cached in layers)
+# This eliminates runtime download delays
+RUN echo "📥 Pre-downloading ECAPA-TDNN model..." && \
+    python3 download-model.py && \
+    echo "✅ Model cached successfully" || \
+    (echo "⚠️  Model download failed, will retry at runtime" && true)
+
+# Verify model files exist or create empty marker for offline detection
+RUN if [ ! -f "/app/models/hub/models--speechbrain--spkrec-ecapa-voxceleb/snapshots/"*/hyperparams.yaml ]; then \
+        echo "Model not cached, will download at runtime" > /app/models/download_needed.txt; \
+    else \
+        echo "Model successfully cached during build" && \
+        ls -la /app/models/hub/; \
+    fi
 
 # Expose port
 EXPOSE 5001

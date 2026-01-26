@@ -1,3 +1,10 @@
+import {
+  getOnboardingStatus,
+  finishOnboarding,
+  resetOnboarding,
+  skipOnboarding,
+  completeStep,
+} from "../controllers/onboarding.controller.js";
 import { AuthRequest, authMiddleware } from "../middlewares/auth.middleware.js";
 import express, { Express, NextFunction, Request, Response } from "express";
 import {
@@ -78,6 +85,39 @@ import {
 } from "../controllers/proactive-agent.controller.js";
 import audioIngestionController from "../controllers/audio-ingestion.controller.js";
 import { audioSessionManager } from "./audio-session-manager.js";
+
+// Environment validation
+function validateEnvironment() {
+  const required = ['JWT_SECRET', 'ENCRYPTION_KEY', 'DATABASE_URL'];
+  const missing = required.filter(key => !process.env[key] || process.env[key].trim() === '');
+  
+  if (missing.length > 0) {
+    console.error('❌ Missing required environment variables:');
+    missing.forEach(key => {
+      console.error(`   • ${key}`);
+    });
+    console.error('\n💡 Run ./scripts/setup.sh to generate missing secrets');
+    process.exit(1);
+  }
+  
+  // Validate JWT_SECRET strength
+  if (process.env.JWT_SECRET === 'your-secret-key-here' || 
+      (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32)) {
+    console.error('❌ JWT_SECRET is too weak or using default value');
+    console.error('💡 Run ./scripts/setup.sh to generate a secure secret');
+    process.exit(1);
+  }
+  
+  // Validate ENCRYPTION_KEY strength
+  if (process.env.ENCRYPTION_KEY === 'your-encryption-key-here' || 
+      (process.env.ENCRYPTION_KEY && process.env.ENCRYPTION_KEY.length < 32)) {
+    console.error('❌ ENCRYPTION_KEY is too weak or using default value');
+    console.error('💡 Run ./scripts/setup.sh to generate a secure key');
+    process.exit(1);
+  }
+  
+  console.log('✅ Environment validation passed');
+}
 
 // Constants
 const PUSHOVER_USER_KEY_LENGTH = 30;
@@ -200,6 +240,58 @@ app.get(
       next(error);
     }
   },
+);
+
+// ==================== Onboarding Routes ====================
+
+/**
+ * GET /api/onboarding/status
+ * Get onboarding completion status for current user
+ */
+app.get(
+  "/api/onboarding/status",
+  authMiddleware,
+  getOnboardingStatus,
+);
+
+/**
+ * POST /api/onboarding/finish
+ * Mark onboarding as completed
+ */
+app.post(
+  "/api/onboarding/finish",
+  authMiddleware,
+  finishOnboarding,
+);
+
+/**
+ * POST /api/onboarding/complete-step
+ * Mark a specific onboarding step as completed
+ */
+app.post(
+  "/api/onboarding/complete-step",
+  authMiddleware,
+  completeStep,
+);
+
+/**
+ * POST /api/onboarding/skip
+ * Skip onboarding (mark as completed without steps)
+ */
+app.post(
+  "/api/onboarding/skip",
+  authMiddleware,
+  skipOnboarding,
+);
+
+/**
+ * POST /api/onboarding/reset
+ * Reset onboarding (for testing)
+ */
+app.post(
+  "/api/onboarding/reset",
+  authMiddleware,
+  resetOnboarding,
 );
 
 // ==================== Voice Training Routes ====================
@@ -2921,6 +3013,9 @@ if (process.env.NODE_ENV === "production") {
  */
 export async function startServer(port: number = 3000) {
   try {
+    // Validate environment before starting
+    validateEnvironment();
+    
     // Test database connection
     await prisma.$connect();
     console.log("✓ Database connected");
