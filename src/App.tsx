@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ContinuousListeningProvider } from "./contexts/ContinuousListeningContext";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -14,6 +15,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { TrainingPage } from "./pages/TrainingPage";
 import { FloatingActionButtons } from "./components/FloatingActionButtons";
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard";
+import { useUserPresence } from "./hooks/useUserPresence";
 
 function AppContent() {
   const { isAuthenticated, hasCompletedOnboarding } = useAuth();
@@ -73,12 +75,19 @@ function AppContent() {
   );
 }
 
+function PresenceTracker() {
+  // Track user presence in the web interface
+  useUserPresence({ enabled: true });
+  return null;
+}
+
 function App() {
   return (
     <TooltipProvider>
       <Router>
         <AuthProvider>
           <ContinuousListeningProvider>
+            <PresenceTracker />
             <AppContent />
           </ContinuousListeningProvider>
         </AuthProvider>

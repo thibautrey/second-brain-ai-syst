@@ -88,35 +88,41 @@ import { audioSessionManager } from "./audio-session-manager.js";
 
 // Environment validation
 function validateEnvironment() {
-  const required = ['JWT_SECRET', 'ENCRYPTION_KEY', 'DATABASE_URL'];
-  const missing = required.filter(key => !process.env[key] || process.env[key].trim() === '');
-  
+  const required = ["JWT_SECRET", "ENCRYPTION_KEY", "DATABASE_URL"];
+  const missing = required.filter(
+    (key) => !process.env[key] || process.env[key].trim() === "",
+  );
+
   if (missing.length > 0) {
-    console.error('❌ Missing required environment variables:');
-    missing.forEach(key => {
+    console.error("❌ Missing required environment variables:");
+    missing.forEach((key) => {
       console.error(`   • ${key}`);
     });
-    console.error('\n💡 Run ./scripts/setup.sh to generate missing secrets');
+    console.error("\n💡 Run ./scripts/setup.sh to generate missing secrets");
     process.exit(1);
   }
-  
+
   // Validate JWT_SECRET strength
-  if (process.env.JWT_SECRET === 'your-secret-key-here' || 
-      (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32)) {
-    console.error('❌ JWT_SECRET is too weak or using default value');
-    console.error('💡 Run ./scripts/setup.sh to generate a secure secret');
+  if (
+    process.env.JWT_SECRET === "your-secret-key-here" ||
+    (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32)
+  ) {
+    console.error("❌ JWT_SECRET is too weak or using default value");
+    console.error("💡 Run ./scripts/setup.sh to generate a secure secret");
     process.exit(1);
   }
-  
+
   // Validate ENCRYPTION_KEY strength
-  if (process.env.ENCRYPTION_KEY === 'your-encryption-key-here' || 
-      (process.env.ENCRYPTION_KEY && process.env.ENCRYPTION_KEY.length < 32)) {
-    console.error('❌ ENCRYPTION_KEY is too weak or using default value');
-    console.error('💡 Run ./scripts/setup.sh to generate a secure key');
+  if (
+    process.env.ENCRYPTION_KEY === "your-encryption-key-here" ||
+    (process.env.ENCRYPTION_KEY && process.env.ENCRYPTION_KEY.length < 32)
+  ) {
+    console.error("❌ ENCRYPTION_KEY is too weak or using default value");
+    console.error("💡 Run ./scripts/setup.sh to generate a secure key");
     process.exit(1);
   }
-  
-  console.log('✅ Environment validation passed');
+
+  console.log("✅ Environment validation passed");
 }
 
 // Constants
@@ -248,51 +254,31 @@ app.get(
  * GET /api/onboarding/status
  * Get onboarding completion status for current user
  */
-app.get(
-  "/api/onboarding/status",
-  authMiddleware,
-  getOnboardingStatus,
-);
+app.get("/api/onboarding/status", authMiddleware, getOnboardingStatus);
 
 /**
  * POST /api/onboarding/finish
  * Mark onboarding as completed
  */
-app.post(
-  "/api/onboarding/finish",
-  authMiddleware,
-  finishOnboarding,
-);
+app.post("/api/onboarding/finish", authMiddleware, finishOnboarding);
 
 /**
  * POST /api/onboarding/complete-step
  * Mark a specific onboarding step as completed
  */
-app.post(
-  "/api/onboarding/complete-step",
-  authMiddleware,
-  completeStep,
-);
+app.post("/api/onboarding/complete-step", authMiddleware, completeStep);
 
 /**
  * POST /api/onboarding/skip
  * Skip onboarding (mark as completed without steps)
  */
-app.post(
-  "/api/onboarding/skip",
-  authMiddleware,
-  skipOnboarding,
-);
+app.post("/api/onboarding/skip", authMiddleware, skipOnboarding);
 
 /**
  * POST /api/onboarding/reset
  * Reset onboarding (for testing)
  */
-app.post(
-  "/api/onboarding/reset",
-  authMiddleware,
-  resetOnboarding,
-);
+app.post("/api/onboarding/reset", authMiddleware, resetOnboarding);
 
 // ==================== Voice Training Routes ====================
 
@@ -908,52 +894,93 @@ console.log("🤖 Generated tools routes enabled at /api/generated-tools");
 // ==================== Universal Audio Ingestion Routes ====================
 
 // Attach auth middleware to inject userId
-app.use("/api/audio", authMiddleware, (req: AuthRequest, res, next) => {
-  // Pass userId to the controller
-  (req as any).userId = req.userId;
-  next();
-}, audioIngestionController);
+app.use(
+  "/api/audio",
+  authMiddleware,
+  (req: AuthRequest, res, next) => {
+    // Pass userId to the controller
+    (req as any).userId = req.userId;
+    next();
+  },
+  audioIngestionController,
+);
 console.log("🎙️ Universal audio ingestion routes enabled at /api/audio");
 
 // ==================== Goals Routes ====================
 
 import { goalsController } from "../controllers/goals.controller.js";
 
-app.get("/api/goals", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.listGoals(req, res);
-});
+app.get(
+  "/api/goals",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.listGoals(req, res);
+  },
+);
 
-app.get("/api/goals/stats", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.getStats(req, res);
-});
+app.get(
+  "/api/goals/stats",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.getStats(req, res);
+  },
+);
 
-app.get("/api/goals/categories", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.getCategories(req, res);
-});
+app.get(
+  "/api/goals/categories",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.getCategories(req, res);
+  },
+);
 
-app.get("/api/goals/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.getGoal(req, res);
-});
+app.get(
+  "/api/goals/:id",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.getGoal(req, res);
+  },
+);
 
-app.post("/api/goals", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.createGoal(req, res);
-});
+app.post(
+  "/api/goals",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.createGoal(req, res);
+  },
+);
 
-app.patch("/api/goals/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.updateGoal(req, res);
-});
+app.patch(
+  "/api/goals/:id",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.updateGoal(req, res);
+  },
+);
 
-app.delete("/api/goals/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.deleteGoal(req, res);
-});
+app.delete(
+  "/api/goals/:id",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.deleteGoal(req, res);
+  },
+);
 
-app.patch("/api/goals/:id/progress", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.updateProgress(req, res);
-});
+app.patch(
+  "/api/goals/:id/progress",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.updateProgress(req, res);
+  },
+);
 
-app.post("/api/goals/:id/milestones", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await goalsController.addMilestone(req, res);
-});
+app.post(
+  "/api/goals/:id/milestones",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await goalsController.addMilestone(req, res);
+  },
+);
 
 console.log("🎯 Goals routes enabled at /api/goals");
 
@@ -961,37 +988,69 @@ console.log("🎯 Goals routes enabled at /api/goals");
 
 import { achievementsController } from "../controllers/achievements.controller.js";
 
-app.get("/api/achievements", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await achievementsController.listAchievements(req, res);
-});
+app.get(
+  "/api/achievements",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await achievementsController.listAchievements(req, res);
+  },
+);
 
-app.get("/api/achievements/stats", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await achievementsController.getStats(req, res);
-});
+app.get(
+  "/api/achievements/stats",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await achievementsController.getStats(req, res);
+  },
+);
 
-app.get("/api/achievements/categories", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await achievementsController.getCategories(req, res);
-});
+app.get(
+  "/api/achievements/categories",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await achievementsController.getCategories(req, res);
+  },
+);
 
-app.get("/api/achievements/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await achievementsController.getAchievement(req, res);
-});
+app.get(
+  "/api/achievements/:id",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await achievementsController.getAchievement(req, res);
+  },
+);
 
-app.post("/api/achievements", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await achievementsController.createAchievement(req, res);
-});
+app.post(
+  "/api/achievements",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await achievementsController.createAchievement(req, res);
+  },
+);
 
-app.patch("/api/achievements/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await achievementsController.updateAchievement(req, res);
-});
+app.patch(
+  "/api/achievements/:id",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await achievementsController.updateAchievement(req, res);
+  },
+);
 
-app.delete("/api/achievements/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await achievementsController.deleteAchievement(req, res);
-});
+app.delete(
+  "/api/achievements/:id",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await achievementsController.deleteAchievement(req, res);
+  },
+);
 
-app.post("/api/achievements/:id/unlock", authMiddleware, async (req: AuthRequest, res: Response) => {
-  await achievementsController.unlockAchievement(req, res);
-});
+app.post(
+  "/api/achievements/:id/unlock",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    await achievementsController.unlockAchievement(req, res);
+  },
+);
 
 console.log("🏆 Achievements routes enabled at /api/achievements");
 
@@ -1052,6 +1111,40 @@ app.post(
 );
 
 console.log("🔔 Notification routes enabled at /api/notifications");
+
+// ==================== User Presence Routes ====================
+// For smart notification routing (detecting if user is in web interface)
+
+import { userPresenceController } from "../controllers/user-presence.controller.js";
+
+// Send presence heartbeat (called regularly from frontend)
+app.post(
+  "/api/user/presence/heartbeat",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await userPresenceController.heartbeat(req, res);
+  },
+);
+
+// Get current user presence status
+app.get(
+  "/api/user/presence/status",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await userPresenceController.getStatus(req, res);
+  },
+);
+
+// Mark user as offline
+app.post(
+  "/api/user/presence/offline",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await userPresenceController.markOffline(req, res);
+  },
+);
+
+console.log("👥 User presence routes enabled at /api/user/presence");
 
 // ==================== Notification Settings Routes ====================
 
@@ -1132,10 +1225,16 @@ app.put(
           notifyOnCommandDetected: notifyOnCommandDetected ?? true,
         },
         update: {
-          ...(pushoverUserKey !== undefined && { pushoverUserKey: pushoverUserKey || null }),
-          ...(pushoverApiToken !== undefined && { pushoverApiToken: pushoverApiToken || null }),
+          ...(pushoverUserKey !== undefined && {
+            pushoverUserKey: pushoverUserKey || null,
+          }),
+          ...(pushoverApiToken !== undefined && {
+            pushoverApiToken: pushoverApiToken || null,
+          }),
           ...(notifyOnMemoryStored !== undefined && { notifyOnMemoryStored }),
-          ...(notifyOnCommandDetected !== undefined && { notifyOnCommandDetected }),
+          ...(notifyOnCommandDetected !== undefined && {
+            notifyOnCommandDetected,
+          }),
         },
         select: {
           pushoverUserKey: true,
@@ -1172,7 +1271,8 @@ app.post(
         });
       }
 
-      const apiToken = settings.pushoverApiToken || process.env.PUSHOVER_APP_TOKEN;
+      const apiToken =
+        settings.pushoverApiToken || process.env.PUSHOVER_APP_TOKEN;
       if (!apiToken) {
         return res.status(400).json({
           error: "Pushover API token not configured",
@@ -1200,11 +1300,15 @@ app.post(
       );
 
       if (response.data.status === 1) {
-        res.json({ success: true, message: "Test notification sent successfully" });
+        res.json({
+          success: true,
+          message: "Test notification sent successfully",
+        });
       } else {
         res.status(400).json({
           success: false,
-          error: response.data.errors?.join(", ") || "Failed to send notification",
+          error:
+            response.data.errors?.join(", ") || "Failed to send notification",
         });
       }
     } catch (error: any) {
@@ -1217,7 +1321,9 @@ app.post(
   },
 );
 
-console.log("⚙️  Notification settings routes enabled at /api/settings/notifications");
+console.log(
+  "⚙️  Notification settings routes enabled at /api/settings/notifications",
+);
 
 // ==================== Telegram Integration Routes ====================
 
@@ -1275,7 +1381,8 @@ app.put(
 
       // Validate bot token if provided
       if (telegramBotToken) {
-        const validation = await telegramService.validateBotToken(telegramBotToken);
+        const validation =
+          await telegramService.validateBotToken(telegramBotToken);
         if (!validation.valid) {
           return res.status(400).json({
             error: `Invalid bot token: ${validation.error}`,
@@ -1292,7 +1399,9 @@ app.put(
           telegramEnabled: telegramEnabled ?? false,
         },
         update: {
-          ...(telegramBotToken !== undefined && { telegramBotToken: telegramBotToken || null }),
+          ...(telegramBotToken !== undefined && {
+            telegramBotToken: telegramBotToken || null,
+          }),
           ...(telegramEnabled !== undefined && { telegramEnabled }),
           // Clear chat ID if token is being removed
           ...(telegramBotToken === null && { telegramChatId: null }),
@@ -1333,7 +1442,7 @@ app.post(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const result = await telegramService.sendTestNotification(req.userId!);
-      
+
       if (result.success) {
         res.json({ success: true, message: result.message });
       } else {
@@ -3015,7 +3124,7 @@ export async function startServer(port: number = 3000) {
   try {
     // Validate environment before starting
     validateEnvironment();
-    
+
     // Test database connection
     await prisma.$connect();
     console.log("✓ Database connected");

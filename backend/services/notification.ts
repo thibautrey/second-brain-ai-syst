@@ -1,9 +1,13 @@
 import prisma from "./prisma.js";
 import { websocketBroadcast } from "./websocket-broadcast.js";
+import { smartNotificationRouter } from "./smart-notification-router.js";
 import type { NotificationType, NotificationChannel } from "@prisma/client";
 import axios from "axios";
 import { telegramService } from "./telegram.service.js";
-import { notificationSpamDetector, type SpamCheckResult } from "./notification-spam-detector.js";
+import {
+  notificationSpamDetector,
+  type SpamCheckResult,
+} from "./notification-spam-detector.js";
 
 export interface CreateNotificationInput {
   userId: string;
@@ -30,7 +34,9 @@ class NotificationService {
   /**
    * Create and send a notification with spam detection
    */
-  async createNotification(input: CreateNotificationInput): Promise<CreateNotificationResult> {
+  async createNotification(
+    input: CreateNotificationInput,
+  ): Promise<CreateNotificationResult> {
     const {
       userId,
       title,
@@ -47,19 +53,22 @@ class NotificationService {
     } = input;
 
     // Spam detection check (skip for scheduled or if explicitly bypassed)
-    let spamCheck: SpamCheckResult = { allowed: true, reason: "Spam check skipped" };
-    
+    let spamCheck: SpamCheckResult = {
+      allowed: true,
+      reason: "Spam check skipped",
+    };
+
     if (!scheduledFor && !skipSpamCheck) {
       spamCheck = await notificationSpamDetector.checkNotification(
         userId,
         title,
         message,
-        sourceType
+        sourceType,
       );
 
       if (!spamCheck.allowed) {
         console.log(
-          `[NotificationService] Notification blocked by spam detector: ${spamCheck.reason}`
+          `[NotificationService] Notification blocked by spam detector: ${spamCheck.reason}`,
         );
         return {
           notification: null,
@@ -69,6 +78,19 @@ class NotificationService {
       }
     }
 
+    // Determine optimal channels based on user presence
+    let finalChannels: NotificationChannel[] = channels;
+    if (!scheduledFor) {
+      const optimizedChannels =
+        await smartNotificationRouter.getOptimalChannels(
+          userId,
+          Array.from(channels),
+        );
+      finalChannels = (
+        optimizedChannels.includes("CHAT") ? ["CHAT"] : channels
+      ) as NotificationChannel[];
+    }
+
     // Create notification in database
     const notification = await prisma.notification.create({
       data: {
@@ -76,7 +98,7 @@ class NotificationService {
         title,
         message,
         type,
-        channels,
+        channels: finalChannels,
         scheduledFor,
         sourceType,
         sourceId,
@@ -85,6 +107,7 @@ class NotificationService {
         metadata: {
           ...metadata,
           spamCheckTopic: spamCheck.matchedTopic,
+          originalChannels: channels, // Store original channels for reference
         },
         sentAt: scheduledFor ? null : new Date(),
       },
@@ -93,14 +116,14 @@ class NotificationService {
     // Send immediately if not scheduled
     if (!scheduledFor) {
       await this.sendNotification(notification.id);
-      
+
       // Record the notification was sent for spam tracking
       await notificationSpamDetector.recordNotificationSent(
         userId,
         title,
         message,
         notification.id,
-        sourceType
+        sourceType,
       );
     }
 
@@ -115,7 +138,9 @@ class NotificationService {
    * Create notification without spam check (for backward compatibility)
    * @deprecated Use createNotification with skipSpamCheck: true instead
    */
-  async createNotificationUnchecked(input: Omit<CreateNotificationInput, 'skipSpamCheck'>) {
+  async createNotificationUnchecked(
+    input: Omit<CreateNotificationInput, "skipSpamCheck">,
+  ) {
     return this.createNotification({ ...input, skipSpamCheck: true });
   }
 
@@ -141,7 +166,7 @@ class NotificationService {
 
     // Send through each channel
     const promises = notification.channels.map(
-      (channel: NotificationChannel) => {
+      (channel: NotificationChannel | string) => {
         switch (channel) {
           case "IN_APP":
             return this.sendInApp(notification);
@@ -155,6 +180,8 @@ class NotificationService {
             return this.sendPushover(notification);
           case "TELEGRAM":
             return this.sendTelegram(notification);
+          case "CHAT":
+            return smartNotificationRouter.sendToChat(notification);
           default:
             return Promise.resolve();
         }
@@ -242,9 +269,7 @@ class NotificationService {
         settings.pushoverApiToken || process.env.PUSHOVER_APP_TOKEN;
 
       if (!apiToken) {
-        console.log(
-          `[NotificationService] Pushover API token not configured`,
-        );
+        console.log(`[NotificationService] Pushover API token not configured`);
         return;
       }
 
@@ -296,10 +321,7 @@ class NotificationService {
           `[NotificationService] Pushover notification sent: ${notification.title}`,
         );
       } else {
-        console.error(
-          `[NotificationService] Pushover error:`,
-          response.data,
-        );
+        console.error(`[NotificationService] Pushover error:`, response.data);
       }
     } catch (error: any) {
       console.error(
