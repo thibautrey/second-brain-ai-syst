@@ -216,13 +216,20 @@ class NotificationSpamDetectorService {
 
         return tracker.id;
       } else {
-        // Create new tracker
+        // Create or update tracker using upsert to handle race conditions
         const nextAllowed = new Date(
           Date.now() + INITIAL_COOLDOWN_MINUTES * 60000,
         );
 
-        const newTracker = await prisma.notificationTopicTracker.create({
-          data: {
+        const newTracker = await prisma.notificationTopicTracker.upsert({
+          where: { userId_topic: { userId, topic: analysis.topic } },
+          update: {
+            attemptCount: { increment: 1 },
+            totalSent: { increment: 1 },
+            sampleMessages: { push: message },
+            updatedAt: new Date(),
+          },
+          create: {
             userId,
             topic: analysis.topic,
             category: analysis.category,
