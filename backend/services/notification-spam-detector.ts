@@ -1,6 +1,6 @@
 /**
  * Notification Spam Detector Service
- * 
+ *
  * Prevents spamming users with repetitive notifications using:
  * 1. LLM-based semantic analysis to detect similar topics
  * 2. Exponential backoff cooldowns per topic
@@ -11,6 +11,7 @@ import prisma from "./prisma.js";
 import { LLMRouterService } from "./llm-router.js";
 import type { NotificationCategory } from "@prisma/client";
 import crypto from "crypto";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
 
 const llmRouter = new LLMRouterService();
 
@@ -67,7 +68,7 @@ class NotificationSpamDetectorService {
     userId: string,
     title: string,
     message: string,
-    sourceType?: string
+    sourceType?: string,
   ): Promise<SpamCheckResult> {
     try {
       // Step 1: Analyze the notification content with AI
@@ -75,7 +76,7 @@ class NotificationSpamDetectorService {
         userId,
         title,
         message,
-        sourceType
+        sourceType,
       );
 
       // Step 2: Check if there's an existing tracker for this topic
@@ -108,12 +109,12 @@ class NotificationSpamDetectorService {
       const now = new Date();
       if (existingTracker.nextAllowedAt > now) {
         const minutesRemaining = Math.ceil(
-          (existingTracker.nextAllowedAt.getTime() - now.getTime()) / 60000
+          (existingTracker.nextAllowedAt.getTime() - now.getTime()) / 60000,
         );
-        
+
         // Increment blocked count
         await this.incrementBlockedCount(existingTracker.id);
-        
+
         return {
           allowed: false,
           reason: `Topic "${analysis.topic}" is in cooldown. Next allowed in ${this.formatDuration(minutesRemaining)}`,
@@ -135,7 +136,10 @@ class NotificationSpamDetectorService {
         attemptCount: existingTracker.attemptCount,
       };
     } catch (error: any) {
-      console.error("[SpamDetector] Error checking notification:", error.message);
+      console.error(
+        "[SpamDetector] Error checking notification:",
+        error.message,
+      );
       // On error, allow the notification but log it
       return {
         allowed: true,
@@ -152,14 +156,14 @@ class NotificationSpamDetectorService {
     title: string,
     message: string,
     notificationId: string,
-    sourceType?: string
+    sourceType?: string,
   ): Promise<string | null> {
     try {
       const analysis = await this.analyzeNotificationContent(
         userId,
         title,
         message,
-        sourceType
+        sourceType,
       );
 
       let tracker = analysis.matchedTrackerId
@@ -170,17 +174,19 @@ class NotificationSpamDetectorService {
         // Update existing tracker with exponential backoff
         const newCooldown = Math.min(
           tracker.cooldownMinutes * COOLDOWN_MULTIPLIER,
-          MAX_COOLDOWN_MINUTES
+          MAX_COOLDOWN_MINUTES,
         );
         const newAttemptCount = tracker.attemptCount + 1;
         const nextAllowed = new Date(Date.now() + newCooldown * 60000);
 
         // Check if we should give up
-        const shouldGiveUp = newAttemptCount >= tracker.maxAttempts && 
-                            tracker.responseCount === 0;
+        const shouldGiveUp =
+          newAttemptCount >= tracker.maxAttempts && tracker.responseCount === 0;
 
         // Update sample messages (keep last N)
-        const newSamples = [...tracker.sampleMessages, message].slice(-MAX_SAMPLE_MESSAGES);
+        const newSamples = [...tracker.sampleMessages, message].slice(
+          -MAX_SAMPLE_MESSAGES,
+        );
 
         await prisma.notificationTopicTracker.update({
           where: { id: tracker.id },
@@ -204,15 +210,17 @@ class NotificationSpamDetectorService {
 
         if (shouldGiveUp) {
           console.log(
-            `[SpamDetector] Topic "${analysis.topic}" for user ${userId} has been given up after ${newAttemptCount} attempts`
+            `[SpamDetector] Topic "${analysis.topic}" for user ${userId} has been given up after ${newAttemptCount} attempts`,
           );
         }
 
         return tracker.id;
       } else {
         // Create new tracker
-        const nextAllowed = new Date(Date.now() + INITIAL_COOLDOWN_MINUTES * 60000);
-        
+        const nextAllowed = new Date(
+          Date.now() + INITIAL_COOLDOWN_MINUTES * 60000,
+        );
+
         const newTracker = await prisma.notificationTopicTracker.create({
           data: {
             userId,
@@ -239,7 +247,10 @@ class NotificationSpamDetectorService {
         return newTracker.id;
       }
     } catch (error: any) {
-      console.error("[SpamDetector] Error recording notification:", error.message);
+      console.error(
+        "[SpamDetector] Error recording notification:",
+        error.message,
+      );
       return null;
     }
   }
@@ -250,7 +261,7 @@ class NotificationSpamDetectorService {
    */
   async recordUserResponse(
     userId: string,
-    topicOrNotificationId: string
+    topicOrNotificationId: string,
   ): Promise<void> {
     try {
       // Try to find by notification ID first
@@ -264,10 +275,7 @@ class NotificationSpamDetectorService {
       // Update the tracker
       await prisma.notificationTopicTracker.updateMany({
         where: {
-          OR: [
-            { id: trackerId },
-            { userId, topic: topicOrNotificationId },
-          ],
+          OR: [{ id: trackerId }, { userId, topic: topicOrNotificationId }],
         },
         data: {
           lastUserResponse: new Date(),
@@ -280,9 +288,14 @@ class NotificationSpamDetectorService {
         },
       });
 
-      console.log(`[SpamDetector] User response recorded for topic/notification: ${topicOrNotificationId}`);
+      console.log(
+        `[SpamDetector] User response recorded for topic/notification: ${topicOrNotificationId}`,
+      );
     } catch (error: any) {
-      console.error("[SpamDetector] Error recording user response:", error.message);
+      console.error(
+        "[SpamDetector] Error recording user response:",
+        error.message,
+      );
     }
   }
 
@@ -313,7 +326,7 @@ class NotificationSpamDetectorService {
    */
   async getUserTopicTrackers(
     userId: string,
-    includeGivenUp: boolean = true
+    includeGivenUp: boolean = true,
   ): Promise<TopicTrackerData[]> {
     const trackers = await prisma.notificationTopicTracker.findMany({
       where: {
@@ -333,16 +346,23 @@ class NotificationSpamDetectorService {
     userId: string,
     title: string,
     message: string,
-    sourceType?: string
+    sourceType?: string,
   ): Promise<NotificationAnalysis> {
     // Get recent trackers for comparison
-    const recentTrackers = await this.getRecentTrackers(userId, SIMILARITY_LOOKBACK_DAYS);
-    
-    const trackersContext = recentTrackers.length > 0
-      ? `\nRecent notification topics for this user:\n${recentTrackers
-          .map((t, i) => `${i + 1}. Topic: "${t.topic}" (Category: ${t.category})\n   Sample messages: ${t.sampleMessages.slice(0, 2).join(" | ")}`)
-          .join("\n")}`
-      : "";
+    const recentTrackers = await this.getRecentTrackers(
+      userId,
+      SIMILARITY_LOOKBACK_DAYS,
+    );
+
+    const trackersContext =
+      recentTrackers.length > 0
+        ? `\nRecent notification topics for this user:\n${recentTrackers
+            .map(
+              (t, i) =>
+                `${i + 1}. Topic: "${t.topic}" (Category: ${t.category})\n   Sample messages: ${t.sampleMessages.slice(0, 2).join(" | ")}`,
+            )
+            .join("\n")}`
+        : "";
 
     const systemPrompt = `You are a notification spam detector. Analyze the notification and:
 1. Extract a concise topic identifier (e.g., "health_hydration", "goal_exercise", "reminder_meeting")
@@ -379,10 +399,10 @@ Analyze this notification and identify its topic.`;
         "analysis",
         userMessage,
         systemPrompt,
-        { temperature: 0.3, responseFormat: "json" }
+        { temperature: 0.3, responseFormat: "json" },
       );
 
-      const parsed = JSON.parse(response);
+      const parsed = parseJSONFromLLMResponse(response);
       const contentHash = this.hashContent(title + message);
 
       return {
@@ -411,7 +431,7 @@ Analyze this notification and identify its topic.`;
    */
   private async getRecentTrackers(
     userId: string,
-    days: number
+    days: number,
   ): Promise<TopicTrackerData[]> {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
@@ -435,7 +455,7 @@ Analyze this notification and identify its topic.`;
 
   private async getTrackerByTopic(
     userId: string,
-    topic: string
+    topic: string,
   ): Promise<TopicTrackerData | null> {
     return prisma.notificationTopicTracker.findUnique({
       where: { userId_topic: { userId, topic } },
@@ -450,13 +470,25 @@ Analyze this notification and identify its topic.`;
   }
 
   private hashContent(content: string): string {
-    return crypto.createHash("sha256").update(content).digest("hex").substring(0, 32);
+    return crypto
+      .createHash("sha256")
+      .update(content)
+      .digest("hex")
+      .substring(0, 32);
   }
 
   private validateCategory(category: string): NotificationCategory {
     const validCategories: NotificationCategory[] = [
-      "HEALTH", "MENTAL", "PRODUCTIVITY", "GOALS", "HABITS",
-      "RELATIONSHIPS", "LEARNING", "FINANCIAL", "SYSTEM", "GENERAL"
+      "HEALTH",
+      "MENTAL",
+      "PRODUCTIVITY",
+      "GOALS",
+      "HABITS",
+      "RELATIONSHIPS",
+      "LEARNING",
+      "FINANCIAL",
+      "SYSTEM",
+      "GENERAL",
     ];
     return validCategories.includes(category as NotificationCategory)
       ? (category as NotificationCategory)
@@ -465,7 +497,9 @@ Analyze this notification and identify its topic.`;
 
   private extractBasicTopic(title: string, sourceType?: string): string {
     // Simple fallback topic extraction
-    const prefix = sourceType ? sourceType.toLowerCase().replace(":", "_") : "general";
+    const prefix = sourceType
+      ? sourceType.toLowerCase().replace(":", "_")
+      : "general";
     const cleanTitle = title
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, "")
