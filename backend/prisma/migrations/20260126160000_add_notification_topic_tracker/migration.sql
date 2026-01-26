@@ -39,3 +39,12 @@ CREATE UNIQUE INDEX "NotificationTopicTracker_userId_topicHash_key" ON "Notifica
 
 -- AddForeignKey
 ALTER TABLE "NotificationTopicTracker" ADD CONSTRAINT "NotificationTopicTracker_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddColumn to Notification table
+ALTER TABLE "notifications" ADD COLUMN "topicTrackerId" TEXT;
+
+-- AddIndex on Notification.topicTrackerId
+CREATE INDEX "Notification_topicTrackerId_idx" ON "notifications"("topicTrackerId");
+
+-- AddForeignKey from Notification to NotificationTopicTracker
+ALTER TABLE "notifications" ADD CONSTRAINT "Notification_topicTrackerId_fkey" FOREIGN KEY ("topicTrackerId") REFERENCES "NotificationTopicTracker"("id") ON DELETE SET NULL ON UPDATE CASCADE;
