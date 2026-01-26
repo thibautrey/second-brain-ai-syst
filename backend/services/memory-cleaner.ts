@@ -5,10 +5,10 @@
  * Runs every 5 minutes to maintain memory cleanliness and optimize storage.
  */
 
-import prisma from "./prisma.js";
-import { llmRouterService } from "./llm-router.js";
 import { MemoryType } from "@prisma/client";
+import { llmRouterService } from "./llm-router.js";
 import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
+import prisma from "./prisma.js";
 
 export interface CleanupResult {
   userId: string;
@@ -115,7 +115,28 @@ export class MemoryCleanerService {
         { responseFormat: "json" },
       );
 
-      const analysis = parseJSONFromLLMResponse(response);
+      let analysis;
+      try {
+        analysis = parseJSONFromLLMResponse(response);
+      } catch (parseError) {
+        console.error(
+          "[MemoryCleaner] Failed to parse cleanup response:",
+          parseError,
+        );
+        console.error(
+          "[MemoryCleaner] Response content:",
+          response.substring(0, 500),
+        );
+        // Return empty cleanup decisions to avoid crash
+        return {
+          userId,
+          success: false,
+          error: `Failed to parse LLM response: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+          memoriesAnalyzed: shortTermMemories.length,
+          memoriesToRemove: [],
+          memoriesToArchive: [],
+        };
+      }
 
       // Apply cleanup decisions
       const cleanup = await this.applyCleanupDecisions(

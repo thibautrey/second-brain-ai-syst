@@ -3,7 +3,12 @@
  * Run with: npx tsx backend/utils/__tests__/json-parser.test.ts
  */
 
-import { stripMarkdownCodeBlocks, parseJSONFromLLMResponse } from '../json-parser.js';
+import {
+  stripMarkdownCodeBlocks,
+  parseJSONFromLLMResponse,
+  extractJSONFromText,
+  repairIncompleteJSON,
+} from "../json-parser.js";
 
 console.log("🧪 Testing JSON Parser Utility\n");
 
@@ -53,14 +58,15 @@ console.log();
 console.log("Test 5: Handle null/undefined gracefully");
 const result5a = stripMarkdownCodeBlocks(null as any);
 const result5b = stripMarkdownCodeBlocks(undefined as any);
-console.log("Null result:", result5a, "=== '':", result5a === '');
-console.log("Undefined result:", result5b, "=== '':", result5b === '');
-console.log("✓ Pass:", result5a === '' && result5b === '');
+console.log("Null result:", result5a, "=== '':", result5a === "");
+console.log("Undefined result:", result5b, "=== '':", result5b === "");
+console.log("✓ Pass:", result5a === "" && result5b === "");
 console.log();
 
 // Test 6: Handle code blocks not at start/end
 console.log("Test 6: Handle code blocks not at start/end");
-const input6 = 'Some text before\n```json\n{"key": "value"}\n```\nSome text after';
+const input6 =
+  'Some text before\n```json\n{"key": "value"}\n```\nSome text after';
 const result6 = stripMarkdownCodeBlocks(input6);
 console.log("Input:", input6);
 console.log("Result:", result6);
@@ -100,21 +106,87 @@ const input9 = `\`\`\`json
 const result9 = parseJSONFromLLMResponse(input9);
 console.log("Input:", input9);
 console.log("Result:", JSON.stringify(result9, null, 2));
-console.log("✓ Pass:", 
-  result9.title === "Summary" && 
-  result9.keyInsights.length === 2 &&
-  result9.sentiment === "positive"
+console.log(
+  "✓ Pass:",
+  result9.title === "Summary" &&
+    result9.keyInsights.length === 2 &&
+    result9.sentiment === "positive",
 );
 console.log();
 
 // Test 10: Throw error on invalid JSON
 console.log("Test 10: Throw error on invalid JSON");
-const input10 = '```json\n{invalid json}\n```';
+const input10 = "```json\n{invalid json}\n```";
 try {
   parseJSONFromLLMResponse(input10);
   console.log("✗ Fail: Should have thrown SyntaxError");
 } catch (error) {
   console.log("✓ Pass: Correctly threw error:", error instanceof SyntaxError);
+}
+console.log();
+
+// Test 11: Handle JSON with non-JSON prefix (assistant response)
+console.log("Test 11: Handle JSON with non-JSON prefix (assistant response)");
+const input11 = 'assistant\n{"title": "Test", "value": 42}';
+try {
+  const result11 = parseJSONFromLLMResponse(input11);
+  console.log("Input:", input11);
+  console.log("Result:", JSON.stringify(result11));
+  console.log("✓ Pass:", result11.title === "Test" && result11.value === 42);
+} catch (e) {
+  console.log("✗ Fail:", e);
+}
+console.log();
+
+// Test 12: Extract JSON from text with surrounding context
+console.log("Test 12: Extract JSON from text with surrounding context");
+const input12 =
+  'Here is the analysis: {"claims": ["claim1", "claim2"], "reasoning": "test"}. End of analysis.';
+const extracted12 = extractJSONFromText(input12);
+console.log("Input:", input12);
+console.log("Extracted:", extracted12);
+try {
+  const parsed12 = JSON.parse(extracted12);
+  console.log(
+    "✓ Pass:",
+    Array.isArray(parsed12.claims) && parsed12.claims.length === 2,
+  );
+} catch (e) {
+  console.log("✗ Fail:", e);
+}
+console.log();
+
+// Test 13: Repair incomplete JSON (missing closing braces)
+console.log("Test 13: Repair incomplete JSON (missing closing braces)");
+const input13 =
+  '{"title": "Test", "items": [{"name": "item1"}, {"name": "item2"';
+const repaired13 = repairIncompleteJSON(input13);
+console.log("Input:", input13);
+console.log("Repaired:", repaired13);
+try {
+  const parsed13 = JSON.parse(repaired13);
+  console.log(
+    "✓ Pass:",
+    parsed13.title === "Test" && parsed13.items.length === 2,
+  );
+} catch (e) {
+  console.log("✗ Fail:", e);
+}
+console.log();
+
+// Test 14: End-to-end robustness - incomplete JSON with prefix
+console.log("Test 14: End-to-end robustness - incomplete JSON with prefix");
+const input14 = 'assistant\n{"claims": ["claim1", "claim2"';
+try {
+  const result14 = parseJSONFromLLMResponse(input14);
+  console.log("Input:", input14);
+  console.log("Result:", JSON.stringify(result14));
+  console.log(
+    "✓ Pass:",
+    Array.isArray(result14.claims) && result14.claims.length === 2,
+  );
+} catch (e) {
+  console.log("✗ Fail:", e);
 }
 console.log();
 
@@ -128,4 +200,3 @@ console.log("✓ Pass:", result11.title === "Weekly Summary");
 console.log();
 
 console.log("✅ All tests completed!");
-

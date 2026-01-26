@@ -204,9 +204,9 @@ User Question: ${question}
 
 AI Response: ${response}
 
-Return a JSON object:
+Return a JSON object with this exact structure:
 {
-  "claims": ["claim 1", "claim 2", ...],
+  "claims": ["claim 1", "claim 2"],
   "reasoning": "why these are verifiable"
 }`;
 
@@ -227,8 +227,24 @@ Return a JSON object:
       const content = completion.choices[0]?.message.content;
       if (!content) return [];
 
-      const parsed = parseJSONFromLLMResponse(content);
-      return parsed.claims || [];
+      try {
+        const parsed = parseJSONFromLLMResponse(content);
+        return Array.isArray(parsed.claims) ? parsed.claims : [];
+      } catch (parseError) {
+        console.error("[FactChecker] JSON parse error for claims:", parseError);
+        // If parsing fails, try to extract claims array manually
+        const claimsMatch = content.match(/"claims"\s*:\s*\[([\s\S]*?)\]/);
+        if (claimsMatch) {
+          try {
+            const claimsStr = `[${claimsMatch[1]}]`;
+            const claims = JSON.parse(claimsStr);
+            return Array.isArray(claims) ? claims : [];
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      }
     } catch (error) {
       console.error("[FactChecker] Claim extraction failed:", error);
       return [];

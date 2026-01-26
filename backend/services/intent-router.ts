@@ -370,7 +370,20 @@ Provide a complete analysis including classification and storage decision.`;
           throw new Error("Empty LLM response");
         }
 
-        const result = parseJSONFromLLMResponse(content);
+        let result;
+        try {
+          result = parseJSONFromLLMResponse(content);
+        } catch (parseError) {
+          console.error(
+            "[IntentRouter] JSON parse error in analyzeExchangePostResponse:",
+            parseError,
+          );
+          console.error(
+            "[IntentRouter] Response content:",
+            content.substring(0, 500),
+          );
+          throw parseError;
+        }
 
         // Build classification result
         const classification: ClassificationResult = {
@@ -426,7 +439,20 @@ Provide a complete analysis including classification and storage decision.`;
               throw llmError; // Re-throw original error if fallback also fails
             }
 
-            const result = parseJSONFromLLMResponse(content);
+            let result;
+            try {
+              result = parseJSONFromLLMResponse(content);
+            } catch (parseError) {
+              console.error(
+                "[IntentRouter] JSON parse error in fallback analyzeExchangePostResponse:",
+                parseError,
+              );
+              console.error(
+                "[IntentRouter] Fallback response content:",
+                content.substring(0, 500),
+              );
+              throw parseError;
+            }
 
             const classification: ClassificationResult = {
               inputType: result.inputType || "observation",

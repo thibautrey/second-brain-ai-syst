@@ -7,11 +7,11 @@
  * 3. Automatic give-up after max attempts without user response
  */
 
-import prisma from "./prisma.js";
 import { LLMRouterService } from "./llm-router.js";
 import type { NotificationCategory } from "@prisma/client";
 import crypto from "crypto";
 import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
+import prisma from "./prisma.js";
 
 const llmRouter = new LLMRouterService();
 
@@ -402,7 +402,18 @@ Analyze this notification and identify its topic.`;
         { temperature: 0.3, responseFormat: "json" },
       );
 
-      const parsed = parseJSONFromLLMResponse(response);
+      let parsed;
+      try {
+        parsed = parseJSONFromLLMResponse(response);
+      } catch (parseError) {
+        console.error("[SpamDetector] JSON parse error:", parseError);
+        console.error(
+          "[SpamDetector] Response content:",
+          response.substring(0, 500),
+        );
+        throw parseError;
+      }
+
       const contentHash = this.hashContent(title + message);
 
       return {
