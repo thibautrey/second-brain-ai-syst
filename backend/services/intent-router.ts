@@ -2,14 +2,16 @@
 // Classifies incoming user inputs and determines system response
 // ALL classification is done via LLM - no regex/pattern matching
 
-import prisma from "./prisma.js";
+import {
+  getFallbackMaxTokens,
+  isMaxTokensError,
+  validateMaxTokens,
+} from "../utils/token-validator.js";
+
 import OpenAI from "openai";
 import { injectDateIntoPrompt } from "./llm-router.js";
-import {
-  validateMaxTokens,
-  isMaxTokensError,
-  getFallbackMaxTokens,
-} from "../utils/token-validator.js";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
+import prisma from "./prisma.js";
 
 // ============================================================================
 // PROVIDER CACHE (Optimization 4)
@@ -143,6 +145,23 @@ Storage guidelines:
 For FACTUAL DECLARATIONS (e.g., "My girlfriend is Blandine", "I work at Google"):
 - Set isFactualDeclaration: true
 - Set factToStore: reformulated fact WITHOUT the AI response (e.g., "L'utilisateur travaille chez Google")`;
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Escape special characters in text for safe insertion into JSON prompts
+ * Prevents JSON parsing errors when text contains quotes or newlines
+ */
+function escapeTextForJSON(text: string): string {
+  return text
+    .replace(/\\/g, "\\\\") // Escape backslashes first
+    .replace(/"/g, '\\"') // Escape double quotes
+    .replace(/\n/g, "\\n") // Escape newlines
+    .replace(/\r/g, "\\r") // Escape carriage returns
+    .replace(/\t/g, "\\t"); // Escape tabs
+}
 
 // Legacy prompt for pre-response classification (kept for compatibility)
 const CLASSIFICATION_SYSTEM_PROMPT = `You are an intent classification system for a personal AI assistant called "Second Brain".
@@ -306,11 +325,15 @@ export class IntentRouterService {
     try {
       const { client, modelId } = await this.getOpenAIClient(userId);
 
+      // Escape special characters to prevent JSON parsing errors
+      const escapedUserMessage = escapeTextForJSON(userMessage);
+      const escapedAiResponse = escapeTextForJSON(aiResponse);
+
       const userPrompt = `Analyze this complete user-AI exchange:
 
-USER MESSAGE: "${userMessage}"
+USER MESSAGE: "${escapedUserMessage}"
 
-AI RESPONSE: "${aiResponse}"
+AI RESPONSE: "${escapedAiResponse}"
 
 Provide a complete analysis including classification and storage decision.`;
 
@@ -347,7 +370,7 @@ Provide a complete analysis including classification and storage decision.`;
           throw new Error("Empty LLM response");
         }
 
-        const result = JSON.parse(content);
+        const result = parseJSONFromLLMResponse(content);
 
         // Build classification result
         const classification: ClassificationResult = {
@@ -403,7 +426,7 @@ Provide a complete analysis including classification and storage decision.`;
               throw llmError; // Re-throw original error if fallback also fails
             }
 
-            const result = JSON.parse(content);
+            const result = parseJSONFromLLMResponse(content);
 
             const classification: ClassificationResult = {
               inputType: result.inputType || "observation",
