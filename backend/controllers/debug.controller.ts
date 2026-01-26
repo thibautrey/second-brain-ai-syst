@@ -3,14 +3,15 @@
  * Provides debugging endpoints for visualizing system internals
  */
 
-import { Router, Request, Response } from "express";
-import { flowTracker } from "../services/flow-tracker.js";
+import { Request, Response, Router } from "express";
+
 import { embeddingSchedulerService } from "../services/embedding-scheduler.js";
+import { flowTracker } from "../services/flow-tracker.js";
 import { noiseFilterService } from "../services/noise-filter.js";
-import { responseCacheService } from "../services/response-cache.js";
-import { precomputedMemoryIndex } from "../services/precomputed-memory-index.js";
-import { speculativeExecutor } from "../services/speculative-executor.js";
 import { optimizedRetrieval } from "../services/optimized-retrieval.js";
+import { precomputedMemoryIndex } from "../services/precomputed-memory-index.js";
+import { responseCacheService } from "../services/response-cache.js";
+import { speculativeExecutor } from "../services/speculative-executor.js";
 
 const router = Router();
 
@@ -156,7 +157,7 @@ router.get("/input-flow", (req: Request, res: Response) => {
       margin-bottom: 8px;
     }
     .event-details {
-      display: none;
+      display: block;
       margin-top: 12px;
       padding-top: 12px;
       border-top: 1px solid #333;
@@ -369,7 +370,7 @@ graph TB
           const eventsHtml = flow.events.map((event, idx) => {
             const dataStr = event.data ? JSON.stringify(event.data, null, 2) : 'N/A';
             const durationStr = event.duration ? \`⏱️ \${event.duration}ms\` : '';
-            
+
             return \`
               <div class="event-item" onclick="toggleEventDetails(this, event)">
                 <div class="event-header">
@@ -707,9 +708,9 @@ router.get("/performance-stats", (req: Request, res: Response) => {
 router.post("/warm-cache/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    
+
     const startTime = Date.now();
-    
+
     await Promise.all([
       responseCacheService.warmUpCaches(userId),
       precomputedMemoryIndex.getOrComputeContext(userId),
@@ -754,9 +755,10 @@ router.post("/clear-caches", (req: Request, res: Response) => {
 router.get("/user-context/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    
+
     const context = await precomputedMemoryIndex.getOrComputeContext(userId);
-    const conversationContext = responseCacheService.getConversationContext(userId);
+    const conversationContext =
+      responseCacheService.getConversationContext(userId);
     const profileCache = responseCacheService.getUserProfileCache(userId);
     const memoryCache = responseCacheService.getMemoryCache(userId);
 
