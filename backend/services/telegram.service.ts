@@ -152,6 +152,29 @@ class TelegramService {
     botUsername?: string;
     error?: string;
   }> {
+    // Basic validation of token format
+    if (!botToken || typeof botToken !== 'string') {
+      return {
+        valid: false,
+        error: 'Bot token is required and must be a string',
+      };
+    }
+
+    if (botToken.trim().length === 0) {
+      return {
+        valid: false,
+        error: 'Bot token cannot be empty',
+      };
+    }
+
+    // Telegram bot tokens should contain a colon
+    if (!botToken.includes(':')) {
+      return {
+        valid: false,
+        error: 'Invalid bot token format. Token should be in format: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+      };
+    }
+
     try {
       const response = await axios.get(
         `${TELEGRAM_API_BASE}${botToken}/getMe`,
@@ -169,6 +192,13 @@ class TelegramService {
         };
       }
     } catch (error: any) {
+      // Better error handling for HTTP errors
+      if (error.response?.status === 404) {
+        return {
+          valid: false,
+          error: 'Invalid bot token. Token not found on Telegram servers. Please verify your bot token is correct.',
+        };
+      }
       return {
         valid: false,
         error: error.response?.data?.description || error.message,
