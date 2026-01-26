@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 
-const MOBILE_BREAKPOINT = 768
+// Use Tailwind's lg breakpoint (1024px) for consistency with sidebar logic
+const MOBILE_BREAKPOINT = 1024
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined)

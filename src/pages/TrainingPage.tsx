@@ -466,7 +466,7 @@ export function TrainingPage() {
             <div key={step.key} className="flex items-center flex-1">
               {/* Step Circle */}
               <div
-                className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
+                className={`shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-semibold transition-all ${
                   step.key === currentStep
                     ? "bg-blue-600 text-white ring-2 ring-blue-200"
                     : step.completed
@@ -483,7 +483,7 @@ export function TrainingPage() {
 
               {/* Step Label */}
               <p
-                className={`ml-3 font-medium ${
+                className={`ml-2 sm:ml-3 text-xs sm:text-base font-medium ${
                   step.key === currentStep
                     ? "text-blue-600"
                     : step.completed
@@ -497,7 +497,7 @@ export function TrainingPage() {
               {/* Connector Line */}
               {idx < steps.length - 1 && (
                 <div
-                  className={`flex-1 h-1 mx-3 rounded-full transition-all ${
+                  className={`flex-1 h-1 mx-1 sm:mx-3 rounded-full transition-all ${
                     step.completed ? "bg-green-600" : "bg-slate-300"
                   }`}
                 />
