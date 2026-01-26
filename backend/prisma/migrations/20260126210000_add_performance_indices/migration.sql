@@ -46,7 +46,7 @@ ON "summaries" ("userId", "timeScale", "periodEnd" DESC);
 -- Index for ProcessedInput by user and time
 -- Used for: Recent interaction retrieval
 CREATE INDEX IF NOT EXISTS "idx_processed_inputs_user_time" 
-ON "processed_inputs" ("userId", "timestamp" DESC);
+ON "processed_inputs" ("userId", "createdAt" DESC);
 
 -- Index for AITaskConfig lookup (frequently accessed for provider routing)
 -- Used for: Fast provider/model lookup by task type
