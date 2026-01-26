@@ -18,7 +18,7 @@ async function testNotificationSystem() {
       message: "This is a test notification",
       type: "INFO",
     });
-    console.log("✅ Created:", notification1.id);
+    console.log("✅ Created:", notification1.notification?.id);
 
     // Test 2: Create a success notification with action
     console.log("\nTest 2: Creating a SUCCESS notification with action...");
@@ -32,7 +32,7 @@ async function testNotificationSystem() {
       sourceType: "summary",
       sourceId: "summary-123",
     });
-    console.log("✅ Created:", notification2.id);
+    console.log("✅ Created:", notification2.notification?.id);
 
     // Test 3: Create a scheduled notification
     console.log("\nTest 3: Creating a scheduled notification...");
@@ -48,7 +48,7 @@ async function testNotificationSystem() {
       "✅ Created (scheduled for:",
       scheduledTime.toISOString(),
       "):",
-      notification3.id,
+      notification3.notification?.id,
     );
 
     // Test 4: List notifications
@@ -59,8 +59,8 @@ async function testNotificationSystem() {
 
     // Test 5: Mark as read
     console.log("\nTest 5: Marking notification as read...");
-    await notificationService.markAsRead(notification1.id, "test-user-123");
-    console.log("✅ Marked as read:", notification1.id);
+    await notificationService.markAsRead(notification1.notification?.id, "test-user-123");
+    console.log("✅ Marked as read:", notification1.notification?.id);
 
     // Test 6: Process scheduled notifications
     console.log(
