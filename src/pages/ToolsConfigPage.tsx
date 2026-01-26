@@ -20,6 +20,11 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -566,13 +571,21 @@ export function ToolsConfigPage() {
                       </Badge>
                     ))}
                     {tool.config.actions.length > 5 && (
-                      <Badge variant="outline">
-                        +{tool.config.actions.length - 5}
-                      </Badge>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="cursor-help">
+                            +{tool.config.actions.length - 5}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="space-y-1">
+                            {tool.config.actions.slice(5).map((action) => (
+                              <div key={action}>{action}</div>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
-                  </div>
-                  <div className="mt-3 text-xs text-slate-500">
-                    Rate limit: {tool.rateLimit}/min • Timeout: {tool.timeout}ms
                   </div>
                 </CardContent>
               </Card>

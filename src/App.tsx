@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ContinuousListeningProvider } from "./contexts/ContinuousListeningContext";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
@@ -46,13 +47,15 @@ function AppContent() {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <ContinuousListeningProvider>
-          <AppContent />
-        </ContinuousListeningProvider>
-      </AuthProvider>
-    </Router>
+    <TooltipProvider>
+      <Router>
+        <AuthProvider>
+          <ContinuousListeningProvider>
+            <AppContent />
+          </ContinuousListeningProvider>
+        </AuthProvider>
+      </Router>
+    </TooltipProvider>
   );
 }
 

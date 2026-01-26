@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Bell, BellOff, CheckCircle, XCircle, Send, Loader2 } from "lucide-react";
+import { Bell, BellOff, CheckCircle, XCircle, Send, Loader2, AlertCircle } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "../services/api";
 
 interface NotificationSettingsData {
@@ -14,7 +14,13 @@ interface NotificationSettingsData {
   notifyOnCommandDetected: boolean;
 }
 
-export function NotificationSettings() {
+type ChannelType = "browser" | "pushover";
+
+interface NotificationSettingsProps {
+  selectedChannel: ChannelType | null;
+}
+
+export function NotificationSettings({ selectedChannel }: NotificationSettingsProps) {
   const { isConnected, permission, requestPermission, isSupported } =
     useNotificationListener();
 
@@ -49,12 +55,7 @@ export function NotificationSettings() {
   const handleRequestPermission = async () => {
     setIsRequesting(true);
     try {
-      const result = await requestPermission();
-      if (result === "granted") {
-        alert("Notifications activées !");
-      } else {
-        alert("Permission refusée");
-      }
+      await requestPermission();
     } finally {
       setIsRequesting(false);
     }
@@ -69,9 +70,8 @@ export function NotificationSettings() {
         pushoverApiToken: pushoverApiToken || null,
       });
       setSettings(data);
-      alert("Paramètres Pushover enregistrés avec succès !");
     } catch (error: any) {
-      alert(`Erreur : ${error.message}`);
+      alert(`Error: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -84,7 +84,7 @@ export function NotificationSettings() {
       const data = await apiPost<{ success: boolean; message: string }>("/settings/notifications/test-pushover");
       setTestResult({
         success: true,
-        message: data.message || "Test notification envoyée !",
+        message: data.message || "Test notification sent!",
       });
     } catch (error: any) {
       setTestResult({
@@ -101,7 +101,7 @@ export function NotificationSettings() {
       <Card className="p-6">
         <div className="flex items-center gap-3 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <p>Chargement des paramètres...</p>
+          <p>Loading settings...</p>
         </div>
       </Card>
     );
@@ -109,10 +109,10 @@ export function NotificationSettings() {
 
   if (!isSupported) {
     return (
-      <Card className="p-6">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <XCircle className="h-5 w-5" />
-          <p>Les notifications ne sont pas supportées par votre navigateur</p>
+      <Card className="p-6 bg-yellow-50 border-yellow-200">
+        <div className="flex items-center gap-3 text-yellow-800">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <p>Browser notifications are not supported in your browser</p>
         </div>
       </Card>
     );
@@ -120,167 +120,184 @@ export function NotificationSettings() {
 
   return (
     <div className="space-y-4">
-      <Card className="p-6 space-y-4">
-        <h2 className="text-xl font-semibold">Notifications in-app</h2>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {isConnected ? (
-              <CheckCircle className="h-5 w-5 text-green-500" />
-            ) : (
-              <XCircle className="h-5 w-5 text-red-500" />
-            )}
+      {/* Browser Notifications Configuration */}
+      {selectedChannel === "browser" && (
+        <Card className="p-6 space-y-4 border-2 animate-in fade-in">
+          <div className="flex items-start justify-between">
             <div>
-              <h3 className="font-semibold">État de la connexion</h3>
-              <p className="text-sm text-muted-foreground">
-                {isConnected ? "Connecté" : "Déconnecté"}
+              <h2 className="text-xl font-semibold">Browser Notifications</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Receive notifications directly in your browser
               </p>
             </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between border-t pt-4">
-          <div className="flex items-center gap-3">
-            {permission === "granted" ? (
-              <Bell className="h-5 w-5 text-green-500" />
-            ) : (
-              <BellOff className="h-5 w-5 text-gray-500" />
-            )}
-            <div>
-              <h3 className="font-semibold">Notifications du navigateur</h3>
-              <p className="text-sm text-muted-foreground">
-                {permission === "granted"
-                  ? "Activées"
-                  : permission === "denied"
-                    ? "Refusées"
-                    : "Non configurées"}
-              </p>
+            <div className="flex-shrink-0">
+              {isConnected ? (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">Connected</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <XCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">Offline</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {permission !== "granted" && (
-            <Button
-              onClick={handleRequestPermission}
-              disabled={isRequesting || permission === "denied"}
-            >
-              Activer les notifications
-            </Button>
-          )}
-        </div>
-      </Card>
+          <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {permission === "granted" ? (
+                <div className="flex items-center gap-3">
+                  <Bell className="h-5 w-5 text-green-500" />
+                  <div>
+                    <p className="font-medium text-sm">Enabled</p>
+                    <p className="text-xs text-muted-foreground">You will receive browser notifications</p>
+                  </div>
+                </div>
+              ) : permission === "denied" ? (
+                <div className="flex items-center gap-3">
+                  <BellOff className="h-5 w-5 text-red-500" />
+                  <div>
+                    <p className="font-medium text-sm">Blocked</p>
+                    <p className="text-xs text-muted-foreground">Please enable notifications in browser settings</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <BellOff className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="font-medium text-sm">Not configured</p>
+                    <p className="text-xs text-muted-foreground">Click below to enable</p>
+                  </div>
+                </div>
+              )}
+            </div>
 
-      <Card className="p-6 space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold">Pushover Integration</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Recevez des notifications sur vos appareils mobiles via Pushover
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="pushoverUserKey">Pushover User Key</Label>
-            <Input
-              id="pushoverUserKey"
-              type="text"
-              placeholder="Votre clé utilisateur Pushover (30 caractères)"
-              value={pushoverUserKey}
-              onChange={(e) => setPushoverUserKey(e.target.value)}
-              className="mt-1"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Trouvez votre User Key sur{" "}
-              <a
-                href="https://pushover.net"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:underline"
+            {permission !== "granted" && (
+              <Button
+                onClick={handleRequestPermission}
+                disabled={isRequesting || permission === "denied"}
+                size="sm"
               >
-                pushover.net
-              </a>
-            </p>
-          </div>
-
-          <div>
-            <Label htmlFor="pushoverApiToken">Pushover API Token (Optionnel)</Label>
-            <Input
-              id="pushoverApiToken"
-              type="text"
-              placeholder="Token API personnalisé (optionnel)"
-              value={pushoverApiToken}
-              onChange={(e) => setPushoverApiToken(e.target.value)}
-              className="mt-1"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Laissez vide pour utiliser le token par défaut de l'application
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              onClick={handleSavePushover}
-              disabled={isSaving || !pushoverUserKey}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Enregistrement...
-                </>
-              ) : (
-                "Enregistrer"
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={handleTestPushover}
-              disabled={isTesting || !settings?.pushoverUserKey}
-            >
-              {isTesting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Test en cours...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Tester
-                </>
-              )}
-            </Button>
-          </div>
-
-          {testResult && (
-            <div
-              className={`p-3 rounded-md ${
-                testResult.success
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                {testResult.success ? (
-                  <CheckCircle className="h-4 w-4" />
+                {isRequesting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Requesting...
+                  </>
                 ) : (
-                  <XCircle className="h-4 w-4" />
+                  "Enable"
+                )}
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Pushover Configuration */}
+      {selectedChannel === "pushover" && (
+        <Card className="p-6 space-y-4 border-2 animate-in fade-in">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Pushover</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Receive push notifications on your mobile devices
+              </p>
+            </div>
+            {settings?.pushoverUserKey && (
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="h-5 w-5" />
+                <span className="text-sm font-medium">Configured</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="pushoverUserKey">User Key</Label>
+              <Input
+                id="pushoverUserKey"
+                type="password"
+                placeholder="Your 30-character Pushover user key"
+                value={pushoverUserKey}
+                onChange={(e) => setPushoverUserKey(e.target.value)}
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Get your User Key from{" "}
+                <a
+                  href="https://pushover.net"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline font-medium"
+                >
+                  pushover.net
+                </a>
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="pushoverApiToken">API Token (Optional)</Label>
+              <Input
+                id="pushoverApiToken"
+                type="password"
+                placeholder="Custom API token (leave blank to use default)"
+                value={pushoverApiToken}
+                onChange={(e) => setPushoverApiToken(e.target.value)}
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Optional: Use a custom application token for branded notifications
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSavePushover}
+                disabled={isSaving || !pushoverUserKey}
+                size="sm"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+
+            {testResult && (
+              <div
+                className={`p-3 rounded-lg flex items-center gap-2 ${
+                  testResult.success
+                    ? "bg-green-50 text-green-800 border border-green-200"
+                    : "bg-red-50 text-red-800 border border-red-200"
+                }`}
+              >
+                {testResult.success ? (
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <XCircle className="h-4 w-4 flex-shrink-0" />
                 )}
                 <span className="text-sm">{testResult.message}</span>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="border-t pt-4 space-y-2">
-          <h3 className="font-semibold text-sm">Comment utiliser Pushover ?</h3>
-          <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-            <li>Créez un compte gratuit sur pushover.net</li>
-            <li>Installez l'application Pushover sur votre appareil mobile</li>
-            <li>Copiez votre User Key depuis le tableau de bord Pushover</li>
-            <li>Collez-la ci-dessus et enregistrez</li>
-            <li>Cliquez sur "Tester" pour vérifier que tout fonctionne</li>
-          </ol>
-        </div>
-      </Card>
+          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+            <h4 className="font-medium text-sm text-blue-900 mb-2">How to set up Pushover</h4>
+            <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
+              <li>Create a free account on pushover.net</li>
+              <li>Install the Pushover app on your phone</li>
+              <li>Copy your User Key from your Pushover dashboard</li>
+              <li>Paste it above and click Save</li>
+              <li>Click Test to verify everything works</li>
+            </ol>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
