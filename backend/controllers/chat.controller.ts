@@ -357,9 +357,9 @@ export async function chatStream(
         status: "success",
         duration: parallelDuration,
         data: {
-          resultsFound: searchResults.length,
+          resultsFound: validSearchResults.length,
           query: message,
-          topResults: searchResults.slice(0, 3).map((r: any, i: number) => ({
+          topResults: validSearchResults.slice(0, 3).map((r: any, i: number) => ({
             rank: i + 1,
             score: r.score || r.certainty,
             distance: r.distance,
