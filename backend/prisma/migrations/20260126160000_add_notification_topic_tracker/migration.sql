@@ -46,4 +46,4 @@ ALTER TABLE "notifications" ADD COLUMN IF NOT EXISTS "topicTrackerId" TEXT;
 CREATE INDEX IF NOT EXISTS "notifications_topicTrackerId_idx" ON "notifications"("topicTrackerId");
 
 -- AddForeignKey from notifications to notification_topic_trackers
-ALTER TABLE "notifications" ADD CONSTRAINT IF NOT EXISTS "notifications_topicTrackerId_fkey" FOREIGN KEY ("topicTrackerId") REFERENCES "notification_topic_trackers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_topicTrackerId_fkey" FOREIGN KEY ("topicTrackerId") REFERENCES "notification_topic_trackers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
