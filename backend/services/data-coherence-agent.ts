@@ -8,13 +8,19 @@
  * - Detect missing user feedback on activities
  * - Clean up stale or inconsistent data
  * - Ask proactive questions to the user
+ *
+ * IMPORTANT: This agent stores its learnings in the AI Instructions system,
+ * NOT in user memories. User memories are for souvenirs (user experiences),
+ * while AI instructions are for the AI's internal knowledge.
  */
 
 import prisma from "./prisma.js";
 import { llmRouterService } from "./llm-router.js";
 import { notificationService } from "./tools/notification.service.js";
+import { todoService } from "./tools/todo.service.js";
+import { aiInstructionsService } from "./ai-instructions.service.js";
 import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
-import { TodoStatus, GoalStatus } from "@prisma/client";
+import { TodoStatus, GoalStatus, AIInstructionCategory, TodoPriority } from "@prisma/client";
 
 // Configuration constants
 const COHERENCE_CHECK_LOOKBACK_DAYS = 14; // Look back 14 days for pattern analysis
@@ -384,7 +390,13 @@ export class DataCoherenceAgentService {
   }
 
   /**
-   * Process results: store and notify
+   * Process results: create tasks, store AI instructions, and notify
+   * 
+   * IMPORTANT: We no longer store coherence results as user memories.
+   * Instead:
+   * - Actionable issues become tasks (todos)
+   * - AI learnings go to AI Instructions
+   * - Users are notified via notifications only
    */
   private async processResults(userId: string, coherenceResult: any, questionsResult: any): Promise<void> {
     // Filter high-confidence issues
@@ -392,9 +404,15 @@ export class DataCoherenceAgentService {
       (issue: CoherenceIssue) => issue.confidence >= MIN_CONFIDENCE_FOR_ISSUE
     );
 
-    // Send notifications for high-priority suggestions
+    // Create tasks for actionable suggestions
     if (coherenceResult.suggestions && coherenceResult.suggestions.length > 0) {
       for (const suggestion of coherenceResult.suggestions) {
+        if (suggestion.actionable && suggestion.autoFixable) {
+          // Create a task for the AI to fix this issue
+          await this.createTaskFromSuggestion(userId, suggestion);
+        }
+        
+        // Send notifications for high/medium priority suggestions
         if (suggestion.priority === "high" || suggestion.priority === "medium") {
           await notificationService.sendNotification(userId, {
             title: `💡 ${suggestion.title}`,
@@ -431,54 +449,78 @@ export class DataCoherenceAgentService {
       }
     }
 
-    // Store analysis result as a memory for future reference, but only if:
-    // 1. There are significant issues or questions
-    // 2. Enough time has passed since the last coherence check memory (avoid spam)
-    if (significantIssues.length > 0 || questionsResult.questions.length > 0) {
-      // Check for recent coherence check memories
-      const recentCoherenceCheck = await prisma.memory.findFirst({
-        where: {
+    // Store learnings as AI Instructions (NOT as user memories)
+    // This allows the AI to learn from coherence issues without polluting user's souvenirs
+    if (significantIssues.length > 0) {
+      for (const issue of significantIssues) {
+        // Check for existing similar instruction to avoid duplicates
+        const keywords = issue.title.toLowerCase().split(" ").filter((w: string) => w.length > 3);
+        const existing = await aiInstructionsService.findSimilarInstruction(
           userId,
-          sourceType: "agent:data-coherence",
-          createdAt: {
-            gte: new Date(Date.now() - MIN_HOURS_BETWEEN_STORAGE * 60 * 60 * 1000),
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
+          "data-coherence",
+          AIInstructionCategory.DATA_COHERENCE,
+          keywords
+        );
 
-      // Only store if no recent coherence check or if there are high-priority items
-      const hasHighPriorityItems = 
-        significantIssues.some((i: CoherenceIssue) => i.severity === "high") ||
-        questionsResult.questions.some((q: ProactiveQuestion) => q.priority === "high");
-
-      if (!recentCoherenceCheck || hasHighPriorityItems) {
-        const content = this.formatResultsAsMarkdown(coherenceResult, questionsResult);
-        
-        await prisma.memory.create({
-          data: {
-            userId,
-            content,
-            type: "LONG_TERM",
-            timeScale: "DAILY",
-            sourceType: "agent:data-coherence",
-            importanceScore: hasHighPriorityItems ? 0.8 : 0.6,
-            tags: ["coherence", "data-quality", "proactive"],
+        if (!existing) {
+          await aiInstructionsService.createInstruction(userId, {
+            title: issue.title,
+            content: `${issue.description}\n\nSuggested action: ${issue.suggestedAction || "Review and address"}`,
+            category: AIInstructionCategory.DATA_COHERENCE,
+            sourceAgent: "data-coherence",
+            priority: issue.severity === "high" ? 8 : issue.severity === "medium" ? 5 : 2,
+            confidence: issue.confidence,
+            relatedGoalIds: issue.affectedItems
+              ?.filter((i: any) => i.type === "goal")
+              .map((i: any) => i.id) || [],
+            relatedTodoIds: issue.affectedItems
+              ?.filter((i: any) => i.type === "todo")
+              .map((i: any) => i.id) || [],
             metadata: {
-              agentId: "data-coherence",
-              issuesFound: significantIssues.length,
-              questionsAsked: questionsResult.questions.length,
-              suggestionsCount: coherenceResult.suggestions?.length || 0,
-              hasHighPriority: hasHighPriorityItems,
+              issueType: issue.type,
+              severity: issue.severity,
+              affectedItems: issue.affectedItems,
             },
-          },
-        });
+          });
+        }
       }
     }
   }
 
   /**
-   * Format results as markdown for storage
+   * Create a task from an actionable suggestion
+   */
+  private async createTaskFromSuggestion(userId: string, suggestion: CoherenceSuggestion): Promise<void> {
+    try {
+      const priority = suggestion.priority === "high" 
+        ? TodoPriority.HIGH 
+        : suggestion.priority === "medium" 
+          ? TodoPriority.MEDIUM 
+          : TodoPriority.LOW;
+
+      // Create the task
+      await todoService.createTodo(userId, {
+        title: `[Auto] ${suggestion.title}`,
+        description: suggestion.message,
+        priority,
+        category: "system-improvement",
+        tags: ["auto-generated", "data-coherence", suggestion.type],
+        metadata: {
+          source: "data-coherence-agent",
+          suggestionType: suggestion.type,
+          actionData: suggestion.actionData,
+          autoFixable: suggestion.autoFixable,
+        },
+      });
+
+      console.log(`Created task for suggestion: ${suggestion.title}`);
+    } catch (error) {
+      console.error(`Failed to create task for suggestion: ${suggestion.title}`, error);
+    }
+  }
+
+  /**
+   * Format results as markdown (for notifications/logging only, not storage)
    */
   private formatResultsAsMarkdown(coherenceResult: any, questionsResult: any): string {
     let content = "# Data Coherence Check\n\n";

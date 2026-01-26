@@ -56,6 +56,9 @@ model User {
     // Tips and Hints
     tips Tip[]
 
+    // AI Self-Training
+    aiInstructions AIInstruction[]
+
     @@map("users")
 }
 
@@ -723,6 +726,10 @@ model Notification {
     // Metadata
     metadata Json @default("{}")
 
+    // Spam detection - link to topic tracker
+    topicTrackerId String?
+    topicTracker   NotificationTopicTracker? @relation(fields: [topicTrackerId], references: [id])
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
@@ -730,7 +737,64 @@ model Notification {
     @@index([isRead])
     @@index([scheduledFor])
     @@index([type])
+    @@index([topicTrackerId])
     @@map("notifications")
+}
+
+// Notification Topic Tracker - tracks notification topics with exponential backoff
+model NotificationTopicTracker {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Topic identification (semantic category from AI analysis)
+    topic           String // e.g., "health_hydration", "goal_exercise", "reminder_meeting"
+    category        NotificationCategory @default(GENERAL)
+    
+    // Content tracking for semantic comparison
+    lastContentHash String   @db.Text // Hash or summary of last notification content
+    sampleMessages  String[] // Recent message samples for LLM comparison
+
+    // Exponential backoff state
+    attemptCount       Int      @default(1)   // Number of times this topic was sent
+    cooldownMinutes    Int      @default(60)  // Current cooldown in minutes (increases exponentially)
+    nextAllowedAt      DateTime // When we can send this topic again
+    maxAttempts        Int      @default(5)   // Give up after this many unanswered attempts
+    isGivenUp          Boolean  @default(false) // Topic abandoned due to no response
+    
+    // User engagement tracking
+    lastUserResponse   DateTime? // When user last interacted with this topic
+    responseCount      Int       @default(0)  // How many times user responded
+    
+    // Statistics
+    totalSent          Int      @default(1)
+    totalBlocked       Int      @default(0)
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Related notifications
+    notifications Notification[]
+
+    @@unique([userId, topic])
+    @@index([userId])
+    @@index([nextAllowedAt])
+    @@index([isGivenUp])
+    @@index([category])
+    @@map("notification_topic_trackers")
+}
+
+enum NotificationCategory {
+    HEALTH        // Physical health, hydration, exercise, sleep
+    MENTAL        // Mental wellbeing, stress, mindfulness
+    PRODUCTIVITY  // Work, tasks, deadlines
+    GOALS         // Personal goals tracking
+    HABITS        // Habit tracking and reminders
+    RELATIONSHIPS // Social, family, friends
+    LEARNING      // Education, skill development
+    FINANCIAL     // Money, budgeting
+    SYSTEM        // App notifications, updates
+    GENERAL       // Uncategorized
 }
 
 enum NotificationType {
@@ -1150,6 +1214,72 @@ enum GoalStatus {
     PAUSED // Temporarily on hold
     ARCHIVED // Cleaned up by agent (no longer relevant)
     ABANDONED // User explicitly gave up
+}
+
+// ==================== AI Self-Training System ====================
+// Stores AI-internal knowledge, learnings, and instructions
+// This is NOT for user memories - it's for the AI to remember its own observations
+
+model AIInstruction {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Instruction content
+    content String @db.Text
+    title   String?
+
+    // Classification
+    category AIInstructionCategory
+    sourceAgent String // Which agent created this: 'data-coherence', 'proactive', 'health-check', etc.
+
+    // Validity and lifecycle
+    isActive   Boolean   @default(true)
+    expiresAt  DateTime? // Some learnings expire (e.g., temporary patterns)
+    validFrom  DateTime  @default(now())
+    validUntil DateTime? // For time-bounded learnings
+
+    // Priority and usage
+    priority  Int   @default(0) // Higher = more important to include in context
+    usageCount Int  @default(0) // How many times this was used in AI context
+    lastUsedAt DateTime?
+
+    // Confidence and verification
+    confidence   Float    @default(0.7) // AI confidence in this instruction
+    isVerified   Boolean  @default(false) // User confirmed this learning
+    verifiedAt   DateTime?
+
+    // Relationships
+    relatedGoalIds   String[] @default([])
+    relatedTodoIds   String[] @default([])
+    relatedMemoryIds String[] @default([])
+
+    // Metadata
+    metadata Json @default("{}")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([category])
+    @@index([sourceAgent])
+    @@index([isActive])
+    @@index([priority])
+    @@index([createdAt])
+    @@map("ai_instructions")
+}
+
+enum AIInstructionCategory {
+    DATA_COHERENCE      // Observations about data inconsistencies
+    USER_PATTERN        // Detected user behavior patterns
+    USER_PREFERENCE     // Learned user preferences
+    TASK_OPTIMIZATION   // Learnings about task/todo management
+    GOAL_TRACKING       // Insights about goal progress
+    HEALTH_INSIGHT      // Health-related observations
+    COMMUNICATION_STYLE // How the user prefers to be communicated with
+    SCHEDULING          // Learnings about user's schedule preferences
+    SYSTEM_IMPROVEMENT  // Ideas to improve the system itself
+    OTHER               // Miscellaneous learnings
 }
 
 // User achievements unlocked by the system

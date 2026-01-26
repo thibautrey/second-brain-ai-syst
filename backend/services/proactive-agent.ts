@@ -12,12 +12,17 @@
  * - Detect goals that need attention or encouragement
  * - Suggest actions based on recurring themes
  * - Never be invasive - suggestions are gentle and optional
+ *
+ * IMPORTANT: This agent stores its learnings in the AI Instructions system,
+ * NOT in user memories. User memories are for souvenirs (user experiences),
+ * while AI instructions are for the AI's internal knowledge and patterns.
  */
 
 import prisma from "./prisma.js";
 import { llmRouterService } from "./llm-router.js";
 import { notificationService } from "./notification.js";
-import { TimeScale, MemoryType } from "@prisma/client";
+import { aiInstructionsService } from "./ai-instructions.service.js";
+import { TimeScale, MemoryType, AIInstructionCategory } from "@prisma/client";
 
 // Configuration constants
 const MAX_MEMORIES_FOR_ANALYSIS = 100;
@@ -171,27 +176,12 @@ Based on this information, provide 1-3 high-quality, actionable suggestions that
         throw new Error(`Invalid JSON response from LLM: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
       }
 
-      // Store suggestions as a special memory
-      const suggestionMemory = await prisma.memory.create({
-        data: {
-          userId,
-          content: this.formatSuggestionsAsMarkdown(result),
-          type: MemoryType.LONG_TERM,
-          timeScale: TimeScale.DAILY,
-          sourceType: "agent:proactive",
-          importanceScore: 0.75,
-          tags: ["proactive", "suggestions", "coaching"],
-          metadata: {
-            agentId: "proactive-agent",
-            analysisDate: result.analysisDate,
-            suggestionsCount: result.suggestions.length,
-            ...result,
-          },
-        },
-      });
+      // Store patterns as AI Instructions (NOT as user memories)
+      // This allows the AI to learn user patterns without polluting souvenirs
+      await this.storeAsAIInstructions(userId, result);
 
       // Send high-priority suggestions as notifications
-      await this.sendSuggestionNotifications(userId, result.suggestions, suggestionMemory.id);
+      await this.sendSuggestionNotifications(userId, result.suggestions, null);
 
       return {
         agentId: "proactive-agent",
@@ -283,21 +273,8 @@ Respond with suggestions prioritizing health and well-being.`;
       );
 
       if (healthSuggestions.length > 0) {
-        await prisma.memory.create({
-          data: {
-            userId,
-            content: this.formatSuggestionsAsMarkdown({ ...result, suggestions: healthSuggestions }),
-            type: MemoryType.LONG_TERM,
-            timeScale: TimeScale.WEEKLY,
-            sourceType: "agent:health-check",
-            importanceScore: 0.8,
-            tags: ["health", "wellbeing", "coaching"],
-            metadata: {
-              agentId: "health-check",
-              suggestionsCount: healthSuggestions.length,
-            },
-          },
-        });
+        // Store health insights as AI Instructions (NOT as user memories)
+        await this.storeHealthInsightsAsAIInstructions(userId, healthSuggestions);
 
         await this.sendSuggestionNotifications(userId, healthSuggestions, null, "health");
       }
@@ -326,16 +303,18 @@ Respond with suggestions prioritizing health and well-being.`;
 
   /**
    * Get recent proactive suggestions to avoid repetition
+   * Now checks AI Instructions instead of memories
    */
   private async getRecentSuggestions(userId: string, days: number): Promise<any[]> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    const suggestions = await prisma.memory.findMany({
+    // Check AI Instructions for recent suggestions
+    const instructions = await prisma.aIInstruction.findMany({
       where: {
         userId,
-        sourceType: {
-          in: ["agent:proactive", "agent:health-check"],
+        sourceAgent: {
+          in: ["proactive-agent", "health-check"],
         },
         createdAt: { gte: startDate },
       },
@@ -343,7 +322,103 @@ Respond with suggestions prioritizing health and well-being.`;
       take: 5,
     });
 
-    return suggestions.map(s => s.metadata);
+    return instructions.map(i => i.metadata);
+  }
+
+  /**
+   * Store proactive suggestions as AI Instructions
+   */
+  private async storeAsAIInstructions(userId: string, result: any): Promise<void> {
+    if (!result.suggestions || result.suggestions.length === 0) return;
+
+    for (const suggestion of result.suggestions) {
+      // Map suggestion category to AI instruction category
+      const category = this.mapSuggestionToInstructionCategory(suggestion.category);
+      
+      // Check for existing similar instruction
+      const keywords = suggestion.title.toLowerCase().split(" ").filter((w: string) => w.length > 3);
+      const existing = await aiInstructionsService.findSimilarInstruction(
+        userId,
+        "proactive-agent",
+        category,
+        keywords
+      );
+
+      if (!existing) {
+        await aiInstructionsService.createInstruction(userId, {
+          title: suggestion.title,
+          content: `${suggestion.message}\n\nReasoning: ${suggestion.reasoning}${suggestion.actionSteps ? `\n\nAction steps:\n${suggestion.actionSteps.map((s: string) => `- ${s}`).join("\n")}` : ""}`,
+          category,
+          sourceAgent: "proactive-agent",
+          priority: suggestion.priority === "high" ? 8 : suggestion.priority === "medium" ? 5 : 2,
+          confidence: 0.7,
+          relatedMemoryIds: suggestion.relatedMemoryIds || [],
+          metadata: {
+            suggestionCategory: suggestion.category,
+            priority: suggestion.priority,
+            actionable: suggestion.actionable,
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * Store health insights as AI Instructions
+   */
+  private async storeHealthInsightsAsAIInstructions(userId: string, healthSuggestions: ProactiveSuggestion[]): Promise<void> {
+    for (const suggestion of healthSuggestions) {
+      const category = suggestion.category === "health" 
+        ? AIInstructionCategory.HEALTH_INSIGHT 
+        : AIInstructionCategory.USER_PATTERN;
+
+      const keywords = suggestion.title.toLowerCase().split(" ").filter((w: string) => w.length > 3);
+      const existing = await aiInstructionsService.findSimilarInstruction(
+        userId,
+        "health-check",
+        category,
+        keywords
+      );
+
+      if (!existing) {
+        await aiInstructionsService.createInstruction(userId, {
+          title: suggestion.title,
+          content: `${suggestion.message}\n\nReasoning: ${suggestion.reasoning}`,
+          category,
+          sourceAgent: "health-check",
+          priority: suggestion.priority === "high" ? 8 : 5,
+          confidence: 0.75,
+          metadata: {
+            healthCategory: suggestion.category,
+            priority: suggestion.priority,
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * Map suggestion category to AI instruction category
+   */
+  private mapSuggestionToInstructionCategory(suggestionCategory: string): AIInstructionCategory {
+    switch (suggestionCategory) {
+      case "health":
+        return AIInstructionCategory.HEALTH_INSIGHT;
+      case "mental_wellbeing":
+        return AIInstructionCategory.HEALTH_INSIGHT;
+      case "goals":
+        return AIInstructionCategory.GOAL_TRACKING;
+      case "habits":
+        return AIInstructionCategory.USER_PATTERN;
+      case "productivity":
+        return AIInstructionCategory.TASK_OPTIMIZATION;
+      case "relationships":
+        return AIInstructionCategory.USER_PATTERN;
+      case "learning":
+        return AIInstructionCategory.USER_PREFERENCE;
+      default:
+        return AIInstructionCategory.OTHER;
+    }
   }
 
   /**
@@ -371,8 +446,10 @@ Respond with suggestions prioritizing health and well-being.`;
     if (recentSuggestions.length > 0) {
       context += "\n\n### Recent Suggestions (avoid repeating these)\n";
       recentSuggestions.forEach((sugg, i) => {
-        if (sugg.suggestions) {
+        if (sugg && sugg.suggestions) {
           context += `${i + 1}. ${sugg.suggestions.map((s: any) => s.title).join(", ")}\n`;
+        } else if (sugg && sugg.title) {
+          context += `${i + 1}. ${sugg.title}\n`;
         }
       });
     }
