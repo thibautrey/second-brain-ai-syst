@@ -78,14 +78,17 @@ interface CachedChatProvider {
 
 const chatProviderCache = new Map<string, CachedChatProvider>();
 
-async function getChatProvider(
-  userId: string,
-): Promise<{ provider: any; modelId: string; fallbackProvider?: any; fallbackModelId?: string } | null> {
+async function getChatProvider(userId: string): Promise<{
+  provider: any;
+  modelId: string;
+  fallbackProvider?: any;
+  fallbackModelId?: string;
+} | null> {
   // Check cache first
   const cached = chatProviderCache.get(userId);
   if (cached && Date.now() - cached.timestamp < PROVIDER_CACHE_TTL_MS) {
-    return { 
-      provider: cached.provider, 
+    return {
+      provider: cached.provider,
       modelId: cached.modelId,
       fallbackProvider: cached.fallbackProvider,
       fallbackModelId: cached.fallbackModelId,
@@ -95,7 +98,12 @@ async function getChatProvider(
   // Fetch from DB
   const taskConfig = await prisma.aITaskConfig.findFirst({
     where: { userId, taskType: "REFLECTION" },
-    include: { provider: true, model: true, fallbackProvider: true, fallbackModel: true },
+    include: {
+      provider: true,
+      model: true,
+      fallbackProvider: true,
+      fallbackModel: true,
+    },
   });
 
   if (!taskConfig?.provider) {
@@ -136,18 +144,20 @@ async function getChatProvider(
       baseUrl: provider.baseUrl,
     },
     modelId,
-    fallbackProvider: fallbackProvider ? {
-      id: fallbackProvider.id,
-      name: fallbackProvider.name,
-      apiKey: fallbackProvider.apiKey,
-      baseUrl: fallbackProvider.baseUrl,
-    } : undefined,
+    fallbackProvider: fallbackProvider
+      ? {
+          id: fallbackProvider.id,
+          name: fallbackProvider.name,
+          apiKey: fallbackProvider.apiKey,
+          baseUrl: fallbackProvider.baseUrl,
+        }
+      : undefined,
     fallbackModelId,
     timestamp: Date.now(),
   });
 
-  return { 
-    provider, 
+  return {
+    provider,
     modelId,
     fallbackProvider,
     fallbackModelId,
@@ -227,6 +237,66 @@ INSTRUCTIONS IMPORTANTES:
 - NE JAMAIS afficher de code JSON ou curl à l'utilisateur - utilise les outils puis donne une réponse naturelle`;
 
 /**
+ * Helper: Extract ALL tool calls from text content
+ * Handles multiple consecutive tool calls like: user_profile{...}scheduled_task{...}
+ */
+function extractAllTextToolCalls(content: string): Array<{
+  toolId: string;
+  params: Record<string, any>;
+  start: number;
+  end: number;
+}> {
+  const results: Array<{
+    toolId: string;
+    params: Record<string, any>;
+    start: number;
+    end: number;
+  }> = [];
+
+  // Pattern to find toolName{...} anywhere in the text
+  const toolPattern =
+    /(user_profile|scheduled_task|todo|notification|curl|user_context)\s*(\{)/gi;
+
+  let match;
+  while ((match = toolPattern.exec(content)) !== null) {
+    const toolId = match[1].toLowerCase();
+    const startPos = match.index;
+    const jsonStart = match.index + match[0].length - 1; // Position of opening {
+
+    // Find matching closing brace
+    let braceCount = 1;
+    let jsonEnd = jsonStart + 1;
+
+    while (jsonEnd < content.length && braceCount > 0) {
+      if (content[jsonEnd] === "{") braceCount++;
+      if (content[jsonEnd] === "}") braceCount--;
+      jsonEnd++;
+    }
+
+    if (braceCount === 0) {
+      try {
+        const jsonStr = content.substring(jsonStart, jsonEnd);
+        const params = JSON.parse(jsonStr);
+
+        // Verify it has an action field (real tool call)
+        if (params.action && typeof params.action === "string") {
+          results.push({
+            toolId,
+            params,
+            start: startPos,
+            end: jsonEnd,
+          });
+        }
+      } catch (e) {
+        // JSON parse failed, skip this one
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
  * POST /api/chat
  * Stream chat response using SSE
  *
@@ -249,9 +319,11 @@ export async function chatStream(
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "Message is required" });
   }
-  
+
   // Ensure previousMessages is always an array
-  const validPreviousMessages = Array.isArray(previousMessages) ? previousMessages : [];
+  const validPreviousMessages = Array.isArray(previousMessages)
+    ? previousMessages
+    : [];
 
   const flowId = randomBytes(8).toString("hex");
   const startTime = Date.now();
@@ -282,22 +354,35 @@ export async function chatStream(
     speculativeExecutor.recordQuery(userId, message);
 
     // Check for speculative pre-fetched results first (Opt 8)
-    const prefetchedResults = speculativeExecutor.getPrefetchedResults(userId, message);
+    const prefetchedResults = speculativeExecutor.getPrefetchedResults(
+      userId,
+      message,
+    );
 
     // 1. PARALLEL PROCESSING PIPELINE (Opt 1, 2, 4, 7, 9)
     // Fetch everything in parallel: memories, provider, user context, conversation context
     const parallelStart = Date.now();
 
-    const [memorySearchResult, providerResult, userContext, conversationContext] = await Promise.all([
+    const [
+      memorySearchResult,
+      providerResult,
+      userContext,
+      conversationContext,
+    ] = await Promise.all([
       // Memory search - use prefetched if available, or optimized retrieval
-      prefetchedResults 
+      prefetchedResults
         ? Promise.resolve(prefetchedResults)
         : optimizedRetrieval.fastSearch(userId, message, 5).catch((error) => {
             console.warn("Optimized search failed, trying standard:", error);
-            return memorySearchService.semanticSearch(userId, message, 5).catch((err) => {
-              console.warn("Memory search failed, continuing without context:", err);
-              return { results: [], error: err };
-            });
+            return memorySearchService
+              .semanticSearch(userId, message, 5)
+              .catch((err) => {
+                console.warn(
+                  "Memory search failed, continuing without context:",
+                  err,
+                );
+                return { results: [], error: err };
+              });
           }),
       // Provider fetch (using cache - Opt 4)
       getChatProvider(userId),
@@ -311,18 +396,27 @@ export async function chatStream(
 
     // Start speculative pre-fetch for likely follow-ups (Opt 8 - non-blocking)
     const userTopics = userContext?.recentTopics || [];
-    speculativeExecutor.speculativeFetch(userId, message, userTopics).catch(() => {});
+    speculativeExecutor
+      .speculativeFetch(userId, message, userTopics)
+      .catch(() => {});
 
     // 2. Process memory search results (already fetched in parallel)
     let memoryContext: string[] = [];
     // Handle both optimizedRetrieval results and memorySearchService results
-    const searchResults = Array.isArray(memorySearchResult) 
-      ? memorySearchResult.map(r => ({ memory: { createdAt: r.createdAt, content: r.content }, score: r.certainty }))
-      : ('results' in memorySearchResult ? memorySearchResult.results : []);
-    
+    const searchResults = Array.isArray(memorySearchResult)
+      ? memorySearchResult.map((r) => ({
+          memory: { createdAt: r.createdAt, content: r.content },
+          score: r.certainty,
+        }))
+      : "results" in memorySearchResult
+        ? memorySearchResult.results
+        : [];
+
     // Ensure searchResults is always an array
-    const validSearchResults = Array.isArray(searchResults) ? searchResults : [];
-    
+    const validSearchResults = Array.isArray(searchResults)
+      ? searchResults
+      : [];
+
     if ("error" in memorySearchResult && !Array.isArray(memorySearchResult)) {
       flowTracker.trackEvent({
         flowId,
@@ -343,9 +437,13 @@ export async function chatStream(
           `[Mémoire du ${new Date(r.memory?.createdAt || r.createdAt).toLocaleDateString()}]: ${r.memory?.content || r.content}`,
       );
 
-      const avgScore = validSearchResults.length > 0 
-        ? validSearchResults.reduce((sum: number, r: any) => sum + (r.score || r.certainty || 0), 0) / validSearchResults.length 
-        : 0;
+      const avgScore =
+        validSearchResults.length > 0
+          ? validSearchResults.reduce(
+              (sum: number, r: any) => sum + (r.score || r.certainty || 0),
+              0,
+            ) / validSearchResults.length
+          : 0;
       const memoryDecision =
         `${validSearchResults.length} mémoire(s) pertinente(s) trouvée(s). ` +
         `Score moyen: ${(avgScore * 100).toFixed(1)}%.`;
@@ -359,12 +457,14 @@ export async function chatStream(
         data: {
           resultsFound: validSearchResults.length,
           query: message,
-          topResults: validSearchResults.slice(0, 3).map((r: any, i: number) => ({
-            rank: i + 1,
-            score: r.score || r.certainty,
-            distance: r.distance,
-            dateCreated: r.memory?.createdAt || r.createdAt,
-          })),
+          topResults: validSearchResults
+            .slice(0, 3)
+            .map((r: any, i: number) => ({
+              rank: i + 1,
+              score: r.score || r.certainty,
+              distance: r.distance,
+              dateCreated: r.memory?.createdAt || r.createdAt,
+            })),
           parallelExecution: true,
           usedPrefetch: !!prefetchedResults,
           userContextAvailable: !!userContext,
@@ -387,7 +487,8 @@ export async function chatStream(
       return res.end();
     }
 
-    const { provider, modelId, fallbackProvider, fallbackModelId } = providerResult;
+    const { provider, modelId, fallbackProvider, fallbackModelId } =
+      providerResult;
 
     flowTracker.trackEvent({
       flowId,
@@ -503,9 +604,7 @@ export async function chatStream(
       let maxTokensToUse = validation.maxTokens;
 
       if (validation.warning) {
-        console.warn(
-          `[TokenValidator] ${validation.warning}`,
-        );
+        console.warn(`[TokenValidator] ${validation.warning}`);
         flowTracker.trackEvent({
           flowId,
           stage: `token_validation_warning_${iterationCount}`,
@@ -529,7 +628,10 @@ export async function chatStream(
               channels: ["IN_APP"],
             });
           } catch (notifyError) {
-            console.warn("Failed to send token constraint notification:", notifyError);
+            console.warn(
+              "Failed to send token constraint notification:",
+              notifyError,
+            );
             // Don't block chat if notification fails
           }
         }
@@ -556,192 +658,158 @@ export async function chatStream(
           break;
         }
 
-        // Detect if the model generated a tool call as text instead of using function calling
+        // Detect if the model generated tool calls as text instead of using function calling
         // This can happen with some models/providers that don't support function calling well
-        const textToolCallPattern =
-          /^(curl|todo|notification|scheduled_task|user_context)\s*\{/i;
-        const jsonToolCallPattern = /^\{[\s\S]*"action"\s*:\s*"[^"]+"/;
-
-        let parsedTextToolCall: {
-          toolId: string;
-          params: Record<string, any>;
-        } | null = null;
-
-        if (
+        const textToolCalls =
           assistantMessage.content &&
           (!assistantMessage.tool_calls ||
             assistantMessage.tool_calls.length === 0)
-        ) {
-          const content = assistantMessage.content.trim();
+            ? extractAllTextToolCalls(assistantMessage.content)
+            : [];
 
-          // Check for "toolName{json}" format (e.g., "curl{...}")
-          const toolNameMatch = content.match(
-            /^(curl|todo|notification|scheduled_task|user_context)\s*(\{[\s\S]*\})\s*$/i,
-          );
-          if (toolNameMatch) {
+        // Process ALL text-based tool calls found in the response
+        if (textToolCalls.length > 0) {
+          // Create a consistent tool_call_id for this batch of tools
+          const batchToolCallId = `text_tool_batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const toolCallResults: Array<{
+            toolCallId: string;
+            toolId: string;
+            success: boolean;
+            data: any;
+            error?: string;
+          }> = [];
+
+          // Execute each tool and collect results
+          for (let i = 0; i < textToolCalls.length; i++) {
+            const { toolId, params } = textToolCalls[i];
+            const toolCallId = `${batchToolCallId}_${i}`;
+
+            flowTracker.trackEvent({
+              flowId,
+              stage: `text_tool_call_executing_iteration_${iterationCount}`,
+              service: "ChatController",
+              status: "started",
+              duration: 0,
+              data: {
+                toolId,
+                action: params.action,
+                toolIndex: i,
+                totalCalls: textToolCalls.length,
+              },
+              decision: `Exécution de ${textToolCalls.length} appel(s) d'outil en texte. Traitement #${i + 1}: ${toolId}`,
+            });
+
+            // Execute the tool
+            const toolExecutionStart = Date.now();
+            const toolRequest = {
+              toolId,
+              action: params.action || "request",
+              params,
+            };
+
             try {
-              const toolId = toolNameMatch[1].toLowerCase();
-              const params = JSON.parse(toolNameMatch[2]);
-              parsedTextToolCall = { toolId, params };
+              const toolResult = await toolExecutorService.executeTool(
+                userId,
+                toolRequest,
+              );
+
+              // Sanitize the tool result before storing
+              const sanitizationResult = sanitizeToolResult(toolResult.data);
+              sanitizationResults.set(`${toolId}_${i}`, sanitizationResult);
+
+              // Store sanitized version of tool result
+              const sanitizedToolResult = {
+                ...toolResult,
+                data: sanitizationResult.cleaned,
+                _sanitized: sanitizationResult.hasSensitiveData,
+                _redactionCount: sanitizationResult.redactedCount,
+              };
+
+              allToolResults.push(sanitizedToolResult);
+
+              // Track this result for message building
+              toolCallResults.push({
+                toolCallId,
+                toolId,
+                success: toolResult.success,
+                data: toolResult.data,
+                error: toolResult.error,
+              });
 
               flowTracker.trackEvent({
                 flowId,
-                stage: `text_tool_call_parsed_iteration_${iterationCount}`,
-                service: "ChatController",
-                status: "started",
-                duration: 0,
-                data: { toolId, detectedFormat: "toolName{json}" },
-                decision: `Modèle a généré un appel d'outil en texte au lieu d'utiliser function calling. Outil détecté: ${toolId}`,
+                stage: `text_tool_executed_iteration_${iterationCount}`,
+                service: "ToolExecutor",
+                status: toolResult.success ? "success" : "failed",
+                duration: Date.now() - toolExecutionStart,
+                data: { toolId, success: toolResult.success, toolIndex: i },
               });
-            } catch (e) {
-              // JSON parse failed, not a valid tool call
+            } catch (toolError) {
+              console.error(
+                `[ToolExecutor] Error executing text tool ${toolId}:`,
+                toolError,
+              );
+
+              toolCallResults.push({
+                toolCallId,
+                toolId,
+                success: false,
+                data: null,
+                error:
+                  toolError instanceof Error
+                    ? toolError.message
+                    : String(toolError),
+              });
+
+              flowTracker.trackEvent({
+                flowId,
+                stage: `text_tool_error_iteration_${iterationCount}`,
+                service: "ToolExecutor",
+                status: "failed",
+                data: {
+                  toolId,
+                  toolIndex: i,
+                  error:
+                    toolError instanceof Error
+                      ? toolError.message
+                      : String(toolError),
+                },
+              });
             }
           }
 
-          // Check for raw JSON with action field
-          if (!parsedTextToolCall && jsonToolCallPattern.test(content)) {
-            try {
-              const params = JSON.parse(content);
-              if (params.action && typeof params.action === "string") {
-                // Try to determine tool from action or url
-                let toolId = "curl"; // Default to curl for HTTP-like actions
-                if (
-                  [
-                    "create",
-                    "get",
-                    "list",
-                    "update",
-                    "complete",
-                    "delete",
-                    "stats",
-                    "overdue",
-                    "due_soon",
-                  ].includes(params.action) &&
-                  !params.url
-                ) {
-                  toolId = "todo";
-                } else if (
-                  [
-                    "send",
-                    "schedule",
-                    "mark_read",
-                    "dismiss",
-                    "unread_count",
-                  ].includes(params.action) &&
-                  !params.url
-                ) {
-                  toolId = "notification";
-                } else if (
-                  params.url ||
-                  ["request", "get", "post", "put", "delete", "patch"].includes(
-                    params.action,
-                  )
-                ) {
-                  toolId = "curl";
-                } else if (
-                  ["get_location", "get_preferences", "search_facts"].includes(
-                    params.action,
-                  )
-                ) {
-                  toolId = "user_context";
-                }
-
-                parsedTextToolCall = { toolId, params };
-
-                flowTracker.trackEvent({
-                  flowId,
-                  stage: `text_tool_call_parsed_iteration_${iterationCount}`,
-                  service: "ChatController",
-                  status: "started",
-                  duration: 0,
-                  data: { toolId, detectedFormat: "rawJson" },
-                  decision: `Modèle a généré un JSON d'appel d'outil en texte. Outil détecté: ${toolId}`,
-                });
-              }
-            } catch (e) {
-              // JSON parse failed
-            }
-          }
-        }
-
-        // If we detected a text-based tool call, execute it
-        if (parsedTextToolCall) {
-          const { toolId, params } = parsedTextToolCall;
-
-          flowTracker.trackEvent({
-            flowId,
-            stage: `text_tool_execution_iteration_${iterationCount}`,
-            service: "ToolExecutor",
-            status: "started",
-            duration: 0,
-            data: { toolId, action: params.action },
-          });
-
-          // Execute the tool
-          const toolExecutionStart = Date.now();
-          const toolRequest = {
-            toolId,
-            action: params.action || "request",
-            params,
-          };
-
-          const toolResult = await toolExecutorService.executeTool(
-            userId,
-            toolRequest,
-          );
-
-          flowTracker.trackEvent({
-            flowId,
-            stage: `text_tool_executed_iteration_${iterationCount}`,
-            service: "ToolExecutor",
-            status: toolResult.success ? "success" : "failed",
-            duration: Date.now() - toolExecutionStart,
-            data: { toolId, success: toolResult.success },
-          });
-
-          // Sanitize the tool result before storing
-          const sanitizationResult = sanitizeToolResult(toolResult.data);
-          sanitizationResults.set(toolId, sanitizationResult);
-
-          // Store sanitized version of tool result
-          const sanitizedToolResult = {
-            ...toolResult,
-            data: sanitizationResult.cleaned,
-            _sanitized: sanitizationResult.hasSensitiveData,
-            _redactionCount: sanitizationResult.redactedCount,
-          };
-
-          allToolResults.push(sanitizedToolResult);
-
-          // Add the assistant message and tool result to history, then continue
+          // Now add the assistant message and all tool results to history
           messages.push({
             role: "assistant",
-            content: null,
-            tool_calls: [
-              {
-                id: `text_tool_${Date.now()}`,
-                type: "function",
-                function: { name: toolId, arguments: JSON.stringify(params) },
+            content: assistantMessage.content || null,
+            tool_calls: textToolCalls.map((tc, idx) => ({
+              id: `${batchToolCallId}_${idx}`,
+              type: "function",
+              function: {
+                name: tc.toolId,
+                arguments: JSON.stringify(tc.params),
               },
-            ],
+            })),
           });
 
-          messages.push({
-            role: "tool",
-            tool_call_id: `text_tool_${Date.now()}`,
-            name: toolId,
-            content: JSON.stringify({
-              success: toolResult.success,
-              data: toolResult.data,
-              error: toolResult.error,
-            }),
+          // Add all tool results
+          toolCallResults.forEach((result) => {
+            messages.push({
+              role: "tool",
+              tool_call_id: result.toolCallId,
+              name: result.toolId,
+              content: JSON.stringify({
+                success: result.success,
+                data: result.data,
+                error: result.error,
+              }),
+            });
           });
 
           // Continue to let AI process tool results
           continue;
         }
 
-        // Check if AI wants to use tools via proper function calling
         if (
           assistantMessage.tool_calls &&
           assistantMessage.tool_calls.length > 0
@@ -865,7 +933,7 @@ export async function chatStream(
             console.log(
               `[TokenFallback] Primary provider (${provider.name}) failed. Switching to fallback: ${fallbackProvider.name}`,
             );
-            
+
             try {
               // Notify user about provider switch
               await notificationService.createNotification({
@@ -876,9 +944,12 @@ export async function chatStream(
                 channels: ["IN_APP"],
               });
             } catch (notifyError) {
-              console.warn("Failed to send fallback notification:", notifyError);
+              console.warn(
+                "Failed to send fallback notification:",
+                notifyError,
+              );
             }
-            
+
             flowTracker.trackEvent({
               flowId,
               stage: `fallback_provider_switch_${iterationCount}`,
@@ -890,31 +961,35 @@ export async function chatStream(
                 fallbackModel: fallbackModelId,
               },
             });
-            
+
             // Retry with fallback
             const fallbackOpenAI = new OpenAI({
               apiKey: fallbackProvider.apiKey,
               baseURL: fallbackProvider.baseUrl || "https://api.openai.com/v1",
             });
-            
+
             try {
-              const fallbackResponse = await fallbackOpenAI.chat.completions.create({
-                model: fallbackModelId,
-                messages: messages as any,
-                temperature: 0.7,
-                max_tokens: Math.min(getFallbackMaxTokens(fallbackModelId), maxTokensToUse),
-                tools: toolSchemas.map((schema) => ({
-                  type: "function",
-                  function: schema,
-                })),
-                tool_choice: "auto",
-                stream: false,
-              });
-              
+              const fallbackResponse =
+                await fallbackOpenAI.chat.completions.create({
+                  model: fallbackModelId,
+                  messages: messages as any,
+                  temperature: 0.7,
+                  max_tokens: Math.min(
+                    getFallbackMaxTokens(fallbackModelId),
+                    maxTokensToUse,
+                  ),
+                  tools: toolSchemas.map((schema) => ({
+                    type: "function",
+                    function: schema,
+                  })),
+                  tool_choice: "auto",
+                  stream: false,
+                });
+
               const fallbackMessage = fallbackResponse.choices[0]?.message;
               if (fallbackMessage) {
                 fullResponse = fallbackMessage.content || "";
-                
+
                 flowTracker.trackEvent({
                   flowId,
                   stage: `fallback_provider_success_${iterationCount}`,
@@ -924,7 +999,7 @@ export async function chatStream(
                     responseLength: fullResponse.length,
                   },
                 });
-                
+
                 break; // Exit the while loop with successful response
               }
             } catch (fallbackProviderError) {
@@ -1057,7 +1132,10 @@ export async function chatStream(
             channels: ["IN_APP"],
           });
         } catch (notifyError) {
-          console.warn("Failed to send empty response notification:", notifyError);
+          console.warn(
+            "Failed to send empty response notification:",
+            notifyError,
+          );
         }
       }
     }
@@ -1082,12 +1160,12 @@ export async function chatStream(
     responseCacheService.updateConversationContext(
       userId,
       { role: "user", content: message },
-      userTopics
+      userTopics,
     );
-    responseCacheService.updateConversationContext(
-      userId,
-      { role: "assistant", content: fullResponse }
-    );
+    responseCacheService.updateConversationContext(userId, {
+      role: "assistant",
+      content: fullResponse,
+    });
 
     // 7. ASYNC: Unified analysis AFTER response (Optimization 5)
     // Single LLM call that does BOTH classification AND value assessment
@@ -1281,7 +1359,9 @@ export async function processTelegramMessage(
   const flowId = randomBytes(8).toString("hex");
 
   try {
-    console.log(`[Telegram] Processing message for user ${userId}: ${message.substring(0, 50)}...`);
+    console.log(
+      `[Telegram] Processing message for user ${userId}: ${message.substring(0, 50)}...`,
+    );
 
     // Get provider configuration
     const providerData = await getChatProvider(userId);
@@ -1324,7 +1404,9 @@ export async function processTelegramMessage(
         message,
         5,
       );
-      const results = Array.isArray(searchResults) ? searchResults : (searchResults?.results || []);
+      const results = Array.isArray(searchResults)
+        ? searchResults
+        : searchResults?.results || [];
       if (results.length > 0) {
         memoryContext = results
           .map((m: any) => `- ${m.memory?.content || m.content}`)
@@ -1335,7 +1417,10 @@ export async function processTelegramMessage(
     }
 
     // Build system prompt with context
-    let systemPrompt = await injectContextIntoPrompt(CHAT_SYSTEM_PROMPT, userId);
+    let systemPrompt = await injectContextIntoPrompt(
+      CHAT_SYSTEM_PROMPT,
+      userId,
+    );
     if (memoryContext) {
       systemPrompt += `\n\nMÉMOIRES PERTINENTES:\n${memoryContext}`;
     }
