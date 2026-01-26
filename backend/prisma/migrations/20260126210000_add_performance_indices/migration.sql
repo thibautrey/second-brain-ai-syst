@@ -66,7 +66,7 @@ ON "notifications" ("userId", "isRead", "createdAt" DESC);
 -- Index for scheduled tasks by user and enabled status
 -- Used for: Active task retrieval
 CREATE INDEX IF NOT EXISTS "idx_scheduled_tasks_user_enabled" 
-ON "scheduled_tasks" ("userId", "enabled", "nextRun");
+ON "scheduled_tasks" ("userId", "isEnabled", "nextRunAt");
 
 -- Index for todos by user and completion status
 -- Used for: Active todo list
