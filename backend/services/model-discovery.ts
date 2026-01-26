@@ -491,10 +491,19 @@ export class ModelDiscoveryService {
 
       for (const model of modelsList) {
         // Support both OpenAI format (model.id) and GPUStack format (model.name)
-        // Prioritize model.id for OpenAI/OpenRouter, fallback to model.name for GPUStack
-        // Note: OpenRouter returns `id` as the actual model identifier (e.g., "zhipu/glm-4-flash")
-        // and `name` as the display name (e.g., "Z.AI: GLM 4.7 Flash")
+        // OpenAI/OpenRouter returns `id` as the actual model identifier (e.g., "gpt-4o", "zhipu/glm-4-flash")
+        // GPUStack returns `id` as a numeric database ID and `name` as the actual model identifier
+        // Detect numeric IDs and prefer model.name in that case
         let modelId = model.id || model.name;
+        
+        // If modelId looks like a numeric database ID (e.g., "1", "2", "123"),
+        // prefer model.name which should have the actual model identifier
+        if (/^\d+$/.test(String(modelId)) && model.name) {
+          console.log(
+            `[ModelDiscovery] Detected numeric ID "${modelId}", using model.name "${model.name}" instead`,
+          );
+          modelId = model.name;
+        }
 
         // Ensure modelId is a string
         if (typeof modelId !== "string") {
@@ -588,7 +597,7 @@ export class ModelDiscoveryService {
   async syncProviderModels(
     userId: string,
     providerId: string,
-  ): Promise<{ added: number; updated: number; total: number }> {
+  ): Promise<{ added: number; updated: number; removed: number; total: number }> {
     // Get the provider
     console.log(`[ModelDiscovery] Looking up provider: ${providerId}`);
 
@@ -726,13 +735,50 @@ export class ModelDiscoveryService {
       }
     }
 
+    // Remove models that are no longer returned by the API
+    // Only remove non-custom models (user-added models should be preserved)
+    const discoveredModelIds = new Set(discoveredModels.map((m) => m.modelId));
+    const modelsToRemove = provider.models.filter(
+      (m) => !m.isCustom && !discoveredModelIds.has(m.modelId)
+    );
+
+    let removed = 0;
+    if (modelsToRemove.length > 0) {
+      console.log(
+        `[ModelDiscovery] Removing ${modelsToRemove.length} models no longer available: ${modelsToRemove.map((m) => m.modelId).join(", ")}`,
+      );
+
+      for (const model of modelsToRemove) {
+        try {
+          await prisma.aIModel.delete({
+            where: { id: model.id },
+          });
+          removed++;
+          console.log(`[ModelDiscovery]   -> Removed model: ${model.modelId}`);
+        } catch (error) {
+          // If model is referenced by task configs, just log warning and skip
+          if (error instanceof Error && error.message.includes("foreign key constraint")) {
+            console.warn(
+              `[ModelDiscovery]   -> Cannot remove model ${model.modelId}: still referenced by task configs`,
+            );
+          } else {
+            console.error(
+              `[ModelDiscovery] Error removing model ${model.modelId}:`,
+              error,
+            );
+          }
+        }
+      }
+    }
+
     console.log(
-      `[ModelDiscovery] Sync complete: ${added} added, ${updated} updated, ${discoveredModels.length} total discovered`,
+      `[ModelDiscovery] Sync complete: ${added} added, ${updated} updated, ${removed} removed, ${discoveredModels.length} total discovered`,
     );
 
     return {
       added,
       updated,
+      removed,
       total: discoveredModels.length,
     };
   }

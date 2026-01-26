@@ -102,6 +102,17 @@ async function getChatProvider(
     );
   }
 
+  // Validate that modelId looks like a real model identifier (not just a numeric ID)
+  // Real model IDs typically contain hyphens or specific patterns like 'gpt-4', 'whisper-1', etc.
+  if (/^\d+$/.test(modelId)) {
+    console.error(
+      `[CRITICAL] Model ID appears to be a database ID instead of model identifier: ${modelId}. This suggests the AIModel.modelId field wasn't populated correctly.`,
+    );
+    throw new Error(
+      `Invalid model identifier: "${modelId}". The model configuration may be corrupted. Please reconfigure your AI settings.`,
+    );
+  }
+
   const provider = taskConfig.provider;
   const fallbackProvider = taskConfig.fallbackProvider;
   const fallbackModelId = taskConfig.fallbackModel?.modelId;
@@ -451,7 +462,7 @@ export async function chatStream(
 
       if (validation.warning) {
         console.warn(
-          `[TokenValidator] ${validation.warning} for model ${modelId}`,
+          `[TokenValidator] ${validation.warning}`,
         );
         flowTracker.trackEvent({
           flowId,
@@ -1226,6 +1237,14 @@ export async function processTelegramMessage(
     }
 
     const { provider, modelId } = providerData;
+
+    // Validate model ID isn't a numeric database ID
+    if (/^\d+$/.test(modelId)) {
+      console.error(
+        `[Telegram] Invalid model ID: "${modelId}". Model configuration appears corrupted.`,
+      );
+      return "❌ Your AI model configuration appears to be corrupted. Please reconfigure your AI settings.";
+    }
 
     // Initialize OpenAI client
     const openai = new OpenAI({

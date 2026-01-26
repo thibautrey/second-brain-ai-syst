@@ -265,6 +265,16 @@ export class IntentRouterService {
       );
     }
 
+    // Validate that modelId looks like a real model identifier (not just a numeric ID)
+    if (/^\d+$/.test(modelIdValue)) {
+      console.error(
+        `[CRITICAL] ROUTING task model ID appears to be a database ID instead of model identifier: ${modelIdValue}. This suggests the AIModel.modelId field wasn't populated correctly.`,
+      );
+      throw new Error(
+        `Invalid model identifier for ROUTING task: "${modelIdValue}". The model configuration may be corrupted. Please reconfigure your AI settings.`,
+      );
+    }
+
     modelId = modelIdValue;
 
     client = new OpenAI({
