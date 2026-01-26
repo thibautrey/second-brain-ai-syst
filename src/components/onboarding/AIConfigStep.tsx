@@ -6,7 +6,6 @@ import { Label } from '../ui/label';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, Plus, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAISettings } from '../../hooks/useAISettings';
-import { AIProvider } from '../../types/ai-settings';
 
 interface AIConfigStepProps {
   onNext: () => void;
@@ -14,7 +13,7 @@ interface AIConfigStepProps {
 }
 
 export function AIConfigStep({ onNext }: AIConfigStepProps) {
-  const { settings, addProvider, testProvider, isLoading, isSaving } = useAISettings();
+  const { settings, addProvider, testApiKey, isLoading, isSaving } = useAISettings();
   const [newProvider, setNewProvider] = useState({
     name: 'OpenAI',
     apiKey: '',
@@ -26,7 +25,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
 
   useEffect(() => {
     // Check if user already has a working AI provider
-    const workingProvider = settings.providers.find(p => p.enabled && p.apiKey);
+    const workingProvider = settings.providers.find(p => p.isEnabled && p.apiKey);
     setHasValidProvider(!!workingProvider);
   }, [settings.providers]);
 
@@ -40,17 +39,19 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
     setTestResult(null);
     
     try {
-      const result = await testProvider({
-        name: newProvider.name,
-        apiKey: newProvider.apiKey,
-        baseUrl: newProvider.baseUrl,
-        enabled: true,
-      } as AIProvider);
+      const result = await testApiKey(newProvider.apiKey, newProvider.baseUrl);
       
-      setTestResult({ 
-        success: true, 
-        message: `Successfully connected! Found ${result.models?.length || 0} models.` 
-      });
+      if (result.valid) {
+        setTestResult({ 
+          success: true, 
+          message: 'Successfully connected to API!' 
+        });
+      } else {
+        setTestResult({ 
+          success: false, 
+          message: result.error || 'Connection failed' 
+        });
+      }
     } catch (error) {
       setTestResult({ 
         success: false, 
@@ -70,10 +71,11 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
     try {
       await addProvider({
         name: newProvider.name,
+        type: 'openai',
         apiKey: newProvider.apiKey,
         baseUrl: newProvider.baseUrl,
-        enabled: true,
-      } as AIProvider);
+        isEnabled: true,
+      });
       
       setHasValidProvider(true);
       setTestResult({ success: true, message: 'Provider added successfully!' });
@@ -85,7 +87,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
     }
   };
 
-  const canProceed = hasValidProvider || settings.providers.some(p => p.enabled && p.apiKey);
+  const canProceed = hasValidProvider || settings.providers.some(p => p.isEnabled && p.apiKey);
 
   if (isLoading) {
     return (
@@ -114,7 +116,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    {provider.enabled && provider.apiKey ? (
+                    {provider.isEnabled && provider.apiKey ? (
                       <CheckCircle className="w-4 h-4 text-green-500" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-yellow-500" />
@@ -122,7 +124,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
                     <span className="font-medium">{provider.name}</span>
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    {provider.enabled ? 'Active' : 'Inactive'}
+                    {provider.isEnabled ? 'Active' : 'Inactive'}
                   </span>
                 </div>
               </CardContent>

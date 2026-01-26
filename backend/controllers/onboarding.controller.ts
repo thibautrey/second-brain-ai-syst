@@ -26,23 +26,15 @@ export const getOnboardingStatus = async (
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        hasCompletedOnboarding: true,
-        onboardingCompletedAt: true,
+      include: {
         aiProviders: {
-          select: { id: true, enabled: true }
+          select: { id: true, isEnabled: true }
         },
         settings: {
           select: {
-            notifications: {
-              select: {
-                enabledChannels: true,
-                pushoverUserKey: true,
-                telegramBotToken: true,
-                emailConfig: true,
-                webhookUrl: true,
-              }
-            }
+            pushoverUserKey: true,
+            telegramBotToken: true,
+            telegramEnabled: true,
           }
         }
       },
@@ -53,8 +45,8 @@ export const getOnboardingStatus = async (
     }
 
     // Check completion status of key steps
-    const hasConfiguredAI = user.aiProviders.some(provider => provider.enabled);
-    const hasConfiguredNotifications = user.settings?.notifications?.enabledChannels?.length > 0;
+    const hasConfiguredAI = user.aiProviders.some((provider: { id: string; isEnabled: boolean }) => provider.isEnabled);
+    const hasConfiguredNotifications = !!(user.settings?.pushoverUserKey || (user.settings?.telegramBotToken && user.settings?.telegramEnabled));
 
     const stepStatus = {
       welcome: true, // Always considered complete
@@ -125,9 +117,17 @@ export const finishOnboarding = async (
         hasCompletedOnboarding: true,
         onboardingCompletedAt: new Date(),
       },
-      select: {
-        hasCompletedOnboarding: true,
-        onboardingCompletedAt: true,
+      include: {
+        aiProviders: {
+          select: { id: true, isEnabled: true }
+        },
+        settings: {
+          select: {
+            pushoverUserKey: true,
+            telegramBotToken: true,
+            telegramEnabled: true,
+          }
+        }
       },
     });
 
@@ -158,9 +158,17 @@ export const resetOnboarding = async (
         hasCompletedOnboarding: false,
         onboardingCompletedAt: null,
       },
-      select: {
-        hasCompletedOnboarding: true,
-        onboardingCompletedAt: true,
+      include: {
+        aiProviders: {
+          select: { id: true, isEnabled: true }
+        },
+        settings: {
+          select: {
+            pushoverUserKey: true,
+            telegramBotToken: true,
+            telegramEnabled: true,
+          }
+        }
       },
     });
 
@@ -191,9 +199,17 @@ export const skipOnboarding = async (
         hasCompletedOnboarding: true,
         onboardingCompletedAt: new Date(),
       },
-      select: {
-        hasCompletedOnboarding: true,
-        onboardingCompletedAt: true,
+      include: {
+        aiProviders: {
+          select: { id: true, isEnabled: true }
+        },
+        settings: {
+          select: {
+            pushoverUserKey: true,
+            telegramBotToken: true,
+            telegramEnabled: true,
+          }
+        }
       },
     });
 
