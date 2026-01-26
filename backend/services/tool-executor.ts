@@ -25,6 +25,7 @@ import {
 export interface ToolConfig {
   id: string;
   name: string;
+  emoji?: string;
   category: "browser" | "api" | "mcp" | "custom" | "builtin";
   enabled: boolean;
   rateLimit: number;
@@ -50,7 +51,7 @@ export interface ToolExecutionResult {
 const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "todo",
-    name: "Todo List",
+    emoji: "✅",
     category: "builtin",
     enabled: true,
     rateLimit: 100,
@@ -74,26 +75,31 @@ const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "notification",
     name: "Notifications",
+    emoji: "🔔",
     category: "builtin",
     enabled: true,
     rateLimit: 50,
     timeout: 5000,
     config: {
       description:
-        "Send notifications to the user. Automatically routes to the best channel based on user configuration (Pushover for mobile if configured, otherwise browser).",
+        "Send and manage notifications to the user. Automatically routes to the best channel based on user configuration (Pushover for mobile if configured, otherwise browser).",
       actions: [
         "send",
         "schedule",
+        "get",
         "list",
+        "unread_count",
         "mark_read",
         "dismiss",
-        "unread_count",
+        "delete",
+        "cancel_scheduled",
       ],
     },
   },
   {
     id: "scheduled_task",
     name: "Scheduled Tasks",
+    emoji: "⏰",
     category: "builtin",
     enabled: true,
     rateLimit: 20,
@@ -116,6 +122,7 @@ const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "curl",
     name: "HTTP Requests",
+    emoji: "🌐",
     category: "builtin",
     enabled: true,
     rateLimit: 30,
@@ -129,6 +136,7 @@ const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "user_context",
     name: "User Context",
+    emoji: "👤",
     category: "builtin",
     enabled: true,
     rateLimit: 50,
@@ -142,6 +150,7 @@ const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "user_profile",
     name: "User Profile",
+    emoji: "📋",
     category: "builtin",
     enabled: true,
     rateLimit: 50,
@@ -155,6 +164,7 @@ const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "long_running_task",
     name: "Long Running Task",
+    emoji: "⚙️",
     category: "builtin",
     enabled: true,
     rateLimit: 10,
@@ -180,6 +190,7 @@ const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "code_executor",
     name: "Python Code Executor",
+    emoji: "🐍",
     category: "builtin",
     enabled: true,
     rateLimit: 10,
@@ -193,6 +204,7 @@ const BUILTIN_TOOLS: ToolConfig[] = [
   {
     id: "generate_tool",
     name: "Dynamic Tool Generator",
+    emoji: "✨",
     category: "builtin",
     enabled: true,
     rateLimit: 5,
@@ -794,32 +806,58 @@ export class ToolExecutorService {
   ): Promise<any> {
     switch (action) {
       case "get_location": {
-        // Search for location-related memories
-        const result = await memorySearchService.semanticSearch(
-          userId,
+        // Search for location-related memories with multiple query variations
+        const queries = [
           "location address city country where I live",
-          3,
-        );
+          "I live in based in located in",
+          "home address residence city country",
+        ];
+        
+        // Try multiple queries and combine results
+        let allResults: any[] = [];
+        for (const query of queries) {
+          const result = await memorySearchService.semanticSearch(
+            userId,
+            query,
+            2,
+          );
+          allResults.push(...result.results);
+        }
+        
+        // Deduplicate by memory ID and sort by score
+        const seen = new Set();
+        const uniqueResults = allResults
+          .filter(r => {
+            if (seen.has(r.memory.id)) return false;
+            seen.add(r.memory.id);
+            return true;
+          })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+
         return {
           action: "get_location",
-          found: result.results.length > 0,
-          results: result.results.map((r) => ({
+          found: uniqueResults.length > 0,
+          results: uniqueResults.map((r) => ({
             content: r.memory.content,
             score: r.score,
             date: r.memory.createdAt,
           })),
+          hint: uniqueResults.length === 0 
+            ? "No location found in memories. Ask the user or check user_profile tool." 
+            : undefined,
         };
       }
 
       case "get_preferences": {
         // Search for preference-related memories
-        const query = params.topic
-          ? `preferences about ${params.topic}`
-          : "preferences likes dislikes favorite";
+        const baseQuery = params.topic
+          ? `preferences about ${params.topic} likes ${params.topic} favorite ${params.topic}`
+          : "preferences likes dislikes favorite prefer";
         const result = await memorySearchService.semanticSearch(
           userId,
-          query,
-          5,
+          baseQuery,
+          params.limit || 5,
         );
         return {
           action: "get_preferences",
@@ -836,7 +874,10 @@ export class ToolExecutorService {
       case "search_facts": {
         // Search for specific facts about the user
         if (!params.query) {
-          throw new Error("query parameter is required for search_facts");
+          throw new Error(
+            "Missing required parameter 'query' for search_facts action. " +
+            "Provide a descriptive query about what you want to find (e.g., 'job occupation work', 'family members wife husband')."
+          );
         }
         const result = await memorySearchService.semanticSearch(
           userId,
@@ -847,6 +888,7 @@ export class ToolExecutorService {
           action: "search_facts",
           query: params.query,
           found: result.results.length > 0,
+          resultsCount: result.results.length,
           results: result.results.map((r) => ({
             content: r.memory.content,
             score: r.score,
@@ -856,7 +898,9 @@ export class ToolExecutorService {
       }
 
       default:
-        throw new Error(`Unknown user_context action: ${action}`);
+        throw new Error(
+          `Unknown user_context action: ${action}. Valid actions are: get_location, get_preferences, search_facts`
+        );
     }
   }
 
@@ -967,8 +1011,29 @@ export class ToolExecutorService {
     action: string,
     params: Record<string, any>,
   ): Promise<any> {
+    // Validate taskId for actions that require it
+    const actionsRequiringTaskId = [
+      "add_steps", "start", "pause", "resume", "cancel", "get", "get_progress", "get_report"
+    ];
+    if (actionsRequiringTaskId.includes(action) && !params.taskId) {
+      throw new Error(
+        `Missing required parameter 'taskId' for '${action}' action. ` +
+        `Use 'create' first to get a taskId, or 'list' to find existing tasks.`
+      );
+    }
+
     switch (action) {
       case "create": {
+        // Validate required fields
+        if (!params.name) {
+          throw new Error("Missing required parameter 'name' for create action");
+        }
+        if (!params.description) {
+          throw new Error("Missing required parameter 'description' for create action");
+        }
+        if (!params.objective) {
+          throw new Error("Missing required parameter 'objective' for create action");
+        }
         const task = await longRunningTaskService.createTask(userId, {
           name: params.name,
           description: params.description,
@@ -986,16 +1051,33 @@ export class ToolExecutorService {
           taskId: task.id,
           name: task.name,
           status: task.status,
-          message: `Task "${task.name}" created successfully. Add steps and then start the task.`,
+          message: `Task "${task.name}" created successfully. NEXT STEPS: 1) Use 'add_steps' with this taskId to define steps, then 2) Use 'start' to begin execution.`,
+          nextAction: "add_steps",
         };
       }
 
       case "add_steps": {
-        if (!params.taskId) {
-          throw new Error("taskId is required");
-        }
         if (!params.steps || !Array.isArray(params.steps)) {
-          throw new Error("steps array is required");
+          throw new Error(
+            "Missing required parameter 'steps' (array) for add_steps action. " +
+            "Each step needs: name (string), action (string: llm_generate|wait|conditional|aggregate|notify), params (object)."
+          );
+        }
+        if (params.steps.length === 0) {
+          throw new Error("Steps array cannot be empty");
+        }
+        // Validate each step has required fields
+        for (let i = 0; i < params.steps.length; i++) {
+          const step = params.steps[i];
+          if (!step.name) {
+            throw new Error(`Step ${i + 1} is missing required field 'name'`);
+          }
+          if (!step.action) {
+            throw new Error(`Step ${i + 1} (${step.name}) is missing required field 'action'`);
+          }
+          if (!step.params) {
+            throw new Error(`Step ${i + 1} (${step.name}) is missing required field 'params'`);
+          }
         }
         const steps = await longRunningTaskService.addSteps(
           params.taskId,
@@ -1005,38 +1087,30 @@ export class ToolExecutorService {
           action: "add_steps",
           taskId: params.taskId,
           stepsAdded: steps.length,
-          message: `Added ${steps.length} steps to the task.`,
+          message: `Added ${steps.length} steps to the task. NEXT: Use 'start' action with this taskId to begin execution.`,
+          nextAction: "start",
         };
       }
 
       case "start": {
-        if (!params.taskId) {
-          throw new Error("taskId is required");
-        }
         await longRunningTaskService.startTask(userId, params.taskId);
         return {
           action: "start",
           taskId: params.taskId,
-          message: "Task started. It will run in the background.",
+          message: "Task started. It will run in the background. Use 'get_progress' or 'get_report' to check status.",
         };
       }
 
       case "pause": {
-        if (!params.taskId) {
-          throw new Error("taskId is required");
-        }
         await longRunningTaskService.pauseTask(userId, params.taskId);
         return {
           action: "pause",
           taskId: params.taskId,
-          message: "Task paused. You can resume it later.",
+          message: "Task paused. Use 'resume' to continue execution.",
         };
       }
 
       case "resume": {
-        if (!params.taskId) {
-          throw new Error("taskId is required");
-        }
         await longRunningTaskService.resumeTask(userId, params.taskId);
         return {
           action: "resume",
@@ -1046,9 +1120,6 @@ export class ToolExecutorService {
       }
 
       case "cancel": {
-        if (!params.taskId) {
-          throw new Error("taskId is required");
-        }
         await longRunningTaskService.cancelTask(userId, params.taskId);
         return {
           action: "cancel",
@@ -1058,18 +1129,16 @@ export class ToolExecutorService {
       }
 
       case "get": {
-        if (!params.taskId) {
-          throw new Error("taskId is required");
-        }
         const task = await longRunningTaskService.getTask(
           userId,
           params.taskId,
         );
         if (!task) {
-          throw new Error("Task not found");
+          return { action: "get", found: false, error: "Task not found" };
         }
         return {
           action: "get",
+          found: true,
           task: {
             id: task.id,
             name: task.name,
@@ -1109,26 +1178,21 @@ export class ToolExecutorService {
       }
 
       case "get_progress": {
-        if (!params.taskId) {
-          throw new Error("taskId is required");
-        }
         const progress = await longRunningTaskService.getProgressSummary(
           userId,
           params.taskId,
         );
         if (!progress) {
-          throw new Error("Task not found");
+          return { action: "get_progress", found: false, error: "Task not found" };
         }
         return {
           action: "get_progress",
+          found: true,
           progress,
         };
       }
 
       case "get_report": {
-        if (!params.taskId) {
-          throw new Error("taskId is required");
-        }
         const report = await longRunningTaskService.generateProgressReport(
           userId,
           params.taskId,
@@ -1160,7 +1224,9 @@ export class ToolExecutorService {
       }
 
       default:
-        throw new Error(`Unknown long_running_task action: ${action}`);
+        throw new Error(
+          `Unknown long_running_task action: ${action}. Valid actions are: create, add_steps, start, pause, resume, cancel, get, list, get_progress, get_report, list_active`
+        );
     }
   }
 
@@ -1172,8 +1238,20 @@ export class ToolExecutorService {
     action: string,
     params: Record<string, any>,
   ): Promise<any> {
+    // Validate todoId for actions that require it
+    const actionsRequiringTodoId = ["get", "update", "complete", "delete"];
+    if (actionsRequiringTodoId.includes(action) && !params.todoId) {
+      throw new Error(
+        `Missing required parameter 'todoId' for '${action}' action. ` +
+        `Use 'list' action first to find the todo ID, then use that ID with '${action}'.`
+      );
+    }
+
     switch (action) {
       case "create":
+        if (!params.title) {
+          throw new Error("Missing required parameter 'title' for create action");
+        }
         return todoService.createTodo(userId, {
           title: params.title,
           description: params.description,
@@ -1250,7 +1328,9 @@ export class ToolExecutorService {
         return todoService.getTags(userId);
 
       default:
-        throw new Error(`Unknown todo action: ${action}`);
+        throw new Error(
+          `Unknown todo action: ${action}. Valid actions are: create, get, list, update, complete, delete, stats, overdue, due_soon, categories, tags`
+        );
     }
   }
 
@@ -1264,6 +1344,12 @@ export class ToolExecutorService {
   ): Promise<any> {
     switch (action) {
       case "send":
+        if (!params.title) {
+          throw new Error("Missing required parameter 'title' for send action");
+        }
+        if (!params.message) {
+          throw new Error("Missing required parameter 'message' for send action");
+        }
         return notificationService.sendNotification(userId, {
           title: params.title,
           message: params.message,
@@ -1276,10 +1362,49 @@ export class ToolExecutorService {
           metadata: params.metadata || {},
         });
 
+      case "schedule":
+        if (!params.title) {
+          throw new Error("Missing required parameter 'title' for schedule action");
+        }
+        if (!params.message) {
+          throw new Error("Missing required parameter 'message' for schedule action");
+        }
+        if (!params.scheduledFor) {
+          throw new Error("Missing required parameter 'scheduledFor' (ISO date string) for schedule action");
+        }
+        return notificationService.scheduleNotification(userId, {
+          title: params.title,
+          message: params.message,
+          type: params.type as NotificationType,
+          channels: params.channels,
+          scheduledFor: new Date(params.scheduledFor),
+          sourceType: params.sourceType,
+          sourceId: params.sourceId,
+          actionUrl: params.actionUrl,
+          actionLabel: params.actionLabel,
+          metadata: params.metadata || {},
+        });
+
+      case "get":
+        if (!params.notificationId) {
+          throw new Error("Missing required parameter 'notificationId' for get action");
+        }
+        const notification = await notificationService.getNotification(userId, params.notificationId);
+        if (!notification) {
+          return { found: false, error: "Notification not found" };
+        }
+        return { found: true, notification };
+
       case "list":
         return notificationService.listNotifications(
           userId,
-          {},
+          {
+            type: params.type,
+            isRead: params.isRead,
+            isDismissed: params.isDismissed,
+            sourceType: params.sourceType,
+            since: params.since ? new Date(params.since) : undefined,
+          },
           {
             page: params.page || 1,
             limit: params.limit || 50,
@@ -1288,11 +1413,39 @@ export class ToolExecutorService {
           },
         );
 
+      case "unread_count":
+        const count = await notificationService.getUnreadCount(userId);
+        return { unreadCount: count };
+
       case "mark_read":
+        if (params.all === true) {
+          return notificationService.markAllAsRead(userId);
+        }
+        if (!params.notificationId) {
+          throw new Error("Missing required parameter 'notificationId' for mark_read action (or set 'all: true' to mark all as read)");
+        }
         return notificationService.markAsRead(userId, params.notificationId);
 
+      case "dismiss":
+        if (!params.notificationId) {
+          throw new Error("Missing required parameter 'notificationId' for dismiss action");
+        }
+        return notificationService.dismissNotification(userId, params.notificationId);
+
+      case "delete":
+        if (!params.notificationId) {
+          throw new Error("Missing required parameter 'notificationId' for delete action");
+        }
+        return notificationService.deleteNotification(userId, params.notificationId);
+
+      case "cancel_scheduled":
+        if (!params.notificationId) {
+          throw new Error("Missing required parameter 'notificationId' for cancel_scheduled action");
+        }
+        return notificationService.cancelScheduledNotification(userId, params.notificationId);
+
       default:
-        throw new Error(`Unknown notification action: ${action}`);
+        throw new Error(`Unknown notification action: ${action}. Valid actions are: send, schedule, get, list, unread_count, mark_read, dismiss, delete, cancel_scheduled`);
     }
   }
 
@@ -1304,8 +1457,70 @@ export class ToolExecutorService {
     action: string,
     params: Record<string, any>,
   ): Promise<any> {
+    // Validate taskId for actions that require it
+    const actionsRequiringTaskId = ["get", "update", "enable", "disable", "delete", "execute_now", "history"];
+    if (actionsRequiringTaskId.includes(action) && !params.taskId) {
+      throw new Error(
+        `Missing required parameter 'taskId' for '${action}' action. ` +
+        `Use 'list' action first to find the task ID.`
+      );
+    }
+
     switch (action) {
       case "create":
+        // Validate required fields for create
+        if (!params.name) {
+          throw new Error("Missing required parameter 'name' for create action");
+        }
+        if (!params.scheduleType) {
+          throw new Error(
+            "Missing required parameter 'scheduleType'. Must be one of: ONE_TIME, CRON, INTERVAL"
+          );
+        }
+        if (!params.actionType) {
+          throw new Error(
+            "Missing required parameter 'actionType'. Must be one of: SEND_NOTIFICATION, CREATE_TODO, GENERATE_SUMMARY, RUN_AGENT, WEBHOOK, CUSTOM"
+          );
+        }
+        // Validate schedule-specific requirements
+        if (params.scheduleType === "ONE_TIME" && !params.executeAt) {
+          throw new Error(
+            "Missing required parameter 'executeAt' (ISO date string) for ONE_TIME schedule type"
+          );
+        }
+        if (params.scheduleType === "CRON" && !params.cronExpression) {
+          throw new Error(
+            "Missing required parameter 'cronExpression' for CRON schedule type. " +
+            "Format: 'minute hour day-of-month month day-of-week' (5 fields). " +
+            "Examples: '0 9 * * *' (daily 9 AM), '0 9 * * MON' (Mondays 9 AM), '*/30 * * * *' (every 30 min)"
+          );
+        }
+        if (params.scheduleType === "INTERVAL" && !params.interval) {
+          throw new Error(
+            "Missing required parameter 'interval' (number of minutes) for INTERVAL schedule type"
+          );
+        }
+        // Validate actionPayload for specific action types
+        if (params.actionType === "SEND_NOTIFICATION") {
+          if (!params.actionPayload?.title || !params.actionPayload?.message) {
+            throw new Error(
+              "For SEND_NOTIFICATION actionType, actionPayload must include 'title' and 'message'. " +
+              "Example: { title: 'Reminder', message: 'Time for your daily review' }"
+            );
+          }
+        }
+        if (params.actionType === "CREATE_TODO" && !params.actionPayload?.title) {
+          throw new Error(
+            "For CREATE_TODO actionType, actionPayload must include 'title'. " +
+            "Optional: description, priority (LOW/MEDIUM/HIGH/URGENT), dueDate, category, tags"
+          );
+        }
+        if (params.actionType === "WEBHOOK" && !params.actionPayload?.url) {
+          throw new Error(
+            "For WEBHOOK actionType, actionPayload must include 'url'. " +
+            "Optional: method (default: POST), headers, body"
+          );
+        }
         return scheduledTaskService.createTask(userId, {
           name: params.name,
           description: params.description,
@@ -1362,7 +1577,9 @@ export class ToolExecutorService {
         );
 
       default:
-        throw new Error(`Unknown scheduled task action: ${action}`);
+        throw new Error(
+          `Unknown scheduled task action: ${action}. Valid actions are: create, get, list, update, enable, disable, delete, execute_now, history`
+        );
     }
   }
 
@@ -1414,7 +1631,7 @@ export class ToolExecutorService {
       {
         name: "todo",
         description:
-          "Manage user's todo list - create, read, update, delete, and complete tasks. You have full CRUD capability: list existing todos, create new ones, modify their properties (title, priority, due date, etc.), mark them complete, and delete them entirely.",
+          "Manage user's todo list - create, read, update, delete, and complete tasks. You have full CRUD capability: list existing todos, create new ones, modify their properties (title, priority, due date, etc.), mark them complete, and delete them entirely. IMPORTANT: For update/complete/delete, you MUST first use 'list' to get the todoId.",
         parameters: {
           type: "object",
           properties: {
@@ -1434,17 +1651,17 @@ export class ToolExecutorService {
                 "tags",
               ],
               description:
-                "The action to perform. MODIFY: use 'update' to change any todo properties. DELETE: use 'delete' to remove a todo entirely. COMPLETE: use 'complete' to mark as done.",
+                "The action to perform. 'create': new todo (requires title). 'list': show todos (with optional filters). 'get/update/complete/delete': operate on specific todo (requires todoId from list). 'stats': get statistics. 'overdue': get overdue todos. 'due_soon': get todos due within hours.",
             },
             todoId: {
               type: "string",
               description:
-                "ID of the todo (required for get, update, complete, delete). Always get or list todos first to find the ID.",
+                "ID of the todo - REQUIRED for get, update, complete, delete actions. ALWAYS use 'list' action first to find the todoId before using these actions.",
             },
             title: {
               type: "string",
               description:
-                "Title of the todo (required for create, optional for update)",
+                "Title of the todo (REQUIRED for create, optional for update)",
             },
             description: {
               type: "string",
@@ -1453,32 +1670,42 @@ export class ToolExecutorService {
             priority: {
               type: "string",
               enum: ["LOW", "MEDIUM", "HIGH", "URGENT"],
-              description: "Priority level (can be updated anytime)",
+              description: "Priority level (default: MEDIUM, can be updated anytime)",
             },
             status: {
               type: "string",
               enum: ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"],
               description:
-                "Status of the todo (can be updated, or use 'complete' action for COMPLETED)",
+                "For 'list': FILTER by this status. For 'update': CHANGE the todo's status. To mark done, prefer 'complete' action over setting status to COMPLETED.",
             },
             category: {
               type: "string",
-              description: "Category to organize todos (can be updated)",
+              description: "Category to organize todos (e.g., 'work', 'personal', 'health')",
             },
             tags: {
               type: "array",
               items: { type: "string" },
-              description: "Tags for the todo (can be updated)",
+              description: "Tags for the todo (replaces existing tags when updating)",
             },
             dueDate: {
               type: "string",
               description:
-                "Due date in ISO format (can be updated or cleared with 'null')",
+                "Due date in ISO format (e.g., '2024-12-31T23:59:59Z'). Can be updated or set to null to clear.",
             },
             search: {
               type: "string",
               description:
-                "Search query for listing todos (searches title and description)",
+                "For 'list' action: search query that matches title and description",
+            },
+            includeCompleted: {
+              type: "boolean",
+              description:
+                "For 'list' action: include completed todos (default: false)",
+            },
+            withinHours: {
+              type: "number",
+              description:
+                "For 'due_soon' action: number of hours to look ahead (default: 24)",
             },
           },
           required: ["action"],
@@ -1487,7 +1714,7 @@ export class ToolExecutorService {
       {
         name: "notification",
         description:
-          "Send notifications to the user - immediate or scheduled. The system automatically selects the best delivery channel based on user configuration (e.g., Pushover for mobile notifications if configured, otherwise browser notifications).",
+          "Send and manage notifications to the user - immediate, scheduled, or manage existing ones. The system automatically selects the best delivery channel (Pushover for mobile if configured, otherwise browser). Use 'send' for immediate, 'schedule' for future delivery.",
         parameters: {
           type: "object",
           properties: {
@@ -1502,22 +1729,24 @@ export class ToolExecutorService {
                 "mark_read",
                 "dismiss",
                 "delete",
+                "cancel_scheduled",
               ],
-              description: "The action to perform",
+              description: 
+                "'send': send immediately (requires title, message). 'schedule': send later (requires title, message, scheduledFor). 'list': show notifications. 'get': get specific notification. 'unread_count': count unread. 'mark_read': mark as read (use notificationId or all:true). 'dismiss': hide notification. 'delete': permanently remove. 'cancel_scheduled': cancel a pending scheduled notification.",
             },
             notificationId: {
               type: "string",
               description:
-                "ID of the notification (for get, mark_read, dismiss, delete)",
+                "ID of the notification - REQUIRED for get, mark_read (unless all:true), dismiss, delete, cancel_scheduled. Use 'list' to find IDs.",
             },
             title: {
               type: "string",
               description:
-                "Title of the notification (required for send/schedule)",
+                "Title of the notification - REQUIRED for send and schedule actions",
             },
             message: {
               type: "string",
-              description: "Message content (required for send/schedule)",
+              description: "Message content - REQUIRED for send and schedule actions",
             },
             type: {
               type: "string",
@@ -1529,17 +1758,27 @@ export class ToolExecutorService {
                 "REMINDER",
                 "ACHIEVEMENT",
               ],
-              description: "Type of notification",
+              description: "Type of notification (default: INFO). Affects visual styling and priority.",
             },
             scheduledFor: {
               type: "string",
               description:
-                "When to send the notification (ISO format, for schedule action)",
+                "When to send the notification - REQUIRED for 'schedule' action. Use ISO 8601 format (e.g., '2024-12-31T09:00:00Z')",
             },
             all: {
               type: "boolean",
               description:
-                "Mark all notifications as read (for mark_read action)",
+                "For 'mark_read' action: set to true to mark ALL notifications as read instead of a specific one",
+            },
+            isRead: {
+              type: "boolean",
+              description:
+                "For 'list' action: filter by read status (true=read only, false=unread only, omit for all)",
+            },
+            since: {
+              type: "string",
+              description:
+                "For 'list' action: only show notifications created after this ISO date",
             },
           },
           required: ["action"],
@@ -1548,7 +1787,7 @@ export class ToolExecutorService {
       {
         name: "scheduled_task",
         description:
-          "Schedule tasks to run in the future with full management capabilities - create, modify, enable/disable, delete, and execute on-demand. Supports cron expressions, one-time execution, and interval-based scheduling. You can update existing tasks (change schedule, action payload, etc.), delete them, enable/disable them temporarily, and trigger immediate execution.",
+          "Schedule tasks to run in the future. Supports one-time (executeAt), recurring (cron), and interval-based schedules. IMPORTANT: For 'create', you must provide: name, scheduleType, actionType, and schedule-specific params. For actionPayload, see the parameter description for required fields per actionType.",
         parameters: {
           type: "object",
           properties: {
@@ -1566,41 +1805,41 @@ export class ToolExecutorService {
                 "history",
               ],
               description:
-                "The action to perform. MODIFY: use 'update' to change schedule or action. DISABLE: temporarily pause without deleting. DELETE: permanently remove. ENABLE: re-activate disabled tasks.",
+                "'create': new scheduled task. 'list': show all tasks. 'get/update/enable/disable/delete/execute_now/history': operate on specific task (requires taskId from list).",
             },
             taskId: {
               type: "string",
               description:
-                "ID of the task (required for get, update, enable, disable, delete, execute_now, history). Always get or list tasks first to find the ID.",
+                "ID of the task - REQUIRED for get, update, enable, disable, delete, execute_now, history. Use 'list' action first to find taskId.",
             },
             name: {
               type: "string",
-              description: "Name of the scheduled task (can be updated)",
+              description: "Name of the scheduled task - REQUIRED for create",
             },
             description: {
               type: "string",
-              description: "Description of what the task does (can be updated)",
+              description: "Description of what the task does",
             },
             scheduleType: {
               type: "string",
               enum: ["ONE_TIME", "CRON", "INTERVAL"],
               description:
-                "Type of schedule. ONE_TIME: run once at specific time. CRON: recurring schedule. INTERVAL: repeat every N minutes.",
+                "Type of schedule - REQUIRED for create. ONE_TIME: requires 'executeAt'. CRON: requires 'cronExpression'. INTERVAL: requires 'interval' (minutes).",
             },
             cronExpression: {
               type: "string",
               description:
-                "Cron expression for CRON type (e.g., '0 9 * * *' for daily at 9 AM, '0 9 * * MON' for Monday at 9 AM, '*/30 * * * *' for every 30 minutes)",
+                "Cron expression (5 fields: minute hour day-of-month month day-of-week). REQUIRED for CRON type. Examples: '0 9 * * *' (daily 9AM), '0 9 * * 1' (Mondays 9AM, 1=Monday), '0 */2 * * *' (every 2 hours), '30 8 1 * *' (1st of month 8:30AM). Uses server timezone.",
             },
             executeAt: {
               type: "string",
               description:
-                "When to execute in ISO format for ONE_TIME type (can be updated)",
+                "When to execute - REQUIRED for ONE_TIME type. ISO 8601 format (e.g., '2024-12-31T09:00:00Z')",
             },
             interval: {
               type: "number",
               description:
-                "Interval in minutes for INTERVAL type (can be updated)",
+                "Minutes between executions - REQUIRED for INTERVAL type (e.g., 60 for hourly, 1440 for daily)",
             },
             actionType: {
               type: "string",
@@ -1613,12 +1852,33 @@ export class ToolExecutorService {
                 "CUSTOM",
               ],
               description:
-                "Type of action to perform when task runs. Can be changed via update.",
+                "Type of action when task runs - REQUIRED for create. Determines what actionPayload needs.",
             },
             actionPayload: {
               type: "object",
               description:
-                "Parameters for the action (e.g., for SEND_NOTIFICATION: {title, message}). Can be updated.",
+                "Parameters for the action - REQUIRED fields depend on actionType: " +
+                "SEND_NOTIFICATION: {title: string, message: string, type?: 'INFO'|'REMINDER'|etc}. " +
+                "CREATE_TODO: {title: string, description?: string, priority?: 'LOW'|'MEDIUM'|'HIGH'|'URGENT', dueDate?: ISO string, category?: string}. " +
+                "WEBHOOK: {url: string, method?: 'GET'|'POST', headers?: object, body?: object}. " +
+                "GENERATE_SUMMARY: {type?: 'daily'|'weekly', includeCategories?: string[]}. " +
+                "RUN_AGENT: {agentId: string, prompt?: string, context?: object}. " +
+                "CUSTOM: any object (for custom handlers).",
+            },
+            maxRuns: {
+              type: "number",
+              description:
+                "Maximum number of times to run (for CRON/INTERVAL). After reaching this, task auto-disables.",
+            },
+            expiresAt: {
+              type: "string",
+              description:
+                "When to stop running (ISO format). Task auto-disables after this date.",
+            },
+            isEnabled: {
+              type: "boolean",
+              description:
+                "For 'list': filter by enabled status. For 'update': change enabled state.",
             },
           },
           required: ["action"],
@@ -1627,7 +1887,7 @@ export class ToolExecutorService {
       {
         name: "curl",
         description:
-          "Make HTTP requests to fetch data from the web - supports GET, POST, PUT, DELETE, PATCH with custom headers",
+          "Make HTTP requests to external APIs and websites. Supports all HTTP methods with custom headers and body. For APIs requiring authentication, include the auth header (e.g., Bearer token). Response includes status code, headers, and body.",
         parameters: {
           type: "object",
           properties: {
@@ -1635,12 +1895,12 @@ export class ToolExecutorService {
               type: "string",
               enum: ["request", "get", "post", "put", "delete", "patch"],
               description:
-                "The HTTP action to perform - 'request' for full control, or shorthand methods",
+                "'request': full control with method param. 'get/post/put/delete/patch': shorthand methods. Use 'get' for reading, 'post' for creating, 'put' for replacing, 'patch' for partial update, 'delete' for removing.",
             },
             url: {
               type: "string",
               description:
-                "The URL to request (must be a valid HTTP/HTTPS URL)",
+                "The URL to request - REQUIRED. Must be a valid HTTP/HTTPS URL (e.g., 'https://api.example.com/data')",
             },
             method: {
               type: "string",
@@ -1654,22 +1914,22 @@ export class ToolExecutorService {
                 "OPTIONS",
               ],
               description:
-                "HTTP method (used with 'request' action, optional for others)",
+                "HTTP method - only needed with 'request' action. Otherwise use the action shortcuts.",
             },
             headers: {
               type: "object",
               description:
-                "Custom HTTP headers as key-value pairs (e.g., {'Authorization': 'Bearer token', 'Accept': 'application/json'})",
+                "Custom HTTP headers as key-value object. Common headers: {'Authorization': 'Bearer <token>', 'Content-Type': 'application/json', 'Accept': 'application/json'}. Content-Type defaults to 'application/json' when body is an object.",
             },
             body: {
-              type: ["string", "object"],
+              type: "object",
               description:
-                "Request body for POST, PUT, PATCH - can be a string or object (will be JSON encoded)",
+                "Request body for POST/PUT/PATCH. Pass as an object (will be JSON-encoded automatically). For form data or other formats, use a string and set appropriate Content-Type header.",
             },
             timeout: {
               type: "number",
               description:
-                "Request timeout in milliseconds (default: 30000, max: 30000)",
+                "Request timeout in milliseconds (default: 30000, max: 30000). Increase for slow APIs.",
             },
             followRedirects: {
               type: "boolean",
@@ -1679,7 +1939,7 @@ export class ToolExecutorService {
             validateSsl: {
               type: "boolean",
               description:
-                "Whether to validate SSL certificates (default: true)",
+                "Validate SSL certificates (default: true). Set to false only for self-signed certs in development.",
             },
           },
           required: ["action", "url"],
@@ -1720,7 +1980,9 @@ export class ToolExecutorService {
       {
         name: "long_running_task",
         description:
-          "Start and manage long-lasting autonomous tasks that run in the background. Use for complex, multi-step operations that may take minutes to hours. Tasks run asynchronously with progress tracking, error recovery, and optional user notifications on completion.",
+          "Start and manage long-lasting autonomous tasks that run in the background. Use for complex, multi-step operations that may take minutes to hours. " +
+          "CRITICAL WORKFLOW: You MUST follow these 3 steps in order: 1) 'create' to get taskId, 2) 'add_steps' to define what the task does, 3) 'start' to begin execution. " +
+          "Skipping steps will cause the task to fail or do nothing.",
         parameters: {
           type: "object",
           properties: {
@@ -1740,70 +2002,70 @@ export class ToolExecutorService {
                 "list_active",
               ],
               description:
-                "The action to perform - create: create a new task, add_steps: add execution steps, start: begin execution, get_progress: get current status summary, get_report: get detailed AI-readable report",
+                "WORKFLOW: 1) 'create' → returns taskId. 2) 'add_steps' with taskId → defines steps. 3) 'start' with taskId → begins execution. Other actions: 'pause/resume/cancel': control running task. 'get/get_progress/get_report': check status. 'list/list_active': show tasks.",
             },
             taskId: {
               type: "string",
               description:
-                "ID of the task (required for start, pause, resume, cancel, get, add_steps, get_progress, get_report)",
+                "ID of the task - REQUIRED for add_steps, start, pause, resume, cancel, get, get_progress, get_report. Get this from 'create' response or 'list' action.",
             },
             name: {
               type: "string",
-              description: "Name of the task (required for create)",
+              description: "Name of the task - REQUIRED for 'create' action",
             },
             description: {
               type: "string",
               description:
-                "Detailed description of the task (required for create)",
+                "Detailed description of the task - REQUIRED for 'create' action",
             },
             objective: {
               type: "string",
               description:
-                "Clear statement of what the task should achieve (required for create)",
+                "Clear statement of what the task should achieve - REQUIRED for 'create' action",
             },
             estimatedDurationMinutes: {
               type: "number",
-              description: "Estimated duration in minutes",
+              description: "Estimated duration in minutes (helps with progress display)",
             },
             priority: {
               type: "string",
               enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
-              description: "Task priority level",
+              description: "Task priority level (default: MEDIUM)",
             },
             completionBehavior: {
               type: "string",
               enum: ["SILENT", "NOTIFY_USER", "NOTIFY_AND_SUMMARIZE"],
               description:
-                "What to do when task completes - SILENT: no notification, NOTIFY_USER: send notification, NOTIFY_AND_SUMMARIZE: notify with detailed summary",
+                "What happens when task completes. SILENT: nothing. NOTIFY_USER: send notification. NOTIFY_AND_SUMMARIZE: notification with full summary (default).",
             },
             notifyOnProgress: {
               type: "boolean",
-              description: "Whether to send periodic progress notifications",
+              description: "Send periodic progress notifications while running (default: false)",
             },
             progressIntervalMinutes: {
               type: "number",
               description:
-                "How often to send progress notifications (in minutes)",
+                "Minutes between progress notifications (only if notifyOnProgress is true)",
             },
             initialContext: {
               type: "object",
               description:
-                "Initial context data that will be available to all steps",
+                "Initial data passed to all steps. Use for shared configuration or input data.",
             },
             steps: {
               type: "array",
               description:
-                "Array of step definitions to add (used with add_steps action)",
+                "Array of step definitions - REQUIRED for 'add_steps' action. Each step needs: name (string), action (enum), params (object). Steps execute in order.",
               items: {
                 type: "object",
                 properties: {
                   name: {
                     type: "string",
-                    description: "Step name",
+                    description: "Step name (shown in progress) - REQUIRED",
                   },
                   description: {
                     type: "string",
-                    description: "Step description",
+                    description: "What this step does",
                   },
                   action: {
                     type: "string",
@@ -1815,25 +2077,25 @@ export class ToolExecutorService {
                       "notify",
                     ],
                     description:
-                      "Action type - llm_generate: call LLM, wait: pause execution, conditional: branch logic, aggregate: combine results, notify: send notification",
+                      "Step action type - REQUIRED. 'llm_generate': call LLM with params.prompt. 'wait': pause for params.seconds. 'conditional': branch based on params.condition. 'aggregate': combine results. 'notify': send notification with params.title/message.",
                   },
                   params: {
                     type: "object",
-                    description: "Parameters for the action",
+                    description: "Action parameters - REQUIRED. For llm_generate: {prompt, model?, temperature?}. For wait: {seconds}. For notify: {title, message}. For conditional: {condition, ifTrue, ifFalse}.",
                   },
                   isCheckpoint: {
                     type: "boolean",
                     description:
-                      "Whether this step creates a checkpoint with progress summary",
+                      "Create a checkpoint after this step (saves progress, allows resume)",
                   },
                   onError: {
                     type: "string",
                     enum: ["continue", "retry", "abort"],
-                    description: "Error handling behavior",
+                    description: "What to do on error. 'continue': skip to next step. 'retry': retry up to maxRetries. 'abort': stop task (default).",
                   },
                   maxRetries: {
                     type: "number",
-                    description: "Maximum retry attempts if onError is 'retry'",
+                    description: "Max retry attempts if onError is 'retry' (default: 3)",
                   },
                 },
                 required: ["name", "action", "params"],
@@ -1852,11 +2114,11 @@ export class ToolExecutorService {
                   "CANCELLED",
                 ],
               },
-              description: "Filter by status (for list action)",
+              description: "For 'list' action: filter by these statuses",
             },
             limit: {
               type: "number",
-              description: "Maximum number of results (for list action)",
+              description: "For 'list' action: maximum results to return (default: 20)",
             },
           },
           required: ["action"],
@@ -1865,7 +2127,9 @@ export class ToolExecutorService {
       {
         name: "user_profile",
         description:
-          "Manage the user's permanent profile - store and update important structural information like name, occupation, preferences, goals, and relationships. This data is always available to you without needing memory search. Use this to remember important facts about the user that don't change often. IMPORTANT: When the user shares personal information (name, job, location, preferences, etc.), USE THIS TOOL to save it to their profile.",
+          "Manage the user's permanent profile - store important information about them (name, job, location, goals, etc.). This data is ALWAYS available to you without memory search. " +
+          "IMPORTANT: When the user shares personal information, IMMEDIATELY use this tool to save it. " +
+          "Array fields (skills, interests, hobbies, goals, relationships) are MERGED with existing data. To REPLACE an array entirely, use 'delete_fields' first then 'update'.",
         parameters: {
           type: "object",
           properties: {
@@ -1873,7 +2137,7 @@ export class ToolExecutorService {
               type: "string",
               enum: ["get", "update", "delete_fields"],
               description:
-                "The action to perform - get: retrieve current profile, update: add/modify profile fields (merges with existing), delete_fields: remove specific fields",
+                "'get': retrieve current profile. 'update': add/modify fields (arrays are MERGED). 'delete_fields': remove specific fields (use to clear arrays before replacing).",
             },
             // Personal info
             name: {
@@ -1902,7 +2166,7 @@ export class ToolExecutorService {
             },
             birthdate: {
               type: "string",
-              description: "User's birthdate (ISO format)",
+              description: "User's birthdate (ISO format, e.g., '1990-05-15')",
             },
             location: {
               type: "string",
@@ -1910,7 +2174,7 @@ export class ToolExecutorService {
             },
             timezone: {
               type: "string",
-              description: "User's timezone",
+              description: "User's timezone (e.g., 'Europe/Paris', 'America/New_York')",
             },
             language: {
               type: "string",
@@ -1932,7 +2196,7 @@ export class ToolExecutorService {
             skills: {
               type: "array",
               items: { type: "string" },
-              description: "User's skills (will be merged with existing)",
+              description: "User's skills - MERGED with existing (to replace, delete_fields first)",
             },
             workStyle: {
               type: "string",
@@ -1942,30 +2206,30 @@ export class ToolExecutorService {
             communicationStyle: {
               type: "string",
               description:
-                "User's preferred communication style (e.g., 'concise', 'detailed', 'casual')",
+                "How user prefers AI to communicate (e.g., 'concise', 'detailed', 'casual', 'formal')",
             },
             interests: {
               type: "array",
               items: { type: "string" },
-              description: "User's interests (will be merged with existing)",
+              description: "User's interests - MERGED with existing",
             },
             hobbies: {
               type: "array",
               items: { type: "string" },
-              description: "User's hobbies (will be merged with existing)",
+              description: "User's hobbies - MERGED with existing",
             },
             // Goals
             currentGoals: {
               type: "array",
               items: { type: "string" },
               description:
-                "User's current goals (will be merged with existing)",
+                "User's current goals - MERGED with existing (duplicates auto-ignored)",
             },
             longTermGoals: {
               type: "array",
               items: { type: "string" },
               description:
-                "User's long-term goals (will be merged with existing)",
+                "User's long-term goals - MERGED with existing",
             },
             // Relationships
             relationships: {
@@ -1977,7 +2241,7 @@ export class ToolExecutorService {
                   relation: {
                     type: "string",
                     description:
-                      "Relationship type (e.g., 'wife', 'colleague', 'friend')",
+                      "Relationship type (e.g., 'wife', 'colleague', 'friend', 'boss')",
                   },
                   notes: {
                     type: "string",
@@ -1987,12 +2251,12 @@ export class ToolExecutorService {
                 required: ["name", "relation"],
               },
               description:
-                "Important people in user's life (will be merged by name)",
+                "Important people in user's life - MERGED by name (existing person updated, new person added)",
             },
             // Health & Lifestyle
             dietaryPreferences: {
               type: "string",
-              description: "User's dietary preferences/restrictions",
+              description: "User's dietary preferences/restrictions (e.g., 'vegetarian', 'no gluten')",
             },
             exerciseHabits: {
               type: "string",
@@ -2000,20 +2264,20 @@ export class ToolExecutorService {
             },
             sleepSchedule: {
               type: "string",
-              description: "User's sleep schedule",
+              description: "User's typical sleep schedule",
             },
             // Custom
             custom: {
               type: "object",
               description:
-                "Any other important information about the user as key-value pairs",
+                "Any other important information as key-value pairs (MERGED with existing custom data)",
             },
             // For delete_fields action
             fields: {
               type: "array",
               items: { type: "string" },
               description:
-                "Fields to delete (required for delete_fields action)",
+                "For 'delete_fields': array of field names to remove (e.g., ['skills', 'hobbies'] to clear those arrays)",
             },
           },
           required: ["action"],
@@ -2022,7 +2286,11 @@ export class ToolExecutorService {
       {
         name: "code_executor",
         description:
-          "Execute Python code in a secure sandbox. Use this tool for mathematical calculations, data processing, algorithm testing, statistical analysis, and any computation requiring precise results. The code runs in isolation with no filesystem or network access. IMPORTANT: Always use print() to display results - the output is captured and returned. Available modules: math, random, datetime, json, re, itertools, functools, collections, string, decimal, fractions, statistics, operator, copy, textwrap, unicodedata.",
+          "Execute Python code in a secure sandbox. Use for calculations, data processing, algorithms, statistics. " +
+          "CRITICAL: You MUST use print() to output results - return values are NOT captured. " +
+          "Example: Instead of 'result = 42 * 17\nresult', write 'result = 42 * 17\nprint(result)'. " +
+          "Available modules: math, random, datetime, json, re, itertools, functools, collections, string, decimal, fractions, statistics, operator, copy, textwrap, unicodedata. " +
+          "No filesystem or network access.",
         parameters: {
           type: "object",
           properties: {
@@ -2030,17 +2298,20 @@ export class ToolExecutorService {
               type: "string",
               enum: ["execute", "validate", "get_limits", "get_examples"],
               description:
-                "The action to perform - execute: run Python code, validate: check syntax without running, get_limits: get execution constraints, get_examples: get code examples",
+                "'execute': run Python code (use print() for output!). 'validate': check syntax without running. 'get_limits': see constraints. 'get_examples': see code examples.",
             },
             code: {
               type: "string",
               description:
-                "Python code to execute or validate (required for execute/validate actions). Use print() to output results.",
+                "Python code to execute - REQUIRED for execute/validate. IMPORTANT: Use print() for ALL output. " +
+                "WRONG: 'x = 5 + 3\nx' (returns nothing). " +
+                "RIGHT: 'x = 5 + 3\nprint(x)' (outputs 8). " +
+                "For multiple values: 'print(f\"Sum: {a+b}, Product: {a*b}\")'.",
             },
             timeout: {
               type: "number",
               description:
-                "Maximum execution time in seconds (default: 30, max: 30)",
+                "Max execution time in seconds (default: 30, max: 30). Increase for complex calculations.",
             },
           },
           required: ["action"],
@@ -2049,7 +2320,9 @@ export class ToolExecutorService {
       {
         name: "generate_tool",
         description:
-          "Generate, manage, and execute custom AI-created tools. Use 'generate' to create a new tool from an objective (e.g., 'get directions from Google Maps API', 'fetch weather data'). The AI will write Python code, test it, and save it for future use. Generated tools can make HTTP requests and use API keys stored in user secrets.",
+          "Generate, manage, and execute custom AI-created tools. Use 'generate' to create a new tool from a detailed objective. " +
+          "The AI writes Python code, tests it, and saves it for reuse. Generated tools can make HTTP requests and use API keys from secrets. " +
+          "Before generating, use 'secrets' tool to check if required API keys exist.",
         parameters: {
           type: "object",
           properties: {
@@ -2057,27 +2330,30 @@ export class ToolExecutorService {
               type: "string",
               enum: ["generate", "list", "get", "execute", "delete", "search"],
               description:
-                "generate: create new tool from objective, list: show all generated tools, get: get tool details and code, execute: run a generated tool, delete: remove a tool, search: find tools by keyword",
+                "'generate': create new tool (requires objective). 'list': show all tools. 'get': view tool details/code. 'execute': run a tool (requires tool_id/name + params). 'delete': remove a tool. 'search': find tools by keyword.",
             },
             objective: {
               type: "string",
               description:
-                "For 'generate': describe what the tool should do (e.g., 'get driving directions between two cities using Google Maps')",
+                "For 'generate': DETAILED description of what the tool should do. " +
+                "GOOD: 'Get current weather for a city using OpenWeatherMap API. Input: city name. Output: temperature (Celsius), conditions, humidity.' " +
+                "BAD: 'Make weather tool' (too vague). " +
+                "Include: what it does, required inputs, expected outputs, which API to use if applicable.",
             },
             context: {
               type: "string",
               description:
-                "For 'generate': additional context from the conversation",
+                "For 'generate': additional context from conversation (e.g., user's specific requirements, error from previous attempt)",
             },
             suggestedSecrets: {
               type: "array",
               items: { type: "string" },
               description:
-                "For 'generate': API key names that might be needed (e.g., ['google_maps_api_key'])",
+                "For 'generate': API key names the tool might need (e.g., ['openweathermap_api_key']). Check with 'secrets' tool first!",
             },
             tool_id: {
               type: "string",
-              description: "For 'get', 'execute', 'delete': the tool ID",
+              description: "For 'get', 'execute', 'delete': the tool ID (from 'list' or 'generate' response)",
             },
             name: {
               type: "string",
@@ -2086,12 +2362,12 @@ export class ToolExecutorService {
             },
             params: {
               type: "object",
-              description: "For 'execute': parameters to pass to the tool",
+              description: "For 'execute': parameters to pass to the tool. Check tool's inputSchema (via 'get') to see required params.",
             },
             query: {
               type: "string",
               description:
-                "For 'search': keyword to search for in tool names/descriptions",
+                "For 'search': keyword to search in tool names/descriptions",
             },
             category: {
               type: "string",
@@ -2104,7 +2380,8 @@ export class ToolExecutorService {
       {
         name: "secrets",
         description:
-          "Check which API keys and secrets are configured by the user. Use this before generating tools to verify required API keys are available. Never exposes actual secret values - only lists names and checks existence.",
+          "Check which API keys and secrets the user has configured. Use BEFORE generating tools to verify required keys exist. " +
+          "SECURITY: This tool NEVER returns actual secret values - only names and existence status. The actual values are injected into generated tools automatically.",
         parameters: {
           type: "object",
           properties: {
@@ -2112,21 +2389,21 @@ export class ToolExecutorService {
               type: "string",
               enum: ["list", "check", "has"],
               description:
-                "list: show all configured secrets (names only), check: verify if specific keys exist, has: check single key",
+                "'list': show all configured secret names (grouped by category). 'check': verify if multiple keys exist. 'has': check single key existence.",
             },
             keys: {
               type: "array",
               items: { type: "string" },
               description:
-                "For 'check': array of secret keys to verify existence",
+                "For 'check': array of secret key names to verify (e.g., ['openweathermap_api_key', 'google_maps_key'])",
             },
             key: {
               type: "string",
-              description: "For 'has': single key to check",
+              description: "For 'has': single secret key name to check",
             },
             category: {
               type: "string",
-              description: "For 'list': filter by category",
+              description: "For 'list': filter by category (e.g., 'api', 'oauth', 'database')",
             },
           },
           required: ["action"],

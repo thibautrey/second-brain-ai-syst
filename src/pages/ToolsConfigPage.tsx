@@ -123,6 +123,7 @@ interface GeneratedTool {
   description: string;
   category: string;
   tags: string[];
+  actions?: string[];
   requiredSecrets: string[];
   usageCount: number;
   lastUsedAt?: string;
@@ -1020,11 +1021,49 @@ export function ToolsConfigPage() {
                           </Badge>
                         ))}
                         {tool.tags.length > 3 && (
-                          <Badge variant="outline">
-                            +{tool.tags.length - 3}
-                          </Badge>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="cursor-help">
+                                +{tool.tags.length - 3}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="space-y-1">
+                                {tool.tags.slice(3).map((tag) => (
+                                  <div key={tag}>{tag}</div>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
+
+                      {tool.actions && tool.actions.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          <span className="text-xs font-medium text-slate-600">Actions:</span>
+                          {tool.actions.slice(0, 2).map((action) => (
+                            <Badge key={action} variant="secondary" className="text-xs">
+                              {action}
+                            </Badge>
+                          ))}
+                          {tool.actions.length > 2 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className="cursor-help text-xs">
+                                  +{tool.actions.length - 2}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div className="space-y-1">
+                                  {tool.actions.slice(2).map((action) => (
+                                    <div key={action}>{action}</div>
+                                  ))}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
                         <div>

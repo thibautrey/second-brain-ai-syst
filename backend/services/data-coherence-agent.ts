@@ -13,6 +13,7 @@
 import prisma from "./prisma.js";
 import { llmRouterService } from "./llm-router.js";
 import { notificationService } from "./tools/notification.service.js";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
 import { TodoStatus, GoalStatus } from "@prisma/client";
 
 // Configuration constants
@@ -338,7 +339,7 @@ export class DataCoherenceAgentService {
     );
 
     try {
-      return JSON.parse(response);
+      return parseJSONFromLLMResponse(response);
     } catch (parseError) {
       console.error("Failed to parse coherence analysis response:", response);
       throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
@@ -370,7 +371,7 @@ export class DataCoherenceAgentService {
     );
 
     try {
-      const result = JSON.parse(response);
+      const result = parseJSONFromLLMResponse(response);
       // Limit questions to avoid overwhelming the user
       if (result.questions && result.questions.length > MAX_QUESTIONS_PER_RUN) {
         result.questions = result.questions.slice(0, MAX_QUESTIONS_PER_RUN);
