@@ -73,12 +73,9 @@ ON "scheduled_tasks" ("userId", "isEnabled", "nextRunAt");
 CREATE INDEX IF NOT EXISTS "idx_todos_user_status" 
 ON "todos" ("userId", "status", "createdAt" DESC);
 
--- Create a partial index for recent memories (last 30 days)
--- This is a "hot" partition of frequently accessed data
-CREATE INDEX IF NOT EXISTS "idx_memories_recent_hot" 
-ON "memories" ("userId", "createdAt" DESC, "importanceScore" DESC)
-WHERE "isArchived" = false 
-  AND "createdAt" > NOW() - INTERVAL '30 days';
+-- Note: Removed idx_memories_recent_hot index that used NOW() - INTERVAL '30 days'
+-- PostgreSQL requires functions in index predicates to be IMMUTABLE, but NOW() is not.
+-- The idx_memories_user_time index above already covers recent memory queries efficiently.
 
 -- Analyze tables to update statistics for query planner
 ANALYZE "memories";
