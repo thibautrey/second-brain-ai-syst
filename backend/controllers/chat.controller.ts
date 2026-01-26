@@ -249,6 +249,9 @@ export async function chatStream(
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "Message is required" });
   }
+  
+  // Ensure previousMessages is always an array
+  const validPreviousMessages = Array.isArray(previousMessages) ? previousMessages : [];
 
   const flowId = randomBytes(8).toString("hex");
   const startTime = Date.now();
@@ -316,6 +319,9 @@ export async function chatStream(
     const searchResults = Array.isArray(memorySearchResult) 
       ? memorySearchResult.map(r => ({ memory: { createdAt: r.createdAt, content: r.content }, score: r.certainty }))
       : ('results' in memorySearchResult ? memorySearchResult.results : []);
+    
+    // Ensure searchResults is always an array
+    const validSearchResults = Array.isArray(searchResults) ? searchResults : [];
     
     if ("error" in memorySearchResult && !Array.isArray(memorySearchResult)) {
       flowTracker.trackEvent({
@@ -436,8 +442,8 @@ export async function chatStream(
     ];
 
     // Add previous conversation messages (if any)
-    if (Array.isArray(previousMessages) && previousMessages.length > 0) {
-      for (const prevMsg of previousMessages) {
+    if (validPreviousMessages.length > 0) {
+      for (const prevMsg of validPreviousMessages) {
         if (prevMsg.role === "user" && prevMsg.content) {
           messages.push({
             role: "user",
