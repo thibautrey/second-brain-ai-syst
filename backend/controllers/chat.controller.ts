@@ -7,6 +7,8 @@
  * - Opt 4: Provider cache with 5-minute TTL
  * - Opt 5: Single LLM call for classification+assessment AFTER response
  * - Opt 7: Parallel fetch of provider + memory search
+ * - Fallback provider chain with user notifications
+ * - Dynamic token buffer (10% for small models, 20% for large)
  */
 
 import { Response, NextFunction } from "express";
@@ -17,6 +19,7 @@ import {
   PROVIDER_CACHE_TTL_MS,
 } from "../services/intent-router.js";
 import { memorySearchService } from "../services/memory-search.js";
+import { notificationService } from "../services/notification.js";
 import prisma from "../services/prisma.js";
 import OpenAI from "openai";
 import { flowTracker } from "../services/flow-tracker.js";
@@ -53,6 +56,13 @@ interface CachedChatProvider {
     baseUrl: string | null;
   };
   modelId: string;
+  fallbackProvider?: {
+    id: string;
+    name: string;
+    apiKey: string;
+    baseUrl: string | null;
+  };
+  fallbackModelId?: string;
   timestamp: number;
 }
 
@@ -60,17 +70,22 @@ const chatProviderCache = new Map<string, CachedChatProvider>();
 
 async function getChatProvider(
   userId: string,
-): Promise<{ provider: any; modelId: string } | null> {
+): Promise<{ provider: any; modelId: string; fallbackProvider?: any; fallbackModelId?: string } | null> {
   // Check cache first
   const cached = chatProviderCache.get(userId);
   if (cached && Date.now() - cached.timestamp < PROVIDER_CACHE_TTL_MS) {
-    return { provider: cached.provider, modelId: cached.modelId };
+    return { 
+      provider: cached.provider, 
+      modelId: cached.modelId,
+      fallbackProvider: cached.fallbackProvider,
+      fallbackModelId: cached.fallbackModelId,
+    };
   }
 
   // Fetch from DB
   const taskConfig = await prisma.aITaskConfig.findFirst({
     where: { userId, taskType: "REFLECTION" },
-    include: { provider: true, model: true },
+    include: { provider: true, model: true, fallbackProvider: true, fallbackModel: true },
   });
 
   if (!taskConfig?.provider) {
@@ -88,6 +103,8 @@ async function getChatProvider(
   }
 
   const provider = taskConfig.provider;
+  const fallbackProvider = taskConfig.fallbackProvider;
+  const fallbackModelId = taskConfig.fallbackModel?.modelId;
 
   // Cache it
   chatProviderCache.set(userId, {
@@ -98,10 +115,22 @@ async function getChatProvider(
       baseUrl: provider.baseUrl,
     },
     modelId,
+    fallbackProvider: fallbackProvider ? {
+      id: fallbackProvider.id,
+      name: fallbackProvider.name,
+      apiKey: fallbackProvider.apiKey,
+      baseUrl: fallbackProvider.baseUrl,
+    } : undefined,
+    fallbackModelId,
     timestamp: Date.now(),
   });
 
-  return { provider, modelId };
+  return { 
+    provider, 
+    modelId,
+    fallbackProvider,
+    fallbackModelId,
+  };
 }
 
 const CHAT_SYSTEM_PROMPT = `Tu es Second Brain, un assistant personnel intelligent et concis.
@@ -304,7 +333,7 @@ export async function chatStream(
       return res.end();
     }
 
-    const { provider, modelId } = providerResult;
+    const { provider, modelId, fallbackProvider, fallbackModelId } = providerResult;
 
     flowTracker.trackEvent({
       flowId,
@@ -434,6 +463,23 @@ export async function chatStream(
             adjustedMaxTokens: maxTokensToUse,
           },
         });
+
+        // Send warning notification to user when tokens are being reduced significantly
+        if (maxTokensToUse < userMaxTokens * 0.5) {
+          // Only notify if tokens reduced by more than 50%
+          try {
+            await notificationService.createNotification({
+              userId,
+              title: "Optimizing response length",
+              message: `Your conversation is getting long. I'm optimizing to provide a response. If issues persist, try shortening your recent messages.`,
+              type: "WARNING",
+              channels: ["IN_APP"],
+            });
+          } catch (notifyError) {
+            console.warn("Failed to send token constraint notification:", notifyError);
+            // Don't block chat if notification fails
+          }
+        }
       }
 
       // Non-streaming call to detect tool usage
@@ -761,6 +807,82 @@ export async function chatStream(
             },
           });
 
+          // First, try with fallback provider if configured
+          if (fallbackProvider && fallbackModelId) {
+            console.log(
+              `[TokenFallback] Primary provider (${provider.name}) failed. Switching to fallback: ${fallbackProvider.name}`,
+            );
+            
+            try {
+              // Notify user about provider switch
+              await notificationService.createNotification({
+                userId,
+                title: "Switching to alternative provider",
+                message: `${provider.name} encountered issues. Attempting response with ${fallbackProvider.name}...`,
+                type: "WARNING",
+                channels: ["IN_APP"],
+              });
+            } catch (notifyError) {
+              console.warn("Failed to send fallback notification:", notifyError);
+            }
+            
+            flowTracker.trackEvent({
+              flowId,
+              stage: `fallback_provider_switch_${iterationCount}`,
+              service: "ChatController",
+              status: "started",
+              data: {
+                primaryProvider: provider.name,
+                fallbackProvider: fallbackProvider.name,
+                fallbackModel: fallbackModelId,
+              },
+            });
+            
+            // Retry with fallback
+            const fallbackOpenAI = new OpenAI({
+              apiKey: fallbackProvider.apiKey,
+              baseURL: fallbackProvider.baseUrl || "https://api.openai.com/v1",
+            });
+            
+            try {
+              const fallbackResponse = await fallbackOpenAI.chat.completions.create({
+                model: fallbackModelId,
+                messages: messages as any,
+                temperature: 0.7,
+                max_tokens: Math.min(getFallbackMaxTokens(fallbackModelId), maxTokensToUse),
+                tools: toolSchemas.map((schema) => ({
+                  type: "function",
+                  function: schema,
+                })),
+                tool_choice: "auto",
+                stream: false,
+              });
+              
+              const fallbackMessage = fallbackResponse.choices[0]?.message;
+              if (fallbackMessage) {
+                fullResponse = fallbackMessage.content || "";
+                
+                flowTracker.trackEvent({
+                  flowId,
+                  stage: `fallback_provider_success_${iterationCount}`,
+                  service: "ChatController",
+                  status: "success",
+                  data: {
+                    responseLength: fullResponse.length,
+                  },
+                });
+                
+                break; // Exit the while loop with successful response
+              }
+            } catch (fallbackProviderError) {
+              console.warn(
+                `[TokenFallback] Fallback provider (${fallbackProvider.name}) also failed:`,
+                fallbackProviderError,
+              );
+              // Fall through to existing token reduction strategies
+            }
+          }
+
           // Strategy 1: If context is too long, try to reduce conversation history
           if (messages.length > 10) {
             console.log(
@@ -869,6 +991,21 @@ export async function chatStream(
         );
         // Small delay to simulate streaming
         await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    } else {
+      // Send error notification if response is empty after all retries
+      if (allToolResults.length === 0) {
+        try {
+          await notificationService.createNotification({
+            userId,
+            title: "Unable to generate response",
+            message: `The conversation context was too complex for the model. Try asking a simpler question or starting a new conversation.`,
+            type: "ERROR",
+            channels: ["IN_APP"],
+          });
+        } catch (notifyError) {
+          console.warn("Failed to send empty response notification:", notifyError);
+        }
       }
     }
 
@@ -1093,7 +1230,7 @@ export async function processTelegramMessage(
     // Initialize OpenAI client
     const openai = new OpenAI({
       apiKey: provider.apiKey,
-      baseUrl: provider.baseUrl || undefined,
+      baseURL: provider.baseUrl,
     });
 
     // Get user profile for context
@@ -1110,14 +1247,14 @@ export async function processTelegramMessage(
     // Search for relevant memories
     let memoryContext = "";
     try {
-      const searchResults = await memorySearchService.searchMemories(
+      const searchResults = await memorySearchService.semanticSearch(
         userId,
         message,
-        { limit: 5 },
+        5,
       );
       if (searchResults.results.length > 0) {
         memoryContext = searchResults.results
-          .map((m) => `- ${m.content}`)
+          .map((m: any) => `- ${m.memory.content}`)
           .join("\n");
       }
     } catch (error) {
@@ -1125,10 +1262,7 @@ export async function processTelegramMessage(
     }
 
     // Build system prompt with context
-    let systemPrompt = CHAT_SYSTEM_PROMPT;
-    if (userProfileContext) {
-      systemPrompt = injectContextIntoPrompt(systemPrompt, "USER_PROFILE", userProfileContext);
-    }
+    let systemPrompt = await injectContextIntoPrompt(CHAT_SYSTEM_PROMPT, userId);
     if (memoryContext) {
       systemPrompt += `\n\nMÉMOIRES PERTINENTES:\n${memoryContext}`;
     }

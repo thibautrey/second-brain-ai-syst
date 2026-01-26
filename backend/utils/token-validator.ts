@@ -30,6 +30,13 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   "claude-3-sonnet": 200000,
   "claude-3-haiku": 200000,
 
+  // Mistral models
+  "mistral-small-3.2": 32000,
+  "mistral-small-3.1": 32000,
+  "mistral-medium-3": 256000,
+  "mistral-large-3": 256000,
+  "mistral-tiny": 32000,
+
   // Local models (conservative estimate)
   "local-llm": 4096,
   ollama: 4096,
@@ -75,6 +82,7 @@ function getContextWindow(modelId: string): number {
  * 2. Must be less than context window
  * 3. If messages are very long, use conservative estimate
  * 4. Never return negative or zero
+ * 5. Use dynamic buffer: 10% for small models (<32k), 15% for medium (32k-100k), 20% for large (>100k)
  */
 export function validateMaxTokens(
   requestedMaxTokens: number,
@@ -101,9 +109,18 @@ export function validateMaxTokens(
     warning = `max_tokens was below 1 (was ${requestedMaxTokens}), using minimum of 1`;
   }
 
-  // Rule 2: Ensure it doesn't exceed context window minus reserved buffer
-  // Reserve 20% of context window for prompt and safety margin
-  const reservedBuffer = Math.floor(contextWindow * 0.2);
+  // Rule 2: Dynamic buffer based on model size
+  // Small models (<32k): 10% buffer → allow 90% of context
+  // Medium models (32k-100k): 15% buffer → allow 85% of context
+  // Large models (>100k): 20% buffer → allow 80% of context
+  let bufferPercent = 0.2; // Default 20%
+  if (contextWindow < 32000) {
+    bufferPercent = 0.1; // 10% for small models
+  } else if (contextWindow < 100000) {
+    bufferPercent = 0.15; // 15% for medium models
+  }
+
+  const reservedBuffer = Math.floor(contextWindow * bufferPercent);
   const maxAllowedTokens = Math.max(
     256, // Minimum allowed tokens
     contextWindow - reservedBuffer - estimatedUsedTokens,
