@@ -15,14 +15,16 @@
  * - Repetitive/spam content
  */
 
-import prisma from "./prisma.js";
+import {
+  getFallbackMaxTokens,
+  isMaxTokensError,
+  validateMaxTokens,
+} from "../utils/token-validator.js";
+
 import OpenAI from "openai";
 import { injectDateIntoPrompt } from "./llm-router.js";
-import {
-  validateMaxTokens,
-  isMaxTokensError,
-  getFallbackMaxTokens,
-} from "../utils/token-validator.js";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
+import prisma from "./prisma.js";
 
 // ============================================================================
 // Types & Interfaces
@@ -489,7 +491,7 @@ Est-ce du contenu significatif ou du bruit?`;
           throw new Error("Empty LLM response");
         }
 
-        const result = JSON.parse(content);
+        const result = parseJSONFromLLMResponse(content);
 
         return {
           isMeaningful: result.isMeaningful ?? false,
@@ -531,7 +533,7 @@ Est-ce du contenu significatif ou du bruit?`;
               throw llmError;
             }
 
-            const result = JSON.parse(content);
+            const result = parseJSONFromLLMResponse(content);
             return {
               isMeaningful: result.isMeaningful ?? false,
               confidence: result.confidence ?? 0.5,

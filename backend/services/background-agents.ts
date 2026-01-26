@@ -5,10 +5,11 @@
  * reflections, and analysis of the user's memories.
  */
 
-import prisma from "./prisma.js";
+import { MemoryType, TimeScale } from "@prisma/client";
+
 import { llmRouterService } from "./llm-router.js";
-import { TimeScale, MemoryType } from "@prisma/client";
 import { memoryCleanerService } from "./memory-cleaner.js";
+import prisma from "./prisma.js";
 
 export interface AgentResult {
   agentId: string;
@@ -160,7 +161,7 @@ export class BackgroundAgentService {
         { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      const result = parseJSONFromLLMResponse(response);
 
       // Store reflection as a special memory
       await prisma.memory.create({
@@ -259,7 +260,7 @@ export class BackgroundAgentService {
         { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      const result = parseJSONFromLLMResponse(response);
 
       // Store weekly insights as a summary
       await prisma.summary.create({
@@ -351,7 +352,7 @@ export class BackgroundAgentService {
         { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      const result = parseJSONFromLLMResponse(response);
 
       return {
         agentId: "goal-tracker",
@@ -414,7 +415,7 @@ export class BackgroundAgentService {
         { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      const result = parseJSONFromLLMResponse(response);
 
       return {
         agentId: "habit-analyzer",

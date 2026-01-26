@@ -8,12 +8,13 @@
  * - Tracks verification history
  */
 
-import prisma from "./prisma.js";
-import { notificationService } from "./notification.js";
-import { llmRouterService } from "./llm-router.js";
-import { curlService } from "./tools/index.js";
 import { FactCheckStatus } from "@prisma/client";
 import OpenAI from "openai";
+import { curlService } from "./tools/index.js";
+import { llmRouterService } from "./llm-router.js";
+import { notificationService } from "./notification.js";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
+import prisma from "./prisma.js";
 
 export interface FactCheckRequest {
   userId: string;
@@ -226,7 +227,7 @@ Return a JSON object:
       const content = completion.choices[0]?.message.content;
       if (!content) return [];
 
-      const parsed = JSON.parse(content);
+      const parsed = parseJSONFromLLMResponse(content);
       return parsed.claims || [];
     } catch (error) {
       console.error("[FactChecker] Claim extraction failed:", error);

@@ -18,11 +18,12 @@
  * while AI instructions are for the AI's internal knowledge and patterns.
  */
 
-import prisma from "./prisma.js";
+import { AIInstructionCategory, MemoryType, TimeScale } from "@prisma/client";
+
+import { aiInstructionsService } from "./ai-instructions.service.js";
 import { llmRouterService } from "./llm-router.js";
 import { notificationService } from "./notification.js";
-import { aiInstructionsService } from "./ai-instructions.service.js";
-import { TimeScale, MemoryType, AIInstructionCategory } from "@prisma/client";
+import prisma from "./prisma.js";
 
 // Configuration constants
 const MAX_MEMORIES_FOR_ANALYSIS = 100;
@@ -42,7 +43,14 @@ export interface ProactiveAgentResult {
 }
 
 export interface ProactiveSuggestion {
-  category: "health" | "mental_wellbeing" | "productivity" | "goals" | "habits" | "relationships" | "learning";
+  category:
+    | "health"
+    | "mental_wellbeing"
+    | "productivity"
+    | "goals"
+    | "habits"
+    | "relationships"
+    | "learning";
   priority: "low" | "medium" | "high";
   title: string;
   message: string;
@@ -108,7 +116,10 @@ export class ProactiveAgentService {
    * Run proactive analysis for a user
    * Analyzes recent memories to identify opportunities to help
    */
-  async runProactiveAnalysis(userId: string, timeframeDays: number = DEFAULT_ANALYSIS_TIMEFRAME_DAYS): Promise<ProactiveAgentResult> {
+  async runProactiveAnalysis(
+    userId: string,
+    timeframeDays: number = DEFAULT_ANALYSIS_TIMEFRAME_DAYS,
+  ): Promise<ProactiveAgentResult> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - timeframeDays);
 
@@ -148,11 +159,18 @@ export class ProactiveAgentService {
     }
 
     // Check for recent proactive suggestions to avoid repetition
-    const recentSuggestions = await this.getRecentSuggestions(userId, RECENT_SUGGESTIONS_DAYS);
+    const recentSuggestions = await this.getRecentSuggestions(
+      userId,
+      RECENT_SUGGESTIONS_DAYS,
+    );
 
     // Format memories and summaries for analysis
-    const context = this.buildAnalysisContext(memories, summaries, recentSuggestions);
-    
+    const context = this.buildAnalysisContext(
+      memories,
+      summaries,
+      recentSuggestions,
+    );
+
     const userPrompt = `Analyze my recent activities and provide proactive suggestions to help me.
 
 ${context}
@@ -170,10 +188,12 @@ Based on this information, provide 1-3 high-quality, actionable suggestions that
 
       let result;
       try {
-        result = JSON.parse(response);
+        result = parseJSONFromLLMResponse(response);
       } catch (parseError) {
         console.error("Failed to parse LLM response as JSON:", response);
-        throw new Error(`Invalid JSON response from LLM: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        throw new Error(
+          `Invalid JSON response from LLM: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        );
       }
 
       // Store patterns as AI Instructions (NOT as user memories)
@@ -260,23 +280,33 @@ Respond with suggestions prioritizing health and well-being.`;
 
       let result;
       try {
-        result = JSON.parse(response);
+        result = parseJSONFromLLMResponse(response);
       } catch (parseError) {
         console.error("Failed to parse LLM response as JSON:", response);
-        throw new Error(`Invalid JSON response from LLM: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        throw new Error(
+          `Invalid JSON response from LLM: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        );
       }
 
       // Filter to only health-related suggestions
       const healthSuggestions = result.suggestions.filter(
-        (s: ProactiveSuggestion) => 
-          s.category === "health" || s.category === "mental_wellbeing"
+        (s: ProactiveSuggestion) =>
+          s.category === "health" || s.category === "mental_wellbeing",
       );
 
       if (healthSuggestions.length > 0) {
         // Store health insights as AI Instructions (NOT as user memories)
-        await this.storeHealthInsightsAsAIInstructions(userId, healthSuggestions);
+        await this.storeHealthInsightsAsAIInstructions(
+          userId,
+          healthSuggestions,
+        );
 
-        await this.sendSuggestionNotifications(userId, healthSuggestions, null, "health");
+        await this.sendSuggestionNotifications(
+          userId,
+          healthSuggestions,
+          null,
+          "health",
+        );
       }
 
       return {
@@ -305,7 +335,10 @@ Respond with suggestions prioritizing health and well-being.`;
    * Get recent proactive suggestions to avoid repetition
    * Now checks AI Instructions instead of memories
    */
-  private async getRecentSuggestions(userId: string, days: number): Promise<any[]> {
+  private async getRecentSuggestions(
+    userId: string,
+    days: number,
+  ): Promise<any[]> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -322,26 +355,34 @@ Respond with suggestions prioritizing health and well-being.`;
       take: 5,
     });
 
-    return instructions.map(i => i.metadata);
+    return instructions.map((i) => i.metadata);
   }
 
   /**
    * Store proactive suggestions as AI Instructions
    */
-  private async storeAsAIInstructions(userId: string, result: any): Promise<void> {
+  private async storeAsAIInstructions(
+    userId: string,
+    result: any,
+  ): Promise<void> {
     if (!result.suggestions || result.suggestions.length === 0) return;
 
     for (const suggestion of result.suggestions) {
       // Map suggestion category to AI instruction category
-      const category = this.mapSuggestionToInstructionCategory(suggestion.category);
-      
+      const category = this.mapSuggestionToInstructionCategory(
+        suggestion.category,
+      );
+
       // Check for existing similar instruction
-      const keywords = suggestion.title.toLowerCase().split(" ").filter((w: string) => w.length > 3);
+      const keywords = suggestion.title
+        .toLowerCase()
+        .split(" ")
+        .filter((w: string) => w.length > 3);
       const existing = await aiInstructionsService.findSimilarInstruction(
         userId,
         "proactive-agent",
         category,
-        keywords
+        keywords,
       );
 
       if (!existing) {
@@ -350,7 +391,12 @@ Respond with suggestions prioritizing health and well-being.`;
           content: `${suggestion.message}\n\nReasoning: ${suggestion.reasoning}${suggestion.actionSteps ? `\n\nAction steps:\n${suggestion.actionSteps.map((s: string) => `- ${s}`).join("\n")}` : ""}`,
           category,
           sourceAgent: "proactive-agent",
-          priority: suggestion.priority === "high" ? 8 : suggestion.priority === "medium" ? 5 : 2,
+          priority:
+            suggestion.priority === "high"
+              ? 8
+              : suggestion.priority === "medium"
+                ? 5
+                : 2,
           confidence: 0.7,
           relatedMemoryIds: suggestion.relatedMemoryIds || [],
           metadata: {
@@ -366,18 +412,25 @@ Respond with suggestions prioritizing health and well-being.`;
   /**
    * Store health insights as AI Instructions
    */
-  private async storeHealthInsightsAsAIInstructions(userId: string, healthSuggestions: ProactiveSuggestion[]): Promise<void> {
+  private async storeHealthInsightsAsAIInstructions(
+    userId: string,
+    healthSuggestions: ProactiveSuggestion[],
+  ): Promise<void> {
     for (const suggestion of healthSuggestions) {
-      const category = suggestion.category === "health" 
-        ? AIInstructionCategory.HEALTH_INSIGHT 
-        : AIInstructionCategory.USER_PATTERN;
+      const category =
+        suggestion.category === "health"
+          ? AIInstructionCategory.HEALTH_INSIGHT
+          : AIInstructionCategory.USER_PATTERN;
 
-      const keywords = suggestion.title.toLowerCase().split(" ").filter((w: string) => w.length > 3);
+      const keywords = suggestion.title
+        .toLowerCase()
+        .split(" ")
+        .filter((w: string) => w.length > 3);
       const existing = await aiInstructionsService.findSimilarInstruction(
         userId,
         "health-check",
         category,
-        keywords
+        keywords,
       );
 
       if (!existing) {
@@ -400,7 +453,9 @@ Respond with suggestions prioritizing health and well-being.`;
   /**
    * Map suggestion category to AI instruction category
    */
-  private mapSuggestionToInstructionCategory(suggestionCategory: string): AIInstructionCategory {
+  private mapSuggestionToInstructionCategory(
+    suggestionCategory: string,
+  ): AIInstructionCategory {
     switch (suggestionCategory) {
       case "health":
         return AIInstructionCategory.HEALTH_INSIGHT;
@@ -427,13 +482,13 @@ Respond with suggestions prioritizing health and well-being.`;
   private buildAnalysisContext(
     memories: any[],
     summaries: any[],
-    recentSuggestions: any[]
+    recentSuggestions: any[],
   ): string {
     let context = "## Recent Activity Summary\n\n";
 
     if (summaries.length > 0) {
       context += "### Recent Summaries\n";
-      summaries.forEach(summary => {
+      summaries.forEach((summary) => {
         const date = summary.periodStart.toISOString().split("T")[0];
         context += `**${date}**: ${summary.title || "Daily summary"}\n`;
       });
@@ -480,21 +535,22 @@ Respond with suggestions prioritizing health and well-being.`;
 
     if (result.suggestions && result.suggestions.length > 0) {
       content += `## Suggestions\n\n`;
-      
+
       result.suggestions.forEach((s: ProactiveSuggestion, i: number) => {
-        const emoji = s.priority === "high" ? "🔴" : s.priority === "medium" ? "🟡" : "🟢";
+        const emoji =
+          s.priority === "high" ? "🔴" : s.priority === "medium" ? "🟡" : "🟢";
         content += `### ${emoji} ${s.title}\n\n`;
         content += `**Category**: ${s.category}\n\n`;
         content += `${s.message}\n\n`;
-        
+
         if (s.actionSteps && s.actionSteps.length > 0) {
           content += `**Action Steps**:\n`;
-          s.actionSteps.forEach(step => {
+          s.actionSteps.forEach((step) => {
             content += `- ${step}\n`;
           });
           content += `\n`;
         }
-        
+
         content += `*Why this matters*: ${s.reasoning}\n\n`;
         content += `---\n\n`;
       });
@@ -514,16 +570,16 @@ Respond with suggestions prioritizing health and well-being.`;
     userId: string,
     suggestions: ProactiveSuggestion[],
     memoryId: string | null,
-    sourceType: string = "proactive"
+    sourceType: string = "proactive",
   ): Promise<void> {
     // Only send notifications for medium and high priority suggestions
     const notifiableSuggestions = suggestions.filter(
-      s => s.priority === "high" || s.priority === "medium"
+      (s) => s.priority === "high" || s.priority === "medium",
     );
 
     for (const suggestion of notifiableSuggestions) {
       const notifType = suggestion.priority === "high" ? "REMINDER" : "INFO";
-      
+
       await notificationService.createNotification({
         userId,
         title: `💡 ${suggestion.title}`,

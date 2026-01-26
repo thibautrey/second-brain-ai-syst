@@ -577,7 +577,7 @@ ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
         throw new Error("Empty LLM response");
       }
 
-      const result = JSON.parse(content);
+      const result = parseJSONFromLLMResponse(content);
 
       return {
         inputType: result.inputType || "observation",
@@ -620,7 +620,7 @@ ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
             throw llmError;
           }
 
-          const result = JSON.parse(content);
+          const result = parseJSONFromLLMResponse(content);
           return {
             inputType: result.inputType || "observation",
             confidence: result.confidence || 0.7,
@@ -695,7 +695,7 @@ Should this exchange be stored in the user's memory? Consider:
         throw new Error("Empty LLM response for value assessment");
       }
 
-      const result = JSON.parse(content);
+      const result = parseJSONFromLLMResponse(content);
 
       return {
         isValuable: result.isValuable ?? false,
