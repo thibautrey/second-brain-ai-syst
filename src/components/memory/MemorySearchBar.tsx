@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useTranslation } from "i18next-react";
+import { useTranslation } from "react-i18next";
 import { MemoryFilters, MemoryViewMode } from "../../types/memory";
 import { cn } from "../../lib/utils";
 import { Input } from "../ui/input";

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useTranslation } from "i18next-react";
+import { useTranslation } from "react-i18next";
 import { useMemories } from "../../hooks/useMemories";
 import { Memory, MemoryViewMode } from "../../types/memory";
 import { MemorySearchBar } from "./MemorySearchBar";

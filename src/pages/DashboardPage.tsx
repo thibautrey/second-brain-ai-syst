@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useTranslation } from "i18next-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { TrainingProgressWidget } from "../components/ui/training-progress-widget";

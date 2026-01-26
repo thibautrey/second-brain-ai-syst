@@ -1,5 +1,5 @@
 import { MemoryTimeGroup, MemoryViewMode, Memory } from "../../types/memory";
-import { useTranslation } from "i18next-react";
+import { useTranslation } from "react-i18next";
 import { MemoryCard } from "./MemoryCard";
 import { cn } from "../../lib/utils";
 import { Calendar, Brain, Loader2 } from "lucide-react";
