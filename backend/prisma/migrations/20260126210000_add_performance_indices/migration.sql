@@ -68,10 +68,10 @@ ON "notifications" ("userId", "isRead", "createdAt" DESC);
 CREATE INDEX IF NOT EXISTS "idx_scheduled_tasks_user_enabled" 
 ON "scheduled_tasks" ("userId", "isEnabled", "nextRunAt");
 
--- Index for todos by user and completion status
+-- Index for todos by user and status
 -- Used for: Active todo list
-CREATE INDEX IF NOT EXISTS "idx_todos_user_completed" 
-ON "todos" ("userId", "completed", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_todos_user_status" 
+ON "todos" ("userId", "status", "createdAt" DESC);
 
 -- Create a partial index for recent memories (last 30 days)
 -- This is a "hot" partition of frequently accessed data
