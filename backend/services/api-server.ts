@@ -920,6 +920,33 @@ app.patch(
   },
 );
 
+// Record user interaction with notification (resets spam cooldown)
+app.post(
+  "/api/notifications/:id/interact",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await notificationController.recordInteraction(req, res);
+  },
+);
+
+// Get notification topic trackers (spam detection state)
+app.get(
+  "/api/notifications/topics",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await notificationController.getTopicTrackers(req, res);
+  },
+);
+
+// Revive a given-up topic
+app.post(
+  "/api/notifications/topics/:topic/revive",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await notificationController.reviveTopic(req, res);
+  },
+);
+
 console.log("🔔 Notification routes enabled at /api/notifications");
 
 // ==================== Notification Settings Routes ====================

@@ -1,1079 +1,1082 @@
 // Prisma schema for Second Brain AI System Backend
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 // ==================== User Model ====================
 
 model User {
-    id       String  @id @default(cuid())
-    email    String  @unique
-    password String
-    name     String?
+  id       String  @id @default(cuid())
+  email    String  @unique
+  password String
+  name     String?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // Relations
-    processedInputs        ProcessedInput[]
-    speakerProfiles        SpeakerProfile[]
-    audioStreamSessions    AudioStreamSession[]
-    audioBatches           AudioBatch[]
-    inputProcessingMetrics InputProcessingMetrics[]
-    memories               Memory[]
-    summaries              Summary[]
-    aiProviders            AIProvider[]
-    aiTaskConfigs          AITaskConfig[]
-    settings               UserSettings?
+  // Relations
+  processedInputs        ProcessedInput[]
+  speakerProfiles        SpeakerProfile[]
+  audioStreamSessions    AudioStreamSession[]
+  audioBatches           AudioBatch[]
+  inputProcessingMetrics InputProcessingMetrics[]
+  memories               Memory[]
+  summaries              Summary[]
+  aiProviders            AIProvider[]
+  aiTaskConfigs          AITaskConfig[]
+  settings               UserSettings?
 
-    // Built-in Tools relations
-    todos          Todo[]
-    scheduledTasks ScheduledTask[]
-    notifications  Notification[]
+  // Built-in Tools relations
+  todos          Todo[]
+  scheduledTasks ScheduledTask[]
+  notifications  Notification[]
 
-    // Tool configuration relations
-    toolConfigs      UserToolConfig[]
-    mcpServers       MCPServer[]
-    marketplaceTools MarketplaceTool[]
+  // Tool configuration relations
+  toolConfigs      UserToolConfig[]
+  mcpServers       MCPServer[]
+  marketplaceTools MarketplaceTool[]
 
-    // Long Running Tasks
-    longRunningTasks LongRunningTask[]
+  // Long Running Tasks
+  longRunningTasks LongRunningTask[]
 
-    // User Secrets and Generated Tools
-    secrets        UserSecret[]
-    generatedTools GeneratedTool[]
+  // User Secrets and Generated Tools
+  secrets        UserSecret[]
+  generatedTools GeneratedTool[]
 
-    // Goals and Achievements
-    goals        Goal[]
-    achievements Achievement[]
+  // Goals and Achievements
+  goals        Goal[]
+  achievements Achievement[]
 
-    // Tips and Hints
-    tips Tip[]
+  // Tips and Hints
+  tips Tip[]
 
-    // AI Self-Training
-    aiInstructions AIInstruction[]
+  // AI Self-Training
+  aiInstructions AIInstruction[]
 
-    @@map("users")
+  // Notification Topic Tracking (spam prevention)
+  notificationTopicTrackers NotificationTopicTracker[]
+
+  @@map("users")
 }
 
 // ==================== User Settings Model ====================
 
 model UserSettings {
-    id     String @id @default(cuid())
-    userId String @unique
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Continuous Listening Settings
-    continuousListeningEnabled Boolean @default(false)
-    wakeWord                   String  @default("Hey Brain")
-    wakeWordSensitivity        Float   @default(0.8) // 0.0 - 1.0
-    minImportanceThreshold     Float   @default(0.3) // Seuil pour stockage mémoire passive
-    silenceDetectionMs         Int     @default(1500) // Durée silence = fin de phrase
+  // Continuous Listening Settings
+  continuousListeningEnabled Boolean @default(false)
+  wakeWord                   String  @default("Hey Brain")
+  wakeWordSensitivity        Float   @default(0.8) // 0.0 - 1.0
+  minImportanceThreshold     Float   @default(0.3) // Seuil pour stockage mémoire passive
+  silenceDetectionMs         Int     @default(1500) // Durée silence = fin de phrase
 
-    // Audio Processing Settings
-    vadSensitivity              Float   @default(0.5) // 0.0 - 1.0
-    speakerConfidenceThreshold  Float   @default(0.7) // Seuil identification speaker
-    autoDeleteAudioAfterProcess Boolean @default(true) // Supprimer audio après traitement
+  // Audio Processing Settings
+  vadSensitivity              Float   @default(0.5) // 0.0 - 1.0
+  speakerConfidenceThreshold  Float   @default(0.7) // Seuil identification speaker
+  autoDeleteAudioAfterProcess Boolean @default(true) // Supprimer audio après traitement
 
-    // Noise Filtering Settings
-    noiseFilterEnabled         Boolean @default(true) // Activer le filtrage intelligent
-    noiseFilterSensitivity     Float   @default(0.7) // 0.0 (permissif) - 1.0 (strict)
-    filterMediaPlayback        Boolean @default(true) // Filtrer TV/radio/podcasts
-    filterBackgroundConvo      Boolean @default(true) // Filtrer conversations en arrière-plan
-    filterTrivialSelfTalk      Boolean @default(true) // Filtrer "où sont mes clés", etc.
-    filterThirdPartyAddress    Boolean @default(true) // Filtrer quand user parle à d'autres
-    askConfirmationOnAmbiguous Boolean @default(false) // Demander confirmation pour cas ambigus
+  // Noise Filtering Settings
+  noiseFilterEnabled         Boolean @default(true) // Activer le filtrage intelligent
+  noiseFilterSensitivity     Float   @default(0.7) // 0.0 (permissif) - 1.0 (strict)
+  filterMediaPlayback        Boolean @default(true) // Filtrer TV/radio/podcasts
+  filterBackgroundConvo      Boolean @default(true) // Filtrer conversations en arrière-plan
+  filterTrivialSelfTalk      Boolean @default(true) // Filtrer "où sont mes clés", etc.
+  filterThirdPartyAddress    Boolean @default(true) // Filtrer quand user parle à d'autres
+  askConfirmationOnAmbiguous Boolean @default(false) // Demander confirmation pour cas ambigus
 
-    // Notification Settings
-    notifyOnMemoryStored    Boolean @default(true)
-    notifyOnCommandDetected Boolean @default(true)
-    
-    // Pushover Integration Settings
-    pushoverUserKey  String? // Pushover user key for notifications
-    pushoverApiToken String? // Pushover API token (optional, defaults to app token)
+  // Notification Settings
+  notifyOnMemoryStored    Boolean @default(true)
+  notifyOnCommandDetected Boolean @default(true)
 
-    // Telegram Integration Settings
-    telegramBotToken String? // Telegram bot token from @BotFather
-    telegramChatId   String? // User's chat ID (auto-discovered via /start command)
-    telegramEnabled  Boolean @default(false) // Whether Telegram notifications are enabled
+  // Pushover Integration Settings
+  pushoverUserKey  String? // Pushover user key for notifications
+  pushoverApiToken String? // Pushover API token (optional, defaults to app token)
 
-    // AI Generation Settings
-    defaultMaxTokens Int @default(4096) // Default max tokens for LLM responses
+  // Telegram Integration Settings
+  telegramBotToken String? // Telegram bot token from @BotFather
+  telegramChatId   String? // User's chat ID (auto-discovered via /start command)
+  telegramEnabled  Boolean @default(false) // Whether Telegram notifications are enabled
 
-    // User Profile - Structural information about the user (name, preferences, etc.)
-    // Managed by the LLM to store important facts that shouldn't need memory search
-    // Format: JSON object with flexible structure maintained by the AI
-    userProfile Json @default("{}")
+  // AI Generation Settings
+  defaultMaxTokens Int @default(4096) // Default max tokens for LLM responses
 
-    // Metadata - Additional flexible metadata (e.g., lastGoalsCleanup timestamp)
-    metadata Json @default("{}")
+  // User Profile - Structural information about the user (name, preferences, etc.)
+  // Managed by the LLM to store important facts that shouldn't need memory search
+  // Format: JSON object with flexible structure maintained by the AI
+  userProfile Json @default("{}")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  // Metadata - Additional flexible metadata (e.g., lastGoalsCleanup timestamp)
+  metadata Json @default("{}")
 
-    @@map("user_settings")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_settings")
 }
 
 // ==================== Memory Models ====================
 
 model Memory {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Memory content
-    content String @db.Text
+  // Memory content
+  content String @db.Text
 
-    // Memory classification
-    type      MemoryType @default(SHORT_TERM)
-    timeScale TimeScale?
+  // Memory classification
+  type      MemoryType @default(SHORT_TERM)
+  timeScale TimeScale?
 
-    // Source tracking
-    sourceType    String? // 'interaction', 'observation', 'reflection', 'tool_result'
-    sourceId      String? // Reference to source (e.g., ProcessedInput id)
-    interactionId String? // Direct link to ProcessedInput if applicable
+  // Source tracking
+  sourceType    String? // 'interaction', 'observation', 'reflection', 'tool_result'
+  sourceId      String? // Reference to source (e.g., ProcessedInput id)
+  interactionId String? // Direct link to ProcessedInput if applicable
 
-    // Embedding for semantic search
-    embeddingId String? // Reference to vector in Weaviate
-    embedding   Json? // Optional: store embedding directly for backup
+  // Embedding for semantic search
+  embeddingId String? // Reference to vector in Weaviate
+  embedding   Json? // Optional: store embedding directly for backup
 
-    // Scoring and organization
-    importanceScore Float    @default(0.5) // 0.0 - 1.0
-    tags            String[] @default([])
-    entities        String[] @default([]) // Named entities extracted
+  // Scoring and organization
+  importanceScore Float    @default(0.5) // 0.0 - 1.0
+  tags            String[] @default([])
+  entities        String[] @default([]) // Named entities extracted
 
-    // Metadata
-    metadata Json @default("{}")
+  // Metadata
+  metadata Json @default("{}")
 
-    // Temporal context
-    occurredAt DateTime? // When the event/interaction happened (if different from creation)
+  // Temporal context
+  occurredAt DateTime? // When the event/interaction happened (if different from creation)
 
-    // Status
-    isArchived Boolean @default(false)
-    isPinned   Boolean @default(false)
+  // Status
+  isArchived Boolean @default(false)
+  isPinned   Boolean @default(false)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // Relations
-    sourceSummaries Summary[] @relation("SourceMemories")
+  // Relations
+  sourceSummaries Summary[] @relation("SourceMemories")
 
-    @@index([userId])
-    @@index([type])
-    @@index([timeScale])
-    @@index([importanceScore])
-    @@index([isArchived])
-    @@index([createdAt])
-    @@map("memories")
+  @@index([userId])
+  @@index([type])
+  @@index([timeScale])
+  @@index([importanceScore])
+  @@index([isArchived])
+  @@index([createdAt])
+  @@map("memories")
 }
 
 model Summary {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Summary content
-    content String  @db.Text
-    title   String?
+  // Summary content
+  content String  @db.Text
+  title   String?
 
-    // Time period covered
-    timeScale   TimeScale
-    periodStart DateTime
-    periodEnd   DateTime
+  // Time period covered
+  timeScale   TimeScale
+  periodStart DateTime
+  periodEnd   DateTime
 
-    // Linking to source memories
-    sourceMemories    Memory[] @relation("SourceMemories")
-    sourceMemoryCount Int      @default(0)
+  // Linking to source memories
+  sourceMemories    Memory[] @relation("SourceMemories")
+  sourceMemoryCount Int      @default(0)
 
-    // Extracted insights
-    keyInsights String[] @default([])
-    topics      String[] @default([])
-    sentiment   String? // 'positive', 'neutral', 'negative', 'mixed'
-    actionItems String[] @default([])
+  // Extracted insights
+  keyInsights String[] @default([])
+  topics      String[] @default([])
+  sentiment   String? // 'positive', 'neutral', 'negative', 'mixed'
+  actionItems String[] @default([])
 
-    // Embedding for semantic search
-    embeddingId String?
-    embedding   Json?
+  // Embedding for semantic search
+  embeddingId String?
+  embedding   Json?
 
-    // Metadata
-    metadata Json @default("{}")
+  // Metadata
+  metadata Json @default("{}")
 
-    // Version tracking (summaries can be regenerated)
-    version  Int     @default(1)
-    parentId String? // Previous version of this summary
+  // Version tracking (summaries can be regenerated)
+  version  Int     @default(1)
+  parentId String? // Previous version of this summary
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([userId])
-    @@index([timeScale])
-    @@index([periodStart, periodEnd])
-    @@map("summaries")
+  @@index([userId])
+  @@index([timeScale])
+  @@index([periodStart, periodEnd])
+  @@map("summaries")
 }
 
 enum MemoryType {
-    SHORT_TERM
-    LONG_TERM
+  SHORT_TERM
+  LONG_TERM
 }
 
 enum TimeScale {
-    DAILY
-    THREE_DAY
-    WEEKLY
-    BIWEEKLY
-    MONTHLY
-    QUARTERLY
-    SIX_MONTH
-    YEARLY
-    MULTI_YEAR
+  DAILY
+  THREE_DAY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  SIX_MONTH
+  YEARLY
+  MULTI_YEAR
 }
 
 // ==================== Input Ingestion Models ====================
 
 model ProcessedInput {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    format          String // 'text', 'audio_stream', 'audio_batch'
-    content         String @db.Text
-    originalContent Bytes? // Raw audio data if applicable
+  format          String // 'text', 'audio_stream', 'audio_batch'
+  content         String @db.Text
+  originalContent Bytes? // Raw audio data if applicable
 
-    speakerId         String
-    speakerConfidence Float  @default(1.0) // 0.0 - 1.0
-    speakerMethod     String @default("assumed") // 'assumed', 'identified', 'uncertain'
+  speakerId         String
+  speakerConfidence Float  @default(1.0) // 0.0 - 1.0
+  speakerMethod     String @default("assumed") // 'assumed', 'identified', 'uncertain'
 
-    status          String @default("pending") // 'pending', 'processing', 'completed', 'failed'
-    durationSeconds Float?
+  status          String @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  durationSeconds Float?
 
-    metadata     Json      @default("{}")
-    errorMessage String?
-    retryCount   Int       @default(0)
-    processedAt  DateTime?
+  metadata     Json      @default("{}")
+  errorMessage String?
+  retryCount   Int       @default(0)
+  processedAt  DateTime?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // Relations
-    audioStream     AudioStreamSession?     @relation(fields: [audioStreamId], references: [id], onDelete: SetNull)
-    audioStreamId   String?
-    batchResults    BatchProcessingResult[]
-    metricsSnapshot InputProcessingMetrics? @relation("MetricsSnapshot")
+  // Relations
+  audioStream     AudioStreamSession?     @relation(fields: [audioStreamId], references: [id], onDelete: SetNull)
+  audioStreamId   String?
+  batchResults    BatchProcessingResult[]
+  metricsSnapshot InputProcessingMetrics? @relation("MetricsSnapshot")
 
-    @@index([userId])
-    @@index([status])
-    @@map("processed_inputs")
+  @@index([userId])
+  @@index([status])
+  @@map("processed_inputs")
 }
 
 model SpeakerProfile {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    name                 String
-    voiceCharacteristics Json   @default("{}")
-    identificationMethod String @default("manual") // 'manual', 'ml_model', 'confirmed'
-    confidence           Float  @default(1.0)
+  name                 String
+  voiceCharacteristics Json   @default("{}")
+  identificationMethod String @default("manual") // 'manual', 'ml_model', 'confirmed'
+  confidence           Float  @default(1.0)
 
-    // Embedding data
-    centroidEmbedding Json? // Average of all voice sample embeddings
-    embeddingModel    String @default("ecapa-tdnn") // Model used for embeddings
-    embeddingVersion  String @default("1.0")
+  // Embedding data
+  centroidEmbedding Json? // Average of all voice sample embeddings
+  embeddingModel    String @default("ecapa-tdnn") // Model used for embeddings
+  embeddingVersion  String @default("1.0")
 
-    // Training state
-    isEnrolled       Boolean   @default(false) // Has completed initial enrollment
-    enrollmentDate   DateTime?
-    lastTrainingDate DateTime?
+  // Training state
+  isEnrolled       Boolean   @default(false) // Has completed initial enrollment
+  enrollmentDate   DateTime?
+  lastTrainingDate DateTime?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // Relations
-    voiceSamples     VoiceSample[]
-    trainingSessions TrainingSession[]
+  // Relations
+  voiceSamples     VoiceSample[]
+  trainingSessions TrainingSession[]
 
-    @@index([userId])
-    @@map("speaker_profiles")
+  @@index([userId])
+  @@map("speaker_profiles")
 }
 
 // ==================== Voice Training Models ====================
 
 model VoiceSample {
-    id               String         @id @default(cuid())
-    speakerProfileId String
-    speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+  id               String         @id @default(cuid())
+  speakerProfileId String
+  speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
 
-    // File storage
-    storagePath     String // Local path to audio file
-    originalName    String // Original filename
-    mimeType        String @default("audio/wav")
-    fileSizeBytes   Int
-    durationSeconds Float
+  // File storage
+  storagePath     String // Local path to audio file
+  originalName    String // Original filename
+  mimeType        String @default("audio/wav")
+  fileSizeBytes   Int
+  durationSeconds Float
 
-    // Training phrase info
-    phraseText     String? // The phrase that was spoken
-    phraseCategory String? // 'passphrase', 'sentence', 'numeric'
+  // Training phrase info
+  phraseText     String? // The phrase that was spoken
+  phraseCategory String? // 'passphrase', 'sentence', 'numeric'
 
-    // Embedding data
-    embedding      Json? // Vector embedding extracted from this sample
-    embeddingModel String? // Model used for this embedding
+  // Embedding data
+  embedding      Json? // Vector embedding extracted from this sample
+  embeddingModel String? // Model used for this embedding
 
-    // Processing state
-    status       String    @default("pending") // 'pending', 'processing', 'completed', 'failed'
-    errorMessage String?
-    processedAt  DateTime?
+  // Processing state
+  status       String    @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  errorMessage String?
+  processedAt  DateTime?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([speakerProfileId])
-    @@index([status])
-    @@map("voice_samples")
+  @@index([speakerProfileId])
+  @@index([status])
+  @@map("voice_samples")
 }
 
 model TrainingSession {
-    id               String         @id @default(cuid())
-    speakerProfileId String
-    speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+  id               String         @id @default(cuid())
+  speakerProfileId String
+  speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
 
-    // Training configuration
-    modelType     String @default("ecapa-tdnn")
-    sampleCount   Int // Number of samples used
-    totalDuration Float // Total audio duration in seconds
+  // Training configuration
+  modelType     String @default("ecapa-tdnn")
+  sampleCount   Int // Number of samples used
+  totalDuration Float // Total audio duration in seconds
 
-    // Progress tracking
-    status       String  @default("pending") // 'pending', 'processing', 'completed', 'failed'
-    progress     Float   @default(0) // 0-100
-    currentStep  String? // Current processing step description
-    errorMessage String?
+  // Progress tracking
+  status       String  @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  progress     Float   @default(0) // 0-100
+  currentStep  String? // Current processing step description
+  errorMessage String?
 
-    // Results
-    centroidEmbedding  Json? // Computed centroid from all samples
-    confidenceScore    Float? // Quality/consistency score
-    intraClassVariance Float? // Variance between samples (lower = more consistent)
+  // Results
+  centroidEmbedding  Json? // Computed centroid from all samples
+  confidenceScore    Float? // Quality/consistency score
+  intraClassVariance Float? // Variance between samples (lower = more consistent)
 
-    startedAt   DateTime?
-    completedAt DateTime?
-    createdAt   DateTime  @default(now())
-    updatedAt   DateTime  @updatedAt
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-    @@index([speakerProfileId])
-    @@index([status])
-    @@map("training_sessions")
+  @@index([speakerProfileId])
+  @@index([status])
+  @@map("training_sessions")
 }
 
 model AudioStreamSession {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    sessionName  String
-    format       String @default("wav") // 'wav', 'mp3', 'aac', 'flac'
-    sampleRate   Int    @default(16000)
-    channelCount Int    @default(1)
-    duration     Float?
+  sessionName  String
+  format       String @default("wav") // 'wav', 'mp3', 'aac', 'flac'
+  sampleRate   Int    @default(16000)
+  channelCount Int    @default(1)
+  duration     Float?
 
-    startedAt   DateTime  @default(now())
-    completedAt DateTime?
-    status      String    @default("active") // 'active', 'completed', 'error'
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  status      String    @default("active") // 'active', 'completed', 'error'
 
-    processedInputs ProcessedInput[]
-    metadata        Json             @default("{}")
+  processedInputs ProcessedInput[]
+  metadata        Json             @default("{}")
 
-    @@index([userId])
-    @@map("audio_stream_sessions")
+  @@index([userId])
+  @@map("audio_stream_sessions")
 }
 
 model AudioBatch {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    batchName     String
-    fileCount     Int
-    totalDuration Float?
-    uploadedAt    DateTime  @default(now())
-    processedAt   DateTime?
-    status        String    @default("pending") // 'pending', 'processing', 'completed', 'error'
+  batchName     String
+  fileCount     Int
+  totalDuration Float?
+  uploadedAt    DateTime  @default(now())
+  processedAt   DateTime?
+  status        String    @default("pending") // 'pending', 'processing', 'completed', 'error'
 
-    batchResults BatchProcessingResult[]
-    metadata     Json                    @default("{}")
+  batchResults BatchProcessingResult[]
+  metadata     Json                    @default("{}")
 
-    @@index([userId])
-    @@index([status])
-    @@map("audio_batches")
+  @@index([userId])
+  @@index([status])
+  @@map("audio_batches")
 }
 
 model BatchProcessingResult {
-    id      String     @id @default(cuid())
-    batchId String
-    batch   AudioBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  id      String     @id @default(cuid())
+  batchId String
+  batch   AudioBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
-    processedInputId String
-    processedInput   ProcessedInput @relation(fields: [processedInputId], references: [id], onDelete: Cascade)
+  processedInputId String
+  processedInput   ProcessedInput @relation(fields: [processedInputId], references: [id], onDelete: Cascade)
 
-    fileIndex      Int
-    fileName       String
-    processingTime Float?
-    success        Boolean @default(true)
-    errorMessage   String?
+  fileIndex      Int
+  fileName       String
+  processingTime Float?
+  success        Boolean @default(true)
+  errorMessage   String?
 
-    @@unique([batchId, fileIndex])
-    @@map("batch_processing_results")
+  @@unique([batchId, fileIndex])
+  @@map("batch_processing_results")
 }
 
 model InputProcessingMetrics {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    snapshotId     String?         @unique
-    processedInput ProcessedInput? @relation("MetricsSnapshot", fields: [snapshotId], references: [id], onDelete: SetNull)
+  snapshotId     String?         @unique
+  processedInput ProcessedInput? @relation("MetricsSnapshot", fields: [snapshotId], references: [id], onDelete: SetNull)
 
-    totalInputs           Int
-    successfulInputs      Int
-    failedInputs          Int
-    averageProcessingTime Float?
-    lastProcessedAt       DateTime?
+  totalInputs           Int
+  successfulInputs      Int
+  failedInputs          Int
+  averageProcessingTime Float?
+  lastProcessedAt       DateTime?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([userId])
-    @@map("input_processing_metrics")
+  @@index([userId])
+  @@map("input_processing_metrics")
 }
 
 // ==================== AI Settings Models ====================
 
 model AIProvider {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    name      String
-    type      ProviderType // 'OPENAI' or 'OPENAI_COMPATIBLE'
-    apiKey    String // Encrypted API key
-    baseUrl   String? // Required for OPENAI_COMPATIBLE type
-    isEnabled Boolean      @default(true)
+  name      String
+  type      ProviderType // 'OPENAI' or 'OPENAI_COMPATIBLE'
+  apiKey    String // Encrypted API key
+  baseUrl   String? // Required for OPENAI_COMPATIBLE type
+  isEnabled Boolean      @default(true)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // Relations
-    models              AIModel[]
-    primaryTaskConfigs  AITaskConfig[] @relation("primaryProvider")
-    fallbackTaskConfigs AITaskConfig[] @relation("fallbackProvider")
+  // Relations
+  models              AIModel[]
+  primaryTaskConfigs  AITaskConfig[] @relation("primaryProvider")
+  fallbackTaskConfigs AITaskConfig[] @relation("fallbackProvider")
 
-    @@unique([userId, name])
-    @@index([userId])
-    @@map("ai_providers")
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("ai_providers")
 }
 
 model AIModel {
-    id         String     @id @default(cuid())
-    providerId String
-    provider   AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  id         String     @id @default(cuid())
+  providerId String
+  provider   AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
-    modelId      String // The actual model ID (e.g., 'gpt-4o', 'whisper-1')
-    name         String // Display name
-    capabilities ModelCapability[] // What this model can do
-    isCustom     Boolean           @default(false) // User-added vs default
+  modelId      String // The actual model ID (e.g., 'gpt-4o', 'whisper-1')
+  name         String // Display name
+  capabilities ModelCapability[] // What this model can do
+  isCustom     Boolean           @default(false) // User-added vs default
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // Relations
-    primaryTaskConfigs  AITaskConfig[] @relation("primaryModel")
-    fallbackTaskConfigs AITaskConfig[] @relation("fallbackModel")
+  // Relations
+  primaryTaskConfigs  AITaskConfig[] @relation("primaryModel")
+  fallbackTaskConfigs AITaskConfig[] @relation("fallbackModel")
 
-    @@unique([providerId, modelId])
-    @@index([providerId])
-    @@map("ai_models")
+  @@unique([providerId, modelId])
+  @@index([providerId])
+  @@map("ai_models")
 }
 
 model AITaskConfig {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    taskType ModelCapability @unique // One config per task type per user
+  taskType ModelCapability @unique // One config per task type per user
 
-    // Primary provider and model
-    providerId String?
-    provider   AIProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull, name: "primaryProvider")
-    modelId    String?
-    model      AIModel?    @relation(fields: [modelId], references: [id], onDelete: SetNull, name: "primaryModel")
+  // Primary provider and model
+  providerId String?
+  provider   AIProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull, name: "primaryProvider")
+  modelId    String?
+  model      AIModel?    @relation(fields: [modelId], references: [id], onDelete: SetNull, name: "primaryModel")
 
-    // Fallback provider and model
-    fallbackProviderId String?
-    fallbackProvider   AIProvider? @relation(fields: [fallbackProviderId], references: [id], onDelete: SetNull, name: "fallbackProvider")
-    fallbackModelId    String?
-    fallbackModel      AIModel?    @relation(fields: [fallbackModelId], references: [id], onDelete: SetNull, name: "fallbackModel")
+  // Fallback provider and model
+  fallbackProviderId String?
+  fallbackProvider   AIProvider? @relation(fields: [fallbackProviderId], references: [id], onDelete: SetNull, name: "fallbackProvider")
+  fallbackModelId    String?
+  fallbackModel      AIModel?    @relation(fields: [fallbackModelId], references: [id], onDelete: SetNull, name: "fallbackModel")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([userId, taskType])
-    @@index([userId])
-    @@map("ai_task_configs")
+  @@unique([userId, taskType])
+  @@index([userId])
+  @@map("ai_task_configs")
 }
 
 // ==================== Audit Log Model ====================
 
 model AuditLog {
-    id        String   @id @default(cuid())
-    userId    String?
-    action    String // e.g., "SCHEDULER_TASK", "MEMORY_CREATE", "AGENT_RUN"
-    resource  String // e.g., task ID, memory ID
-    metadata  Json     @default("{}")
-    createdAt DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // e.g., "SCHEDULER_TASK", "MEMORY_CREATE", "AGENT_RUN"
+  resource  String // e.g., task ID, memory ID
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
 
-    @@index([userId])
-    @@index([action])
-    @@index([createdAt])
-    @@map("audit_logs")
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 enum ProviderType {
-    OPENAI
-    OPENAI_COMPATIBLE
+  OPENAI
+  OPENAI_COMPATIBLE
 }
 
 enum ModelCapability {
-    SPEECH_TO_TEXT
-    ROUTING
-    REFLECTION
-    IMAGE_GENERATION
-    EMBEDDINGS
-    CHAT
-    SUMMARIZATION
-    ANALYSIS
+  SPEECH_TO_TEXT
+  ROUTING
+  REFLECTION
+  IMAGE_GENERATION
+  EMBEDDINGS
+  CHAT
+  SUMMARIZATION
+  ANALYSIS
 }
 
 // ==================== Built-in Tools Models ====================
 
 // Todolist System
 model Todo {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    title       String
-    description String?      @db.Text
-    status      TodoStatus   @default(PENDING)
-    priority    TodoPriority @default(MEDIUM)
+  title       String
+  description String?      @db.Text
+  status      TodoStatus   @default(PENDING)
+  priority    TodoPriority @default(MEDIUM)
 
-    // Organization
-    category String?
-    tags     String[] @default([])
+  // Organization
+  category String?
+  tags     String[] @default([])
 
-    // Due date and reminders
-    dueDate    DateTime?
-    reminderAt DateTime?
+  // Due date and reminders
+  dueDate    DateTime?
+  reminderAt DateTime?
 
-    // Recurrence (for recurring todos)
-    isRecurring    Boolean @default(false)
-    recurrenceRule String? // iCal RRULE format (e.g., "FREQ=DAILY;INTERVAL=1")
+  // Recurrence (for recurring todos)
+  isRecurring    Boolean @default(false)
+  recurrenceRule String? // iCal RRULE format (e.g., "FREQ=DAILY;INTERVAL=1")
 
-    // Completion tracking
-    completedAt DateTime?
+  // Completion tracking
+  completedAt DateTime?
 
-    // Linking to memories/interactions
-    sourceMemoryId String?
+  // Linking to memories/interactions
+  sourceMemoryId String?
 
-    // Metadata
-    metadata Json @default("{}")
+  // Metadata
+  metadata Json @default("{}")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([userId])
-    @@index([status])
-    @@index([dueDate])
-    @@index([priority])
-    @@map("todos")
+  @@index([userId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([priority])
+  @@map("todos")
 }
 
 enum TodoStatus {
-    PENDING
-    IN_PROGRESS
-    COMPLETED
-    CANCELLED
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum TodoPriority {
-    LOW
-    MEDIUM
-    HIGH
-    URGENT
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }
 
 // Scheduled Tasks System (Cron-like)
 model ScheduledTask {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    name        String
-    description String? @db.Text
+  name        String
+  description String? @db.Text
 
-    // Scheduling
-    scheduleType   ScheduleType
-    cronExpression String? // For CRON type: "0 9 * * *"
-    executeAt      DateTime? // For ONE_TIME type
-    interval       Int? // For INTERVAL type: minutes
+  // Scheduling
+  scheduleType   ScheduleType
+  cronExpression String? // For CRON type: "0 9 * * *"
+  executeAt      DateTime? // For ONE_TIME type
+  interval       Int? // For INTERVAL type: minutes
 
-    // Action to perform
-    actionType    TaskActionType
-    actionPayload Json // Data needed to execute the action
+  // Action to perform
+  actionType    TaskActionType
+  actionPayload Json // Data needed to execute the action
 
-    // Status and execution tracking
-    isEnabled     Boolean   @default(true)
-    lastRunAt     DateTime?
-    nextRunAt     DateTime?
-    runCount      Int       @default(0)
-    lastRunStatus String? // 'success', 'failed', 'skipped'
-    lastRunError  String?
+  // Status and execution tracking
+  isEnabled     Boolean   @default(true)
+  lastRunAt     DateTime?
+  nextRunAt     DateTime?
+  runCount      Int       @default(0)
+  lastRunStatus String? // 'success', 'failed', 'skipped'
+  lastRunError  String?
 
-    // Limits
-    maxRuns   Int? // null = unlimited
-    expiresAt DateTime? // Auto-disable after this date
+  // Limits
+  maxRuns   Int? // null = unlimited
+  expiresAt DateTime? // Auto-disable after this date
 
-    // Metadata
-    metadata Json @default("{}")
+  // Metadata
+  metadata Json @default("{}")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // Relations
-    executions TaskExecution[]
+  // Relations
+  executions TaskExecution[]
 
-    @@index([userId])
-    @@index([isEnabled])
-    @@index([nextRunAt])
-    @@map("scheduled_tasks")
+  @@index([userId])
+  @@index([isEnabled])
+  @@index([nextRunAt])
+  @@map("scheduled_tasks")
 }
 
 model TaskExecution {
-    id              String        @id @default(cuid())
-    scheduledTaskId String
-    scheduledTask   ScheduledTask @relation(fields: [scheduledTaskId], references: [id], onDelete: Cascade)
+  id              String        @id @default(cuid())
+  scheduledTaskId String
+  scheduledTask   ScheduledTask @relation(fields: [scheduledTaskId], references: [id], onDelete: Cascade)
 
-    status       String // 'running', 'success', 'failed'
-    output       Json? // Result/output of the execution
-    errorMessage String?
+  status       String // 'running', 'success', 'failed'
+  output       Json? // Result/output of the execution
+  errorMessage String?
 
-    startedAt   DateTime  @default(now())
-    completedAt DateTime?
-    durationMs  Int?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  durationMs  Int?
 
-    @@index([scheduledTaskId])
-    @@index([startedAt])
-    @@map("task_executions")
+  @@index([scheduledTaskId])
+  @@index([startedAt])
+  @@map("task_executions")
 }
 
 enum ScheduleType {
-    ONE_TIME // Execute once at a specific time
-    CRON // Execute based on cron expression
-    INTERVAL // Execute at regular intervals
+  ONE_TIME // Execute once at a specific time
+  CRON // Execute based on cron expression
+  INTERVAL // Execute at regular intervals
 }
 
 enum TaskActionType {
-    SEND_NOTIFICATION // Send a notification to user
-    CREATE_TODO // Create a todo item
-    GENERATE_SUMMARY // Generate a memory summary
-    RUN_AGENT // Run a background agent
-    WEBHOOK // Call an external webhook
-    CUSTOM // Custom action with payload
+  SEND_NOTIFICATION // Send a notification to user
+  CREATE_TODO // Create a todo item
+  GENERATE_SUMMARY // Generate a memory summary
+  RUN_AGENT // Run a background agent
+  WEBHOOK // Call an external webhook
+  CUSTOM // Custom action with payload
 }
 
 // Notification System
 model Notification {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    title   String
-    message String           @db.Text
-    type    NotificationType @default(INFO)
+  title   String
+  message String           @db.Text
+  type    NotificationType @default(INFO)
 
-    // Delivery channels
-    channels NotificationChannel[] @default([IN_APP])
+  // Delivery channels
+  channels NotificationChannel[] @default([IN_APP])
 
-    // Status
-    isRead      Boolean   @default(false)
-    readAt      DateTime?
-    isDismissed Boolean   @default(false)
+  // Status
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  isDismissed Boolean   @default(false)
 
-    // Scheduling (for future notifications)
-    scheduledFor DateTime?
-    sentAt       DateTime?
+  // Scheduling (for future notifications)
+  scheduledFor DateTime?
+  sentAt       DateTime?
 
-    // Linking
-    sourceType String? // 'todo', 'scheduled_task', 'memory', 'agent'
-    sourceId   String?
+  // Linking
+  sourceType String? // 'todo', 'scheduled_task', 'memory', 'agent'
+  sourceId   String?
 
-    // Action (optional clickable action)
-    actionUrl   String?
-    actionLabel String?
+  // Action (optional clickable action)
+  actionUrl   String?
+  actionLabel String?
 
-    // Metadata
-    metadata Json @default("{}")
+  // Metadata
+  metadata Json @default("{}")
 
-    // Spam detection - link to topic tracker
-    topicTrackerId String?
-    topicTracker   NotificationTopicTracker? @relation(fields: [topicTrackerId], references: [id])
+  // Spam detection - link to topic tracker
+  topicTrackerId String?
+  topicTracker   NotificationTopicTracker? @relation(fields: [topicTrackerId], references: [id])
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([userId])
-    @@index([isRead])
-    @@index([scheduledFor])
-    @@index([type])
-    @@index([topicTrackerId])
-    @@map("notifications")
+  @@index([userId])
+  @@index([isRead])
+  @@index([scheduledFor])
+  @@index([type])
+  @@index([topicTrackerId])
+  @@map("notifications")
 }
 
 // Notification Topic Tracker - tracks notification topics with exponential backoff
 model NotificationTopicTracker {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Topic identification (semantic category from AI analysis)
-    topic           String // e.g., "health_hydration", "goal_exercise", "reminder_meeting"
-    category        NotificationCategory @default(GENERAL)
-    
-    // Content tracking for semantic comparison
-    lastContentHash String   @db.Text // Hash or summary of last notification content
-    sampleMessages  String[] // Recent message samples for LLM comparison
+  // Topic identification (semantic category from AI analysis)
+  topic    String // e.g., "health_hydration", "goal_exercise", "reminder_meeting"
+  category NotificationCategory @default(GENERAL)
 
-    // Exponential backoff state
-    attemptCount       Int      @default(1)   // Number of times this topic was sent
-    cooldownMinutes    Int      @default(60)  // Current cooldown in minutes (increases exponentially)
-    nextAllowedAt      DateTime // When we can send this topic again
-    maxAttempts        Int      @default(5)   // Give up after this many unanswered attempts
-    isGivenUp          Boolean  @default(false) // Topic abandoned due to no response
-    
-    // User engagement tracking
-    lastUserResponse   DateTime? // When user last interacted with this topic
-    responseCount      Int       @default(0)  // How many times user responded
-    
-    // Statistics
-    totalSent          Int      @default(1)
-    totalBlocked       Int      @default(0)
-    
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  // Content tracking for semantic comparison
+  lastContentHash String   @db.Text // Hash or summary of last notification content
+  sampleMessages  String[] // Recent message samples for LLM comparison
 
-    // Related notifications
-    notifications Notification[]
+  // Exponential backoff state
+  attemptCount    Int      @default(1) // Number of times this topic was sent
+  cooldownMinutes Int      @default(60) // Current cooldown in minutes (increases exponentially)
+  nextAllowedAt   DateTime // When we can send this topic again
+  maxAttempts     Int      @default(5) // Give up after this many unanswered attempts
+  isGivenUp       Boolean  @default(false) // Topic abandoned due to no response
 
-    @@unique([userId, topic])
-    @@index([userId])
-    @@index([nextAllowedAt])
-    @@index([isGivenUp])
-    @@index([category])
-    @@map("notification_topic_trackers")
+  // User engagement tracking
+  lastUserResponse DateTime? // When user last interacted with this topic
+  responseCount    Int       @default(0) // How many times user responded
+
+  // Statistics
+  totalSent    Int @default(1)
+  totalBlocked Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Related notifications
+  notifications Notification[]
+
+  @@unique([userId, topic])
+  @@index([userId])
+  @@index([nextAllowedAt])
+  @@index([isGivenUp])
+  @@index([category])
+  @@map("notification_topic_trackers")
 }
 
 enum NotificationCategory {
-    HEALTH        // Physical health, hydration, exercise, sleep
-    MENTAL        // Mental wellbeing, stress, mindfulness
-    PRODUCTIVITY  // Work, tasks, deadlines
-    GOALS         // Personal goals tracking
-    HABITS        // Habit tracking and reminders
-    RELATIONSHIPS // Social, family, friends
-    LEARNING      // Education, skill development
-    FINANCIAL     // Money, budgeting
-    SYSTEM        // App notifications, updates
-    GENERAL       // Uncategorized
+  HEALTH // Physical health, hydration, exercise, sleep
+  MENTAL // Mental wellbeing, stress, mindfulness
+  PRODUCTIVITY // Work, tasks, deadlines
+  GOALS // Personal goals tracking
+  HABITS // Habit tracking and reminders
+  RELATIONSHIPS // Social, family, friends
+  LEARNING // Education, skill development
+  FINANCIAL // Money, budgeting
+  SYSTEM // App notifications, updates
+  GENERAL // Uncategorized
 }
 
 enum NotificationType {
-    INFO
-    SUCCESS
-    WARNING
-    ERROR
-    REMINDER
-    ACHIEVEMENT
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  REMINDER
+  ACHIEVEMENT
 }
 
 enum NotificationChannel {
-    IN_APP // In-app notification
-    EMAIL // Email notification
-    PUSH // Push notification (mobile/desktop)
-    WEBHOOK // External webhook
-    PUSHOVER // Pushover notification service
-    TELEGRAM // Telegram bot notification
+  IN_APP // In-app notification
+  EMAIL // Email notification
+  PUSH // Push notification (mobile/desktop)
+  WEBHOOK // External webhook
+  PUSHOVER // Pushover notification service
+  TELEGRAM // Telegram bot notification
 }
 
 // ==================== Tips & Hints System ====================
 
 model Tip {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Content
-    title       String
-    description String @db.Text
-    category    String @default("general") // e.g., 'getting-started', 'feature-highlight', 'productivity'
-    targetFeature String? // Which feature/page this tip is for (e.g., 'memories', 'tools', 'voice')
+  // Content
+  title         String
+  description   String  @db.Text
+  category      String  @default("general") // e.g., 'getting-started', 'feature-highlight', 'productivity'
+  targetFeature String? // Which feature/page this tip is for (e.g., 'memories', 'tools', 'voice')
 
-    // State tracking
-    isDismissed  Boolean   @default(false)
-    dismissedAt  DateTime?
-    viewCount    Int       @default(0)
-    lastViewedAt DateTime?
+  // State tracking
+  isDismissed  Boolean   @default(false)
+  dismissedAt  DateTime?
+  viewCount    Int       @default(0)
+  lastViewedAt DateTime?
 
-    // Display
-    priority Int @default(0) // Higher = show first
-    icon     String? // Icon identifier (e.g., 'lightbulb', 'star')
-    metadata Json @default("{}") // Extra data (e.g., video URL, links)
+  // Display
+  priority Int     @default(0) // Higher = show first
+  icon     String? // Icon identifier (e.g., 'lightbulb', 'star')
+  metadata Json    @default("{}") // Extra data (e.g., video URL, links)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([userId])
-    @@index([isDismissed])
-    @@index([targetFeature])
-    @@index([priority])
-    @@map("tips")
+  @@index([userId])
+  @@index([isDismissed])
+  @@index([targetFeature])
+  @@index([priority])
+  @@map("tips")
 }
 
 // ==================== Tool Configuration Models ====================
 
 // User-specific tool configuration (enable/disable, settings)
 model UserToolConfig {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    toolId    String // Identifier of the tool (e.g., 'todo', 'curl', 'mcp_github')
-    enabled   Boolean @default(true)
-    config    Json    @default("{}") // Tool-specific configuration
-    rateLimit Int? // Override default rate limit
-    timeout   Int? // Override default timeout
+  toolId    String // Identifier of the tool (e.g., 'todo', 'curl', 'mcp_github')
+  enabled   Boolean @default(true)
+  config    Json    @default("{}") // Tool-specific configuration
+  rateLimit Int? // Override default rate limit
+  timeout   Int? // Override default timeout
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([userId, toolId])
-    @@index([userId])
-    @@map("user_tool_configs")
+  @@unique([userId, toolId])
+  @@index([userId])
+  @@map("user_tool_configs")
 }
 
 // MCP Server configuration
 model MCPServer {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    name        String // Display name
-    description String? // User description
+  name        String // Display name
+  description String? // User description
 
-    // Connection config
-    transportType MCPTransportType @default(STDIO)
-    command       String? // For STDIO: command to run
-    args          String[]         @default([]) // Command arguments
-    env           Json             @default("{}") // Environment variables
-    url           String? // For HTTP/SSE: server URL
+  // Connection config
+  transportType MCPTransportType @default(STDIO)
+  command       String? // For STDIO: command to run
+  args          String[]         @default([]) // Command arguments
+  env           Json             @default("{}") // Environment variables
+  url           String? // For HTTP/SSE: server URL
 
-    // Status
-    enabled       Boolean   @default(true)
-    isConnected   Boolean   @default(false)
-    lastConnected DateTime?
-    lastError     String?
+  // Status
+  enabled       Boolean   @default(true)
+  isConnected   Boolean   @default(false)
+  lastConnected DateTime?
+  lastError     String?
 
-    // Discovered capabilities
-    availableTools Json @default("[]") // List of tools provided by this server
-    serverInfo     Json @default("{}") // Server metadata
+  // Discovered capabilities
+  availableTools Json @default("[]") // List of tools provided by this server
+  serverInfo     Json @default("{}") // Server metadata
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([userId, name])
-    @@index([userId])
-    @@map("mcp_servers")
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("mcp_servers")
 }
 
 // Marketplace tool installation
 model MarketplaceTool {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    toolSlug    String // Unique identifier from marketplace
-    installedAt DateTime @default(now())
-    config      Json     @default("{}") // Tool configuration
-    enabled     Boolean  @default(true)
+  toolSlug    String // Unique identifier from marketplace
+  installedAt DateTime @default(now())
+  config      Json     @default("{}") // Tool configuration
+  enabled     Boolean  @default(true)
 
-    @@unique([userId, toolSlug])
-    @@index([userId])
-    @@map("marketplace_tools")
+  @@unique([userId, toolSlug])
+  @@index([userId])
+  @@map("marketplace_tools")
 }
 
 enum MCPTransportType {
-    STDIO // Standard input/output
-    HTTP // HTTP transport
-    SSE // Server-Sent Events
+  STDIO // Standard input/output
+  HTTP // HTTP transport
+  SSE // Server-Sent Events
 }
 
 // ==================== Long Running Task Models ====================
 
 // Main task entity for long-lasting autonomous operations
 model LongRunningTask {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Task definition
-    name        String
-    description String @db.Text
-    objective   String @db.Text // Clear statement of what the task should achieve
+  // Task definition
+  name        String
+  description String @db.Text
+  objective   String @db.Text // Clear statement of what the task should achieve
 
-    // Timing
-    estimatedDurationMinutes Int?
-    startedAt                DateTime?
-    completedAt              DateTime?
-    lastPausedAt             DateTime?
-    lastResumedAt            DateTime?
+  // Timing
+  estimatedDurationMinutes Int?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  lastPausedAt             DateTime?
+  lastResumedAt            DateTime?
 
-    // Status tracking
-    status       LongRunningTaskStatus @default(PENDING)
-    progress     Int                   @default(0) // 0-100
-    currentStep  String?
-    errorMessage String?
+  // Status tracking
+  status       LongRunningTaskStatus @default(PENDING)
+  progress     Int                   @default(0) // 0-100
+  currentStep  String?
+  errorMessage String?
 
-    // Step tracking
-    totalSteps     Int @default(0)
-    completedSteps Int @default(0)
+  // Step tracking
+  totalSteps     Int @default(0)
+  completedSteps Int @default(0)
 
-    // Checkpoint system
-    lastCheckpointAt      DateTime?
-    lastCheckpointSummary String?   @db.Text
+  // Checkpoint system
+  lastCheckpointAt      DateTime?
+  lastCheckpointSummary String?   @db.Text
 
-    // Configuration
-    priority                TaskPriority           @default(MEDIUM)
-    completionBehavior      TaskCompletionBehavior @default(NOTIFY_USER)
-    notifyOnProgress        Boolean                @default(false)
-    progressIntervalMinutes Int                    @default(15) // How often to send progress updates
+  // Configuration
+  priority                TaskPriority           @default(MEDIUM)
+  completionBehavior      TaskCompletionBehavior @default(NOTIFY_USER)
+  notifyOnProgress        Boolean                @default(false)
+  progressIntervalMinutes Int                    @default(15) // How often to send progress updates
 
-    // Context and results
-    context      Json    @default("{}") // Accumulated context from step results
-    finalSummary String? @db.Text // Final report generated on completion
+  // Context and results
+  context      Json    @default("{}") // Accumulated context from step results
+  finalSummary String? @db.Text // Final report generated on completion
 
-    // Metadata
-    metadata Json @default("{}")
+  // Metadata
+  metadata Json @default("{}")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // Relations
-    steps TaskStep[]
-    logs  TaskLog[]
+  // Relations
+  steps TaskStep[]
+  logs  TaskLog[]
 
-    @@index([userId])
-    @@index([status])
-    @@index([priority])
-    @@index([createdAt])
-    @@map("long_running_tasks")
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("long_running_tasks")
 }
 
 // Individual step within a long running task
 model TaskStep {
-    id     String          @id @default(cuid())
-    taskId String
-    task   LongRunningTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id     String          @id @default(cuid())
+  taskId String
+  task   LongRunningTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-    // Step definition
-    stepOrder   Int // Order of execution
-    name        String
-    description String? @db.Text
-    action      String // Action type: 'llm_generate', 'wait', 'conditional', etc.
-    params      Json    @default("{}") // Parameters for the action
+  // Step definition
+  stepOrder   Int // Order of execution
+  name        String
+  description String? @db.Text
+  action      String // Action type: 'llm_generate', 'wait', 'conditional', etc.
+  params      Json    @default("{}") // Parameters for the action
 
-    // Timing
-    expectedDurationMinutes Int?
-    startedAt               DateTime?
-    completedAt             DateTime?
+  // Timing
+  expectedDurationMinutes Int?
+  startedAt               DateTime?
+  completedAt             DateTime?
 
-    // Status
-    status       TaskStepStatus @default(PENDING)
-    errorMessage String?
+  // Status
+  status       TaskStepStatus @default(PENDING)
+  errorMessage String?
 
-    // Checkpoint
-    isCheckpoint Boolean @default(false) // Should this step trigger a checkpoint summary?
+  // Checkpoint
+  isCheckpoint Boolean @default(false) // Should this step trigger a checkpoint summary?
 
-    // Error handling
-    onError    String @default("abort") // 'continue', 'retry', 'abort'
-    maxRetries Int    @default(3)
-    retryCount Int    @default(0)
+  // Error handling
+  onError    String @default("abort") // 'continue', 'retry', 'abort'
+  maxRetries Int    @default(3)
+  retryCount Int    @default(0)
 
-    // Result
-    result Json? // Output from this step
+  // Result
+  result Json? // Output from this step
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([taskId, stepOrder])
-    @@index([taskId])
-    @@index([status])
-    @@map("task_steps")
+  @@unique([taskId, stepOrder])
+  @@index([taskId])
+  @@index([status])
+  @@map("task_steps")
 }
 
 // Logging for task execution
 model TaskLog {
-    id     String          @id @default(cuid())
-    taskId String
-    task   LongRunningTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id     String          @id @default(cuid())
+  taskId String
+  task   LongRunningTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-    level   String // 'info', 'warn', 'error'
-    message String @db.Text
+  level   String // 'info', 'warn', 'error'
+  message String @db.Text
 
-    createdAt DateTime @default(now())
+  createdAt DateTime @default(now())
 
-    @@index([taskId])
-    @@index([createdAt])
-    @@map("task_logs")
+  @@index([taskId])
+  @@index([createdAt])
+  @@map("task_logs")
 }
 
 enum LongRunningTaskStatus {
-    PENDING // Task created but not started
-    RUNNING // Task is currently executing
-    PAUSED // Task is paused (can be resumed)
-    COMPLETED // Task finished successfully
-    FAILED // Task failed with error
-    CANCELLED // Task was cancelled by user
+  PENDING // Task created but not started
+  RUNNING // Task is currently executing
+  PAUSED // Task is paused (can be resumed)
+  COMPLETED // Task finished successfully
+  FAILED // Task failed with error
+  CANCELLED // Task was cancelled by user
 }
 
 enum TaskStepStatus {
-    PENDING // Step not yet executed
-    RUNNING // Step currently executing
-    COMPLETED // Step finished successfully
-    FAILED // Step failed
-    SKIPPED // Step skipped (due to error handling policy)
+  PENDING // Step not yet executed
+  RUNNING // Step currently executing
+  COMPLETED // Step finished successfully
+  FAILED // Step failed
+  SKIPPED // Step skipped (due to error handling policy)
 }
 
 enum TaskPriority {
-    LOW
-    MEDIUM
-    HIGH
-    CRITICAL
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
 enum TaskCompletionBehavior {
-    SILENT // Don't notify user on completion
-    NOTIFY_USER // Send notification to user
-    NOTIFY_AND_SUMMARIZE // Notify + generate detailed summary
+  SILENT // Don't notify user on completion
+  NOTIFY_USER // Send notification to user
+  NOTIFY_AND_SUMMARIZE // Notify + generate detailed summary
 }
 
 // ==================== User Secrets (Encrypted) ====================
@@ -1081,139 +1084,139 @@ enum TaskCompletionBehavior {
 // Centralized storage for user secrets (API keys, tokens, etc.)
 // All sensitive values are encrypted with AES-256-GCM
 model UserSecret {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Identification
-    key         String // Unique key: "google_maps_api_key", "openai_api_key", etc.
-    category    String @default("general") // "ai_provider", "mcp", "integration", "generated_tool"
-    displayName String // Human-readable name
+  // Identification
+  key         String // Unique key: "google_maps_api_key", "openai_api_key", etc.
+  category    String @default("general") // "ai_provider", "mcp", "integration", "generated_tool"
+  displayName String // Human-readable name
 
-    // Encrypted value (AES-256-GCM)
-    encryptedValue String @db.Text
-    iv             String // Initialization vector (hex)
-    authTag        String // GCM authentication tag (hex)
+  // Encrypted value (AES-256-GCM)
+  encryptedValue String @db.Text
+  iv             String // Initialization vector (hex)
+  authTag        String // GCM authentication tag (hex)
 
-    // Metadata
-    description String?
-    expiresAt   DateTime? // For temporary tokens
-    lastUsedAt  DateTime?
+  // Metadata
+  description String?
+  expiresAt   DateTime? // For temporary tokens
+  lastUsedAt  DateTime?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([userId, key])
-    @@index([userId])
-    @@index([category])
-    @@map("user_secrets")
+  @@unique([userId, key])
+  @@index([userId])
+  @@index([category])
+  @@map("user_secrets")
 }
 
 // ==================== Generated Tools ====================
 
 // AI-generated tools that can be reused
 model GeneratedTool {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Identification
-    name        String // Unique identifier: "google_maps_directions", "weather_forecast"
-    displayName String // Human-readable: "Google Maps Directions"
-    description String @db.Text // What the tool does
+  // Identification
+  name        String // Unique identifier: "google_maps_directions", "weather_forecast"
+  displayName String // Human-readable: "Google Maps Directions"
+  description String @db.Text // What the tool does
 
-    // Code
-    language String @default("python") // "python", "javascript"
-    code     String @db.Text // Source code
+  // Code
+  language String @default("python") // "python", "javascript"
+  code     String @db.Text // Source code
 
-    // Schema for LLM function calling
-    inputSchema  Json // JSON Schema for parameters
-    outputSchema Json? // Optional output schema
+  // Schema for LLM function calling
+  inputSchema  Json // JSON Schema for parameters
+  outputSchema Json? // Optional output schema
 
-    // Required secrets (references to UserSecret.key)
-    requiredSecrets String[] @default([])
+  // Required secrets (references to UserSecret.key)
+  requiredSecrets String[] @default([])
 
-    // Categorization
-    category String   @default("custom")
-    tags     String[] @default([])
+  // Categorization
+  category String   @default("custom")
+  tags     String[] @default([])
 
-    // Versioning
-    version      Int     @default(1)
-    previousCode String? @db.Text // Previous version for rollback
+  // Versioning
+  version      Int     @default(1)
+  previousCode String? @db.Text // Previous version for rollback
 
-    // Status
-    enabled    Boolean @default(true)
-    isVerified Boolean @default(false) // Has been successfully tested
+  // Status
+  enabled    Boolean @default(true)
+  isVerified Boolean @default(false) // Has been successfully tested
 
-    // Usage stats
-    usageCount  Int       @default(0)
-    lastUsedAt  DateTime?
-    lastErrorAt DateTime?
-    lastError   String?
+  // Usage stats
+  usageCount  Int       @default(0)
+  lastUsedAt  DateTime?
+  lastErrorAt DateTime?
+  lastError   String?
 
-    // Execution config
-    timeout Int @default(30000) // ms
+  // Execution config
+  timeout Int @default(30000) // ms
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([userId, name])
-    @@index([userId])
-    @@index([category])
-    @@index([enabled])
-    @@map("generated_tools")
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([category])
+  @@index([enabled])
+  @@map("generated_tools")
 }
 
 // ==================== Goals and Achievements ====================
 
 // User goals tracked by the system
 model Goal {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Goal details
-    title       String
-    description String? @db.Text
-    category    String // Auto-generated by AI: 'health', 'productivity', 'learning', 'relationships', etc.
+  // Goal details
+  title       String
+  description String? @db.Text
+  category    String // Auto-generated by AI: 'health', 'productivity', 'learning', 'relationships', etc.
 
-    // Status tracking
-    status       GoalStatus @default(ACTIVE)
-    progress     Int        @default(0) // 0-100 percentage
-    targetDate   DateTime? // Optional target completion date
-    completedAt  DateTime?
-    archivedAt   DateTime? // When goal was archived by cleanup agent
+  // Status tracking
+  status      GoalStatus @default(ACTIVE)
+  progress    Int        @default(0) // 0-100 percentage
+  targetDate  DateTime? // Optional target completion date
+  completedAt DateTime?
+  archivedAt  DateTime? // When goal was archived by cleanup agent
 
-    // AI-detected metadata
-    detectedFrom String? // 'memory', 'interaction', 'manual'
-    confidence   Float   @default(0.8) // AI confidence in goal detection (0.0-1.0)
-    tags         String[] @default([])
-    
-    // Relationship to memories/interactions
-    relatedMemoryIds String[] @default([]) // IDs of memories related to this goal
-    
-    // Progress tracking
-    milestones Json @default("[]") // Array of milestone objects: [{name, completed, date}]
-    
-    // Metadata
-    metadata Json @default("{}")
+  // AI-detected metadata
+  detectedFrom String? // 'memory', 'interaction', 'manual'
+  confidence   Float    @default(0.8) // AI confidence in goal detection (0.0-1.0)
+  tags         String[] @default([])
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  // Relationship to memories/interactions
+  relatedMemoryIds String[] @default([]) // IDs of memories related to this goal
 
-    @@index([userId])
-    @@index([status])
-    @@index([category])
-    @@index([createdAt])
-    @@map("goals")
+  // Progress tracking
+  milestones Json @default("[]") // Array of milestone objects: [{name, completed, date}]
+
+  // Metadata
+  metadata Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@map("goals")
 }
 
 enum GoalStatus {
-    ACTIVE // Currently being pursued
-    COMPLETED // Goal achieved
-    PAUSED // Temporarily on hold
-    ARCHIVED // Cleaned up by agent (no longer relevant)
-    ABANDONED // User explicitly gave up
+  ACTIVE // Currently being pursued
+  COMPLETED // Goal achieved
+  PAUSED // Temporarily on hold
+  ARCHIVED // Cleaned up by agent (no longer relevant)
+  ABANDONED // User explicitly gave up
 }
 
 // ==================== AI Self-Training System ====================
@@ -1221,111 +1224,111 @@ enum GoalStatus {
 // This is NOT for user memories - it's for the AI to remember its own observations
 
 model AIInstruction {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Instruction content
-    content String @db.Text
-    title   String?
+  // Instruction content
+  content String  @db.Text
+  title   String?
 
-    // Classification
-    category AIInstructionCategory
-    sourceAgent String // Which agent created this: 'data-coherence', 'proactive', 'health-check', etc.
+  // Classification
+  category    AIInstructionCategory
+  sourceAgent String // Which agent created this: 'data-coherence', 'proactive', 'health-check', etc.
 
-    // Validity and lifecycle
-    isActive   Boolean   @default(true)
-    expiresAt  DateTime? // Some learnings expire (e.g., temporary patterns)
-    validFrom  DateTime  @default(now())
-    validUntil DateTime? // For time-bounded learnings
+  // Validity and lifecycle
+  isActive   Boolean   @default(true)
+  expiresAt  DateTime? // Some learnings expire (e.g., temporary patterns)
+  validFrom  DateTime  @default(now())
+  validUntil DateTime? // For time-bounded learnings
 
-    // Priority and usage
-    priority  Int   @default(0) // Higher = more important to include in context
-    usageCount Int  @default(0) // How many times this was used in AI context
-    lastUsedAt DateTime?
+  // Priority and usage
+  priority   Int       @default(0) // Higher = more important to include in context
+  usageCount Int       @default(0) // How many times this was used in AI context
+  lastUsedAt DateTime?
 
-    // Confidence and verification
-    confidence   Float    @default(0.7) // AI confidence in this instruction
-    isVerified   Boolean  @default(false) // User confirmed this learning
-    verifiedAt   DateTime?
+  // Confidence and verification
+  confidence Float     @default(0.7) // AI confidence in this instruction
+  isVerified Boolean   @default(false) // User confirmed this learning
+  verifiedAt DateTime?
 
-    // Relationships
-    relatedGoalIds   String[] @default([])
-    relatedTodoIds   String[] @default([])
-    relatedMemoryIds String[] @default([])
+  // Relationships
+  relatedGoalIds   String[] @default([])
+  relatedTodoIds   String[] @default([])
+  relatedMemoryIds String[] @default([])
 
-    // Metadata
-    metadata Json @default("{}")
+  // Metadata
+  metadata Json @default("{}")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([userId])
-    @@index([category])
-    @@index([sourceAgent])
-    @@index([isActive])
-    @@index([priority])
-    @@index([createdAt])
-    @@map("ai_instructions")
+  @@index([userId])
+  @@index([category])
+  @@index([sourceAgent])
+  @@index([isActive])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("ai_instructions")
 }
 
 enum AIInstructionCategory {
-    DATA_COHERENCE      // Observations about data inconsistencies
-    USER_PATTERN        // Detected user behavior patterns
-    USER_PREFERENCE     // Learned user preferences
-    TASK_OPTIMIZATION   // Learnings about task/todo management
-    GOAL_TRACKING       // Insights about goal progress
-    HEALTH_INSIGHT      // Health-related observations
-    COMMUNICATION_STYLE // How the user prefers to be communicated with
-    SCHEDULING          // Learnings about user's schedule preferences
-    SYSTEM_IMPROVEMENT  // Ideas to improve the system itself
-    OTHER               // Miscellaneous learnings
+  DATA_COHERENCE // Observations about data inconsistencies
+  USER_PATTERN // Detected user behavior patterns
+  USER_PREFERENCE // Learned user preferences
+  TASK_OPTIMIZATION // Learnings about task/todo management
+  GOAL_TRACKING // Insights about goal progress
+  HEALTH_INSIGHT // Health-related observations
+  COMMUNICATION_STYLE // How the user prefers to be communicated with
+  SCHEDULING // Learnings about user's schedule preferences
+  SYSTEM_IMPROVEMENT // Ideas to improve the system itself
+  OTHER // Miscellaneous learnings
 }
 
 // User achievements unlocked by the system
 model Achievement {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Achievement details
-    title       String
-    description String  @db.Text
-    category    String // Auto-generated by AI: 'consistency', 'milestone', 'personal_growth', etc.
-    icon        String? // Optional emoji or icon identifier
+  // Achievement details
+  title       String
+  description String  @db.Text
+  category    String // Auto-generated by AI: 'consistency', 'milestone', 'personal_growth', etc.
+  icon        String? // Optional emoji or icon identifier
 
-    // Unlock tracking
-    unlockedAt  DateTime?
-    isUnlocked  Boolean   @default(false)
-    
-    // AI-detected metadata
-    detectedFrom String? // What triggered detection: 'pattern', 'milestone', 'manual'
-    confidence   Float   @default(0.8) // AI confidence (0.0-1.0)
-    
-    // Criteria for unlocking (AI-defined)
-    criteria Json @default("{}") // Flexible structure for achievement criteria
-    
-    // Celebration level
-    significance String @default("normal") // 'minor', 'normal', 'major', 'milestone'
-    
-    // Relationship to goals/memories
-    relatedGoalIds   String[] @default([])
-    relatedMemoryIds String[] @default([])
-    
-    // Display
-    displayOrder Int     @default(0)
-    isHidden     Boolean @default(false) // Hidden until unlocked
-    
-    // Metadata
-    metadata Json @default("{}")
-    
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  // Unlock tracking
+  unlockedAt DateTime?
+  isUnlocked Boolean   @default(false)
 
-    @@index([userId])
-    @@index([isUnlocked])
-    @@index([category])
-    @@index([unlockedAt])
-    @@index([createdAt])
-    @@map("achievements")
+  // AI-detected metadata
+  detectedFrom String? // What triggered detection: 'pattern', 'milestone', 'manual'
+  confidence   Float   @default(0.8) // AI confidence (0.0-1.0)
+
+  // Criteria for unlocking (AI-defined)
+  criteria Json @default("{}") // Flexible structure for achievement criteria
+
+  // Celebration level
+  significance String @default("normal") // 'minor', 'normal', 'major', 'milestone'
+
+  // Relationship to goals/memories
+  relatedGoalIds   String[] @default([])
+  relatedMemoryIds String[] @default([])
+
+  // Display
+  displayOrder Int     @default(0)
+  isHidden     Boolean @default(false) // Hidden until unlocked
+
+  // Metadata
+  metadata Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isUnlocked])
+  @@index([category])
+  @@index([unlockedAt])
+  @@index([createdAt])
+  @@map("achievements")
 }

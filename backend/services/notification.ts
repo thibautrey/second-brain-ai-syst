@@ -3,6 +3,7 @@ import { websocketBroadcast } from "./websocket-broadcast.js";
 import type { NotificationType, NotificationChannel } from "@prisma/client";
 import axios from "axios";
 import { telegramService } from "./telegram.service.js";
+import { notificationSpamDetector, type SpamCheckResult } from "./notification-spam-detector.js";
 
 export interface CreateNotificationInput {
   userId: string;
@@ -16,13 +17,20 @@ export interface CreateNotificationInput {
   actionUrl?: string;
   actionLabel?: string;
   metadata?: Record<string, any>;
+  skipSpamCheck?: boolean; // Allow bypassing spam check for critical notifications
+}
+
+export interface CreateNotificationResult {
+  notification: any | null;
+  spamCheck: SpamCheckResult;
+  blocked: boolean;
 }
 
 class NotificationService {
   /**
-   * Create and send a notification
+   * Create and send a notification with spam detection
    */
-  async createNotification(input: CreateNotificationInput) {
+  async createNotification(input: CreateNotificationInput): Promise<CreateNotificationResult> {
     const {
       userId,
       title,
@@ -35,7 +43,31 @@ class NotificationService {
       actionUrl,
       actionLabel,
       metadata = {},
+      skipSpamCheck = false,
     } = input;
+
+    // Spam detection check (skip for scheduled or if explicitly bypassed)
+    let spamCheck: SpamCheckResult = { allowed: true, reason: "Spam check skipped" };
+    
+    if (!scheduledFor && !skipSpamCheck) {
+      spamCheck = await notificationSpamDetector.checkNotification(
+        userId,
+        title,
+        message,
+        sourceType
+      );
+
+      if (!spamCheck.allowed) {
+        console.log(
+          `[NotificationService] Notification blocked by spam detector: ${spamCheck.reason}`
+        );
+        return {
+          notification: null,
+          spamCheck,
+          blocked: true,
+        };
+      }
+    }
 
     // Create notification in database
     const notification = await prisma.notification.create({
@@ -50,7 +82,10 @@ class NotificationService {
         sourceId,
         actionUrl,
         actionLabel,
-        metadata,
+        metadata: {
+          ...metadata,
+          spamCheckTopic: spamCheck.matchedTopic,
+        },
         sentAt: scheduledFor ? null : new Date(),
       },
     });
@@ -58,9 +93,37 @@ class NotificationService {
     // Send immediately if not scheduled
     if (!scheduledFor) {
       await this.sendNotification(notification.id);
+      
+      // Record the notification was sent for spam tracking
+      await notificationSpamDetector.recordNotificationSent(
+        userId,
+        title,
+        message,
+        notification.id,
+        sourceType
+      );
     }
 
-    return notification;
+    return {
+      notification,
+      spamCheck,
+      blocked: false,
+    };
+  }
+
+  /**
+   * Create notification without spam check (for backward compatibility)
+   * @deprecated Use createNotification with skipSpamCheck: true instead
+   */
+  async createNotificationUnchecked(input: Omit<CreateNotificationInput, 'skipSpamCheck'>) {
+    return this.createNotification({ ...input, skipSpamCheck: true });
+  }
+
+  /**
+   * Record that user interacted with a notification (resets cooldown)
+   */
+  async recordUserInteraction(notificationId: string): Promise<void> {
+    await notificationSpamDetector.recordUserResponse("", notificationId);
   }
 
   /**
@@ -272,10 +335,10 @@ class NotificationService {
   }
 
   /**
-   * Mark notification as read
+   * Mark notification as read and record user interaction (resets spam cooldown)
    */
   async markAsRead(notificationId: string, userId: string) {
-    return prisma.notification.updateMany({
+    const result = await prisma.notification.updateMany({
       where: {
         id: notificationId,
         userId,
@@ -285,6 +348,13 @@ class NotificationService {
         readAt: new Date(),
       },
     });
+
+    // Record user interaction to reset cooldown for this topic
+    if (result.count > 0) {
+      await notificationSpamDetector.recordUserResponse(userId, notificationId);
+    }
+
+    return result;
   }
 
   /**

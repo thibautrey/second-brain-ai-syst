@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { notificationService } from "../services/notification.js";
+import { notificationSpamDetector } from "../services/notification-spam-detector.js";
 import type { AuthRequest } from "../middlewares/auth.middleware.js";
 
 export class NotificationController {
@@ -14,12 +15,23 @@ export class NotificationController {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const notification = await notificationService.createNotification({
+      const result = await notificationService.createNotification({
         userId,
         ...req.body,
       });
 
-      res.json({ success: true, notification });
+      if (result.blocked) {
+        return res.status(429).json({
+          success: false,
+          blocked: true,
+          reason: result.spamCheck.reason,
+          topic: result.spamCheck.matchedTopic,
+          nextAllowedAt: result.spamCheck.nextAllowedAt,
+          isGivenUp: result.spamCheck.isGivenUp,
+        });
+      }
+
+      res.json({ success: true, notification: result.notification });
     } catch (error: any) {
       console.error("[NotificationController] Create error:", error);
       res.status(500).json({ error: error.message });
@@ -71,6 +83,89 @@ export class NotificationController {
       res.json({ success: true });
     } catch (error: any) {
       console.error("[NotificationController] Mark read error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/notifications/topics
+   * Get notification topic trackers (spam detection state)
+   */
+  async getTopicTrackers(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const includeGivenUp = req.query.includeGivenUp !== "false";
+      const trackers = await notificationSpamDetector.getUserTopicTrackers(
+        userId,
+        includeGivenUp
+      );
+
+      res.json({
+        success: true,
+        trackers,
+        total: trackers.length,
+      });
+    } catch (error: any) {
+      console.error("[NotificationController] Get topics error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/notifications/topics/:topic/revive
+   * Revive a given-up topic (user wants to hear about it again)
+   */
+  async reviveTopic(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { topic } = req.params;
+      const success = await notificationSpamDetector.reviveTopic(userId, topic);
+
+      if (!success) {
+        return res.status(404).json({
+          success: false,
+          error: "Topic not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Topic "${topic}" has been revived. You will receive notifications about it again.`,
+      });
+    } catch (error: any) {
+      console.error("[NotificationController] Revive topic error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/notifications/:id/interact
+   * Record user interaction with a notification (resets cooldown)
+   */
+  async recordInteraction(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      await notificationSpamDetector.recordUserResponse(userId, id);
+
+      res.json({
+        success: true,
+        message: "Interaction recorded. Cooldown has been reset for this topic.",
+      });
+    } catch (error: any) {
+      console.error("[NotificationController] Record interaction error:", error);
       res.status(500).json({ error: error.message });
     }
   }

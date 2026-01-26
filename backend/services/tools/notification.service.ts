@@ -3,10 +3,12 @@
  *
  * Built-in tool for user notifications.
  * Supports multiple channels: in-app, email, push, webhooks.
+ * Includes spam detection with exponential backoff.
  */
 
 import prisma from "../prisma.js";
 import { NotificationType, NotificationChannel, Prisma } from "@prisma/client";
+import { notificationSpamDetector, type SpamCheckResult } from "../notification-spam-detector.js";
 
 // ==================== Types ====================
 
@@ -21,6 +23,13 @@ export interface CreateNotificationInput {
   actionUrl?: string;
   actionLabel?: string;
   metadata?: Record<string, any>;
+  skipSpamCheck?: boolean; // Allow bypassing spam check for critical notifications
+}
+
+export interface SendNotificationResult {
+  notification: any | null;
+  spamCheck: SpamCheckResult;
+  blocked: boolean;
 }
 
 export interface NotificationFilters {
@@ -88,9 +97,32 @@ export class NotificationService {
   }
 
   /**
-   * Create and send a notification immediately
+   * Create and send a notification immediately with spam detection
    */
-  async sendNotification(userId: string, input: CreateNotificationInput) {
+  async sendNotification(userId: string, input: CreateNotificationInput): Promise<SendNotificationResult> {
+    // Spam detection check (skip if explicitly bypassed)
+    let spamCheck: SpamCheckResult = { allowed: true, reason: "Spam check skipped" };
+    
+    if (!input.skipSpamCheck) {
+      spamCheck = await notificationSpamDetector.checkNotification(
+        userId,
+        input.title,
+        input.message,
+        input.sourceType
+      );
+
+      if (!spamCheck.allowed) {
+        console.log(
+          `[NotificationToolService] Notification blocked by spam detector: ${spamCheck.reason}`
+        );
+        return {
+          notification: null,
+          spamCheck,
+          blocked: true,
+        };
+      }
+    }
+
     // Automatically configure channels based on user settings
     const channels = await this.configureChannels(userId, input.channels);
 
@@ -107,14 +139,38 @@ export class NotificationService {
         sourceId: input.sourceId,
         actionUrl: input.actionUrl,
         actionLabel: input.actionLabel,
-        metadata: input.metadata ?? {},
+        metadata: {
+          ...(input.metadata ?? {}),
+          spamCheckTopic: spamCheck.matchedTopic,
+        },
       },
     });
 
     // Process delivery through each channel
     await this.deliverNotification(notification);
 
-    return notification;
+    // Record the notification was sent for spam tracking
+    await notificationSpamDetector.recordNotificationSent(
+      userId,
+      input.title,
+      input.message,
+      notification.id,
+      input.sourceType
+    );
+
+    return {
+      notification,
+      spamCheck,
+      blocked: false,
+    };
+  }
+
+  /**
+   * Send notification without spam check (for backward compatibility)
+   * @deprecated Use sendNotification with skipSpamCheck: true instead
+   */
+  async sendNotificationUnchecked(userId: string, input: Omit<CreateNotificationInput, 'skipSpamCheck'>) {
+    return this.sendNotification(userId, { ...input, skipSpamCheck: true });
   }
 
   /**
@@ -238,7 +294,7 @@ export class NotificationService {
   }
 
   /**
-   * Mark notification as read
+   * Mark notification as read and record user interaction (resets spam cooldown)
    */
   async markAsRead(userId: string, notificationId: string) {
     const notification = await this.getNotification(userId, notificationId);
@@ -246,13 +302,18 @@ export class NotificationService {
       throw new Error("Notification not found");
     }
 
-    return prisma.notification.update({
+    const result = await prisma.notification.update({
       where: { id: notificationId },
       data: {
         isRead: true,
         readAt: new Date(),
       },
     });
+
+    // Record user interaction to reset cooldown for this topic
+    await notificationSpamDetector.recordUserResponse(userId, notificationId);
+
+    return result;
   }
 
   /**
