@@ -13,6 +13,7 @@ Le système de notifications du Second Brain AI est maintenant complètement imp
 - ✅ **Notifications programmées** (pour le futur)
 - ✅ **API REST** pour que l'IA puisse envoyer des notifications
 - ✅ **Intégration Pushover** pour notifications mobiles multi-plateformes
+- ✅ **Routage automatique** : Quand Pushover est configuré, les notifications sont automatiquement envoyées via Pushover au lieu du navigateur (transparent pour l'IA)
 
 ## 🚀 Démarrage rapide
 
@@ -131,17 +132,71 @@ Le système supporte maintenant [Pushover](https://pushover.net) pour envoyer de
 
 ### Utilisation avec l'IA
 
-Pour envoyer une notification via Pushover, incluez `PUSHOVER` dans le tableau `channels` :
+**Routage automatique des notifications** 🎯
 
+Lorsque Pushover est configuré pour un utilisateur, le système **route automatiquement** les notifications vers Pushover au lieu du navigateur. Ce comportement est **transparent pour l'IA** - l'IA envoie simplement les paramètres de notification, et le système décide du canal optimal.
+
+**Comportement automatique :**
+- Si `pushoverUserKey` est configuré, le système :
+  1. Remplace automatiquement `PUSH` par `PUSHOVER` pour de meilleures notifications mobiles
+  2. Ajoute automatiquement `PUSHOVER` aux canaux si non présent
+  3. Préserve les autres canaux comme `IN_APP`, `EMAIL`, etc.
+
+**Exemple - L'IA envoie simplement :**
 ```typescript
 await notificationService.createNotification({
   userId: "user123",
   title: "Alerte importante",
   message: "Une action est requise",
   type: "WARNING",
-  channels: ["IN_APP", "PUSHOVER"], // Notification in-app ET Pushover
+  // Aucun canal spécifié - le système utilise IN_APP par défaut
 });
+// Résultat si Pushover est configuré : ["IN_APP", "PUSHOVER"]
+// Résultat si Pushover n'est pas configuré : ["IN_APP"]
 ```
+
+**Exemple avec canaux explicites :**
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Alerte importante",
+  message: "Une action est requise",
+  type: "WARNING",
+  channels: ["IN_APP"], // L'IA spécifie IN_APP seulement
+});
+// Résultat si Pushover est configuré : ["IN_APP", "PUSHOVER"] (auto-ajouté)
+// Résultat si Pushover n'est pas configuré : ["IN_APP"]
+```
+
+**Exemple avec remplacement PUSH :**
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Alerte importante",
+  message: "Une action est requise",
+  type: "WARNING",
+  channels: ["IN_APP", "PUSH"], // L'IA demande PUSH
+});
+// Résultat si Pushover est configuré : ["IN_APP", "PUSHOVER"] (PUSH → PUSHOVER)
+// Résultat si Pushover n'est pas configuré : ["IN_APP", "PUSH"]
+```
+
+**Cas spécial - canaux vides :**
+```typescript
+await notificationService.createNotification({
+  userId: "user123",
+  title: "Notification silencieuse",
+  message: "Stockée en DB seulement",
+  channels: [], // Explicitement aucun canal
+});
+// Résultat : [] (respecte le choix explicite)
+```
+
+**Avantages :**
+- ✅ Transparent pour l'IA - pas besoin de vérifier la configuration
+- ✅ Meilleure expérience utilisateur - notifications mobiles fiables
+- ✅ Backward compatible - fonctionne avec ou sans Pushover
+- ✅ Flexible - l'IA peut toujours spécifier des canaux si nécessaire
 
 ### Priorités et sons
 

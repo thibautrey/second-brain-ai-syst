@@ -8,17 +8,19 @@ import {
   Home,
   Brain,
   FileText,
-  BarChart3,
   Mic,
   MessageSquare,
   Wrench,
   CheckSquare,
   Calendar,
+  Target,
+  Trophy,
 } from "lucide-react";
 import { useState } from "react";
 import { ToolsConfigPage } from "./ToolsConfigPage";
 import { TodoList } from "../components/todos";
 import { ScheduleList } from "../components/schedule";
+import { GoalsList, AchievementsList } from "../components/goals-achievements";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -66,12 +68,6 @@ export function DashboardPage() {
             isActive={activeTab === "interactions"}
           />
           <NavItem
-            icon={<BarChart3 className="w-5 h-5" />}
-            label="Analytics"
-            onClick={() => setActiveTab("analytics")}
-            isActive={activeTab === "analytics"}
-          />
-          <NavItem
             icon={<Mic className="w-5 h-5" />}
             label="Voice Training"
             onClick={() => setActiveTab("training")}
@@ -94,6 +90,18 @@ export function DashboardPage() {
             label="Planifications"
             onClick={() => setActiveTab("schedule")}
             isActive={activeTab === "schedule"}
+          />
+          <NavItem
+            icon={<Target className="w-5 h-5" />}
+            label="Goals"
+            onClick={() => setActiveTab("goals")}
+            isActive={activeTab === "goals"}
+          />
+          <NavItem
+            icon={<Trophy className="w-5 h-5" />}
+            label="Achievements"
+            onClick={() => setActiveTab("achievements")}
+            isActive={activeTab === "achievements"}
           />
           <NavItem
             icon={<Wrench className="w-5 h-5" />}
@@ -189,12 +197,6 @@ export function DashboardPage() {
                       onClick={() => setActiveTab("memories")}
                     />
                     <QuickStartButton
-                      title="Today's Summary"
-                      description="See today's highlights"
-                      icon="📊"
-                      onClick={() => setActiveTab("analytics")}
-                    />
-                    <QuickStartButton
                       title="Mes Tâches"
                       description="Gérer mes todos"
                       icon="✅"
@@ -268,22 +270,6 @@ export function DashboardPage() {
             </div>
           )}
 
-          {activeTab === "analytics" && (
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                Analytics
-              </h2>
-              <p className="text-slate-600 mb-8">
-                Analyze your patterns and insights.
-              </p>
-              <div className="p-8 text-center bg-white rounded-lg shadow border border-slate-200">
-                <p className="text-slate-500">
-                  Analytics dashboard coming soon...
-                </p>
-              </div>
-            </div>
-          )}
-
           {activeTab === "training" && (
             <div>
               <h2 className="text-3xl font-bold text-slate-900 mb-2">
@@ -312,6 +298,10 @@ export function DashboardPage() {
           {activeTab === "todos" && <TodoList />}
 
           {activeTab === "schedule" && <ScheduleList />}
+
+          {activeTab === "goals" && <GoalsList />}
+
+          {activeTab === "achievements" && <AchievementsList />}
 
           {activeTab === "tools" && <ToolsConfigPage />}
 

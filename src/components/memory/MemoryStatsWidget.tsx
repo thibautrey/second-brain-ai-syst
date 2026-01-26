@@ -1,6 +1,12 @@
 import { MemoryStats } from "../../types/memory";
 import { cn } from "../../lib/utils";
 import { Brain, Pin, Archive, Clock, Tag, TrendingUp } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion";
 
 interface MemoryStatsWidgetProps {
   stats: MemoryStats | null;
@@ -68,49 +74,119 @@ export function MemoryStatsWidget({
 
   return (
     <div className="space-y-4 mb-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {statItems.map((item) => (
-          <div
-            key={item.label}
-            className="p-4 bg-white border border-slate-200 rounded-lg hover:shadow-sm transition-shadow"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className={cn("p-1.5 rounded-md", item.color)}>
-                <item.icon className="w-4 h-4" />
+      {/* Stats Grid - Collapsible on mobile, always visible on desktop */}
+      <div className="lg:block">
+        <Accordion type="single" collapsible className="lg:hidden">
+          <AccordionItem value="analytics" className="border-none">
+            <AccordionTrigger className="p-4 bg-white border border-slate-200 rounded-lg hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-slate-700">
+                  Analytics
+                </span>
               </div>
-              <span className="text-xs font-medium text-slate-500">
-                {item.label}
-              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pt-3">
+              <div className="grid grid-cols-2 gap-3">
+                {statItems.map((item) => (
+                  <div
+                    key={item.label}
+                    className="p-4 bg-white border border-slate-200 rounded-lg hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={cn("p-1.5 rounded-md", item.color)}>
+                        <item.icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-medium text-slate-500">
+                        {item.label}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-slate-900">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {/* Desktop view - always visible */}
+        <div className="hidden lg:grid grid-cols-6 gap-3">
+          {statItems.map((item) => (
+            <div
+              key={item.label}
+              className="p-4 bg-white border border-slate-200 rounded-lg hover:shadow-sm transition-shadow"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className={cn("p-1.5 rounded-md", item.color)}>
+                  <item.icon className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-medium text-slate-500">
+                  {item.label}
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{item.value}</p>
             </div>
-            <p className="text-2xl font-bold text-slate-900">{item.value}</p>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* Top Tags */}
+      {/* Top Tags - Collapsible on mobile, always visible on desktop */}
       {stats.topTags && stats.topTags.length > 0 && (
-        <div className="p-4 bg-white border border-slate-200 rounded-lg">
-          <div className="flex items-center gap-2 mb-3">
-            <Tag className="w-4 h-4 text-slate-500" />
-            <span className="text-sm font-medium text-slate-700">
-              Tags populaires
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {stats.topTags.map((tagStat) => (
-              <span
-                key={tagStat.tag}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-full"
-              >
-                {tagStat.tag}
-                <span className="text-xs text-slate-400">
-                  ({tagStat.count})
-                </span>
+        <>
+          {/* Mobile view - collapsible */}
+          <Accordion type="single" collapsible className="lg:hidden">
+            <AccordionItem value="tags" className="border-none">
+              <AccordionTrigger className="p-4 bg-white border border-slate-200 rounded-lg hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">
+                    Tags populaires
+                  </span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pt-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-lg">
+                  <div className="flex flex-wrap gap-2">
+                    {stats.topTags.map((tagStat) => (
+                      <span
+                        key={tagStat.tag}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-full"
+                      >
+                        {tagStat.tag}
+                        <span className="text-xs text-slate-400">
+                          ({tagStat.count})
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          {/* Desktop view - always visible */}
+          <div className="hidden lg:block p-4 bg-white border border-slate-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <Tag className="w-4 h-4 text-slate-500" />
+              <span className="text-sm font-medium text-slate-700">
+                Tags populaires
               </span>
-            ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {stats.topTags.map((tagStat) => (
+                <span
+                  key={tagStat.tag}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-full"
+                >
+                  {tagStat.tag}
+                  <span className="text-xs text-slate-400">
+                    ({tagStat.count})
+                  </span>
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

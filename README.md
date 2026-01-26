@@ -11,8 +11,11 @@ An AI-powered personal cognitive operating system that captures, organizes, summ
 - **Proactive Coaching**: AI agent that analyzes patterns and provides helpful suggestions for health, productivity, and wellbeing
 - **Privacy-First**: Self-hosted, encrypted storage, zero telemetry
 - **Tool Integration**: Browser automation, APIs, custom tools
+- **Mobile App**: iOS/Android app for chat access on the go (see `/mobile-app`)
 
 ## Quick Start
+
+### Web Application
 
 ```bash
 # Setup embedding service (optional, or use Docker)
@@ -30,6 +33,20 @@ npm run dev
 # Or use Docker for everything
 docker compose up --build
 ```
+
+### Mobile App (iOS/Android)
+
+For mobile access to the chat feature:
+
+```bash
+cd mobile-app
+npm install
+cp .env.example .env
+# Edit .env to set EXPO_PUBLIC_API_URL
+npm start
+```
+
+See [mobile-app/QUICKSTART.md](./mobile-app/QUICKSTART.md) for detailed mobile setup instructions.
 
 ## Scripts
 
