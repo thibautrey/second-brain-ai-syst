@@ -398,11 +398,10 @@ export async function chatStream(
       data: {
         providerName: provider.name,
         modelId,
-        memoriesFound:
-          "error" in memorySearchResult ? 0 : memorySearchResult.results.length,
+        memoriesFound: validSearchResults.length,
         fromCache: parallelDuration < 50, // If very fast, likely from cache
       },
-      decision: `Parallel fetch: Provider=${provider.name}, Model=${modelId}, Mémoires=${"error" in memorySearchResult ? 0 : memorySearchResult.results.length}`,
+      decision: `Parallel fetch: Provider=${provider.name}, Model=${modelId}, Mémoires=${validSearchResults.length}`,
     });
 
     // 4. Create OpenAI client
@@ -1325,9 +1324,10 @@ export async function processTelegramMessage(
         message,
         5,
       );
-      if (searchResults.results.length > 0) {
-        memoryContext = searchResults.results
-          .map((m: any) => `- ${m.memory.content}`)
+      const results = Array.isArray(searchResults) ? searchResults : (searchResults?.results || []);
+      if (results.length > 0) {
+        memoryContext = results
+          .map((m: any) => `- ${m.memory?.content || m.content}`)
           .join("\n");
       }
     } catch (error) {
