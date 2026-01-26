@@ -1,50 +1,49 @@
--- CreateEnum
-CREATE TYPE "TopicStatus" AS ENUM ('ACTIVE', 'COOLDOWN', 'ABANDONED', 'RESOLVED');
-
--- CreateTable
-CREATE TABLE "NotificationTopicTracker" (
+-- CreateTable notification_topic_trackers
+CREATE TABLE "notification_topic_trackers" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "topicHash" TEXT NOT NULL,
-    "topicCategory" TEXT NOT NULL,
-    "topicSummary" TEXT NOT NULL,
-    "representativeContent" TEXT NOT NULL,
-    "status" "TopicStatus" NOT NULL DEFAULT 'ACTIVE',
+    "topic" TEXT NOT NULL,
+    "category" TEXT NOT NULL DEFAULT 'GENERAL',
+    "lastContentHash" TEXT NOT NULL,
+    "sampleMessages" TEXT[] DEFAULT '{}',
     "attemptCount" INTEGER NOT NULL DEFAULT 1,
-    "lastAttemptAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "nextAllowedAt" TIMESTAMP(3),
-    "userRespondedAt" TIMESTAMP(3),
-    "abandonedAt" TIMESTAMP(3),
-    "metadata" JSONB DEFAULT '{}',
+    "cooldownMinutes" INTEGER NOT NULL DEFAULT 60,
+    "nextAllowedAt" TIMESTAMP(3) NOT NULL,
+    "maxAttempts" INTEGER NOT NULL DEFAULT 5,
+    "isGivenUp" BOOLEAN NOT NULL DEFAULT false,
+    "lastUserResponse" TIMESTAMP(3),
+    "responseCount" INTEGER NOT NULL DEFAULT 0,
+    "totalSent" INTEGER NOT NULL DEFAULT 1,
+    "totalBlocked" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "NotificationTopicTracker_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "notification_topic_trackers_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX "NotificationTopicTracker_userId_idx" ON "NotificationTopicTracker"("userId");
+CREATE INDEX "notification_topic_trackers_userId_idx" ON "notification_topic_trackers"("userId");
 
 -- CreateIndex
-CREATE INDEX "NotificationTopicTracker_topicHash_idx" ON "NotificationTopicTracker"("topicHash");
+CREATE INDEX "notification_topic_trackers_topic_idx" ON "notification_topic_trackers"("topic");
 
 -- CreateIndex
-CREATE INDEX "NotificationTopicTracker_status_idx" ON "NotificationTopicTracker"("status");
+CREATE INDEX "notification_topic_trackers_category_idx" ON "notification_topic_trackers"("category");
 
 -- CreateIndex
-CREATE INDEX "NotificationTopicTracker_userId_status_idx" ON "NotificationTopicTracker"("userId", "status");
+CREATE INDEX "notification_topic_trackers_userId_category_idx" ON "notification_topic_trackers"("userId", "category");
 
--- CreateIndex
-CREATE UNIQUE INDEX "NotificationTopicTracker_userId_topicHash_key" ON "NotificationTopicTracker"("userId", "topicHash");
+-- CreateIndex unique constraint on userId + topic
+CREATE UNIQUE INDEX "notification_topic_trackers_userId_topic_key" ON "notification_topic_trackers"("userId", "topic");
 
 -- AddForeignKey
-ALTER TABLE "NotificationTopicTracker" ADD CONSTRAINT "NotificationTopicTracker_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "notification_topic_trackers" ADD CONSTRAINT "notification_topic_trackers_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddColumn to Notification table
-ALTER TABLE "notifications" ADD COLUMN "topicTrackerId" TEXT;
+-- AddColumn to notifications table if not exists
+ALTER TABLE "notifications" ADD COLUMN IF NOT EXISTS "topicTrackerId" TEXT;
 
--- AddIndex on Notification.topicTrackerId
-CREATE INDEX "Notification_topicTrackerId_idx" ON "notifications"("topicTrackerId");
+-- AddIndex on notifications.topicTrackerId
+CREATE INDEX IF NOT EXISTS "notifications_topicTrackerId_idx" ON "notifications"("topicTrackerId");
 
--- AddForeignKey from Notification to NotificationTopicTracker
-ALTER TABLE "notifications" ADD CONSTRAINT "Notification_topicTrackerId_fkey" FOREIGN KEY ("topicTrackerId") REFERENCES "NotificationTopicTracker"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- AddForeignKey from notifications to notification_topic_trackers
+ALTER TABLE "notifications" ADD CONSTRAINT IF NOT EXISTS "notifications_topicTrackerId_fkey" FOREIGN KEY ("topicTrackerId") REFERENCES "notification_topic_trackers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
