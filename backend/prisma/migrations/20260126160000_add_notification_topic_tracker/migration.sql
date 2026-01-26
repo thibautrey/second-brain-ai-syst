@@ -45,5 +45,14 @@ ALTER TABLE "notifications" ADD COLUMN IF NOT EXISTS "topicTrackerId" TEXT;
 -- AddIndex on notifications.topicTrackerId
 CREATE INDEX IF NOT EXISTS "notifications_topicTrackerId_idx" ON "notifications"("topicTrackerId");
 
--- AddForeignKey from notifications to notification_topic_trackers
-ALTER TABLE "notifications" ADD CONSTRAINT "notifications_topicTrackerId_fkey" FOREIGN KEY ("topicTrackerId") REFERENCES "notification_topic_trackers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- AddForeignKey from notifications to notification_topic_trackers (use DO block since IF NOT EXISTS not supported for constraints)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'notifications_topicTrackerId_fkey'
+    ) THEN
+        ALTER TABLE "notifications" ADD CONSTRAINT "notifications_topicTrackerId_fkey" 
+        FOREIGN KEY ("topicTrackerId") REFERENCES "notification_topic_trackers"("id") 
+        ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
