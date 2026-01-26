@@ -1,0 +1,712 @@
+/**
+ * Audio Connection Manager
+ *
+ * Manages audio streaming connections with transparent fallback:
+ * 1. WebSocket (primary) - lowest latency, bidirectional
+ * 2. SSE + HTTP POST (fallback) - for environments where WebSocket fails
+ * 3. HTTP Polling (final fallback) - for wearables and restrictive networks
+ *
+ * Features:
+ * - Automatic protocol detection and switching
+ * - Exponential backoff with jitter for reconnection
+ * - Chunk size adaptation for network conditions
+ * - Session resumption for interrupted connections
+ * - Completely transparent to the user (no error notifications)
+ */
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+// ==================== Types ====================
+
+export type ConnectionProtocol = "websocket" | "sse" | "polling";
+export type ConnectionState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "fallback";
+
+export interface ConnectionConfig {
+  // Device identification
+  deviceType?: "BROWSER" | "MOBILE_APP" | "WEARABLE";
+  deviceName?: string;
+
+  // Audio format
+  audioFormat?: {
+    codec: string;
+    sampleRate: number;
+    channels: number;
+  };
+
+  // Connection preferences
+  preferredProtocol?: ConnectionProtocol;
+  enableFallback?: boolean;
+
+  // Reconnection settings
+  maxReconnectAttempts?: number;
+  initialReconnectDelay?: number;
+  maxReconnectDelay?: number;
+
+  // Chunk settings
+  initialChunkSize?: number;
+  minChunkSize?: number;
+  adaptiveChunkSize?: boolean;
+}
+
+export interface ConnectionStats {
+  protocol: ConnectionProtocol;
+  state: ConnectionState;
+  reconnectAttempts: number;
+  chunksent: number;
+  bytesSent: number;
+  eventsReceived: number;
+  lastActivityAt: number;
+  sessionId: string | null;
+  deviceId: string | null;
+}
+
+export interface SessionEvent {
+  id: number;
+  type: string;
+  timestamp: number;
+  data: any;
+}
+
+type EventHandler = (event: SessionEvent) => void;
+
+// ==================== Audio Connection Manager ====================
+
+export class AudioConnectionManager {
+  private config: Required<ConnectionConfig>;
+  private state: ConnectionState = "disconnected";
+  private protocol: ConnectionProtocol = "websocket";
+
+  // Connection resources
+  private ws: WebSocket | null = null;
+  private eventSource: EventSource | null = null;
+  private pollingInterval: number | null = null;
+
+  // Session state
+  private sessionId: string | null = null;
+  private deviceId: string | null = null;
+  private deviceToken: string | null = null;
+  private token: string | null = null;
+
+  // Chunk tracking
+  private chunkSequence: number = 0;
+  private chunkSize: number;
+  private lastEventId: number = 0;
+
+  // Reconnection state
+  private reconnectAttempts: number = 0;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Stats
+  private stats: ConnectionStats;
+
+  // Event handlers
+  private eventHandlers: Set<EventHandler> = new Set();
+  private stateChangeHandlers: Set<(state: ConnectionState) => void> =
+    new Set();
+
+  constructor(config: ConnectionConfig = {}) {
+    this.config = {
+      deviceType: config.deviceType || "BROWSER",
+      deviceName: config.deviceName || this.detectDeviceName(),
+      audioFormat: config.audioFormat || {
+        codec: "pcm16",
+        sampleRate: 16000,
+        channels: 1,
+      },
+      preferredProtocol: config.preferredProtocol || "websocket",
+      enableFallback: config.enableFallback ?? true,
+      maxReconnectAttempts: config.maxReconnectAttempts ?? 10,
+      initialReconnectDelay: config.initialReconnectDelay ?? 1000,
+      maxReconnectDelay: config.maxReconnectDelay ?? 30000,
+      initialChunkSize: config.initialChunkSize ?? 4096,
+      minChunkSize: config.minChunkSize ?? 512,
+      adaptiveChunkSize: config.adaptiveChunkSize ?? true,
+    };
+
+    this.chunkSize = this.config.initialChunkSize;
+
+    this.stats = {
+      protocol: this.protocol,
+      state: this.state,
+      reconnectAttempts: 0,
+      chunksent: 0,
+      bytesSent: 0,
+      eventsReceived: 0,
+      lastActivityAt: 0,
+      sessionId: null,
+      deviceId: null,
+    };
+  }
+
+  // ==================== Public API ====================
+
+  /**
+   * Connect to the audio streaming service
+   */
+  async connect(): Promise<boolean> {
+    this.token = localStorage.getItem("authToken");
+    if (!this.token) {
+      console.error("AudioConnectionManager: No auth token");
+      return false;
+    }
+
+    this.setState("connecting");
+
+    try {
+      // Register device if needed
+      if (!this.deviceId) {
+        await this.registerDevice();
+      }
+
+      // Create session
+      await this.createSession();
+
+      // Connect with preferred protocol
+      await this.connectWithProtocol(this.config.preferredProtocol);
+
+      return true;
+    } catch (error) {
+      console.error("AudioConnectionManager: Connection failed", error);
+      this.handleConnectionError();
+      return false;
+    }
+  }
+
+  /**
+   * Disconnect and clean up
+   */
+  disconnect(): void {
+    this.cleanup();
+    this.setState("disconnected");
+    this.reconnectAttempts = 0;
+  }
+
+  /**
+   * Send audio chunk
+   */
+  async sendAudioChunk(
+    audioData: ArrayBuffer,
+    isFinal: boolean = false
+  ): Promise<boolean> {
+    if (this.state !== "connected" && this.state !== "fallback") {
+      return false;
+    }
+
+    const sequence = this.chunkSequence++;
+
+    try {
+      if (this.protocol === "websocket" && this.ws?.readyState === WebSocket.OPEN) {
+        // Send via WebSocket (binary)
+        this.ws.send(audioData);
+        this.updateStats(audioData.byteLength);
+        return true;
+      } else {
+        // Send via HTTP POST
+        return await this.sendChunkViaHttp(audioData, sequence, isFinal);
+      }
+    } catch (error) {
+      console.error("AudioConnectionManager: Failed to send chunk", error);
+
+      // Adapt chunk size on error
+      if (this.config.adaptiveChunkSize) {
+        this.reduceChunkSize();
+      }
+
+      return false;
+    }
+  }
+
+  /**
+   * Add event handler
+   */
+  onEvent(handler: EventHandler): () => void {
+    this.eventHandlers.add(handler);
+    return () => this.eventHandlers.delete(handler);
+  }
+
+  /**
+   * Add state change handler
+   */
+  onStateChange(handler: (state: ConnectionState) => void): () => void {
+    this.stateChangeHandlers.add(handler);
+    return () => this.stateChangeHandlers.delete(handler);
+  }
+
+  /**
+   * Get current stats
+   */
+  getStats(): ConnectionStats {
+    return { ...this.stats };
+  }
+
+  /**
+   * Get current state
+   */
+  getState(): ConnectionState {
+    return this.state;
+  }
+
+  /**
+   * Get current chunk size (for audio processor)
+   */
+  getChunkSize(): number {
+    return this.chunkSize;
+  }
+
+  // ==================== Device & Session Management ====================
+
+  private async registerDevice(): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/audio/devices/register`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        deviceType: this.config.deviceType,
+        deviceName: this.config.deviceName,
+        capabilities: {
+          codecs: ["pcm16"],
+          sampleRates: [16000],
+          protocols: ["websocket", "http", "sse"],
+          supportsBinary: true,
+          supportsResuming: true,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to register device");
+    }
+
+    const data = await response.json();
+    this.deviceId = data.deviceId;
+    this.deviceToken = data.deviceToken;
+    this.stats.deviceId = data.deviceId;
+
+    // Store for future sessions
+    localStorage.setItem("audioDeviceId", data.deviceId);
+    localStorage.setItem("audioDeviceToken", data.deviceToken);
+  }
+
+  private async createSession(): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/audio/sessions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        deviceId: this.deviceId,
+        audioFormat: this.config.audioFormat,
+        preferredProtocol: this.protocolToBackend(this.config.preferredProtocol),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to create session");
+    }
+
+    const data = await response.json();
+    this.sessionId = data.sessionId;
+    this.stats.sessionId = data.sessionId;
+    this.chunkSequence = 0;
+    this.lastEventId = 0;
+  }
+
+  // ==================== Protocol Connections ====================
+
+  private async connectWithProtocol(
+    protocol: ConnectionProtocol
+  ): Promise<void> {
+    this.protocol = protocol;
+    this.stats.protocol = protocol;
+
+    switch (protocol) {
+      case "websocket":
+        await this.connectWebSocket();
+        break;
+      case "sse":
+        await this.connectSSE();
+        break;
+      case "polling":
+        await this.startPolling();
+        break;
+    }
+  }
+
+  private async connectWebSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const apiUrl = new URL(API_BASE_URL);
+      const wsProtocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${wsProtocol}//${apiUrl.host}/ws/continuous-listen?token=${this.token}&sessionId=${this.sessionId}`;
+
+      const ws = new WebSocket(wsUrl);
+      this.ws = ws;
+
+      const timeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          ws.close();
+          reject(new Error("WebSocket connection timeout"));
+        }
+      }, 10000);
+
+      ws.onopen = () => {
+        clearTimeout(timeout);
+        this.setState("connected");
+        this.reconnectAttempts = 0;
+        resolve();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this.handleEvent(message);
+        } catch (error) {
+          console.error("AudioConnectionManager: Failed to parse message", error);
+        }
+      };
+
+      ws.onerror = () => {
+        // Don't log error details - handle silently
+        clearTimeout(timeout);
+      };
+
+      ws.onclose = (event) => {
+        clearTimeout(timeout);
+        if (this.state === "connected") {
+          // Unexpected close - try to reconnect or fallback
+          this.handleConnectionLost();
+        } else if (this.state === "connecting") {
+          // Failed to connect - try fallback
+          reject(new Error(`WebSocket closed: ${event.code}`));
+        }
+      };
+    });
+  }
+
+  private async connectSSE(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const eventSource = new EventSource(
+        `${API_BASE_URL}/api/audio/sessions/${this.sessionId}/events?token=${this.token}`
+      );
+      this.eventSource = eventSource;
+
+      const timeout = setTimeout(() => {
+        if (eventSource.readyState !== EventSource.OPEN) {
+          eventSource.close();
+          reject(new Error("SSE connection timeout"));
+        }
+      }, 10000);
+
+      eventSource.onopen = () => {
+        clearTimeout(timeout);
+        this.setState("fallback"); // SSE is a fallback state
+        this.reconnectAttempts = 0;
+        resolve();
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this.handleEvent(message);
+        } catch (error) {
+          console.error("AudioConnectionManager: Failed to parse SSE message", error);
+        }
+      };
+
+      eventSource.onerror = () => {
+        clearTimeout(timeout);
+        if (this.state === "connected" || this.state === "fallback") {
+          this.handleConnectionLost();
+        } else {
+          reject(new Error("SSE connection failed"));
+        }
+      };
+    });
+  }
+
+  private async startPolling(): Promise<void> {
+    this.setState("fallback");
+    this.reconnectAttempts = 0;
+
+    // Poll for events every 2 seconds
+    this.pollingInterval = window.setInterval(async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/audio/sessions/${this.sessionId}/events/poll?afterEventId=${this.lastEventId}`,
+          {
+            headers: { Authorization: `Bearer ${this.token}` },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          for (const event of data.events) {
+            this.handleEvent(event);
+          }
+          if (data.lastEventId) {
+            this.lastEventId = data.lastEventId;
+          }
+        }
+      } catch (error) {
+        // Silent fail - polling is resilient
+      }
+    }, 2000);
+  }
+
+  // ==================== Chunk Sending ====================
+
+  private async sendChunkViaHttp(
+    audioData: ArrayBuffer,
+    sequence: number,
+    isFinal: boolean
+  ): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/audio/sessions/${this.sessionId}/chunks`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            "Content-Type": "application/json",
+            "X-Chunk-Sequence": String(sequence),
+            "X-Is-Final": String(isFinal),
+          },
+          body: JSON.stringify({
+            audioData: this.arrayBufferToBase64(audioData),
+            sequence,
+            isFinal,
+            audioFormat: "pcm16",
+            sampleRate: 16000,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        this.updateStats(audioData.byteLength);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // ==================== Error Handling & Recovery ====================
+
+  private handleConnectionError(): void {
+    if (!this.config.enableFallback) {
+      this.setState("disconnected");
+      return;
+    }
+
+    // Try fallback protocols
+    this.tryFallback();
+  }
+
+  private handleConnectionLost(): void {
+    // Don't show error to user - handle transparently
+    this.cleanup(false);
+
+    if (this.reconnectAttempts < this.config.maxReconnectAttempts) {
+      this.scheduleReconnect();
+    } else if (this.config.enableFallback) {
+      this.tryFallback();
+    } else {
+      this.setState("disconnected");
+    }
+  }
+
+  private scheduleReconnect(): void {
+    this.setState("reconnecting");
+    this.reconnectAttempts++;
+
+    const delay = Math.min(
+      this.config.initialReconnectDelay *
+        Math.pow(2, this.reconnectAttempts - 1),
+      this.config.maxReconnectDelay
+    );
+
+    // Add jitter (±20%)
+    const jitter = delay * 0.2 * (Math.random() * 2 - 1);
+    const finalDelay = delay + jitter;
+
+    this.reconnectTimeout = setTimeout(async () => {
+      try {
+        await this.connectWithProtocol(this.protocol);
+      } catch {
+        this.handleConnectionLost();
+      }
+    }, finalDelay);
+  }
+
+  private async tryFallback(): Promise<void> {
+    this.reconnectAttempts = 0;
+
+    // Protocol fallback order
+    const fallbackOrder: ConnectionProtocol[] = ["websocket", "sse", "polling"];
+    const currentIndex = fallbackOrder.indexOf(this.protocol);
+    const nextProtocol = fallbackOrder[currentIndex + 1];
+
+    if (nextProtocol) {
+      console.log(
+        `AudioConnectionManager: Falling back to ${nextProtocol}`
+      );
+      try {
+        await this.connectWithProtocol(nextProtocol);
+      } catch {
+        // Try next fallback
+        this.tryFallback();
+      }
+    } else {
+      // All protocols failed - start polling as final fallback
+      await this.startPolling();
+    }
+  }
+
+  // ==================== Event Handling ====================
+
+  private handleEvent(event: SessionEvent): void {
+    this.stats.eventsReceived++;
+    this.stats.lastActivityAt = Date.now();
+    
+    if (event.id) {
+      this.lastEventId = Math.max(this.lastEventId, event.id);
+    }
+
+    // Dispatch to all handlers
+    for (const handler of this.eventHandlers) {
+      try {
+        handler(event);
+      } catch (error) {
+        console.error("AudioConnectionManager: Event handler error", error);
+      }
+    }
+  }
+
+  // ==================== State Management ====================
+
+  private setState(newState: ConnectionState): void {
+    if (this.state === newState) return;
+    
+    this.state = newState;
+    this.stats.state = newState;
+
+    for (const handler of this.stateChangeHandlers) {
+      try {
+        handler(newState);
+      } catch (error) {
+        console.error("AudioConnectionManager: State handler error", error);
+      }
+    }
+  }
+
+  // ==================== Chunk Size Adaptation ====================
+
+  private reduceChunkSize(): void {
+    const newSize = Math.max(
+      this.config.minChunkSize,
+      Math.floor(this.chunkSize / 2)
+    );
+
+    if (newSize !== this.chunkSize) {
+      console.log(
+        `AudioConnectionManager: Reducing chunk size from ${this.chunkSize} to ${newSize}`
+      );
+      this.chunkSize = newSize;
+    }
+  }
+
+  // ==================== Utilities ====================
+
+  private cleanup(clearSession: boolean = true): void {
+    if (this.ws) {
+      this.ws.close(1000, "Cleanup");
+      this.ws = null;
+    }
+
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    if (clearSession) {
+      this.sessionId = null;
+      this.stats.sessionId = null;
+    }
+  }
+
+  private updateStats(bytes: number): void {
+    this.stats.chunksent++;
+    this.stats.bytesSent += bytes;
+    this.stats.lastActivityAt = Date.now();
+  }
+
+  private detectDeviceName(): string {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua)) return "iOS Device";
+    if (/Android/.test(ua)) return "Android Device";
+    if (/Mac/.test(ua)) return "Mac Browser";
+    if (/Windows/.test(ua)) return "Windows Browser";
+    if (/Linux/.test(ua)) return "Linux Browser";
+    return "Web Browser";
+  }
+
+  private protocolToBackend(
+    protocol: ConnectionProtocol
+  ): "WEBSOCKET" | "SSE" | "HTTP_POLLING" {
+    switch (protocol) {
+      case "websocket":
+        return "WEBSOCKET";
+      case "sse":
+        return "SSE";
+      case "polling":
+        return "HTTP_POLLING";
+    }
+  }
+
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+}
+
+// Singleton for easy access
+let connectionManagerInstance: AudioConnectionManager | null = null;
+
+export function getAudioConnectionManager(
+  config?: ConnectionConfig
+): AudioConnectionManager {
+  if (!connectionManagerInstance) {
+    connectionManagerInstance = new AudioConnectionManager(config);
+  }
+  return connectionManagerInstance;
+}
+
+export function resetAudioConnectionManager(): void {
+  if (connectionManagerInstance) {
+    connectionManagerInstance.disconnect();
+    connectionManagerInstance = null;
+  }
+}

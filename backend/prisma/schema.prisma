@@ -62,6 +62,10 @@ model User {
   // Notification Topic Tracking (spam prevention)
   notificationTopicTrackers NotificationTopicTracker[]
 
+  // Universal Audio Ingestion (multi-device support)
+  audioDevices       AudioDevice[]
+  audioSessions      UniversalAudioSession[]
+
   @@map("users")
 }
 
@@ -411,6 +415,171 @@ model AudioBatch {
   @@index([userId])
   @@index([status])
   @@map("audio_batches")
+}
+
+// ==================== Universal Audio Ingestion Models ====================
+// Multi-device audio streaming with transparent fallback (WebSocket → SSE → HTTP)
+
+model AudioDevice {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Device identification
+  deviceType   DeviceType
+  deviceName   String? // User-friendly name (e.g., "My Apple Watch", "Chrome Browser")
+  deviceToken  String  @unique // Unique token for this device
+  userAgent    String? // User agent or device fingerprint
+
+  // Device capabilities
+  capabilities Json @default("{}") // { codecs: [], sampleRates: [], protocols: [], maxChunkDuration: number }
+  // Example: { "codecs": ["pcm16", "opus"], "sampleRates": [16000, 22050], "protocols": ["websocket", "http", "sse"] }
+
+  // Connection state
+  lastSeen      DateTime @default(now())
+  lastProtocol  String? // Last used protocol: 'websocket', 'http', 'sse'
+  lastIpAddress String?
+  isActive      Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sessions UniversalAudioSession[]
+
+  @@index([userId])
+  @@index([deviceToken])
+  @@index([isActive])
+  @@map("audio_devices")
+}
+
+model UniversalAudioSession {
+  id       String      @id @default(cuid())
+  userId   String
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId String
+  device   AudioDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  // Session state
+  status SessionStatus @default(CONNECTING)
+
+  // Connection protocol (can change during session via fallback)
+  protocol      ConnectionProtocol @default(WEBSOCKET)
+  fallbackCount Int                @default(0) // Number of times we fell back to a different protocol
+
+  // Audio format configuration
+  audioFormat Json @default("{}") // { codec: "pcm16", sampleRate: 16000, channels: 1, bitDepth: 16 }
+
+  // Chunk tracking for resumable uploads
+  chunksReceived   Int      @default(0)
+  bytesReceived    Int      @default(0)
+  lastChunkSeq     Int      @default(0) // Last received sequence number
+  missingChunks    Int[]    @default([]) // Sequence numbers of missing chunks for re-request
+  lastChunkAt      DateTime?
+
+  // Event delivery tracking
+  pendingEvents     Json[]  @default([]) // Buffered events awaiting delivery
+  lastEventId       Int     @default(0) // Auto-incrementing event ID for polling
+  lastEventDelivery DateTime?
+
+  // Processing results
+  totalTranscripts Int @default(0) // Number of transcripts generated
+  totalDuration    Float @default(0) // Total audio duration in seconds
+
+  // Error tracking
+  errorCount   Int     @default(0)
+  lastError    String?
+  lastErrorAt  DateTime?
+
+  // Session metadata
+  metadata Json @default("{}") // Additional session-specific data
+
+  startedAt   DateTime  @default(now())
+  resumedAt   DateTime? // When session was last resumed after interruption
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  chunks AudioChunk[]
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("universal_audio_sessions")
+}
+
+model AudioChunk {
+  id        String                @id @default(cuid())
+  sessionId String
+  session   UniversalAudioSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Chunk identification
+  sequence Int // Sequence number for ordering
+  isFinal  Boolean @default(false) // Is this the last chunk?
+
+  // Audio data
+  audioData     Bytes // Raw audio data
+  audioFormat   String // Format of this specific chunk: 'pcm16', 'opus', 'base64'
+  sampleRate    Int    @default(16000)
+  durationMs    Int // Duration in milliseconds
+  bytesReceived Int
+
+  // Processing status
+  status       ChunkStatus @default(RECEIVED)
+  processedAt  DateTime?
+  errorMessage String?
+
+  // Transcription result (if processed)
+  transcript   String?
+  vadDetected  Boolean? // Voice activity detected in this chunk
+  speakerId    String? // Identified speaker (if applicable)
+
+  receivedAt DateTime @default(now())
+
+  @@unique([sessionId, sequence])
+  @@index([sessionId])
+  @@index([status])
+  @@map("audio_chunks")
+}
+
+// Enums for Universal Audio Ingestion
+
+enum DeviceType {
+  BROWSER
+  MOBILE_APP
+  WEARABLE
+  IOT
+  DESKTOP_APP
+  OTHER
+}
+
+enum SessionStatus {
+  CONNECTING
+  ACTIVE
+  PAUSED
+  RESUMING
+  COMPLETING
+  COMPLETED
+  ERROR
+  DISCONNECTED
+}
+
+enum ConnectionProtocol {
+  WEBSOCKET
+  SSE
+  HTTP_POLLING
+  HTTP_STREAMING
+}
+
+enum ChunkStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  ERROR
+  SKIPPED
 }
 
 model BatchProcessingResult {

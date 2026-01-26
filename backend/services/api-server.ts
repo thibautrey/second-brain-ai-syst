@@ -76,6 +76,8 @@ import {
   runHealthCheck,
   getProactiveStatus,
 } from "../controllers/proactive-agent.controller.js";
+import audioIngestionController from "../controllers/audio-ingestion.controller.js";
+import { audioSessionManager } from "./audio-session-manager.js";
 
 // Constants
 const PUSHOVER_USER_KEY_LENGTH = 30;
@@ -810,6 +812,16 @@ console.log("🔐 Secrets routes enabled at /api/secrets");
 
 app.use("/api/generated-tools", generatedToolsController);
 console.log("🤖 Generated tools routes enabled at /api/generated-tools");
+
+// ==================== Universal Audio Ingestion Routes ====================
+
+// Attach auth middleware to inject userId
+app.use("/api/audio", authMiddleware, (req: AuthRequest, res, next) => {
+  // Pass userId to the controller
+  (req as any).userId = req.userId;
+  next();
+}, audioIngestionController);
+console.log("🎙️ Universal audio ingestion routes enabled at /api/audio");
 
 // ==================== Goals Routes ====================
 

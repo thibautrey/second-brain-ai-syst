@@ -1,8 +1,13 @@
 /**
  * Continuous Listening Context
  *
- * Manages the WebSocket connection and state for continuous listening feature.
- * Provides real-time audio streaming and event handling.
+ * Manages the audio connection and state for continuous listening feature.
+ * Uses AudioConnectionManager for transparent fallback between protocols:
+ * - WebSocket (primary)
+ * - SSE + HTTP POST (fallback)
+ * - HTTP Polling (final fallback)
+ *
+ * All connection issues are handled transparently - no error states shown to user.
  */
 
 import React, {
@@ -18,7 +23,6 @@ import {
   UpdateUserSettingsInput,
   ContinuousListeningState,
   ContinuousListeningActions,
-  WebSocketMessage,
   VADStatusData,
   SpeakerStatusData,
   TranscriptData,
@@ -27,6 +31,13 @@ import {
   ListeningState,
   WakeWordTestResult,
 } from "../types/continuous-listening";
+import {
+  AudioConnectionManager,
+  getAudioConnectionManager,
+  resetAudioConnectionManager,
+  ConnectionState,
+  SessionEvent,
+} from "../services/audio-connection-manager";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -36,6 +47,7 @@ type Action =
   | { type: "SET_STATE"; payload: ListeningState }
   | { type: "SET_CONNECTED"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
+  | { type: "SET_CONNECTION_STATE"; payload: ConnectionState }
   | { type: "VAD_UPDATE"; payload: VADStatusData }
   | { type: "SPEAKER_UPDATE"; payload: SpeakerStatusData }
   | { type: "TRANSCRIPT"; payload: TranscriptData }
@@ -72,16 +84,36 @@ function reducer(
         ...state,
         isConnected: action.payload,
         state: action.payload ? "listening" : "idle",
+        error: null, // Clear any errors on successful connection
         sessionsCount: action.payload
           ? state.sessionsCount + 1
           : state.sessionsCount,
       };
 
+    case "SET_CONNECTION_STATE":
+      // Map connection states to listening states transparently
+      // Don't show errors - handle reconnection silently
+      const connectionStateMap: Record<ConnectionState, ListeningState> = {
+        disconnected: "idle",
+        connecting: "connecting",
+        connected: "listening",
+        reconnecting: "listening", // Keep listening state during reconnect
+        fallback: "listening", // Fallback is still "listening" from user perspective
+      };
+      return {
+        ...state,
+        state: connectionStateMap[action.payload] || state.state,
+        isConnected: ["connected", "fallback"].includes(action.payload),
+        // Never set error state during reconnection/fallback
+        error: null,
+      };
+
     case "SET_ERROR":
+      // Only set error for unrecoverable situations, not connection issues
       return {
         ...state,
         error: action.payload,
-        state: action.payload ? "error" : state.state,
+        // Don't change state to error - keep listening state
       };
 
     case "VAD_UPDATE":
@@ -225,11 +257,9 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
   const [settings, setSettings] = React.useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const connectionManagerRef = useRef<AudioConnectionManager | null>(null);
   const audioProcessorRef = useRef<AudioProcessor | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const cleanupFunctionsRef = useRef<(() => void)[]>([]);
 
   // Fetch settings on mount
   useEffect(() => {
@@ -262,14 +292,67 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
     }
   };
 
+  const handleSessionEvent = useCallback((event: SessionEvent) => {
+    switch (event.type) {
+      case "session_started":
+      case "session_state":
+        console.log("Session event:", event.type, event.data);
+        break;
+
+      case "vad_status":
+        dispatch({
+          type: "VAD_UPDATE",
+          payload: event.data as VADStatusData,
+        });
+        break;
+
+      case "speaker_status":
+        dispatch({
+          type: "SPEAKER_UPDATE",
+          payload: event.data as SpeakerStatusData,
+        });
+        break;
+
+      case "transcript":
+        dispatch({
+          type: "TRANSCRIPT",
+          payload: event.data as TranscriptData,
+        });
+        break;
+
+      case "command_detected":
+        dispatch({
+          type: "COMMAND_DETECTED",
+          payload: event.data as CommandDetectedData,
+        });
+        break;
+
+      case "memory_stored":
+        dispatch({
+          type: "MEMORY_STORED",
+          payload: event.data as MemoryStoredData,
+        });
+        break;
+
+      case "error":
+        // Log but don't show to user - handle transparently
+        console.warn("Server event error:", event.data);
+        break;
+
+      default:
+        console.log("Unknown event type:", event.type, event.data);
+    }
+  }, []);
+
   const startListening = useCallback(async () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    // Check if already connected
+    const existingManager = connectionManagerRef.current;
+    if (existingManager && ["connected", "fallback"].includes(existingManager.getState())) {
       console.log("Already connected");
       return;
     }
 
     dispatch({ type: "SET_STATE", payload: "connecting" });
-    dispatch({ type: "SET_ERROR", payload: null });
 
     try {
       const token = localStorage.getItem("authToken");
@@ -277,87 +360,56 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
         throw new Error("Not authenticated");
       }
 
-      // Determine WebSocket URL from API_BASE_URL
-      const apiUrl = new URL(API_BASE_URL);
-      const protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${apiUrl.host}/ws/continuous-listen?token=${token}`;
+      // Get or create connection manager with fallback enabled
+      const connectionManager = getAudioConnectionManager({
+        deviceType: "BROWSER",
+        enableFallback: true,
+        maxReconnectAttempts: 10,
+        adaptiveChunkSize: true,
+      });
+      connectionManagerRef.current = connectionManager;
 
-      console.log("Connecting to WebSocket:", wsUrl);
+      // Subscribe to events
+      const unsubscribeEvents = connectionManager.onEvent(handleSessionEvent);
+      cleanupFunctionsRef.current.push(unsubscribeEvents);
 
-      // Create WebSocket connection
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+      // Subscribe to state changes - handle transparently
+      const unsubscribeState = connectionManager.onStateChange((connectionState) => {
+        dispatch({ type: "SET_CONNECTION_STATE", payload: connectionState });
+      });
+      cleanupFunctionsRef.current.push(unsubscribeState);
 
-      ws.onopen = async () => {
-        console.log("WebSocket connected");
-        dispatch({ type: "SET_CONNECTED", payload: true });
+      // Connect (handles all fallback logic internally)
+      const connected = await connectionManager.connect();
 
-        // Start audio capture
-        try {
-          audioProcessorRef.current = new AudioProcessor();
-          await audioProcessorRef.current.start((data) => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(data);
-            }
-          });
-        } catch (error) {
-          console.error("Failed to start audio capture:", error);
-          dispatch({
-            type: "SET_ERROR",
-            payload: "Failed to access microphone",
-          });
-          ws.close();
-        }
-      };
+      if (!connected) {
+        throw new Error("Failed to connect");
+      }
 
-      ws.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          handleWebSocketMessage(message);
-        } catch (error) {
-          console.error("Failed to parse WebSocket message:", error);
-        }
-      };
+      // Start audio capture
+      audioProcessorRef.current = new AudioProcessor();
+      await audioProcessorRef.current.start((audioData) => {
+        connectionManager.sendAudioChunk(audioData);
+      });
 
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        dispatch({ type: "SET_ERROR", payload: "Connection error" });
-      };
-
-      ws.onclose = (event) => {
-        console.log("WebSocket closed:", event.code, event.reason);
-        dispatch({ type: "SET_CONNECTED", payload: false });
-
-        // Stop audio processor
-        if (audioProcessorRef.current) {
-          audioProcessorRef.current.stop();
-          audioProcessorRef.current = null;
-        }
-
-        // Handle reconnection for unexpected closures
-        if (event.code !== 1000 && event.code !== 4003) {
-          dispatch({
-            type: "SET_ERROR",
-            payload: event.reason || "Connection closed",
-          });
-        }
-      };
+      dispatch({ type: "SET_CONNECTED", payload: true });
     } catch (error) {
       console.error("Failed to start listening:", error);
-      dispatch({
-        type: "SET_ERROR",
-        payload: error instanceof Error ? error.message : "Failed to connect",
-      });
-      dispatch({ type: "SET_STATE", payload: "error" });
+      // Only show error if it's a critical failure (like no microphone)
+      if (error instanceof Error && error.message.includes("microphone")) {
+        dispatch({
+          type: "SET_ERROR",
+          payload: "Failed to access microphone",
+        });
+      }
+      // Otherwise, the connection manager will keep trying transparently
     }
-  }, []);
+  }, [handleSessionEvent]);
 
   const stopListening = useCallback(() => {
-    // Clear reconnect timeout
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
+    // Cleanup event subscriptions
+    cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+    cleanupFunctionsRef.current = [];
 
     // Stop audio processor
     if (audioProcessorRef.current) {
@@ -365,73 +417,13 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
       audioProcessorRef.current = null;
     }
 
-    // Close WebSocket
-    if (wsRef.current) {
-      wsRef.current.close(1000, "User stopped listening");
-      wsRef.current = null;
-    }
+    // Disconnect and reset connection manager
+    resetAudioConnectionManager();
+    connectionManagerRef.current = null;
 
     dispatch({ type: "SET_STATE", payload: "idle" });
     dispatch({ type: "SET_CONNECTED", payload: false });
   }, []);
-
-  const handleWebSocketMessage = (message: WebSocketMessage) => {
-    switch (message.type) {
-      case "session_started":
-        console.log("Session started");
-        break;
-
-      case "vad_status":
-        dispatch({
-          type: "VAD_UPDATE",
-          payload: message.data as VADStatusData,
-        });
-        break;
-
-      case "speaker_status":
-        dispatch({
-          type: "SPEAKER_UPDATE",
-          payload: message.data as SpeakerStatusData,
-        });
-        break;
-
-      case "transcript":
-        dispatch({
-          type: "TRANSCRIPT",
-          payload: message.data as TranscriptData,
-        });
-        break;
-
-      case "command_detected":
-        dispatch({
-          type: "COMMAND_DETECTED",
-          payload: message.data as CommandDetectedData,
-        });
-        break;
-
-      case "memory_stored":
-        dispatch({
-          type: "MEMORY_STORED",
-          payload: message.data as MemoryStoredData,
-        });
-        break;
-
-      case "error":
-        console.error("Server error:", message.data);
-        dispatch({
-          type: "SET_ERROR",
-          payload: (message.data as { message: string })?.message,
-        });
-        break;
-
-      case "config_updated":
-        console.log("Config updated on server");
-        break;
-
-      default:
-        console.log("Unknown message type:", message.type);
-    }
-  };
 
   const updateSettings = useCallback(
     async (updates: UpdateUserSettingsInput) => {
@@ -456,10 +448,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
         const updatedSettings = await response.json();
         setSettings(updatedSettings);
 
-        // Notify WebSocket of config change
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ type: "config_update" }));
-        }
+        // Note: Config updates are handled by the session, no need to manually notify
       } catch (error) {
         console.error("Failed to update settings:", error);
         throw error;
