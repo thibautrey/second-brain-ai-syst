@@ -1067,3 +1067,93 @@ export async function chatStream(
     }
   }
 }
+
+/**
+ * Process a message from Telegram and return the AI response
+ * Used by telegram.service.ts for two-way communication
+ */
+export async function processTelegramMessage(
+  userId: string,
+  message: string,
+): Promise<string> {
+  const startTime = Date.now();
+  const flowId = randomBytes(8).toString("hex");
+
+  try {
+    console.log(`[Telegram] Processing message for user ${userId}: ${message.substring(0, 50)}...`);
+
+    // Get provider configuration
+    const providerData = await getChatProvider(userId);
+    if (!providerData) {
+      return "❌ AI provider not configured. Please set up your AI settings in the web interface.";
+    }
+
+    const { provider, modelId } = providerData;
+
+    // Initialize OpenAI client
+    const openai = new OpenAI({
+      apiKey: provider.apiKey,
+      baseUrl: provider.baseUrl || undefined,
+    });
+
+    // Get user profile for context
+    let userProfileContext = "";
+    try {
+      const profile = await getUserProfile(userId);
+      if (profile && Object.keys(profile).length > 0) {
+        userProfileContext = formatProfileForPrompt(profile);
+      }
+    } catch (error) {
+      console.warn("[Telegram] Failed to get user profile:", error);
+    }
+
+    // Search for relevant memories
+    let memoryContext = "";
+    try {
+      const searchResults = await memorySearchService.searchMemories(
+        userId,
+        message,
+        { limit: 5 },
+      );
+      if (searchResults.results.length > 0) {
+        memoryContext = searchResults.results
+          .map((m) => `- ${m.content}`)
+          .join("\n");
+      }
+    } catch (error) {
+      console.warn("[Telegram] Failed to search memories:", error);
+    }
+
+    // Build system prompt with context
+    let systemPrompt = CHAT_SYSTEM_PROMPT;
+    if (userProfileContext) {
+      systemPrompt = injectContextIntoPrompt(systemPrompt, "USER_PROFILE", userProfileContext);
+    }
+    if (memoryContext) {
+      systemPrompt += `\n\nMÉMOIRES PERTINENTES:\n${memoryContext}`;
+    }
+
+    // Get default max tokens
+    const maxTokens = await getDefaultMaxTokens(userId);
+
+    // Make the LLM call (non-streaming for Telegram)
+    const response = await openai.chat.completions.create({
+      model: modelId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
+      max_tokens: maxTokens,
+    });
+
+    const assistantMessage = response.choices[0]?.message?.content || "";
+
+    console.log(`[Telegram] Response generated in ${Date.now() - startTime}ms`);
+
+    // Return the response (strip HTML if present since we'll format for Telegram separately)
+    return assistantMessage;
+  } catch (error: any) {
+    console.error("[Telegram] Error processing message:", error);
+    return `❌ Sorry, I couldn't process your message: ${error.message}`;
+  }
+}

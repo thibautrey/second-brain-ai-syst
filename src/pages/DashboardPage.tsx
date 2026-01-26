@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { TrainingProgressWidget } from "../components/ui/training-progress-widget";
+import { TipsCarousel } from "../components/TipsCarousel";
 import {
   Menu,
   LogOut,
@@ -29,6 +30,8 @@ import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useIsMobile } from "../hooks/use-mobile";
 import { MobileDashboard } from "../components/dashboard/MobileDashboard";
 import { DesktopDashboard } from "../components/dashboard/DesktopDashboard";
+import { fetchActiveTips, dismissTip, viewTip } from "../services/api";
+import type { Tip } from "../services/api";
 
 const DESKTOP_BREAKPOINT = 1024;
 
@@ -42,6 +45,9 @@ export function DashboardPage() {
     if (typeof window === "undefined") return false;
     return window.innerWidth >= DESKTOP_BREAKPOINT;
   });
+
+  const [tips, setTips] = useState<Tip[]>([]);
+  const [tipsLoading, setTipsLoading] = useState(true);
 
   const userToggledSidebar = useRef(false);
   const activeTab = tab || "dashboard";
@@ -75,6 +81,24 @@ export function DashboardPage() {
     };
   }, []);
 
+  // Fetch tips on mount
+  useEffect(() => {
+    const loadTips = async () => {
+      try {
+        setTipsLoading(true);
+        const data = await fetchActiveTips({ limit: 5 });
+        setTips(data.tips);
+      } catch (error) {
+        console.error("Failed to load tips:", error);
+        setTips([]);
+      } finally {
+        setTipsLoading(false);
+      }
+    };
+
+    loadTips();
+  }, []);
+
   function handleLogout() {
     logout();
     navigate("/login");
@@ -91,6 +115,24 @@ export function DashboardPage() {
       setSidebarOpen(false);
     }
   }
+
+  const handleTipDismiss = async (tipId: string) => {
+    try {
+      await dismissTip(tipId);
+      // Remove tip from display
+      setTips((prevTips) => prevTips.filter((t) => t.id !== tipId));
+    } catch (error) {
+      console.error("Failed to dismiss tip:", error);
+    }
+  };
+
+  const handleTipView = async (tipId: string) => {
+    try {
+      await viewTip(tipId);
+    } catch (error) {
+      console.error("Failed to track tip view:", error);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -119,6 +161,24 @@ export function DashboardPage() {
           <NavItem icon={<Bell className="w-5 h-5" />} label="Notifications" onClick={() => handleNavigation("/dashboard/notifications")} isActive={activeTab === "notifications"} />
           <NavItem icon={<Settings className="w-5 h-5" />} label="Settings" onClick={() => handleNavigation("/dashboard/settings")} isActive={activeTab === "settings"} />
         </nav>
+
+        {/* Tips Carousel - Bottom of sidebar */}
+        {!tipsLoading && tips.length > 0 && (
+          <TipsCarousel
+            tips={tips.map((tip) => ({
+              id: tip.id,
+              title: tip.title,
+              description: tip.description,
+              category: tip.category,
+              targetFeature: tip.targetFeature,
+              icon: tip.icon,
+              priority: tip.priority,
+              isDismissed: tip.isDismissed,
+            }))}
+            onDismiss={handleTipDismiss}
+            onView={handleTipView}
+          />
+        )}
 
         <div className="p-4 border-t border-slate-800">
           <Button

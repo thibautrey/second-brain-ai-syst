@@ -2,6 +2,7 @@ import prisma from "./prisma.js";
 import { websocketBroadcast } from "./websocket-broadcast.js";
 import type { NotificationType, NotificationChannel } from "@prisma/client";
 import axios from "axios";
+import { telegramService } from "./telegram.service.js";
 
 export interface CreateNotificationInput {
   userId: string;
@@ -89,6 +90,8 @@ class NotificationService {
             return this.sendWebhook(notification);
           case "PUSHOVER":
             return this.sendPushover(notification);
+          case "TELEGRAM":
+            return this.sendTelegram(notification);
           default:
             return Promise.resolve();
         }
@@ -238,6 +241,31 @@ class NotificationService {
     } catch (error: any) {
       console.error(
         `[NotificationService] Failed to send Pushover notification:`,
+        error.message,
+      );
+    }
+  }
+
+  /**
+   * Send Telegram notification
+   */
+  async sendTelegram(notification: any) {
+    try {
+      const success = await telegramService.sendNotification(
+        notification.userId,
+        notification.title,
+        notification.message,
+        notification.actionUrl,
+      );
+
+      if (success) {
+        console.log(
+          `[NotificationService] Telegram notification sent: ${notification.title}`,
+        );
+      }
+    } catch (error: any) {
+      console.error(
+        `[NotificationService] Failed to send Telegram notification:`,
         error.message,
       );
     }

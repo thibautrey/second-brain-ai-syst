@@ -6,7 +6,7 @@ import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import { NotificationSettings } from "../components/NotificationSettings";
 import { createNotification } from "../services/notificationService";
-import { Send, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { Send, CheckCircle, AlertCircle, Info, MessageCircle } from "lucide-react";
 
 export function NotificationTestPage() {
   const [title, setTitle] = useState("Test Notification");
@@ -15,7 +15,7 @@ export function NotificationTestPage() {
     "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "REMINDER"
   >("INFO");
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedChannel, setSelectedChannel] = useState<"browser" | "pushover" | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<"browser" | "pushover" | "telegram" | null>(null);
 
   const handleSendNotification = async () => {
     setIsLoading(true);
@@ -24,6 +24,8 @@ export function NotificationTestPage() {
         ? ["BROWSER_NOTIFICATION"]
         : selectedChannel === "pushover"
         ? ["PUSHOVER"]
+        : selectedChannel === "telegram"
+        ? ["TELEGRAM"]
         : ["IN_APP", "PUSH"];
 
       await createNotification({
@@ -101,6 +103,23 @@ export function NotificationTestPage() {
               </div>
             </div>
           </Card>
+
+          <Card 
+            className="p-4 border-2 border-transparent hover:border-primary/50 transition-colors cursor-pointer"
+            onClick={() => setSelectedChannel(selectedChannel === "telegram" ? null : "telegram")}
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-sky-100 rounded-lg">
+                <MessageCircle className="h-5 w-5 text-sky-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold">Telegram</h3>
+                <p className="text-sm text-muted-foreground">
+                  Chat and notifications via Telegram
+                </p>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Channels Configuration */}
@@ -111,7 +130,7 @@ export function NotificationTestPage() {
           <h2 className="text-xl font-semibold">Send Test Notification</h2>
           <p className="text-sm text-muted-foreground">
             {selectedChannel 
-              ? `Send a test message via ${selectedChannel === "browser" ? "Browser Notifications" : selectedChannel === "pushover" ? "Pushover" : "the selected channel"}`
+              ? `Send a test message via ${selectedChannel === "browser" ? "Browser Notifications" : selectedChannel === "pushover" ? "Pushover" : selectedChannel === "telegram" ? "Telegram" : "the selected channel"}`
               : "Select a channel above to send a test notification"
             }
           </p>

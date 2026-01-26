@@ -53,6 +53,9 @@ model User {
     goals        Goal[]
     achievements Achievement[]
 
+    // Tips and Hints
+    tips Tip[]
+
     @@map("users")
 }
 
@@ -91,6 +94,11 @@ model UserSettings {
     // Pushover Integration Settings
     pushoverUserKey  String? // Pushover user key for notifications
     pushoverApiToken String? // Pushover API token (optional, defaults to app token)
+
+    // Telegram Integration Settings
+    telegramBotToken String? // Telegram bot token from @BotFather
+    telegramChatId   String? // User's chat ID (auto-discovered via /start command)
+    telegramEnabled  Boolean @default(false) // Whether Telegram notifications are enabled
 
     // AI Generation Settings
     defaultMaxTokens Int @default(4096) // Default max tokens for LLM responses
@@ -740,6 +748,41 @@ enum NotificationChannel {
     PUSH // Push notification (mobile/desktop)
     WEBHOOK // External webhook
     PUSHOVER // Pushover notification service
+    TELEGRAM // Telegram bot notification
+}
+
+// ==================== Tips & Hints System ====================
+
+model Tip {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Content
+    title       String
+    description String @db.Text
+    category    String @default("general") // e.g., 'getting-started', 'feature-highlight', 'productivity'
+    targetFeature String? // Which feature/page this tip is for (e.g., 'memories', 'tools', 'voice')
+
+    // State tracking
+    isDismissed  Boolean   @default(false)
+    dismissedAt  DateTime?
+    viewCount    Int       @default(0)
+    lastViewedAt DateTime?
+
+    // Display
+    priority Int @default(0) // Higher = show first
+    icon     String? // Icon identifier (e.g., 'lightbulb', 'star')
+    metadata Json @default("{}") // Extra data (e.g., video URL, links)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([isDismissed])
+    @@index([targetFeature])
+    @@index([priority])
+    @@map("tips")
 }
 
 // ==================== Tool Configuration Models ====================

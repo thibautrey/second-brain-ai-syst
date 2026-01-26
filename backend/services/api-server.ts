@@ -59,6 +59,7 @@ import { scheduledTaskService } from "./tools/scheduled-task.service.js";
 import toolsController from "../controllers/tools.controller.js";
 import longRunningTaskController from "../controllers/long-running-task.controller.js";
 import { notificationController } from "../controllers/notification.controller.js";
+import { tipsController } from "../controllers/tips.controller.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer, Server as HttpServer, IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
@@ -1086,6 +1087,254 @@ app.post(
 );
 
 console.log("⚙️  Notification settings routes enabled at /api/settings/notifications");
+
+// ==================== Telegram Integration Routes ====================
+
+import { telegramService } from "./telegram.service.js";
+
+/**
+ * GET /api/settings/telegram
+ * Get Telegram settings for current user
+ */
+app.get(
+  "/api/settings/telegram",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId: req.userId },
+        select: {
+          telegramBotToken: true,
+          telegramChatId: true,
+          telegramEnabled: true,
+        },
+      });
+
+      if (!settings) {
+        return res.json({
+          telegramBotToken: null,
+          telegramChatId: null,
+          telegramEnabled: false,
+        });
+      }
+
+      // Don't expose full token, just indicate if configured
+      res.json({
+        hasBotToken: !!settings.telegramBotToken,
+        telegramChatId: settings.telegramChatId,
+        telegramEnabled: settings.telegramEnabled,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Telegram settings:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+/**
+ * PUT /api/settings/telegram
+ * Update Telegram bot token
+ */
+app.put(
+  "/api/settings/telegram",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { telegramBotToken, telegramEnabled } = req.body;
+
+      // Validate bot token if provided
+      if (telegramBotToken) {
+        const validation = await telegramService.validateBotToken(telegramBotToken);
+        if (!validation.valid) {
+          return res.status(400).json({
+            error: `Invalid bot token: ${validation.error}`,
+          });
+        }
+      }
+
+      // Upsert settings
+      const settings = await prisma.userSettings.upsert({
+        where: { userId: req.userId! },
+        create: {
+          userId: req.userId!,
+          telegramBotToken: telegramBotToken || null,
+          telegramEnabled: telegramEnabled ?? false,
+        },
+        update: {
+          ...(telegramBotToken !== undefined && { telegramBotToken: telegramBotToken || null }),
+          ...(telegramEnabled !== undefined && { telegramEnabled }),
+          // Clear chat ID if token is being removed
+          ...(telegramBotToken === null && { telegramChatId: null }),
+        },
+        select: {
+          telegramBotToken: true,
+          telegramChatId: true,
+          telegramEnabled: true,
+        },
+      });
+
+      // Start or stop polling based on configuration
+      if (settings.telegramBotToken && settings.telegramEnabled) {
+        await telegramService.startPolling(req.userId!);
+      } else if (settings.telegramBotToken) {
+        telegramService.stopPolling(settings.telegramBotToken);
+      }
+
+      res.json({
+        hasBotToken: !!settings.telegramBotToken,
+        telegramChatId: settings.telegramChatId,
+        telegramEnabled: settings.telegramEnabled,
+      });
+    } catch (error: any) {
+      console.error("Error updating Telegram settings:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+/**
+ * POST /api/settings/telegram/test
+ * Test Telegram configuration by sending a test notification
+ */
+app.post(
+  "/api/settings/telegram/test",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const result = await telegramService.sendTestNotification(req.userId!);
+      
+      if (result.success) {
+        res.json({ success: true, message: result.message });
+      } else {
+        res.status(400).json({ success: false, error: result.message });
+      }
+    } catch (error: any) {
+      console.error("Error testing Telegram:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
+
+/**
+ * POST /api/settings/telegram/start-polling
+ * Start polling for incoming messages (called when user enables Telegram)
+ */
+app.post(
+  "/api/settings/telegram/start-polling",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      await telegramService.startPolling(req.userId!);
+      res.json({ success: true, message: "Polling started" });
+    } catch (error: any) {
+      console.error("Error starting Telegram polling:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
+
+/**
+ * DELETE /api/settings/telegram
+ * Disconnect Telegram (clear all settings)
+ */
+app.delete(
+  "/api/settings/telegram",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId: req.userId },
+        select: { telegramBotToken: true },
+      });
+
+      // Stop polling if active
+      if (settings?.telegramBotToken) {
+        telegramService.stopPolling(settings.telegramBotToken);
+      }
+
+      // Clear Telegram settings
+      await prisma.userSettings.update({
+        where: { userId: req.userId },
+        data: {
+          telegramBotToken: null,
+          telegramChatId: null,
+          telegramEnabled: false,
+        },
+      });
+
+      res.json({ success: true, message: "Telegram disconnected" });
+    } catch (error: any) {
+      console.error("Error disconnecting Telegram:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+console.log("📱 Telegram routes enabled at /api/settings/telegram");
+
+// ==================== Tips & Hints Routes ====================
+
+/**
+ * POST /api/tips
+ * Create a new tip (for system/admin use)
+ */
+app.post(
+  "/api/tips",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await tipsController.create(req, res);
+  },
+);
+
+/**
+ * GET /api/tips
+ * Get active tips for user
+ */
+app.get(
+  "/api/tips",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await tipsController.list(req, res);
+  },
+);
+
+/**
+ * PATCH /api/tips/:id/view
+ * Track tip view
+ */
+app.patch(
+  "/api/tips/:id/view",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await tipsController.view(req, res);
+  },
+);
+
+/**
+ * PATCH /api/tips/:id/dismiss
+ * Dismiss a tip for user
+ */
+app.patch(
+  "/api/tips/:id/dismiss",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await tipsController.dismiss(req, res);
+  },
+);
+
+/**
+ * DELETE /api/tips/:id
+ * Delete a tip
+ */
+app.delete(
+  "/api/tips/:id",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await tipsController.delete(req, res);
+  },
+);
+
+console.log("💡 Tips routes enabled at /api/tips");
 
 // ==================== Proactive Agent Routes ====================
 

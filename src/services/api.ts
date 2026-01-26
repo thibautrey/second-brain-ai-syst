@@ -98,3 +98,52 @@ export async function apiDelete<T>(endpoint: string): Promise<T> {
 
   return handleResponse<T>(response);
 }
+// ==================== Tips API ====================
+
+export interface Tip {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  category: string;
+  targetFeature?: string;
+  isDismissed: boolean;
+  dismissedAt?: string;
+  viewCount: number;
+  lastViewedAt?: string;
+  priority: number;
+  icon?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchActiveTips(options?: {
+  limit?: number;
+  offset?: number;
+  targetFeature?: string;
+}): Promise<{ tips: Tip[]; total: number; limit: number; offset: number }> {
+  return apiGet<{ tips: Tip[]; total: number; limit: number; offset: number }>(
+    "/tips",
+    options,
+  );
+}
+
+export async function viewTip(tipId: string): Promise<{ success: boolean; tip: Tip }> {
+  return apiPatch<{ success: boolean; tip: Tip }>(`/tips/${tipId}/view`);
+}
+
+export async function dismissTip(tipId: string): Promise<{ success: boolean; tip: Tip }> {
+  return apiPatch<{ success: boolean; tip: Tip }>(`/tips/${tipId}/dismiss`);
+}
+
+export async function createTip(data: {
+  title: string;
+  description: string;
+  category?: string;
+  targetFeature?: string;
+  priority?: number;
+  icon?: string;
+  metadata?: Record<string, any>;
+}): Promise<{ success: boolean; tip: Tip }> {
+  return apiPost<{ success: boolean; tip: Tip }>("/tips", data);
+}
