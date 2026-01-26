@@ -125,7 +125,7 @@ export function DashboardPage() {
             isActive={activeTab === "analytics"}
           />
           <NavItem
-            icon={<Mic className="w-5 h-5" />}}
+            icon={<Mic className="w-5 h-5" />}
             label="Voice Training"
             onClick={() => handleNavigation("/dashboard/training")}
             isActive={activeTab === "training"}
@@ -230,7 +230,6 @@ export function DashboardPage() {
                     activityLoading={activityLoading}
                     activityError={activityError}
                     formatTimeAgo={formatTimeAgo}
-                    navigate={navigate}
                   />
                 ) : (
                   // Desktop Dashboard - Original Layout
