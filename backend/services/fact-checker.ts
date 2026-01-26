@@ -188,7 +188,7 @@ class FactCheckerService {
   ): Promise<string[]> {
     const provider = await llmRouterService.getProviderForTask(
       userId,
-      "REFLECTION",
+      "analysis",
     );
     if (!provider) {
       console.warn("[FactChecker] No provider configured for claim extraction");
@@ -253,7 +253,7 @@ Return a JSON object:
 
       // Simplified verification - in reality would parse search results
       // or use a dedicated fact-checking API
-      const hasResults = result.status === 200 && result.body.length > 1000;
+      const hasResults = result.statusCode === 200 && result.body.length > 1000;
 
       return {
         claim,
