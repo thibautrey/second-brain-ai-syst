@@ -85,7 +85,7 @@ export function MemoryBrowser() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-3xl font-bold text-slate-900">Mémoires</h2>
           <p className="text-slate-600 mt-1">
@@ -103,7 +103,7 @@ export function MemoryBrowser() {
             size="sm"
             onClick={refresh}
             disabled={isLoading}
-            className="gap-2"
+            className="gap-2 flex-1 sm:flex-initial"
           >
             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
             Actualiser

@@ -62,11 +62,23 @@ export function SettingsPage() {
       </p>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="providers">Providers IA</TabsTrigger>
-          <TabsTrigger value="models">Configuration des Modèles</TabsTrigger>
-          <TabsTrigger value="secrets">Secrets & Clés API</TabsTrigger>
-          <TabsTrigger value="listening">Écoute Continue</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="providers">
+            <span className="hidden sm:inline">Providers IA</span>
+            <span className="sm:hidden">Providers</span>
+          </TabsTrigger>
+          <TabsTrigger value="models">
+            <span className="hidden sm:inline">Configuration des Modèles</span>
+            <span className="sm:hidden">Modèles</span>
+          </TabsTrigger>
+          <TabsTrigger value="secrets">
+            <span className="hidden sm:inline">Secrets & Clés API</span>
+            <span className="sm:hidden">Secrets</span>
+          </TabsTrigger>
+          <TabsTrigger value="listening">
+            <span className="hidden sm:inline">Écoute Continue</span>
+            <span className="sm:hidden">Écoute</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="providers">
