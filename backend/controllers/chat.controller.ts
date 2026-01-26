@@ -338,16 +338,16 @@ export async function chatStream(
           "Recherche mémoire échouée. Continuation sans contexte mémoire.",
       });
     } else {
-      memoryContext = searchResults.map(
+      memoryContext = validSearchResults.map(
         (r: any) =>
           `[Mémoire du ${new Date(r.memory?.createdAt || r.createdAt).toLocaleDateString()}]: ${r.memory?.content || r.content}`,
       );
 
-      const avgScore = searchResults.length > 0 
-        ? searchResults.reduce((sum: number, r: any) => sum + (r.score || r.certainty || 0), 0) / searchResults.length 
+      const avgScore = validSearchResults.length > 0 
+        ? validSearchResults.reduce((sum: number, r: any) => sum + (r.score || r.certainty || 0), 0) / validSearchResults.length 
         : 0;
       const memoryDecision =
-        `${searchResults.length} mémoire(s) pertinente(s) trouvée(s). ` +
+        `${validSearchResults.length} mémoire(s) pertinente(s) trouvée(s). ` +
         `Score moyen: ${(avgScore * 100).toFixed(1)}%.`;
 
       flowTracker.trackEvent({
