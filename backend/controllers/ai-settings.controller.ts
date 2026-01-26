@@ -733,6 +733,7 @@ export async function syncProviderModels(userId: string, providerId: string) {
     added: result.added,
     updated: result.updated,
     removed: result.removed,
+    configsCleared: result.configsCleared,
     total: result.total,
     provider: updatedProvider
       ? {

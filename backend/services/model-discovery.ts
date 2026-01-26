@@ -597,7 +597,7 @@ export class ModelDiscoveryService {
   async syncProviderModels(
     userId: string,
     providerId: string,
-  ): Promise<{ added: number; updated: number; removed: number; total: number }> {
+  ): Promise<{ added: number; updated: number; removed: number; configsCleared: number; total: number }> {
     // Get the provider
     console.log(`[ModelDiscovery] Looking up provider: ${providerId}`);
 
@@ -743,11 +743,46 @@ export class ModelDiscoveryService {
     );
 
     let removed = 0;
+    let configsCleared = 0;
+    
     if (modelsToRemove.length > 0) {
       console.log(
         `[ModelDiscovery] Removing ${modelsToRemove.length} models no longer available: ${modelsToRemove.map((m) => m.modelId).join(", ")}`,
       );
 
+      // Get the database IDs of models to remove
+      const modelIdsToRemove = modelsToRemove.map((m) => m.id);
+
+      // First, clear any task config references to these models
+      // Clear primary model references
+      const clearedPrimary = await prisma.aITaskConfig.updateMany({
+        where: {
+          modelId: { in: modelIdsToRemove },
+        },
+        data: {
+          modelId: null,
+        },
+      });
+      
+      // Clear fallback model references
+      const clearedFallback = await prisma.aITaskConfig.updateMany({
+        where: {
+          fallbackModelId: { in: modelIdsToRemove },
+        },
+        data: {
+          fallbackModelId: null,
+        },
+      });
+
+      configsCleared = clearedPrimary.count + clearedFallback.count;
+      
+      if (configsCleared > 0) {
+        console.log(
+          `[ModelDiscovery] Cleared ${configsCleared} task config references to removed models`,
+        );
+      }
+
+      // Now delete the models
       for (const model of modelsToRemove) {
         try {
           await prisma.aIModel.delete({
@@ -756,29 +791,23 @@ export class ModelDiscoveryService {
           removed++;
           console.log(`[ModelDiscovery]   -> Removed model: ${model.modelId}`);
         } catch (error) {
-          // If model is referenced by task configs, just log warning and skip
-          if (error instanceof Error && error.message.includes("foreign key constraint")) {
-            console.warn(
-              `[ModelDiscovery]   -> Cannot remove model ${model.modelId}: still referenced by task configs`,
-            );
-          } else {
-            console.error(
-              `[ModelDiscovery] Error removing model ${model.modelId}:`,
-              error,
-            );
-          }
+          console.error(
+            `[ModelDiscovery] Error removing model ${model.modelId}:`,
+            error,
+          );
         }
       }
     }
 
     console.log(
-      `[ModelDiscovery] Sync complete: ${added} added, ${updated} updated, ${removed} removed, ${discoveredModels.length} total discovered`,
+      `[ModelDiscovery] Sync complete: ${added} added, ${updated} updated, ${removed} removed, ${configsCleared} task configs cleared, ${discoveredModels.length} total discovered`,
     );
 
     return {
       added,
       updated,
       removed,
+      configsCleared,
       total: discoveredModels.length,
     };
   }
