@@ -61,7 +61,7 @@ ON "user_settings" ("userId");
 -- Index for notifications by user and read status
 -- Used for: Unread notification count, notification list
 CREATE INDEX IF NOT EXISTS "idx_notifications_user_read" 
-ON "notifications" ("userId", "read", "createdAt" DESC);
+ON "notifications" ("userId", "isRead", "createdAt" DESC);
 
 -- Index for scheduled tasks by user and enabled status
 -- Used for: Active task retrieval
