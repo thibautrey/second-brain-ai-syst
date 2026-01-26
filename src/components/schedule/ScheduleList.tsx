@@ -3,6 +3,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "i18next-react";
 import {
   Plus,
   Calendar,
@@ -39,6 +40,7 @@ type FilterType =
   | "interval";
 
 export function ScheduleList() {
+  const { t } = useTranslation();
   const {
     tasks,
     loading,
@@ -112,7 +114,7 @@ export function ScheduleList() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cette tâche planifiée ?")) {
+    if (confirm(t("schedule.deleteConfirm"))) {
       await deleteTask(id);
     }
   };
@@ -314,13 +316,13 @@ export function ScheduleList() {
             <Card>
               <CardContent className="py-12 text-center">
                 <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                <p className="text-slate-500">Aucune tâche planifiée</p>
+                <p className="text-slate-500">{t("schedule.noTasksScheduled")}</p>
                 <Button
                   variant="outline"
                   className="mt-4"
                   onClick={() => setShowForm(true)}
                 >
-                  Créer une planification
+                  {t("schedule.createSchedule")}
                 </Button>
               </CardContent>
             </Card>

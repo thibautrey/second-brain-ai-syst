@@ -1,0 +1,148 @@
+{
+  "common": {
+    "add": "Ajouter",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "save": "Sauvegarder",
+    "saving": "Enregistrement...",
+    "create": "Créer",
+    "search": "Rechercher",
+    "error": "Erreur",
+    "success": "Succès",
+    "loading": "Chargement...",
+    "name": "Nom",
+    "email": "Email",
+    "password": "Mot de passe",
+    "none": "Aucun"
+  },
+  "auth": {
+    "login": {
+      "title": "Bienvenue",
+      "subtitle": "Connectez-vous à votre Second Brain",
+      "emailLabel": "Adresse Email",
+      "passwordLabel": "Mot de passe",
+      "signIn": "Connexion",
+      "signingIn": "Connexion en cours...",
+      "error": "Connexion échouée",
+      "dontHaveAccount": "Vous n'avez pas de compte?",
+      "createOne": "En créer un",
+      "emailRequired": "Email et mot de passe requis"
+    },
+    "signup": {
+      "title": "Créer un compte",
+      "subtitle": "Rejoignez Second Brain AI System",
+      "nameLabel": "Nom complet (Optionnel)",
+      "emailLabel": "Adresse Email",
+      "passwordLabel": "Mot de passe",
+      "confirmPasswordLabel": "Confirmer le mot de passe",
+      "signUp": "S'inscrire",
+      "creatingAccount": "Création du compte...",
+      "error": "Inscription échouée",
+      "alreadyHaveAccount": "Vous avez déjà un compte?",
+      "signInInstead": "Se connecter",
+      "passwordMinLength": "Au moins 6 caractères",
+      "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+      "emailRequired": "Email et mot de passe requis",
+      "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères"
+    }
+  },
+  "dashboard": {
+    "welcome": "Bienvenue de retour",
+    "totalMemories": "Mémoires totales",
+    "totalInteractions": "Interactions totales",
+    "dailySummaries": "Résumés quotidiens"
+  },
+  "navigation": {
+    "settings": "Paramètres",
+    "logout": "Déconnexion",
+    "home": "Accueil",
+    "memory": "Mémoire",
+    "training": "Entraînement",
+    "tools": "Outils",
+    "notifications": "Notifications",
+    "schedule": "Planification"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Configurez vos providers d'IA et assignez les modèles aux différentes tâches.",
+    "tabs": {
+      "providers": "Providers IA",
+      "models": "Configuration des Modèles",
+      "secrets": "Secrets & Clés API",
+      "listening": "Écoute Continue"
+    },
+    "providers": {
+      "addProvider": "Ajouter un Provider",
+      "noProvidersConfigured": "Aucun provider configuré.",
+      "editProvider": "Modifier le Provider",
+      "newProvider": "Nouveau Provider",
+      "providerName": "Nom du Provider"
+    },
+    "models": {
+      "primaryProvider": "Provider Primaire",
+      "fallbackModel": "Utilisé automatiquement en cas d'échec du provider primaire",
+      "noSuggestedProvider": "Aucun provider suggéré pour cette tâche, mais vous",
+      "noActiveProvider": "Aucun provider actif disponible"
+    },
+    "secrets": {
+      "addApiKey": "Ajoutez vos clés API pour utiliser les outils générés et"
+    },
+    "listening": {
+      "title": "Paramètres de détection de voix et de silence",
+      "voiceRecognition": "Paramètres pour reconnaître votre voix parmi d'autres",
+      "confidenceThreshold": "Niveau de certitude requis pour confirmer que c'est bien vous qui",
+      "passiveMemory": "Contrôle ce qui est enregistré en mémoire passive",
+      "notifications": "Paramètres des alertes visuelles et sonores",
+      "memoryRecorded": "Mémoire enregistrée",
+      "notifyWhenSaved": "Notifier quand une parole est sauvegardée en mémoire"
+    }
+  },
+  "memory": {
+    "title": "Mémoires",
+    "memories": "Mémoires",
+    "noMemoriesFound": "Aucun souvenir trouvé",
+    "searchPlaceholder": "Rechercher dans vos souvenirs...",
+    "memoryType": "Type de mémoire",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce souvenir?",
+    "noRecentActivity": "Aucune activité récente"
+  },
+  "todos": {
+    "createTodo": "Créer une tâche",
+    "noTodosFound": "Aucune tâche trouvée",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette tâche?"
+  },
+  "schedule": {
+    "createSchedule": "Créer une planification",
+    "noTasksScheduled": "Aucune tâche planifiée",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette tâche planifiée?",
+    "editTask": "Modifier la tâche planifiée",
+    "taskName": "Nom *",
+    "maxRuns": "Nombre max d'exécutions",
+    "createAction": "Créer tâche",
+    "generateSummary": "Génère un résumé des mémoires",
+    "launchAgent": "Lance un agent autonome"
+  },
+  "tools": {
+    "title": "Configuration des Outils",
+    "subtitle": "Gérez les outils intégrés, serveurs MCP et outils du marketplace",
+    "integratedTools": "Outils Intégrés",
+    "generatedTools": "Outils Générés",
+    "installedTools": "Outils installés",
+    "availableTools": "Outils disponibles",
+    "configureRequired": "Configurez les paramètres requis pour installer",
+    "endpointNotAvailable": "Les endpoints de configuration des outils ne sont pas encore",
+    "apiTip": "💡 Conseil: Les endpoints API pour les outils ne"
+  },
+  "chat": {
+    "accessMemories": "Je peux accéder à vos mémoires pour des réponses personnalisées",
+    "connecting": "Connexion...",
+    "connected": "Connecté"
+  },
+  "training": {
+    "passphrase": "Ma voix est mon mot de passe"
+  },
+  "notifications": {
+    "errorSaving": "Erreur lors de la sauvegarde"
+  }
+}

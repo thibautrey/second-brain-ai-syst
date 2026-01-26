@@ -3,6 +3,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "i18next-react";
 import {
   Plus,
   CheckCircle2,
@@ -22,6 +23,7 @@ import type { Todo, CreateTodoInput, UpdateTodoInput } from "../../types/tools";
 type FilterType = "all" | "pending" | "in_progress" | "completed" | "overdue";
 
 export function TodoList() {
+  const { t } = useTranslation();
   const {
     todos,
     stats,
@@ -76,7 +78,7 @@ export function TodoList() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cette tâche ?")) {
+    if (confirm(t("todos.deleteConfirm"))) {
       await deleteTodo(id);
     }
   };
@@ -225,13 +227,13 @@ export function TodoList() {
             <Card>
               <CardContent className="py-12 text-center">
                 <ListTodo className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-slate-500">Aucune tâche trouvée</p>
+                <p className="text-slate-500">{t("todos.noTodosFound")}</p>
                 <Button
                   variant="outline"
                   className="mt-4"
                   onClick={() => setShowForm(true)}
                 >
-                  Créer une tâche
+                  {t("todos.createTodo")}
                 </Button>
               </CardContent>
             </Card>

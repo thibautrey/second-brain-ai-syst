@@ -1,4 +1,5 @@
 import { MemoryTimeGroup, MemoryViewMode, Memory } from "../../types/memory";
+import { useTranslation } from "i18next-react";
 import { MemoryCard } from "./MemoryCard";
 import { cn } from "../../lib/utils";
 import { Calendar, Brain, Loader2 } from "lucide-react";
@@ -26,11 +27,13 @@ export function MemoryTimeline({
   onDelete,
   onSelect,
 }: MemoryTimelineProps) {
+  const { t } = useTranslation();
+
   if (isLoading && groups.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-slate-500">
         <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <p>Chargement des souvenirs...</p>
+        <p>{t("common.loading")}</p>
       </div>
     );
   }
@@ -39,7 +42,7 @@ export function MemoryTimeline({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-slate-500">
         <Brain className="w-12 h-12 mb-4 text-slate-300" />
-        <p className="text-lg font-medium">Aucun souvenir trouvé</p>
+        <p className="text-lg font-medium">{t("memory.noMemoriesFound")}</p>
         <p className="text-sm mt-1">Vos souvenirs apparaîtront ici</p>
       </div>
     );

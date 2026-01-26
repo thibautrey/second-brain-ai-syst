@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "i18next-react";
 import { MemoryFilters, MemoryViewMode } from "../../types/memory";
 import { cn } from "../../lib/utils";
 import { Input } from "../ui/input";
@@ -47,6 +48,7 @@ export function MemorySearchBar({
   onViewModeChange,
   onFiltersChange,
 }: MemorySearchBarProps) {
+  const { t } = useTranslation();
   const [localQuery, setLocalQuery] = useState(searchQuery);
   const [useSemanticSearch, setUseSemanticSearch] = useState(true);
 
@@ -99,8 +101,8 @@ export function MemorySearchBar({
           type="text"
           placeholder={
             useSemanticSearch
-              ? "Recherche sémantique dans vos souvenirs..."
-              : "Rechercher dans vos souvenirs..."
+              ? t("memory.searchPlaceholder")
+              : t("common.search")
           }
           value={localQuery}
           onChange={(e) => setLocalQuery(e.target.value)}
@@ -183,7 +185,7 @@ export function MemorySearchBar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Type de mémoire</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("memory.memoryType")}</DropdownMenuLabel>
             <DropdownMenuCheckboxItem
               checked={filters.type === "SHORT_TERM"}
               onCheckedChange={(checked) =>

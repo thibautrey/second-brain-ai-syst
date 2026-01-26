@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "i18next-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { TrainingProgressWidget } from "../components/ui/training-progress-widget";
@@ -37,6 +38,7 @@ const DESKTOP_BREAKPOINT = 1024;
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { tab } = useParams();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();

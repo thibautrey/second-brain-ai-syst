@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "i18next-react";
 import {
   Plus,
   Trash2,
@@ -51,33 +52,33 @@ import {
 import { useContinuousListening } from "../contexts/ContinuousListeningContext";
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("providers");
 
   return (
     <div>
-      <h2 className="mb-2 text-3xl font-bold text-slate-900">Paramètres</h2>
+      <h2 className="mb-2 text-3xl font-bold text-slate-900">{t("settings.title")}</h2>
       <p className="mb-8 text-slate-600">
-        Configurez vos providers d'IA et assignez les modèles aux différentes
-        tâches.
+        {t("settings.subtitle")}
       </p>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="providers">
-            <span className="hidden sm:inline">Providers IA</span>
-            <span className="sm:hidden">Providers</span>
+            <span className="hidden sm:inline">{t("settings.tabs.providers")}</span>
+            <span className="sm:hidden">{t("settings.tabs.providers")}</span>
           </TabsTrigger>
           <TabsTrigger value="models">
-            <span className="hidden sm:inline">Configuration des Modèles</span>
-            <span className="sm:hidden">Modèles</span>
+            <span className="hidden sm:inline">{t("settings.tabs.models")}</span>
+            <span className="sm:hidden">{t("settings.tabs.models")}</span>
           </TabsTrigger>
           <TabsTrigger value="secrets">
-            <span className="hidden sm:inline">Secrets & Clés API</span>
-            <span className="sm:hidden">Secrets</span>
+            <span className="hidden sm:inline">{t("settings.tabs.secrets")}</span>
+            <span className="sm:hidden">{t("settings.tabs.secrets")}</span>
           </TabsTrigger>
           <TabsTrigger value="listening">
-            <span className="hidden sm:inline">Écoute Continue</span>
-            <span className="sm:hidden">Écoute</span>
+            <span className="hidden sm:inline">{t("settings.tabs.listening")}</span>
+            <span className="sm:hidden">{t("settings.tabs.listening")}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -102,6 +103,7 @@ export function SettingsPage() {
 }
 
 function ProvidersSection() {
+  const { t } = useTranslation();
   const {
     settings,
     addProvider,
@@ -134,7 +136,7 @@ function ProvidersSection() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">
-            Providers d'IA
+            {t("settings.providers")}
           </h3>
           <p className="text-sm text-slate-500">
             Configurez vos clés API et endpoints pour les différents services
@@ -143,7 +145,7 @@ function ProvidersSection() {
         </div>
         <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
           <Plus className="w-4 h-4 mr-2" />
-          Ajouter un Provider
+          {t("settings.providers.addProvider")}
         </Button>
       </div>
 

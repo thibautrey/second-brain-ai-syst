@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "i18next-react";
 import { useMemories } from "../../hooks/useMemories";
 import { Memory, MemoryViewMode } from "../../types/memory";
 import { MemorySearchBar } from "./MemorySearchBar";
@@ -10,6 +11,7 @@ import { RefreshCw, Plus } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 export function MemoryBrowser() {
+  const { t } = useTranslation();
   const {
     memories,
     stats,
@@ -71,7 +73,7 @@ export function MemoryBrowser() {
 
   const handleDelete = useCallback(
     async (memoryId: string) => {
-      if (confirm("Êtes-vous sûr de vouloir supprimer ce souvenir ?")) {
+      if (confirm(t("memory.deleteConfirm"))) {
         await deleteMemory(memoryId);
         if (selectedMemory?.id === memoryId) {
           setIsPanelOpen(false);
@@ -79,7 +81,7 @@ export function MemoryBrowser() {
         }
       }
     },
-    [deleteMemory, selectedMemory],
+    [deleteMemory, selectedMemory, t],
   );
 
   return (
@@ -87,7 +89,7 @@ export function MemoryBrowser() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">Mémoires</h2>
+          <h2 className="text-3xl font-bold text-slate-900">{t("memory.title")}</h2>
           <p className="text-slate-600 mt-1">
             Explorez et gérez vos souvenirs
             {isSemanticSearch && searchQuery && (
@@ -106,7 +108,7 @@ export function MemoryBrowser() {
             className="gap-2 flex-1 sm:flex-initial"
           >
             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
-            Actualiser
+            {t("common.loading")}
           </Button>
         </div>
       </div>
@@ -130,7 +132,7 @@ export function MemoryBrowser() {
       {/* Error */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          <p className="font-medium">Erreur</p>
+          <p className="font-medium">{t("common.error")}</p>
           <p className="text-sm">{error}</p>
         </div>
       )}

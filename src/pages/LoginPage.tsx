@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "i18next-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { login, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -19,7 +21,7 @@ export function LoginPage() {
 
     // Validation
     if (!formData.email || !formData.password) {
-      setError("Email and password are required");
+      setError(t("auth.login.emailRequired"));
       return;
     }
 
@@ -27,7 +29,7 @@ export function LoginPage() {
       await login(formData.email, formData.password);
       navigate("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : t("auth.login.error"));
     }
   }
 
@@ -43,10 +45,10 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8">
         <h1 className="text-3xl font-bold text-center mb-2 text-slate-900">
-          Welcome Back
+          {t("auth.login.title")}
         </h1>
         <p className="text-center text-slate-600 mb-8">
-          Sign in to your Second Brain
+          {t("auth.login.subtitle")}
         </p>
 
         {error && (
@@ -61,7 +63,7 @@ export function LoginPage() {
               htmlFor="email"
               className="block text-sm font-medium text-slate-700 mb-1"
             >
-              Email Address
+              {t("auth.login.emailLabel")}
             </label>
             <Input
               id="email"
@@ -81,7 +83,7 @@ export function LoginPage() {
               htmlFor="password"
               className="block text-sm font-medium text-slate-700 mb-1"
             >
-              Password
+              {t("auth.login.passwordLabel")}
             </label>
             <Input
               id="password"
@@ -96,17 +98,17 @@ export function LoginPage() {
           </div>
 
           <Button type="submit" disabled={isLoading} className="w-full mt-6">
-            {isLoading ? "Signing In..." : "Sign In"}
+            {isLoading ? t("auth.login.signingIn") : t("auth.login.signIn")}
           </Button>
         </form>
 
         <p className="text-center text-slate-600 mt-6">
-          Don't have an account?{" "}
+          {t("auth.login.dontHaveAccount")}{" "}
           <Link
             to="/signup"
             className="text-blue-600 hover:text-blue-700 font-medium"
           >
-            Create one
+            {t("auth.login.createOne")}
           </Link>
         </p>
       </div>

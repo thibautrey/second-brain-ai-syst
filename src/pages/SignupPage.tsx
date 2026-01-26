@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "i18next-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
 export function SignupPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { signup, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -21,17 +23,17 @@ export function SignupPage() {
 
     // Validation
     if (!formData.email || !formData.password) {
-      setError("Email and password are required");
+      setError(t("auth.signup.emailRequired"));
       return;
     }
 
     if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError(t("auth.signup.passwordTooShort"));
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+      setError(t("auth.signup.passwordsDoNotMatch"));
       return;
     }
 
@@ -39,7 +41,7 @@ export function SignupPage() {
       await signup(formData.email, formData.password, formData.name);
       navigate("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed");
+      setError(err instanceof Error ? err.message : t("auth.signup.error"));
     }
   }
 
@@ -55,10 +57,10 @@ export function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 to-slate-800 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8">
         <h1 className="text-3xl font-bold text-center mb-2 text-slate-900">
-          Create Account
+          {t("auth.signup.title")}
         </h1>
         <p className="text-center text-slate-600 mb-8">
-          Join Second Brain AI System
+          {t("auth.signup.subtitle")}
         </p>
 
         {error && (
@@ -73,7 +75,7 @@ export function SignupPage() {
               htmlFor="name"
               className="block text-sm font-medium text-slate-700 mb-1"
             >
-              Full Name (Optional)
+              {t("auth.signup.nameLabel")}
             </label>
             <Input
               id="name"
@@ -91,7 +93,7 @@ export function SignupPage() {
               htmlFor="email"
               className="block text-sm font-medium text-slate-700 mb-1"
             >
-              Email Address
+              {t("auth.signup.emailLabel")}
             </label>
             <Input
               id="email"
@@ -110,7 +112,7 @@ export function SignupPage() {
               htmlFor="password"
               className="block text-sm font-medium text-slate-700 mb-1"
             >
-              Password
+              {t("auth.signup.passwordLabel")}
             </label>
             <Input
               id="password"
@@ -122,7 +124,7 @@ export function SignupPage() {
               disabled={isLoading}
               required
             />
-            <p className="text-xs text-slate-500 mt-1">At least 6 characters</p>
+            <p className="text-xs text-slate-500 mt-1">{t("auth.signup.passwordMinLength")}</p>
           </div>
 
           <div>
@@ -130,7 +132,7 @@ export function SignupPage() {
               htmlFor="confirmPassword"
               className="block text-sm font-medium text-slate-700 mb-1"
             >
-              Confirm Password
+              {t("auth.signup.confirmPasswordLabel")}
             </label>
             <Input
               id="confirmPassword"
@@ -145,17 +147,17 @@ export function SignupPage() {
           </div>
 
           <Button type="submit" disabled={isLoading} className="w-full mt-6">
-            {isLoading ? "Creating Account..." : "Sign Up"}
+            {isLoading ? t("auth.signup.creatingAccount") : t("auth.signup.signUp")}
           </Button>
         </form>
 
         <p className="text-center text-slate-600 mt-6">
-          Already have an account?{" "}
+          {t("auth.signup.alreadyHaveAccount")}{" "}
           <Link
             to="/login"
             className="text-blue-600 hover:text-blue-700 font-medium"
           >
-            Sign In
+            {t("auth.signup.signInInstead")}
           </Link>
         </p>
       </div>

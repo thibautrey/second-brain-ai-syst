@@ -1,0 +1,148 @@
+{
+  "common": {
+    "add": "Add",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving...",
+    "create": "Create",
+    "search": "Search",
+    "error": "Error",
+    "success": "Success",
+    "loading": "Loading...",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "none": "None"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to your Second Brain",
+      "emailLabel": "Email Address",
+      "passwordLabel": "Password",
+      "signIn": "Sign In",
+      "signingIn": "Signing In...",
+      "error": "Login failed",
+      "dontHaveAccount": "Don't have an account?",
+      "createOne": "Create one",
+      "emailRequired": "Email and password are required"
+    },
+    "signup": {
+      "title": "Create Account",
+      "subtitle": "Join Second Brain AI System",
+      "nameLabel": "Full Name (Optional)",
+      "emailLabel": "Email Address",
+      "passwordLabel": "Password",
+      "confirmPasswordLabel": "Confirm Password",
+      "signUp": "Sign Up",
+      "creatingAccount": "Creating Account...",
+      "error": "Signup failed",
+      "alreadyHaveAccount": "Already have an account?",
+      "signInInstead": "Sign In",
+      "passwordMinLength": "At least 6 characters",
+      "passwordsDoNotMatch": "Passwords do not match",
+      "emailRequired": "Email and password are required",
+      "passwordTooShort": "Password must be at least 6 characters"
+    }
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "totalMemories": "Total Memories",
+    "totalInteractions": "Total Interactions",
+    "dailySummaries": "Daily Summaries"
+  },
+  "navigation": {
+    "settings": "Settings",
+    "logout": "Logout",
+    "home": "Home",
+    "memory": "Memory",
+    "training": "Training",
+    "tools": "Tools",
+    "notifications": "Notifications",
+    "schedule": "Schedule"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure your AI providers and assign models to different tasks.",
+    "tabs": {
+      "providers": "AI Providers",
+      "models": "Model Configuration",
+      "secrets": "Secrets & API Keys",
+      "listening": "Continuous Listening"
+    },
+    "providers": {
+      "addProvider": "Add Provider",
+      "noProvidersConfigured": "No providers configured.",
+      "editProvider": "Edit Provider",
+      "newProvider": "New Provider",
+      "providerName": "Provider Name"
+    },
+    "models": {
+      "primaryProvider": "Primary Provider",
+      "fallbackModel": "Used automatically in case of primary provider failure",
+      "noSuggestedProvider": "No suggested provider for this task, but you can use",
+      "noActiveProvider": "No active provider available"
+    },
+    "secrets": {
+      "addApiKey": "Add your API keys to use generated tools and"
+    },
+    "listening": {
+      "title": "Voice detection and silence settings",
+      "voiceRecognition": "Settings to recognize your voice among others",
+      "confidenceThreshold": "Confidence level required to confirm it's you speaking",
+      "passiveMemory": "Controls what is recorded in passive memory",
+      "notifications": "Visual and sound notification settings",
+      "memoryRecorded": "Memory Recorded",
+      "notifyWhenSaved": "Notify when speech is saved to memory"
+    }
+  },
+  "memory": {
+    "title": "Memories",
+    "memories": "Memories",
+    "noMemoriesFound": "No memories found",
+    "searchPlaceholder": "Search your memories...",
+    "memoryType": "Memory Type",
+    "deleteConfirm": "Are you sure you want to delete this memory?",
+    "noRecentActivity": "No recent activity"
+  },
+  "todos": {
+    "createTodo": "Create Task",
+    "noTodosFound": "No tasks found",
+    "deleteConfirm": "Are you sure you want to delete this task?"
+  },
+  "schedule": {
+    "createSchedule": "Create Schedule",
+    "noTasksScheduled": "No tasks scheduled",
+    "deleteConfirm": "Are you sure you want to delete this scheduled task?",
+    "editTask": "Edit Scheduled Task",
+    "taskName": "Name *",
+    "maxRuns": "Maximum Executions",
+    "createAction": "Create Task",
+    "generateSummary": "Generate a summary of memories",
+    "launchAgent": "Launch an autonomous agent"
+  },
+  "tools": {
+    "title": "Tools Configuration",
+    "subtitle": "Manage integrated tools, MCP servers and marketplace tools",
+    "integratedTools": "Integrated Tools",
+    "generatedTools": "Generated Tools",
+    "installedTools": "Installed Tools",
+    "availableTools": "Available Tools",
+    "configureRequired": "Configure required settings to install",
+    "endpointNotAvailable": "Tools configuration endpoints are not yet",
+    "apiTip": "💡 Tip: API endpoints for tools"
+  },
+  "chat": {
+    "accessMemories": "I can access your memories for personalized answers",
+    "connecting": "Connecting...",
+    "connected": "Connected"
+  },
+  "training": {
+    "passphrase": "My voice is my password"
+  },
+  "notifications": {
+    "errorSaving": "Error saving"
+  }
+}
