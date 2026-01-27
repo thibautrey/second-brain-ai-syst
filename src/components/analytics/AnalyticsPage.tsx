@@ -31,6 +31,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 import { Progress } from "../ui/progress";
+import { MarkdownContent } from "../MarkdownContent";
 
 // Time period options for analytics
 type TimePeriod = "today" | "week" | "month" | "year";
@@ -126,15 +127,18 @@ export function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="relative">
-            <p className="text-white/90 leading-relaxed mb-4">
+            <div className="text-white/90 leading-relaxed mb-4">
               {insightsLoading ? (
                 <span className="animate-pulse">
                   Analyzing your memories...
                 </span>
               ) : (
-                latestSummary.summary
+                <MarkdownContent 
+                  content={latestSummary.summary} 
+                  className="[&_p]:text-white/90 [&_strong]:text-white [&_h1]:text-white [&_h2]:text-white [&_h3]:text-white [&_h4]:text-white [&_ul]:text-white/90 [&_ol]:text-white/90 [&_li]:text-white/90 [&_code]:bg-white/20 [&_code]:text-white [&_blockquote]:border-white/30 [&_blockquote]:text-white/80"
+                />
               )}
-            </p>
+            </div>
             {latestSummary.keyInsights &&
               latestSummary.keyInsights.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-4">
