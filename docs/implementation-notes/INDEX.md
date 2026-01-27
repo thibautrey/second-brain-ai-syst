@@ -2,9 +2,7 @@
 
 ## 🚀 Start Here
 
-**New to this feature?** Start with [SMART_NOTIFICATIONS_README.md](../SMART_NOTIFICATIONS_README.md)
-
-**Want the overview?** Read [SMART_NOTIFICATIONS_SUMMARY.md](../SMART_NOTIFICATIONS_SUMMARY.md)
+**New to this feature?** Start with [SMART_NOTIFICATIONS_IMPLEMENTATION.md](SMART_NOTIFICATIONS_IMPLEMENTATION.md)
 
 **Ready to deploy?** Follow [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
@@ -12,29 +10,18 @@
 
 ## 📖 Documentation by Role
 
-### 👥 End Users
+### 👥 End Users & Developers
 
-- **Start**: [SMART_NOTIFICATIONS_README.md](../SMART_NOTIFICATIONS_README.md)
+- **Implementation Guide**: [SMART_NOTIFICATIONS_IMPLEMENTATION.md](SMART_NOTIFICATIONS_IMPLEMENTATION.md)
   - How it works
-  - Quick start
-  - Troubleshooting for users
-  - Common questions
+  - Architecture
+  - API reference
+  - Configuration
+  - Troubleshooting
 
-### 👨‍💻 Developers
+### 👨‍💻 Testing & Deployment
 
-1. **Architecture**: [SMART_NOTIFICATION_ROUTING.md](SMART_NOTIFICATION_ROUTING.md)
-   - System design
-   - API reference
-   - Code examples
-   - Configuration
-
-2. **Implementation**: [SMART_NOTIFICATIONS_COMPLETE.md](SMART_NOTIFICATIONS_COMPLETE.md)
-   - What was built
-   - File structure
-   - How to use
-   - Feature highlights
-
-3. **Testing**: [TESTING_SMART_NOTIFICATIONS.md](TESTING_SMART_NOTIFICATIONS.md)
+- **Testing**: [TESTING_SMART_NOTIFICATIONS.md](TESTING_SMART_NOTIFICATIONS.md)
    - Manual test steps
    - API testing with cURL
    - Database verification
@@ -56,23 +43,14 @@
   - Expected outcomes
   - Troubleshooting
 
-### 📋 Project Managers
-
-- **Summary**: [SMART_NOTIFICATIONS_SUMMARY.md](../SMART_NOTIFICATIONS_SUMMARY.md)
-  - Feature overview
-  - Change summary
-  - Architecture changes
-  - Timeline
-
 ---
 
 ## 🎯 By Task
 
 ### "I want to understand how it works"
 
-1. Read: [SMART_NOTIFICATIONS_README.md](../SMART_NOTIFICATIONS_README.md) - Overview
+1. Read: [SMART_NOTIFICATIONS_IMPLEMENTATION.md](SMART_NOTIFICATIONS_IMPLEMENTATION.md) - Overview & architecture
 2. Read: [SMART_NOTIFICATION_ROUTING.md](SMART_NOTIFICATION_ROUTING.md) - Technical details
-3. Skim: [SMART_NOTIFICATIONS_COMPLETE.md](SMART_NOTIFICATIONS_COMPLETE.md) - Implementation
 
 ### "I want to test it"
 

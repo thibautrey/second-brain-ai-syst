@@ -915,17 +915,9 @@ console.log("📊 Analytics routes enabled at /api/analytics");
 
 // ==================== Universal Audio Ingestion Routes ====================
 
-// Attach auth middleware to inject userId
-app.use(
-  "/api/audio",
-  authMiddleware,
-  (req: AuthRequest, res, next) => {
-    // Pass userId to the controller
-    (req as any).userId = req.userId;
-    next();
-  },
-  audioIngestionController,
-);
+// Note: Authentication handled by controller's requireAuth middleware
+// This supports both Authorization header AND query parameter tokens (required for SSE)
+app.use("/api/audio", audioIngestionController);
 console.log("🎙️ Universal audio ingestion routes enabled at /api/audio");
 
 // ==================== Goals Routes ====================

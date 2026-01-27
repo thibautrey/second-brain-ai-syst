@@ -115,17 +115,10 @@ backend/
 
 ```
 docs/implementation-notes/
-├── SMART_NOTIFICATION_ROUTING.md       (Complete API reference)
-├── SMART_NOTIFICATIONS_COMPLETE.md     (Implementation summary)
-├── TESTING_SMART_NOTIFICATIONS.md      (Testing procedures)
-└── DEPLOYMENT_GUIDE.md                 (Deployment steps)
-```
-
-### Root Documentation (2 files)
-
-```
-├── SMART_NOTIFICATIONS_README.md       (User guide)
-└── SMART_NOTIFICATIONS_SUMMARY.md      (Change summary)
+├── SMART_NOTIFICATION_ROUTING.md          (Complete API reference)
+├── SMART_NOTIFICATIONS_IMPLEMENTATION.md  (Implementation & user guide)
+├── TESTING_SMART_NOTIFICATIONS.md         (Testing procedures)
+└── DEPLOYMENT_GUIDE.md                    (Deployment steps)
 ```
 
 ## 🧪 Testing Ready
@@ -322,14 +315,10 @@ All documentation available at:
 
 ```
 /docs/implementation-notes/
-├── SMART_NOTIFICATION_ROUTING.md      ← API reference
-├── SMART_NOTIFICATIONS_COMPLETE.md    ← Implementation
-├── TESTING_SMART_NOTIFICATIONS.md     ← Testing
-└── DEPLOYMENT_GUIDE.md                ← Deployment
-
-/
-├── SMART_NOTIFICATIONS_README.md      ← User guide
-└── SMART_NOTIFICATIONS_SUMMARY.md     ← Overview
+├── SMART_NOTIFICATION_ROUTING.md          ← API reference
+├── SMART_NOTIFICATIONS_IMPLEMENTATION.md  ← Implementation & user guide
+├── TESTING_SMART_NOTIFICATIONS.md         ← Testing
+└── DEPLOYMENT_GUIDE.md                    ← Deployment
 ```
 
 ## ✨ Highlights
