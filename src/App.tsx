@@ -16,6 +16,7 @@ import { TrainingPage } from "./pages/TrainingPage";
 import { FloatingActionButtons } from "./components/FloatingActionButtons";
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard";
 import { useUserPresence } from "./hooks/useUserPresence";
+import { useNotificationListener } from "./hooks/useNotificationListener";
 
 function AppContent() {
   const { isAuthenticated, hasCompletedOnboarding } = useAuth();
@@ -81,6 +82,13 @@ function PresenceTracker() {
   return null;
 }
 
+function NotificationInitializer() {
+  // Initialize global notification WebSocket connection
+  // This ensures notifications are received on all pages, not just the notifications page
+  useNotificationListener();
+  return null;
+}
+
 function App() {
   return (
     <TooltipProvider>
@@ -88,6 +96,7 @@ function App() {
         <AuthProvider>
           <ContinuousListeningProvider>
             <PresenceTracker />
+            <NotificationInitializer />
             <AppContent />
           </ContinuousListeningProvider>
         </AuthProvider>

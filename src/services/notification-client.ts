@@ -6,8 +6,17 @@
 
 import type { Notification } from "../types/tools";
 
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3000";
-const WS_URL = `${WS_BASE_URL}/ws/notifications`;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+/**
+ * Derive WebSocket URL from API URL
+ * Converts http/https to ws/wss protocol
+ */
+function getNotificationWebSocketUrl(): string {
+  const apiUrl = new URL(API_BASE_URL);
+  const wsProtocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+  return `${wsProtocol}//${apiUrl.host}/ws/notifications`;
+}
 
 export type NotificationCallback = (notification: Notification) => void;
 export type ConnectionCallback = (connected: boolean) => void;
@@ -53,9 +62,10 @@ export class NotificationClient {
 
     try {
       // Construct WebSocket URL with auth token
-      const wsUrl = `${WS_URL}?token=${encodeURIComponent(this.authToken)}`;
+      const baseWsUrl = getNotificationWebSocketUrl();
+      const wsUrl = `${baseWsUrl}?token=${encodeURIComponent(this.authToken)}`;
 
-      console.log("[NotificationClient] Connecting to:", WS_URL);
+      console.log("[NotificationClient] Connecting to:", baseWsUrl);
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = this.handleOpen.bind(this);
