@@ -3,6 +3,7 @@ import { AlertCircle, ChevronLeft } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { ProfileSelectionStep } from "../components/training/ProfileSelectionStep";
 import { RecordSamplesStep } from "../components/training/RecordSamplesStep";
+import { ReadParagraphStep, TRAINING_PARAGRAPHS_BY_LANGUAGE } from "../components/training/ReadParagraphStep";
 import { VerificationResults } from "../components/training/VerificationResults";
 import * as trainingAPI from "../services/training-api";
 import { useAuth } from "../contexts/AuthContext";
@@ -18,7 +19,18 @@ interface Recording {
   uploadStatus: "pending" | "uploading" | "completed" | "failed";
 }
 
-type Step = "profile-selection" | "recording" | "training" | "verification";
+interface ParagraphRecording {
+  id: string;
+  url: string;
+  duration: number;
+  paragraphIndex: number;
+  language: string;
+  timestamp: number;
+  uploadedSampleId?: string;
+  uploadStatus: "pending" | "uploading" | "completed" | "failed";
+}
+
+type Step = "profile-selection" | "recording" | "paragraph-reading" | "training" | "verification";
 
 export function TrainingPage() {
   const { user } = useAuth();
@@ -32,6 +44,10 @@ export function TrainingPage() {
   // Recording state
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+
+  // Paragraph recording state
+  const [paragraphRecordings, setParagraphRecordings] = useState<ParagraphRecording[]>([]);
+  const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0);
 
   // Training state
   const [trainingProgress, setTrainingProgress] = useState(0);
@@ -341,6 +357,126 @@ export function TrainingPage() {
     setRecordings((prev) => prev.filter((r) => r.id !== id));
   };
 
+  // Handler to proceed from phrases to paragraph reading
+  const handleProceedToParagraphs = () => {
+    setCurrentStep("paragraph-reading");
+  };
+
+  // Handler for paragraph recording completion
+  const handleParagraphRecordingComplete = async (
+    audioBlob: Blob,
+    duration: number,
+    language: string = "en",
+    paragraphIndex: number
+  ) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (!speakerProfileId) {
+        throw new Error("No speaker profile selected");
+      }
+
+      const paragraphs =
+        TRAINING_PARAGRAPHS_BY_LANGUAGE[language] ||
+        TRAINING_PARAGRAPHS_BY_LANGUAGE.en;
+
+      // Get the actual MIME type from the blob
+      const actualMimeType = audioBlob.type || "audio/webm";
+      const extensionMap: Record<string, string> = {
+        "audio/webm": "webm",
+        "audio/webm;codecs=opus": "webm",
+        "audio/ogg": "ogg",
+        "audio/ogg;codecs=opus": "ogg",
+        "audio/mp4": "mp4",
+        "audio/wav": "wav",
+        "audio/mpeg": "mp3",
+      };
+      const extension = extensionMap[actualMimeType] || "webm";
+
+      const audioFile = new File(
+        [audioBlob],
+        `paragraph-recording-${Date.now()}.${extension}`,
+        {
+          type: actualMimeType,
+        }
+      );
+
+      const paragraph = paragraphs[paragraphIndex];
+
+      const newRecording: ParagraphRecording = {
+        id: `paragraph-${Date.now()}`,
+        url: URL.createObjectURL(audioBlob),
+        duration,
+        paragraphIndex,
+        language,
+        timestamp: Date.now(),
+        uploadStatus: "uploading",
+      };
+
+      setParagraphRecordings((prev) => [...prev, newRecording]);
+
+      // Upload to backend
+      const uploaded = await trainingAPI.uploadSample(
+        audioFile,
+        speakerProfileId,
+        paragraph.text,
+        "paragraph", // Use 'paragraph' as category for longer texts
+      );
+
+      // Update recording with server ID and mark as completed
+      setParagraphRecordings((prev) =>
+        prev.map((r) =>
+          r.id === newRecording.id
+            ? {
+                ...r,
+                uploadedSampleId: uploaded.id,
+                uploadStatus: "completed" as const,
+              }
+            : r
+        )
+      );
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to upload paragraph recording";
+      setError(msg);
+
+      // Mark the last recording as failed
+      setParagraphRecordings((prev) =>
+        prev.map((r, idx) =>
+          idx === prev.length - 1 && r.uploadStatus === "uploading"
+            ? { ...r, uploadStatus: "failed" as const }
+            : r
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handler for deleting paragraph recordings
+  const handleDeleteParagraphRecording = async (id: string) => {
+    const recording = paragraphRecordings.find((r) => r.id === id);
+
+    if (recording?.uploadedSampleId) {
+      setError(null);
+      try {
+        await trainingAPI.deleteSample(recording.uploadedSampleId);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to delete";
+        setError(msg);
+        return;
+      }
+    }
+
+    setParagraphRecordings((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  // Handler to go back to phrase recording from paragraph reading
+  const handleBackToPhrases = () => {
+    setCurrentStep("recording");
+  };
+
   // Step 3: Training
   const handleStartTraining = async () => {
     if (!speakerProfileId) {
@@ -348,10 +484,15 @@ export function TrainingPage() {
       return;
     }
 
-    const uploadedRecordings = recordings.filter(
+    const uploadedPhraseRecordings = recordings.filter(
       (r) => r.uploadStatus === "completed",
     );
-    if (uploadedRecordings.length === 0) {
+    const uploadedParagraphRecordings = paragraphRecordings.filter(
+      (r) => r.uploadStatus === "completed",
+    );
+    const totalUploadedRecordings = uploadedPhraseRecordings.length + uploadedParagraphRecordings.length;
+    
+    if (totalUploadedRecordings === 0) {
       setError("No successfully uploaded samples");
       return;
     }
@@ -436,7 +577,8 @@ export function TrainingPage() {
       label: "Profile",
       completed: speakerProfileId !== null,
     },
-    { key: "recording", label: "Record", completed: recordings.length >= 5 },
+    { key: "recording", label: "Phrases", completed: recordings.length >= 1 },
+    { key: "paragraph-reading", label: "Paragraphs", completed: paragraphRecordings.length >= 1 },
     { key: "training", label: "Train", completed: trainingResult !== null },
     {
       key: "verification",
@@ -538,8 +680,23 @@ export function TrainingPage() {
               onRecordingComplete={handleRecordingComplete}
               onDeleteRecording={handleDeleteRecording}
               onPhraseChange={setCurrentPhraseIndex}
+              onContinue={handleProceedToParagraphs}
+              isLoading={isLoading}
+              error={error || undefined}
+            />
+          )}
+
+          {currentStep === "paragraph-reading" && speakerProfileId && (
+            <ReadParagraphStep
+              recordings={paragraphRecordings}
+              currentParagraphIndex={currentParagraphIndex}
+              speakerProfileId={speakerProfileId}
+              onRecordingComplete={handleParagraphRecordingComplete}
+              onDeleteRecording={handleDeleteParagraphRecording}
+              onParagraphChange={setCurrentParagraphIndex}
               onContinue={handleStartTraining}
-              isLoading={isTraining}
+              onBack={handleBackToPhrases}
+              isLoading={isLoading}
               error={error || undefined}
             />
           )}
@@ -602,7 +759,8 @@ export function TrainingPage() {
                 </div>
 
                 <div className="space-y-2 text-sm text-slate-600">
-                  <p>Processing {recordings.length} voice samples...</p>
+                  <p>Processing {recordings.length + paragraphRecordings.length} voice samples...</p>
+                  <p>({recordings.length} phrases, {paragraphRecordings.length} paragraphs)</p>
                   <p>Building your unique voice profile...</p>
                 </div>
               </div>
@@ -613,7 +771,7 @@ export function TrainingPage() {
             <VerificationResults
               speakerProfileId={speakerProfileId || ""}
               confidenceScore={trainingResult.confidenceScore}
-              sampleCount={recordings.length}
+              sampleCount={recordings.length + paragraphRecordings.length}
               trainingDuration={trainingResult.trainingDuration}
               onVerifyVoice={handleVerifyVoice}
               onComplete={handleComplete}

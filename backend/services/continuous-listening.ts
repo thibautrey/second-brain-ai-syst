@@ -308,10 +308,21 @@ export class ContinuousListeningService extends EventEmitter {
     }
 
     // Check if speech just ended
-    if (this.vad.hasSpeechEnded() && this.speechBuffer.hasMinDuration(0.5)) {
+    // IMPORTANT: Use 1.5s minimum for reliable speaker identification (ECAPA-TDNN needs more audio)
+    // Short clips (< 1.5s) have significantly lower accuracy for speaker recognition
+    const MIN_DURATION_FOR_PROCESSING = 1.5; // seconds - increased from 0.5 for better speaker ID
+    if (this.vad.hasSpeechEnded() && this.speechBuffer.hasMinDuration(MIN_DURATION_FOR_PROCESSING)) {
       console.log(`\n🟡 [VAD] Speech segment ended - accumulated ${this.speechBuffer.getDuration().toFixed(2)}s of audio`);
       console.log(`🔄 [PROCESSING] Starting speech processing pipeline...`);
       // Process the accumulated speech
+      return this.processAccumulatedSpeech();
+    }
+    
+    // For very short speech segments (0.5-1.5s), still process but log warning about speaker ID reliability
+    if (this.vad.hasSpeechEnded() && this.speechBuffer.hasMinDuration(0.5)) {
+      const duration = this.speechBuffer.getDuration();
+      console.log(`\n🟡 [VAD] Short speech segment ended - ${duration.toFixed(2)}s (below ${MIN_DURATION_FOR_PROCESSING}s threshold)`);
+      console.log(`⚠️ [WARNING] Speaker identification may be less accurate for short segments`);
       return this.processAccumulatedSpeech();
     }
 
@@ -360,8 +371,9 @@ export class ContinuousListeningService extends EventEmitter {
 
       // Step 1: Speaker Identification
       console.log(`\n👤 [STEP 1] Speaker Identification...`);
+      console.log(`   → Audio segment duration: ${duration.toFixed(2)}s`);
       const speakerStart = Date.now();
-      const speakerResult = await this.identifySpeaker(audioData);
+      const speakerResult = await this.identifySpeaker(audioData, duration);
 
       console.log(`   → Speaker: ${speakerResult.isTargetUser ? '✅ Target user' : '❌ Other/Unknown'}`);
       console.log(`   → Confidence: ${(speakerResult.confidence * 100).toFixed(1)}%`);
@@ -749,9 +761,17 @@ export class ContinuousListeningService extends EventEmitter {
 
   /**
    * Identify speaker from audio
+   * 
+   * IMPORTANT: Speaker identification accuracy depends heavily on audio duration.
+   * ECAPA-TDNN models work best with 3+ seconds of speech. Shorter clips will have
+   * adjusted thresholds to account for lower reliability.
+   * 
+   * @param audioData - PCM audio buffer
+   * @param audioDuration - Duration in seconds (used to adjust confidence thresholds)
    */
   private async identifySpeaker(
     audioData: Buffer,
+    audioDuration?: number,
   ): Promise<SpeakerIdentificationResult> {
     if (
       !this.config.centroidEmbedding ||
@@ -782,16 +802,44 @@ export class ContinuousListeningService extends EventEmitter {
       await fs.unlink(tempPath).catch(() => {});
 
       // Compare with centroid
-      const similarity = await embeddingService.computeSimilarity(
+      const rawSimilarity = await embeddingService.computeSimilarity(
         embedding,
         this.config.centroidEmbedding,
       );
 
-      const isTargetUser = similarity >= this.config.speakerConfidenceThreshold;
+      // Apply duration-based adjustments for speaker identification
+      // Short audio clips (< 2s) have less reliable embeddings
+      // This helps bridge the gap between training (long samples) and real-time (short segments)
+      let adjustedThreshold = this.config.speakerConfidenceThreshold;
+      let confidenceNote = "";
+      
+      if (audioDuration !== undefined) {
+        if (audioDuration < 1.0) {
+          // Very short clip: lower threshold significantly (embeddings are unreliable)
+          adjustedThreshold = Math.max(0.35, this.config.speakerConfidenceThreshold - 0.25);
+          confidenceNote = " (very short audio - threshold lowered)";
+        } else if (audioDuration < 1.5) {
+          // Short clip: lower threshold moderately
+          adjustedThreshold = Math.max(0.40, this.config.speakerConfidenceThreshold - 0.20);
+          confidenceNote = " (short audio - threshold lowered)";
+        } else if (audioDuration < 2.5) {
+          // Medium clip: lower threshold slightly
+          adjustedThreshold = Math.max(0.50, this.config.speakerConfidenceThreshold - 0.10);
+          confidenceNote = " (medium audio - threshold slightly lowered)";
+        }
+        // For clips >= 2.5s, use the configured threshold as-is
+        
+        if (confidenceNote) {
+          console.log(`   → Audio duration: ${audioDuration.toFixed(2)}s${confidenceNote}`);
+          console.log(`   → Adjusted threshold: ${(adjustedThreshold * 100).toFixed(1)}% (original: ${(this.config.speakerConfidenceThreshold * 100).toFixed(1)}%)`);
+        }
+      }
+
+      const isTargetUser = rawSimilarity >= adjustedThreshold;
 
       return {
         isTargetUser,
-        confidence: similarity,
+        confidence: rawSimilarity,
         speakerId: isTargetUser
           ? this.config.speakerProfileId || "user"
           : "other",

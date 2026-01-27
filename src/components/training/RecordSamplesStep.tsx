@@ -539,7 +539,7 @@ export function RecordSamplesStep({
           disabled={!canContinue || isLoading}
           className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 font-medium"
         >
-          {isLoading ? "Processing..." : "Continue to Training"}
+          {isLoading ? "Processing..." : "Continue to Paragraph Reading"}
         </Button>
       </div>
 
@@ -553,6 +553,7 @@ export function RecordSamplesStep({
             • Train with multiple languages for better multilingual recognition
           </li>
           <li>• Multiple recordings of the same phrase strengthen the model</li>
+          <li>• Next: You'll read longer paragraphs for even better voice modeling</li>
         </ul>
       </div>
     </div>
