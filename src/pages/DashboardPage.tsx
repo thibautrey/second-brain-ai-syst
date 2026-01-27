@@ -17,6 +17,8 @@ import {
   Wrench,
   Bell,
   BarChart3,
+  Target,
+  Trophy,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { TrainingPage } from "./TrainingPage";
@@ -27,6 +29,7 @@ import { ScheduleList } from "../components/schedule";
 import { ToolsConfigPage } from "./ToolsConfigPage";
 import { NotificationTestPage } from "./NotificationTestPage";
 import { AnalyticsPage } from "../components/analytics";
+import { GoalsPage, AchievementsPage } from "../components/goals-achievements";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useIsMobile } from "../hooks/use-mobile";
@@ -178,6 +181,18 @@ export function DashboardPage() {
             isActive={activeTab === "analytics"}
           />
           <NavItem
+            icon={<Target className="w-5 h-5" />}
+            label="Goals"
+            onClick={() => handleNavigation("/dashboard/goals")}
+            isActive={activeTab === "goals"}
+          />
+          <NavItem
+            icon={<Trophy className="w-5 h-5" />}
+            label="Achievements"
+            onClick={() => handleNavigation("/dashboard/achievements")}
+            isActive={activeTab === "achievements"}
+          />
+          <NavItem
             icon={<Mic className="w-5 h-5" />}
             label="Voice Training"
             onClick={() => handleNavigation("/dashboard/training")}
@@ -322,6 +337,8 @@ export function DashboardPage() {
 
             {activeTab === "memories" && <MemoryBrowser />}
             {activeTab === "analytics" && <AnalyticsPage />}
+            {activeTab === "goals" && <GoalsPage />}
+            {activeTab === "achievements" && <AchievementsPage />}
             {activeTab === "training" && <TrainingPage />}
             {activeTab === "todos" && <TodoList />}
             {activeTab === "schedule" && <ScheduleList />}
