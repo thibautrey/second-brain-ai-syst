@@ -10,6 +10,7 @@ import { ScheduleType, TaskActionType, Prisma } from "@prisma/client";
 import { CronJob } from "cron";
 import { notificationService } from "./notification.service.js";
 import { todoService } from "./todo.service.js";
+import { resourceWatcherService } from "./resource-watcher.service.js";
 
 // ==================== Types ====================
 
@@ -298,6 +299,14 @@ export class ScheduledTaskService {
         task.actionPayload,
       );
 
+      // Persist stateful updates returned by the action
+      if (result?.updatedActionPayload) {
+        task.actionPayload = result.updatedActionPayload;
+      }
+      if (result?.updatedMetadata) {
+        task.metadata = result.updatedMetadata;
+      }
+
       // Update execution record
       await prisma.taskExecution.update({
         where: { id: execution.id },
@@ -310,7 +319,7 @@ export class ScheduledTaskService {
       });
 
       // Update task
-      await prisma.scheduledTask.update({
+      const successUpdate = {
         where: { id: task.id },
         data: {
           lastRunAt: new Date(),
@@ -318,8 +327,16 @@ export class ScheduledTaskService {
           lastRunError: null,
           runCount: { increment: 1 },
           nextRunAt: this.calculateNextRun(task),
+          ...(result?.updatedActionPayload && {
+            actionPayload: result.updatedActionPayload as any,
+          }),
+          ...(result?.updatedMetadata && {
+            metadata: result.updatedMetadata as any,
+          }),
         },
-      });
+      };
+
+      await prisma.scheduledTask.update(successUpdate);
 
       // Check if task should be disabled
       await this.checkTaskLimits(task);
@@ -338,7 +355,7 @@ export class ScheduledTaskService {
       });
 
       // Update task
-      await prisma.scheduledTask.update({
+      const failureUpdate = {
         where: { id: task.id },
         data: {
           lastRunAt: new Date(),
@@ -347,7 +364,9 @@ export class ScheduledTaskService {
           runCount: { increment: 1 },
           nextRunAt: this.calculateNextRun(task),
         },
-      });
+      };
+
+      await prisma.scheduledTask.update(failureUpdate);
 
       return { success: false, error: error.message };
     }
@@ -403,6 +422,9 @@ export class ScheduledTaskService {
 
       case TaskActionType.WEBHOOK:
         return this.executeWebhook(payload);
+
+      case TaskActionType.WATCH_RESOURCE:
+        return resourceWatcherService.runCheck(userId, payload);
 
       case TaskActionType.CUSTOM:
         return { custom: true, payload };

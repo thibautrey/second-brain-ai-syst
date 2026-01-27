@@ -1000,6 +1000,7 @@ enum TaskActionType {
   GENERATE_SUMMARY // Generate a memory summary
   RUN_AGENT // Run a background agent
   WEBHOOK // Call an external webhook
+  WATCH_RESOURCE // Poll a resource, evaluate a condition, and notify
   CUSTOM // Custom action with payload
 }
 
