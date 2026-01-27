@@ -5,7 +5,7 @@
  * Both buttons appear as animated bubbles with smooth interactions.
  */
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -24,6 +24,12 @@ import { useChatMessages } from "../hooks/useChatMessages";
 import { useContinuousListening } from "../contexts/ContinuousListeningContext";
 import { cn } from "../lib/utils";
 
+// Size constraints for the chat window
+const MIN_WIDTH = 380;
+const MAX_WIDTH = 600;
+const MIN_HEIGHT = 400;
+const MAX_HEIGHT = 700;
+
 export function FloatingActionButtons() {
   const { messages, isLoading, error, sendMessage, clearMessages } =
     useChatMessages();
@@ -32,6 +38,57 @@ export function FloatingActionButtons() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Calculate dynamic dimensions based on content
+  const dimensions = useMemo(() => {
+    // Calculate width based on longest message or input
+    let targetWidth = MIN_WIDTH;
+    
+    // Check messages for long content
+    messages.forEach((msg) => {
+      const lineCount = msg.content.split('\n').length;
+      const avgCharsPerLine = msg.content.length / Math.max(lineCount, 1);
+      // Estimate width needed (roughly 8px per character)
+      const estimatedWidth = Math.min(avgCharsPerLine * 8 + 100, MAX_WIDTH);
+      targetWidth = Math.max(targetWidth, estimatedWidth);
+    });
+
+    // Check input for long content
+    if (input.length > 40) {
+      const inputWidth = Math.min(input.length * 6 + 100, MAX_WIDTH);
+      targetWidth = Math.max(targetWidth, inputWidth);
+    }
+
+    // Calculate height based on message count and content
+    let targetHeight = MIN_HEIGHT;
+    
+    if (messages.length > 0) {
+      // Base height per message (avatar + padding + text)
+      const baseMessageHeight = 60;
+      // Additional height for longer messages
+      const totalMessageHeight = messages.reduce((acc, msg) => {
+        const lineCount = Math.max(1, msg.content.split('\n').length);
+        const estimatedLines = Math.ceil(msg.content.length / 50);
+        const messageLines = Math.max(lineCount, estimatedLines);
+        return acc + baseMessageHeight + (messageLines - 1) * 20;
+      }, 0);
+      
+      // Add header (60px), input area (60px), and padding
+      targetHeight = Math.min(
+        Math.max(totalMessageHeight + 160, MIN_HEIGHT),
+        MAX_HEIGHT
+      );
+    }
+
+    // Expand height if input has multiple lines
+    const inputLines = input.split('\n').length;
+    if (inputLines > 1) {
+      targetHeight = Math.min(targetHeight + (inputLines - 1) * 20, MAX_HEIGHT);
+    }
+
+    return { width: targetWidth, height: targetHeight };
+  }, [messages, input]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -47,11 +104,25 @@ export function FloatingActionButtons() {
     }
   }, [isChatOpen]);
 
+  // Auto-resize textarea based on content
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    // Reset height to auto to get the correct scrollHeight
+    e.target.style.height = 'auto';
+    // Set height to scrollHeight (capped at maxHeight)
+    const newHeight = Math.min(e.target.scrollHeight, 120);
+    e.target.style.height = `${newHeight}px`;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
       sendMessage(input);
       setInput("");
+      // Reset textarea height after sending
+      if (inputRef.current) {
+        inputRef.current.style.height = '40px';
+      }
     }
   };
 
@@ -90,15 +161,24 @@ export function FloatingActionButtons() {
           // Chat Window
           <motion.div
             key="chat-window"
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
+            initial={{ opacity: 0, scale: 0.8, y: 20, width: MIN_WIDTH, height: MIN_HEIGHT }}
+            animate={{ 
+              opacity: 1, 
+              scale: 1, 
+              y: 0,
+              width: dimensions.width,
+              height: dimensions.height,
+            }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             transition={{
               type: "spring",
               stiffness: 300,
               damping: 25,
+              width: { type: "spring", stiffness: 200, damping: 30 },
+              height: { type: "spring", stiffness: 200, damping: 30 },
             }}
-            className="mb-4 flex flex-col w-[380px] h-[500px] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+            className="mb-4 flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+            style={{ maxWidth: MAX_WIDTH, maxHeight: MAX_HEIGHT }}
           >
             {/* Header */}
             <motion.div
@@ -139,7 +219,10 @@ export function FloatingActionButtons() {
             </motion.div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+            <div 
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50"
+            >
               {messages.length === 0 ? (
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -275,11 +358,11 @@ export function FloatingActionButtons() {
               onSubmit={handleSubmit}
               className="p-3 border-t border-slate-200 bg-white"
             >
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-end">
                 <textarea
                   ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   placeholder="Écrivez votre message..."
                   disabled={isLoading}
@@ -289,13 +372,14 @@ export function FloatingActionButtons() {
                     "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
                     "placeholder:text-slate-400 bg-slate-50",
+                    "transition-[height] duration-150 ease-out",
                   )}
-                  style={{ minHeight: "40px", maxHeight: "80px" }}
+                  style={{ minHeight: "40px", maxHeight: "120px", height: "40px" }}
                 />
                 <Button
                   type="submit"
                   disabled={!input.trim() || isLoading}
-                  className="px-3 rounded-xl bg-blue-600 hover:bg-blue-700"
+                  className="px-3 rounded-xl bg-blue-600 hover:bg-blue-700 self-end h-10"
                 >
                   {isLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
