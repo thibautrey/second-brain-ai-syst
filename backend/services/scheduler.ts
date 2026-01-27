@@ -246,11 +246,11 @@ export class SchedulerService {
       },
     });
 
-    // Data Coherence Agent - runs every 15 minutes
+    // Data Coherence Agent - runs every hour
     this.registerTask({
       id: "data-coherence-check",
       name: "Data Coherence & Proactive Questions",
-      cronExpression: "*/15 * * * *", // Every 15 minutes
+      cronExpression: "0 */1 * * *", // Every hour
       lastRun: null,
       nextRun: null,
       isEnabled: true,

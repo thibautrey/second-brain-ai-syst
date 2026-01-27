@@ -87,6 +87,10 @@ import audioIngestionController from "../controllers/audio-ingestion.controller.
 import { audioSessionManager } from "./audio-session-manager.js";
 import factCheckController from "../controllers/fact-check.controller.js";
 import analyticsController from "../controllers/analytics.controller.js";
+import { 
+  cleanupDuplicateTodos, 
+  disableDataCoherenceAgent 
+} from "../controllers/data-cleanup.controller.js";
 
 // Environment validation
 function validateEnvironment() {
@@ -877,6 +881,12 @@ if (process.env.NODE_ENV !== "production") {
   app.use("/api/debug", debugController);
   console.log("🐛 Debug routes enabled at /api/debug/input-flow");
 }
+
+// ==================== Data Cleanup Routes ====================
+
+app.post("/api/cleanup/duplicate-todos", authMiddleware, cleanupDuplicateTodos);
+app.post("/api/cleanup/disable-coherence-agent", authMiddleware, disableDataCoherenceAgent);
+console.log("🧹 Data cleanup routes enabled at /api/cleanup");
 
 // ==================== Built-in Tools Routes ====================
 

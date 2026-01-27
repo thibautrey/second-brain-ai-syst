@@ -94,9 +94,12 @@ Analysis Guidelines:
 - Consider frequency patterns (e.g., "twice a week", "every Monday")
 - Look for goals that mention regular activities but have one-time tasks
 - Identify activities that have been mentioned multiple times without tracking
-- Be conservative - only suggest changes with high confidence (>70%)
+- Be conservative - only suggest changes with high confidence (>85%)
 - Respect user autonomy - suggestions should be helpful, not pushy
 - IMPORTANT: Avoid duplicate entries in affectedItems arrays - each ID should appear only once
+- DO NOT suggest creating recurring tasks if similar ones already exist
+- Focus on meaningful improvements, not minor tweaks
+- Limit suggestions to max 2 per analysis to avoid overwhelming the user
 
 Response Format (JSON):
 {
@@ -217,6 +220,15 @@ export class DataCoherenceAgentService {
 
       // Store results and send notifications
       await this.processResults(userId, coherenceResult, questionsResult);
+
+      console.log(`✓ Coherence check completed for user ${userId}:`, {
+        issues: coherenceResult.issues?.length || 0,
+        suggestions: coherenceResult.suggestions?.length || 0,
+        questions: questionsResult.questions?.length || 0,
+        goalsAnalyzed: goals.length,
+        todosAnalyzed: todos.length,
+        memoriesAnalyzed: memories.length
+      });
 
       return {
         agentId: "data-coherence",
@@ -486,6 +498,21 @@ export class DataCoherenceAgentService {
       (issue: CoherenceIssue) => issue.confidence >= MIN_CONFIDENCE_FOR_ISSUE
     );
 
+    // Check if too many system-improvement todos already exist
+    const systemTodos = await prisma.todo.findMany({
+      where: {
+        userId,
+        category: { in: ["system-improvement", "personal-improvement"] },
+        status: { in: [TodoStatus.PENDING, TodoStatus.IN_PROGRESS] }
+      }
+    });
+
+    // Skip creating new suggestions if user already has too many
+    if (systemTodos.length > 5) {
+      console.log(`User ${userId} has ${systemTodos.length} system todos, skipping new suggestions`);
+      return;
+    }
+
     // Create tasks for actionable suggestions
     if (coherenceResult.suggestions && coherenceResult.suggestions.length > 0) {
       for (const suggestion of coherenceResult.suggestions) {
@@ -574,19 +601,45 @@ export class DataCoherenceAgentService {
    */
   private async createTaskFromSuggestion(userId: string, suggestion: CoherenceSuggestion): Promise<void> {
     try {
+      // Check for existing similar todos to prevent duplicates
+      const existingTodos = await prisma.todo.findMany({
+        where: {
+          userId,
+          status: { in: [TodoStatus.PENDING, TodoStatus.IN_PROGRESS] },
+          OR: [
+            { title: { contains: suggestion.title, mode: 'insensitive' } },
+            { 
+              metadata: {
+                path: ["suggestionType"],
+                equals: suggestion.type
+              }
+            }
+          ]
+        },
+        take: 5
+      });
+
+      // If similar todos exist, skip creation
+      if (existingTodos.length > 0) {
+        console.log(`Skipping duplicate suggestion: ${suggestion.title}`);
+        return;
+      }
+
       const priority = suggestion.priority === "high" 
         ? TodoPriority.HIGH 
         : suggestion.priority === "medium" 
           ? TodoPriority.MEDIUM 
           : TodoPriority.LOW;
 
-      // Create the task
+      // Create the task with a more user-friendly title
+      const userFriendlyTitle = this.makeUserFriendlyTitle(suggestion.title);
+      
       await todoService.createTodo(userId, {
-        title: `[Auto] ${suggestion.title}`,
+        title: userFriendlyTitle,
         description: suggestion.message,
         priority,
-        category: "system-improvement",
-        tags: ["auto-generated", "data-coherence", suggestion.type],
+        category: "personal-improvement",
+        tags: ["suggested", suggestion.type],
         metadata: {
           source: "data-coherence-agent",
           suggestionType: suggestion.type,
@@ -595,10 +648,25 @@ export class DataCoherenceAgentService {
         },
       });
 
-      console.log(`Created task for suggestion: ${suggestion.title}`);
+      console.log(`Created task for suggestion: ${userFriendlyTitle}`);
     } catch (error) {
       console.error(`Failed to create task for suggestion: ${suggestion.title}`, error);
     }
+  }
+
+  /**
+   * Make titles more user-friendly by removing technical jargon
+   */
+  private makeUserFriendlyTitle(title: string): string {
+    return title
+      .replace(/\[Auto\]\s?/g, '')
+      .replace(/Set Up/g, 'Set up')
+      .replace(/Create central goal for/g, 'Set up goal for')
+      .replace(/Create recurring task/g, 'Set up recurring reminder')
+      .replace(/Schedule sport sessions/g, 'Set up sport reminders')
+      .replace(/Remove duplicate/g, 'Clean up duplicate')
+      .replace(/data-coherence/g, 'system maintenance')
+      .trim();
   }
 
   /**
