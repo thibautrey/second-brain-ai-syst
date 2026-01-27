@@ -286,6 +286,21 @@ export function AnalyticsPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Weekly Summary */}
+          {period === "week" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-500" />
+                  Your Week at a Glance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <WeeklyOverview data={stats?.weeklyData} isLoading={isLoading} />
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Column - Mood & Insights */}
@@ -356,21 +371,6 @@ export function AnalyticsPage() {
           </Card>
         </div>
       </div>
-
-      {/* Weekly Summary */}
-      {period === "week" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-blue-500" />
-              Your Week at a Glance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <WeeklyOverview data={stats?.weeklyData} isLoading={isLoading} />
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
