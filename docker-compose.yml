@@ -102,6 +102,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       PORT: 3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       EMBEDDING_SERVICE_HOST: embedding-service
       EMBEDDING_SERVICE_PORT: 5001
       CODE_EXECUTOR_HOST: code-executor
