@@ -42,22 +42,40 @@ const DEFAULT_OPENAI_MODELS: {
   {
     modelId: "gpt-4o",
     name: "GPT-4o",
-    capabilities: ["ROUTING", "REFLECTION"],
+    capabilities: [
+      "ROUTING",
+      "REFLECTION",
+      "CHAT",
+      "SUMMARIZATION",
+      "ANALYSIS",
+    ],
   },
   {
     modelId: "gpt-4o-mini",
     name: "GPT-4o Mini",
-    capabilities: ["ROUTING", "REFLECTION"],
+    capabilities: [
+      "ROUTING",
+      "REFLECTION",
+      "CHAT",
+      "SUMMARIZATION",
+      "ANALYSIS",
+    ],
   },
   {
     modelId: "gpt-4-turbo",
     name: "GPT-4 Turbo",
-    capabilities: ["ROUTING", "REFLECTION"],
+    capabilities: [
+      "ROUTING",
+      "REFLECTION",
+      "CHAT",
+      "SUMMARIZATION",
+      "ANALYSIS",
+    ],
   },
   {
     modelId: "gpt-3.5-turbo",
     name: "GPT-3.5 Turbo",
-    capabilities: ["ROUTING"],
+    capabilities: ["ROUTING", "CHAT", "SUMMARIZATION", "ANALYSIS"],
   },
   { modelId: "whisper-1", name: "Whisper", capabilities: ["SPEECH_TO_TEXT"] },
   { modelId: "dall-e-3", name: "DALL-E 3", capabilities: ["IMAGE_GENERATION"] },
@@ -424,13 +442,9 @@ export async function removeModelFromProvider(
  */
 export async function getTaskConfigs(userId: string) {
   // Ensure all task types have a config entry
-  const allTaskTypes: ModelCapability[] = [
-    "SPEECH_TO_TEXT",
-    "ROUTING",
-    "REFLECTION",
-    "IMAGE_GENERATION",
-    "EMBEDDINGS",
-  ];
+  const allTaskTypes: ModelCapability[] = Object.values(
+    ModelCapability,
+  ) as ModelCapability[];
 
   const configs = await prisma.aITaskConfig.findMany({
     where: { userId },

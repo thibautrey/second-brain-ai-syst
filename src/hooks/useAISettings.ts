@@ -9,6 +9,14 @@ import {
 
 const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
 
+type BatchTaskConfigUpdate = {
+  taskType: ModelCapability;
+  providerId: string | null;
+  modelId: string | null;
+  fallbackProviderId?: string | null;
+  fallbackModelId?: string | null;
+};
+
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem("authToken");
   return {
@@ -221,6 +229,69 @@ export function useAISettings() {
     [],
   );
 
+  // Update several task configurations at once (used by simple mode)
+  const updateTaskConfigsBatch = useCallback(
+    async (updates: BatchTaskConfigUpdate[]) => {
+      setIsSaving(true);
+      setError(null);
+      try {
+        const updatedConfigs: AITaskConfig[] = [];
+
+        for (const update of updates) {
+          const body: Record<string, string | null> = {
+            providerId: update.providerId,
+            modelId: update.modelId,
+          };
+
+          if (update.fallbackProviderId !== undefined) {
+            body.fallbackProviderId = update.fallbackProviderId;
+          }
+          if (update.fallbackModelId !== undefined) {
+            body.fallbackModelId = update.fallbackModelId;
+          }
+
+          const config = await apiRequest<AITaskConfig>(
+            `/ai-settings/task-configs/${update.taskType}`,
+            {
+              method: "PATCH",
+              body: JSON.stringify(body),
+            },
+          );
+          updatedConfigs.push(config);
+        }
+
+        setSettings((prev) => {
+          const merged = new Map<string, AITaskConfig>();
+          // Start with previous configs to preserve order
+          for (const cfg of prev.taskConfigs) {
+            merged.set(cfg.taskType, cfg);
+          }
+          // Overwrite with latest results (or add if missing)
+          for (const cfg of updatedConfigs) {
+            merged.set(cfg.taskType, cfg);
+          }
+
+          return {
+            ...prev,
+            taskConfigs: Array.from(merged.values()),
+          };
+        });
+
+        return updatedConfigs;
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to update multiple task configs";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [],
+  );
+
   // Add custom model to a provider
   const addModelToProvider = useCallback(
     async (
@@ -393,6 +464,7 @@ export function useAISettings() {
     updateProvider,
     deleteProvider,
     updateTaskConfig,
+    updateTaskConfigsBatch,
     addModelToProvider,
     removeModelFromProvider,
     syncProviderModels,

@@ -7,6 +7,7 @@ import {
   scheduledTaskService,
   curlService,
   longRunningTaskService,
+  braveSearchService,
 } from "./tools/index.js";
 import { memorySearchService } from "./memory-search.js";
 import { userProfileService, UserProfile } from "./user-profile.js";
@@ -139,6 +140,20 @@ const BUILTIN_TOOLS: ToolConfig[] = [
       description:
         "Make HTTP requests (GET, POST, PUT, DELETE, PATCH) to fetch data from the web",
       actions: ["request", "get", "post", "put", "delete", "patch"],
+    },
+  },
+  {
+    id: "brave_search",
+    name: "Brave Web Search",
+    emoji: "🧭",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 40,
+    timeout: 15000,
+    config: {
+      description:
+        "Search the public internet using the Brave Search API. Requires a Brave API key saved as secret 'BRAVE_SEARCH_API_KEY' or environment variable BRAVE_SEARCH_API_KEY.",
+      actions: ["search"],
     },
   },
   {
@@ -419,6 +434,8 @@ export class ToolExecutorService {
         return this.executeScheduledTaskAction(userId, action, params);
       case "curl":
         return this.executeCurlAction(action, params);
+      case "brave_search":
+        return this.executeBraveSearchAction(userId, action, params);
       case "user_context":
         return this.executeUserContextAction(userId, action, params);
       case "user_profile":
@@ -1159,6 +1176,45 @@ export class ToolExecutorService {
 
       default:
         throw new Error(`Unknown curl action: ${action}`);
+    }
+  }
+
+  /**
+   * Execute Brave web search actions
+   */
+  private async executeBraveSearchAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "search": {
+        const query = params.query || params.q;
+        if (!query) {
+          throw new Error(
+            "Missing 'query' parameter. Provide the search query text.",
+          );
+        }
+
+        return braveSearchService.searchWeb(userId, query, {
+          count: params.count,
+          offset: params.offset,
+          country: params.country,
+          searchLang: params.search_lang || params.searchLang,
+          uiLang: params.ui_lang || params.uiLang,
+          safesearch: params.safesearch,
+          freshness: params.freshness,
+          extraSnippets:
+            params.extra_snippets !== undefined
+              ? params.extra_snippets
+              : params.extraSnippets,
+          summary: params.summary,
+          timeoutMs: params.timeout_ms ?? params.timeoutMs,
+        });
+      }
+
+      default:
+        throw new Error(`Unknown brave_search action: ${action}`);
     }
   }
 
@@ -2446,6 +2502,72 @@ export class ToolExecutorService {
             },
           },
           required: ["action", "url"],
+        },
+      },
+      {
+        name: "brave_search",
+        description:
+          "Search the public web via the Brave Search API. Requires an API key saved as secret 'BRAVE_SEARCH_API_KEY' (preferred) or environment variable BRAVE_SEARCH_API_KEY. If the key is missing, ask the user to provide it via the secrets.create tool before retrying.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["search"],
+              description: "Only 'search' is supported.",
+            },
+            query: {
+              type: "string",
+              description: "The search query text (required).",
+            },
+            count: {
+              type: "number",
+              description: "Number of results to return (1-20, default 10).",
+            },
+            offset: {
+              type: "number",
+              description: "Result page offset (0-9, default 0).",
+            },
+            country: {
+              type: "string",
+              description:
+                "2-letter country code for localization (default 'us').",
+            },
+            search_lang: {
+              type: "string",
+              description: "Language to search in (default 'en').",
+            },
+            ui_lang: {
+              type: "string",
+              description: "Language for UI elements (default 'en-US').",
+            },
+            safesearch: {
+              type: "string",
+              enum: ["off", "moderate", "strict"],
+              description: "Safe search level (default 'moderate').",
+            },
+            freshness: {
+              type: "string",
+              description:
+                "Freshness filter: 'pd' (24h), 'pw' (week), 'pm' (month), 'py' (year).",
+            },
+            extra_snippets: {
+              type: "boolean",
+              description:
+                "Return extra_snippets for results when available (default false).",
+            },
+            summary: {
+              type: "boolean",
+              description:
+                "Ask Brave to include a summary block when supported (default false).",
+            },
+            timeout_ms: {
+              type: "number",
+              description:
+                "Request timeout in milliseconds (default 12000, max 15000).",
+            },
+          },
+          required: ["action", "query"],
         },
       },
       {

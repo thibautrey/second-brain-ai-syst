@@ -166,6 +166,7 @@ export type LLMModel =
 
 export type LLMTaskType =
   | "chat"
+  | "reflection"
   | "summarization"
   | "routing"
   | "analysis"
@@ -204,6 +205,7 @@ interface ProviderConfig {
 // Using string literals since Prisma client needs regeneration for new enum values
 const TASK_TYPE_MAP: Record<LLMTaskType, string> = {
   chat: "CHAT",
+  reflection: "REFLECTION",
   summarization: "SUMMARIZATION",
   routing: "ROUTING",
   analysis: "ANALYSIS",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Plus,
@@ -20,6 +20,7 @@ import {
   Lock,
   Calendar,
   Copy,
+  Image,
 } from "lucide-react";
 import { getFaviconUrl } from "../utils/favicon";
 import {
@@ -44,8 +45,10 @@ import { useAISettings } from "../hooks/useAISettings";
 import { useSecrets } from "../hooks/useSecrets";
 import {
   AIProvider,
+  AISettings,
   ProviderType,
   ModelCapability,
+  AITaskConfig,
   TASK_LABELS,
   DEFAULT_OPENAI_MODELS,
 } from "../types/ai-settings";
@@ -152,8 +155,9 @@ function ProvidersSection() {
       {isAdding && (
         <ProviderForm
           onSave={async (data) => {
-            await addProvider(data);
+            const newProvider = await addProvider(data);
             setIsAdding(false);
+            void handleSyncModels(newProvider.id);
           }}
           onCancel={() => setIsAdding(false)}
           isSaving={isSaving}
@@ -560,10 +564,21 @@ function ModelsConfigSection() {
   const {
     settings,
     updateTaskConfig,
+    updateTaskConfigsBatch,
     getModelsForTask,
     getTaskConfig,
     isSaving,
   } = useAISettings();
+  const MODE_STORAGE_KEY = "aiSettingsMode";
+  const [mode, setMode] = useState<"simple" | "advanced">(() => {
+    const saved = localStorage.getItem(MODE_STORAGE_KEY);
+    return saved === "advanced" ? "advanced" : "simple";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(MODE_STORAGE_KEY, mode);
+  }, [mode]);
+
   const taskTypes: ModelCapability[] = [
     "chat",
     "routing",
@@ -579,13 +594,38 @@ function ModelsConfigSection() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900">
-          Configuration des Modèles
-        </h3>
-        <p className="text-sm text-slate-500">
-          Assignez un provider et un modèle pour chaque type de tâche IA.
-        </p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            Configuration des Modèles
+          </h3>
+          <p className="text-sm text-slate-500">
+            Choisissez un mode : rapide (un seul modèle LLM partagé) ou avancé
+            (configuration par tâche).
+          </p>
+        </div>
+        <div className="inline-flex items-center rounded-lg bg-slate-100 p-1 text-sm font-medium text-slate-700">
+          <button
+            className={`rounded-md px-3 py-1 transition ${
+              mode === "simple"
+                ? "bg-white shadow-sm text-slate-900"
+                : "text-slate-600"
+            }`}
+            onClick={() => setMode("simple")}
+          >
+            Mode simple
+          </button>
+          <button
+            className={`rounded-md px-3 py-1 transition ${
+              mode === "advanced"
+                ? "bg-white shadow-sm text-slate-900"
+                : "text-slate-600"
+            }`}
+            onClick={() => setMode("advanced")}
+          >
+            Mode avancé
+          </button>
+        </div>
       </div>
 
       {!hasProviders ? (
@@ -600,34 +640,385 @@ function ModelsConfigSection() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {taskTypes.map((taskType) => (
-            <TaskConfigCard
-              key={taskType}
-              taskType={taskType}
-              config={getTaskConfig(taskType)}
-              availableModels={getModelsForTask(taskType)}
-              onUpdate={(
-                providerId,
-                modelId,
-                fallbackProviderId,
-                fallbackModelId,
-              ) =>
-                updateTaskConfig(
-                  taskType,
-                  providerId,
-                  modelId,
-                  fallbackProviderId,
-                  fallbackModelId,
-                )
-              }
+        <>
+          {mode === "simple" ? (
+            <SimpleModelsConfig
+              settings={settings}
               providers={settings.providers}
+              onBatchUpdate={updateTaskConfigsBatch}
               isSaving={isSaving}
             />
-          ))}
-        </div>
+          ) : (
+            <div className="grid gap-4">
+              {taskTypes.map((taskType) => (
+                <TaskConfigCard
+                  key={taskType}
+                  taskType={taskType}
+                  config={getTaskConfig(taskType)}
+                  availableModels={getModelsForTask(taskType)}
+                  onUpdate={(
+                    providerId,
+                    modelId,
+                    fallbackProviderId,
+                    fallbackModelId,
+                  ) =>
+                    updateTaskConfig(
+                      taskType,
+                      providerId,
+                      modelId,
+                      fallbackProviderId,
+                      fallbackModelId,
+                    )
+                  }
+                  providers={settings.providers}
+                  isSaving={isSaving}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+type SimpleModelsConfigProps = {
+  settings: AISettings;
+  providers: AIProvider[];
+  onBatchUpdate: (
+    updates: {
+      taskType: ModelCapability;
+      providerId: string | null;
+      modelId: string | null;
+    }[],
+  ) => Promise<unknown>;
+  isSaving: boolean;
+};
+
+function SimpleModelsConfig({
+  settings,
+  providers,
+  onBatchUpdate,
+  isSaving,
+}: SimpleModelsConfigProps) {
+  const taskConfigs = settings.taskConfigs || [];
+
+  const llmTasks: ModelCapability[] = [
+    "chat",
+    "routing",
+    "reflection",
+    "summarization",
+    "analysis",
+  ];
+  const embeddingTasks: ModelCapability[] = ["embeddings"];
+  const speechTasks: ModelCapability[] = ["speech-to-text"];
+  const imageTasks: ModelCapability[] = ["image-generation"];
+
+  const cards = [
+    {
+      id: "llm",
+      title: "Modèle LLM global",
+      description:
+        "Utilisé pour Chat, Routage, Réflexion, Résumés et Analyse. Sélectionnez un seul modèle pour tout.",
+      taskTypes: llmTasks,
+      required: true,
+      icon: <Sliders className="w-5 h-5 text-slate-700" />,
+    },
+    {
+      id: "embeddings",
+      title: "Embeddings (obligatoire)",
+      description:
+        "Vectorisation pour la recherche sémantique (Weaviate et résumés).",
+      taskTypes: embeddingTasks,
+      required: true,
+      icon: <Server className="w-5 h-5 text-slate-700" />,
+    },
+    {
+      id: "speech",
+      title: "Speech to Text",
+      description: "Transcription audio vers texte (Whisper ou équivalent).",
+      taskTypes: speechTasks,
+      required: false,
+      icon: <Mic className="w-5 h-5 text-slate-700" />,
+    },
+    {
+      id: "images",
+      title: "Génération d'Images",
+      description: "Création d'images à partir de texte (DALL·E, etc.).",
+      taskTypes: imageTasks,
+      required: false,
+      icon: <Image className="w-5 h-5 text-slate-700" />,
+    },
+  ];
+
+  const applyGroup = async (
+    taskTypes: ModelCapability[],
+    providerId: string | null,
+    modelId: string | null,
+  ) => {
+    await onBatchUpdate(
+      taskTypes.map((taskType) => ({
+        taskType,
+        providerId,
+        modelId,
+      })),
+    );
+  };
+
+  return (
+    <div className="grid gap-4">
+      {cards.map((card) => (
+        <SimpleTaskCard
+          key={card.id}
+          {...card}
+          providers={providers}
+          taskConfigs={taskConfigs}
+          onApply={applyGroup}
+          isSaving={isSaving}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SimpleTaskCard({
+  title,
+  description,
+  icon,
+  taskTypes,
+  required,
+  providers,
+  taskConfigs,
+  onApply,
+  isSaving,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+  taskTypes: ModelCapability[];
+  required: boolean;
+  providers: AIProvider[];
+  taskConfigs: AITaskConfig[];
+  onApply: (
+    taskTypes: ModelCapability[],
+    providerId: string | null,
+    modelId: string | null,
+  ) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const configs = taskTypes.map((taskType) =>
+    taskConfigs.find((tc) => tc.taskType === taskType),
+  );
+  const providerIds = new Set(
+    configs.map((c) => c?.providerId).filter(Boolean) as string[],
+  );
+  const modelIds = new Set(
+    configs.map((c) => c?.modelId).filter(Boolean) as string[],
+  );
+
+  const missingCount = taskTypes.filter((taskType) => {
+    const cfg = taskConfigs.find((tc) => tc.taskType === taskType);
+    return !cfg?.providerId || !cfg.modelId;
+  }).length;
+
+  const groupProviderId =
+    providerIds.size === 1 ? Array.from(providerIds)[0] : "";
+  const groupModelId = modelIds.size === 1 ? Array.from(modelIds)[0] : "";
+  const isMixed = providerIds.size > 1 || modelIds.size > 1;
+  const isConfigured =
+    !isMixed && !!groupProviderId && !!groupModelId && missingCount === 0;
+
+  const enabledProviders = providers.filter((p) => p.isEnabled);
+  const compatibleProviders = enabledProviders.filter((p) =>
+    p.models.some((m) =>
+      m.capabilities.some((cap) =>
+        taskTypes.includes(cap as ModelCapability),
+      ),
+    ),
+  );
+  const otherProviders = enabledProviders.filter(
+    (p) => !compatibleProviders.includes(p),
+  );
+
+  const selectedProvider = providers.find((p) => p.id === groupProviderId);
+  const compatibleModels =
+    selectedProvider?.models.filter((m) =>
+      m.capabilities.some((cap) => taskTypes.includes(cap as ModelCapability)),
+    ) || [];
+  const otherModels =
+    selectedProvider?.models.filter(
+      (m) =>
+        !m.capabilities.some((cap) =>
+          taskTypes.includes(cap as ModelCapability),
+        ),
+    ) || [];
+
+  const handleProviderChange = async (providerId: string) => {
+    if (!providerId) {
+      await onApply(taskTypes, null, null);
+      return;
+    }
+    const provider = providers.find((p) => p.id === providerId);
+    const firstModel =
+      provider?.models.find((m) =>
+        m.capabilities.some((cap) =>
+          taskTypes.includes(cap as ModelCapability),
+        ),
+      ) || provider?.models[0];
+
+    await onApply(taskTypes, providerId, firstModel?.id || null);
+  };
+
+  const handleModelChange = async (modelId: string) => {
+    await onApply(taskTypes, groupProviderId || null, modelId || null);
+  };
+
+  const providerOptionGroups: SelectOptionGroup[] = [];
+  if (compatibleProviders.length > 0) {
+    providerOptionGroups.push({
+      label: "✓ Suggérés",
+      options: compatibleProviders.map((p) => ({
+        value: p.id,
+        label: p.name,
+      })),
+    });
+  }
+  if (otherProviders.length > 0) {
+    providerOptionGroups.push({
+      label: "Autres providers",
+      options: otherProviders.map((p) => ({
+        value: p.id,
+        label: p.name,
+      })),
+    });
+  }
+
+  const modelOptionGroups: SelectOptionGroup[] = [];
+  if (compatibleModels.length > 0) {
+    modelOptionGroups.push({
+      label: "✓ Suggérés",
+      options: compatibleModels.map((m) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    });
+  }
+  const modelsToShow =
+    compatibleModels.length === 0 ? selectedProvider?.models || [] : otherModels;
+  if (modelsToShow.length > 0) {
+    modelOptionGroups.push({
+      label:
+        compatibleModels.length === 0
+          ? "Modèles disponibles"
+          : "Autres modèles",
+      options: modelsToShow.map((m) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    });
+  }
+
+  const coverage = taskTypes
+    .map((t) => TASK_LABELS[t]?.label || t)
+    .join(" · ");
+
+  const statusLabel = isMixed
+    ? "Configurations différentes"
+    : isConfigured
+      ? "Config. ok"
+      : required
+        ? "À configurer"
+        : "Optionnel";
+
+  const statusClass = isMixed
+    ? "bg-amber-100 text-amber-700"
+    : isConfigured
+      ? "bg-green-100 text-green-700"
+      : required
+        ? "bg-rose-100 text-rose-700"
+        : "bg-slate-100 text-slate-700";
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+            {icon}
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="font-semibold text-slate-900">{title}</h4>
+              <span className={`px-2 py-0.5 text-xs rounded-full ${statusClass}`}>
+                {statusLabel}
+              </span>
+              {required ? (
+                <span className="px-2 py-0.5 text-xs rounded-full bg-slate-900 text-white">
+                  Obligatoire
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700">
+                  Optionnel
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-slate-500">{description}</p>
+            <p className="text-xs text-slate-500">Couvre : {coverage}</p>
+            {isMixed && (
+              <p className="text-xs text-amber-600">
+                Certaines tâches de ce groupe utilisent des modèles différents. Choisissez un provider
+                pour harmoniser.
+              </p>
+            )}
+            {required && missingCount > 0 && !isConfigured && (
+              <p className="text-xs text-rose-600">
+                Ce groupe est requis : sélectionnez au moins un provider et un modèle.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 mt-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Provider</Label>
+            <Select
+              value={groupProviderId}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              disabled={isSaving}
+              placeholder="Sélectionner un provider"
+              options={[{ value: "", label: "Aucun" }]}
+              optionGroups={providerOptionGroups}
+            />
+            {compatibleProviders.length === 0 && enabledProviders.length > 0 && (
+              <p className="text-xs text-amber-600">
+                Aucun provider recommandé, mais vous pouvez en choisir un et sélectionner le modèle manuellement.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Modèle</Label>
+            <Select
+              value={groupModelId}
+              onChange={(e) => handleModelChange(e.target.value)}
+              disabled={isSaving || !groupProviderId}
+              placeholder="Sélectionner un modèle"
+              options={[{ value: "", label: "Aucun" }]}
+              optionGroups={modelOptionGroups}
+            />
+            {groupProviderId && compatibleModels.length === 0 && (
+              <p className="text-xs text-amber-600">
+                Aucun modèle suggéré pour ce provider, choisissez n'importe quel modèle disponible.
+              </p>
+            )}
+            {!groupProviderId && (
+              <p className="text-xs text-slate-500">
+                Choisissez un provider avant de sélectionner un modèle.
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

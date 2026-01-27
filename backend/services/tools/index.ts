@@ -18,6 +18,10 @@ export {
   longRunningTaskService,
   LongRunningTaskService,
 } from "./long-running-task.service.js";
+export {
+  braveSearchService,
+  BraveSearchService,
+} from "./brave-search.service.js";
 
 // Re-export types
 export type {

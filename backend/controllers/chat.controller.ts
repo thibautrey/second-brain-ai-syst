@@ -176,6 +176,7 @@ NEVER produce curl, http, or JSON commands as raw text—ALWAYS use the provided
 Never delete/disable/overwrite tasks, todos, or scheduled items without explicit user confirmation. Default to reading/listing or creating; edits/deletes require confirmation.
 
 - curl: For HTTP requests (weather, web APIs, etc.). Use it whenever the user asks for web-based information.
+- brave_search: Search the public web via Brave Search (requires API key BRAVE_SEARCH_API_KEY). If missing, ask the user to provide it and store it via secrets before retrying.
 - todo: Manage the user's to-dos from end to end (create, get, list, update, complete, delete). Use update to change priority/date/description and delete to remove items. You may modify or delete existing tasks.
 - notification: Send reminders and notifications (send, schedule, list, mark_read).
 - scheduled_task: Schedule tasks with full edit/delete control (create, get, list, update, enable, disable, delete, execute_now). You can modify or delete scheduled tasks after creation.
