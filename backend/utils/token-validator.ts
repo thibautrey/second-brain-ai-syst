@@ -150,20 +150,61 @@ export function validateMaxTokens(
 }
 
 /**
- * Check if an error is a "max_tokens must be at least 1" error from OpenAI
+ * Check if an error is a max_tokens related error from OpenAI/LLM providers
+ * Handles both:
+ * - "max_tokens must be at least 1" errors
+ * - Context window overflow errors (input tokens + max_tokens > context limit)
  */
 export function isMaxTokensError(error: any): boolean {
   if (!error) return false;
 
-  // Check for OpenAI API error
-  if (error.status === 400 && error.code === 400) {
-    const message = error.message || error.error?.message || "";
-    return message.includes("max_tokens must be at least 1");
+  const message = error.message || error.error?.message || "";
+  const lowerMessage = message.toLowerCase();
+
+  // Check for OpenAI API error (400 Bad Request)
+  if (error.status === 400 || error.code === 400) {
+    // Pattern 1: max_tokens must be at least 1
+    if (message.includes("max_tokens must be at least 1")) {
+      return true;
+    }
+
+    // Pattern 2: Context window overflow (max_tokens too large for remaining context)
+    // Example: "'max_tokens' or 'max_completion_tokens' is too large: 4096. This model's maximum context length is 120000 tokens and your request has 118140 input tokens"
+    if (
+      lowerMessage.includes("max_tokens") ||
+      lowerMessage.includes("max_completion_tokens")
+    ) {
+      if (
+        lowerMessage.includes("too large") ||
+        lowerMessage.includes("context length") ||
+        lowerMessage.includes("input tokens")
+      ) {
+        return true;
+      }
+    }
+
+    // Pattern 3: Generic context length exceeded
+    if (
+      lowerMessage.includes("context length") &&
+      lowerMessage.includes("tokens")
+    ) {
+      return true;
+    }
   }
 
   // Check for generic Error with message
   if (error instanceof Error) {
-    return error.message.includes("max_tokens must be at least 1");
+    if (error.message.includes("max_tokens must be at least 1")) {
+      return true;
+    }
+    // Context window overflow pattern
+    if (
+      error.message.includes("too large") &&
+      (error.message.includes("max_tokens") ||
+        error.message.includes("max_completion_tokens"))
+    ) {
+      return true;
+    }
   }
 
   return false;
@@ -176,6 +217,130 @@ export function extractMaxTokensFromError(error: any): number | null {
   const message = error?.message || error?.error?.message || "";
   const match = message.match(/got\s+(-?\d+)/);
   return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Information extracted from a context window overflow error
+ */
+export interface ContextOverflowInfo {
+  requestedMaxTokens: number;
+  contextLimit: number;
+  inputTokens: number;
+  availableTokens: number;
+  suggestedMaxTokens: number;
+}
+
+/**
+ * Parse context window overflow error to extract token counts
+ * Handles error messages like:
+ * "'max_tokens' or 'max_completion_tokens' is too large: 4096. This model's maximum context length is 120000 tokens and your request has 118140 input tokens (4096 > 120000 - 118140)."
+ */
+export function parseContextOverflowError(
+  error: any,
+): ContextOverflowInfo | null {
+  if (!error) return null;
+
+  const message = error.message || error.error?.message || "";
+
+  // Try to extract: requested max_tokens, context limit, and input tokens
+  // Pattern 1: "is too large: X. This model's maximum context length is Y tokens and your request has Z input tokens"
+  const pattern1 =
+    /(?:max_tokens|max_completion_tokens)[^:]*:\s*(\d+)[^]*?maximum context length is\s*(\d+)\s*tokens[^]*?has\s*(\d+)\s*input tokens/i;
+  const match1 = message.match(pattern1);
+
+  if (match1) {
+    const requestedMaxTokens = parseInt(match1[1], 10);
+    const contextLimit = parseInt(match1[2], 10);
+    const inputTokens = parseInt(match1[3], 10);
+    const availableTokens = Math.max(0, contextLimit - inputTokens);
+    // Use 95% of available tokens to leave some buffer
+    const suggestedMaxTokens = Math.max(
+      1,
+      Math.floor(availableTokens * 0.95),
+    );
+
+    return {
+      requestedMaxTokens,
+      contextLimit,
+      inputTokens,
+      availableTokens,
+      suggestedMaxTokens,
+    };
+  }
+
+  // Pattern 2: Look for parenthesized calculation like "(4096 > 120000 - 118140)"
+  const pattern2 = /\((\d+)\s*>\s*(\d+)\s*-\s*(\d+)\)/;
+  const match2 = message.match(pattern2);
+
+  if (match2) {
+    const requestedMaxTokens = parseInt(match2[1], 10);
+    const contextLimit = parseInt(match2[2], 10);
+    const inputTokens = parseInt(match2[3], 10);
+    const availableTokens = Math.max(0, contextLimit - inputTokens);
+    const suggestedMaxTokens = Math.max(
+      1,
+      Math.floor(availableTokens * 0.95),
+    );
+
+    return {
+      requestedMaxTokens,
+      contextLimit,
+      inputTokens,
+      availableTokens,
+      suggestedMaxTokens,
+    };
+  }
+
+  // Pattern 3: Generic extraction - try to find any numbers that make sense
+  // Look for "context length is X" or "maximum of X tokens"
+  const contextMatch = message.match(
+    /(?:context length|maximum)[^]*?(\d{4,})\s*tokens/i,
+  );
+  const inputMatch = message.match(/has\s*(\d+)\s*input tokens/i);
+  const maxTokensMatch = message.match(
+    /(?:max_tokens|max_completion_tokens)[^:]*:\s*(\d+)/i,
+  );
+
+  if (contextMatch && inputMatch) {
+    const contextLimit = parseInt(contextMatch[1], 10);
+    const inputTokens = parseInt(inputMatch[1], 10);
+    const requestedMaxTokens = maxTokensMatch
+      ? parseInt(maxTokensMatch[1], 10)
+      : 4096;
+    const availableTokens = Math.max(0, contextLimit - inputTokens);
+    const suggestedMaxTokens = Math.max(
+      1,
+      Math.floor(availableTokens * 0.95),
+    );
+
+    return {
+      requestedMaxTokens,
+      contextLimit,
+      inputTokens,
+      availableTokens,
+      suggestedMaxTokens,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Calculate the optimal max_tokens based on context overflow error
+ * Returns a safe max_tokens value that should work with the current context
+ */
+export function calculateSafeMaxTokens(
+  overflowInfo: ContextOverflowInfo,
+  minTokens: number = 100,
+): number {
+  // If we have very few available tokens, use the minimum
+  if (overflowInfo.availableTokens < minTokens) {
+    return minTokens;
+  }
+
+  // Use suggested value but cap at reasonable amounts
+  // to avoid very long responses when context is tight
+  return Math.min(overflowInfo.suggestedMaxTokens, 2048);
 }
 
 /**

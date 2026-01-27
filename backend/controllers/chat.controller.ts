@@ -43,6 +43,8 @@ import {
   validateMaxTokens,
   isMaxTokensError,
   getFallbackMaxTokens,
+  parseContextOverflowError,
+  calculateSafeMaxTokens,
 } from "../utils/token-validator.js";
 import { getDefaultMaxTokens } from "./ai-settings.controller.js";
 // Performance optimization imports
@@ -1071,7 +1073,130 @@ export async function chatStream(
         );
 
         if (isMaxTokensError(llmError)) {
-          // Max tokens error - try with fallback strategy
+          // Parse the error to get exact token information
+          const overflowInfo = parseContextOverflowError(llmError);
+
+          if (overflowInfo) {
+            // We have precise information about the context overflow
+            console.warn(
+              `[TokenRecovery] Context overflow detected. Input: ${overflowInfo.inputTokens} tokens, ` +
+                `Context limit: ${overflowInfo.contextLimit}, Available: ${overflowInfo.availableTokens}. ` +
+                `Requested max_tokens was ${overflowInfo.requestedMaxTokens}, adjusting to ${overflowInfo.suggestedMaxTokens}.`,
+            );
+
+            flowTracker.trackEvent({
+              flowId,
+              stage: `context_overflow_recovery_${iterationCount}`,
+              service: "ChatController",
+              status: "started",
+              data: {
+                iteration: iterationCount,
+                inputTokens: overflowInfo.inputTokens,
+                contextLimit: overflowInfo.contextLimit,
+                availableTokens: overflowInfo.availableTokens,
+                requestedMaxTokens: overflowInfo.requestedMaxTokens,
+                adjustedMaxTokens: overflowInfo.suggestedMaxTokens,
+              },
+            });
+
+            // Strategy 0: If we have room, just adjust max_tokens and retry immediately
+            if (overflowInfo.availableTokens >= 100) {
+              const safeMaxTokens = calculateSafeMaxTokens(overflowInfo);
+              console.log(
+                `[TokenRecovery] Retrying with adjusted max_tokens: ${safeMaxTokens}`,
+              );
+
+              try {
+                const recoveryResponse = await openai.chat.completions.create({
+                  model: modelId,
+                  messages: messages as any,
+                  temperature: 0.7,
+                  max_tokens: safeMaxTokens,
+                  tools: toolSchemas.map((schema) => ({
+                    type: "function",
+                    function: schema,
+                  })),
+                  tool_choice: "auto",
+                  stream: false,
+                });
+
+                const recoveryMessage = recoveryResponse.choices[0]?.message;
+                if (recoveryMessage) {
+                  // Check for tool calls in recovery response
+                  if (
+                    recoveryMessage.tool_calls &&
+                    recoveryMessage.tool_calls.length > 0
+                  ) {
+                    // Add assistant message with tool calls to history
+                    messages.push({
+                      role: "assistant",
+                      content: recoveryMessage.content,
+                      tool_calls: recoveryMessage.tool_calls,
+                    });
+                    // Execute tools - reuse the existing tool execution logic
+                    // This will continue the loop with the tool calls
+                    consecutiveFailures = 0; // Reset on recovery success
+                    continue;
+                  }
+
+                  fullResponse = recoveryMessage.content || "";
+
+                  flowTracker.trackEvent({
+                    flowId,
+                    stage: `context_overflow_recovery_success_${iterationCount}`,
+                    service: "ChatController",
+                    status: "success",
+                    data: {
+                      adjustedMaxTokens: safeMaxTokens,
+                      responseLength: fullResponse.length,
+                    },
+                  });
+
+                  // Notify user about the recovery
+                  try {
+                    await notificationService.createNotification({
+                      userId,
+                      title: "Response optimized",
+                      message: `Your conversation context is large. Response may be shorter than usual. Consider starting a new chat for complex queries.`,
+                      type: "INFO",
+                      channels: ["IN_APP"],
+                    });
+                  } catch (notifyError) {
+                    console.warn(
+                      "Failed to send recovery notification:",
+                      notifyError,
+                    );
+                  }
+
+                  break; // Exit with successful response
+                }
+              } catch (recoveryError) {
+                console.warn(
+                  `[TokenRecovery] Adjusted max_tokens retry failed:`,
+                  recoveryError instanceof Error
+                    ? recoveryError.message
+                    : String(recoveryError),
+                );
+                // Fall through to other strategies
+              }
+            }
+
+            // Strategy 1: Reduce conversation history if context is still too large
+            if (messages.length > 6 && overflowInfo.availableTokens < 500) {
+              console.log(
+                `[TokenRecovery] Context extremely tight (${overflowInfo.availableTokens} available). ` +
+                  `Reducing conversation history from ${messages.length} to essential messages.`,
+              );
+              // Keep system prompt + last 2 exchanges
+              const systemMessages = messages.slice(0, 1);
+              const recentMessages = messages.slice(-4);
+              messages = [...systemMessages, ...recentMessages];
+              // Continue loop with reduced context
+              continue;
+            }
+          }
+
+          // Fallback: Use original recovery logic for cases we couldn't parse
           console.warn(
             `[TokenFallback] Max tokens error detected. Context too large for model ${modelId}. Attempting fallback...`,
           );
@@ -1085,6 +1210,7 @@ export async function chatStream(
               iteration: iterationCount,
               error:
                 llmError instanceof Error ? llmError.message : String(llmError),
+              parsedOverflowInfo: overflowInfo,
             },
           });
 
