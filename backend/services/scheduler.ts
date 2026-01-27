@@ -604,6 +604,7 @@ export class SchedulerService {
 
   /**
    * Run memory cleaner to remove non-useful short-term memories
+   * Gracefully handles LLM provider failures without crashing
    */
   private async runMemoryCleaner(): Promise<void> {
     const users = await prisma.user.findMany({ select: { id: true } });
@@ -612,6 +613,14 @@ export class SchedulerService {
     for (const user of users) {
       try {
         const result = await agentService.runMemoryCleaner(user.id);
+        
+        if (result.metadata.skipped) {
+          console.info(
+            `  ℹ Memory cleaner skipped for ${user.id}: ${result.metadata.skipReason}`,
+          );
+          continue;
+        }
+        
         if (
           result.metadata.memoriesDeleted > 0 ||
           result.metadata.memoriesArchived > 0
@@ -619,6 +628,8 @@ export class SchedulerService {
           console.log(
             `  ✓ Memory cleaner: archived ${result.metadata.memoriesArchived}, deleted ${result.metadata.memoriesDeleted} for user ${user.id}`,
           );
+        } else {
+          console.info(`  ℹ Memory cleaner: no cleanup needed for user ${user.id}`);
         }
       } catch (error) {
         console.warn(`  ⚠ Memory cleaner failed for ${user.id}:`, error);

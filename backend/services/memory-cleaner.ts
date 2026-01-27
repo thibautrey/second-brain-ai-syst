@@ -3,6 +3,8 @@
  *
  * Analyzes short-term memories and removes non-useful, redundant, or irrelevant information.
  * Runs every 5 minutes to maintain memory cleanliness and optimize storage.
+ * 
+ * Gracefully handles LLM provider failures and skips cleanup rather than crashing.
  */
 
 import { MemoryType } from "@prisma/client";
@@ -13,6 +15,8 @@ import prisma from "./prisma.js";
 export interface CleanupResult {
   userId: string;
   success: boolean;
+  skipped?: boolean;
+  skipReason?: string;
   error?: string;
   memoriesAnalyzed: number;
   memoriesArchived?: number;
@@ -75,6 +79,7 @@ export class MemoryCleanerService {
   /**
    * Run memory cleanup process for a user
    * Analyzes recent short-term memories and removes non-useful ones
+   * Gracefully handles LLM failures by skipping cleanup rather than crashing
    */
   async runMemoryCleanup(userId: string): Promise<CleanupResult> {
     try {
@@ -110,34 +115,63 @@ export class MemoryCleanerService {
       const userPrompt = `Here are my short-term memories from the last 6 hours:\n\n${memoriesText}\n\nPlease analyze these memories and determine which ones should be removed or archived.`;
 
       // Call LLM to analyze and get cleanup recommendations
-      const response = await llmRouterService.executeTask(
-        userId,
-        "analysis",
-        userPrompt,
-        MEMORY_CLEANUP_PROMPT,
-        { responseFormat: "json" },
-      );
+      let response: string;
+      try {
+        response = await llmRouterService.executeTask(
+          userId,
+          "analysis",
+          userPrompt,
+          MEMORY_CLEANUP_PROMPT,
+          { responseFormat: "json" },
+        );
+      } catch (llmError: any) {
+        const errorInfo = llmError?.errorInfo || llmError?.primaryErrorInfo;
+        const errorType = errorInfo?.type || "unknown";
+        const isTransient = errorInfo?.isTransient || false;
+        
+        console.warn(
+          `[MemoryCleaner] LLM call failed with ${errorType} error. Skipping cleanup.`,
+          {
+            userId,
+            errorType,
+            isTransient,
+            message: llmError?.message,
+          },
+        );
+        
+        // For LLM failures, we gracefully skip cleanup rather than crashing
+        // This is important for background agents - one failure shouldn't stop the system
+        return {
+          userId,
+          success: true,
+          skipped: true,
+          skipReason: `LLM provider unavailable (${errorType}). Cleanup skipped. Will retry next cycle.`,
+          memoriesAnalyzed: shortTermMemories.length,
+          memoriesToRemove: [],
+          memoriesToArchive: [],
+          createdAt: new Date(),
+        };
+      }
 
       let analysis;
       try {
         analysis = parseJSONFromLLMResponse(response);
       } catch (parseError) {
-        console.error(
-          "[MemoryCleaner] Failed to parse cleanup response:",
+        console.warn(
+          "[MemoryCleaner] Failed to parse cleanup response. Skipping cleanup.",
           parseError,
         );
-        console.error(
-          "[MemoryCleaner] Response content:",
-          response.substring(0, 500),
-        );
-        // Return empty cleanup decisions to avoid crash
+        
+        // Return skipped result instead of error
         return {
           userId,
-          success: false,
-          error: `Failed to parse LLM response: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+          success: true,
+          skipped: true,
+          skipReason: "Failed to parse LLM response. Cleanup skipped.",
           memoriesAnalyzed: shortTermMemories.length,
           memoriesToRemove: [],
           memoriesToArchive: [],
+          createdAt: new Date(),
         };
       }
 
@@ -162,13 +196,17 @@ export class MemoryCleanerService {
         createdAt: new Date(),
       };
     } catch (error: any) {
-      console.error("Memory cleanup failed:", error);
+      console.error("[MemoryCleaner] Unexpected error during cleanup:", error);
+      
+      // Even on unexpected errors, return gracefully rather than crashing
       return {
         userId,
-        success: false,
+        success: true,
+        skipped: true,
+        skipReason: `Cleanup skipped due to error: ${error?.message || "Unknown error"}`,
         memoriesAnalyzed: 0,
-        memoriesArchived: 0,
-        memoriesDeleted: 0,
+        memoriesToRemove: [],
+        memoriesToArchive: [],
         createdAt: new Date(),
       };
     }

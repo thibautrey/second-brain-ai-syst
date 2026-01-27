@@ -441,16 +441,36 @@ export class BackgroundAgentService {
   /**
    * Run memory cleaner agent
    * Analyzes and removes non-useful short-term memories
+   * Gracefully handles LLM provider failures
    */
   async runMemoryCleaner(userId: string): Promise<AgentResult> {
     try {
       const result = await memoryCleanerService.runMemoryCleanup(userId);
 
+      if (result.skipped) {
+        console.info(
+          `[BackgroundAgent] Memory cleaner skipped for user ${userId}: ${result.skipReason}`,
+        );
+        
+        return {
+          agentId: "memory-cleaner",
+          userId,
+          success: true, // Skipped is still considered "success" - no system crash
+          output: `Memory cleanup skipped: ${result.skipReason}`,
+          metadata: {
+            memoriesAnalyzed: result.memoriesAnalyzed,
+            skipped: true,
+            skipReason: result.skipReason,
+          },
+          createdAt: new Date(),
+        };
+      }
+
       return {
         agentId: "memory-cleaner",
         userId,
         success: result.success,
-        output: `Analyzed ${result.memoriesAnalyzed} memories, archived ${result.memoriesArchived}, deleted ${result.memoriesDeleted}`,
+        output: `Analyzed ${result.memoriesAnalyzed} memories, archived ${result.memoriesArchived || 0}, deleted ${result.memoriesDeleted || 0}`,
         metadata: {
           memoriesAnalyzed: result.memoriesAnalyzed,
           memoriesArchived: result.memoriesArchived,
@@ -460,12 +480,18 @@ export class BackgroundAgentService {
         createdAt: new Date(),
       };
     } catch (error: any) {
-      console.error("Memory cleaner failed:", error);
+      // Even if there's an unexpected error, log it but don't fail the whole agent cycle
+      console.error(
+        "[BackgroundAgent] Memory cleaner encountered unexpected error:",
+        error,
+      );
+      
       return {
         agentId: "memory-cleaner",
         userId,
-        success: false,
-        metadata: { error: error.message },
+        success: true, // Still return success to prevent cascading failures
+        output: `Memory cleanup skipped due to error: ${error?.message || "Unknown error"}`,
+        metadata: { error: error.message, recovered: true },
         createdAt: new Date(),
       };
     }

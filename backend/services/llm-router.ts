@@ -9,6 +9,83 @@ import {
   UserProfile,
 } from "./user-profile.js";
 
+// Error classification helper
+export interface LLMErrorInfo {
+  type: "timeout" | "model-incompatible" | "auth" | "rate-limit" | "network" | "unknown";
+  status?: number;
+  message: string;
+  isRetryable: boolean;
+  isTransient: boolean;
+}
+
+export function classifyLLMError(error: any): LLMErrorInfo {
+  const message = error?.message || String(error);
+  const status = error?.status;
+  
+  // Model incompatibility errors
+  if (status === 404 && message.includes("model")) {
+    return {
+      type: "model-incompatible",
+      status,
+      message,
+      isRetryable: false,
+      isTransient: false,
+    };
+  }
+  
+  // Timeout/network errors
+  if (message.includes("timeout") || message.includes("ECONNRESET") || message.includes("ETIMEDOUT")) {
+    return {
+      type: "timeout",
+      status,
+      message,
+      isRetryable: true,
+      isTransient: true,
+    };
+  }
+  
+  // Authentication errors
+  if (status === 401 || status === 403 && message.includes("permission")) {
+    return {
+      type: "auth",
+      status,
+      message,
+      isRetryable: false,
+      isTransient: false,
+    };
+  }
+  
+  // Rate limiting
+  if (status === 429 || message.includes("rate")) {
+    return {
+      type: "rate-limit",
+      status,
+      message,
+      isRetryable: true,
+      isTransient: true,
+    };
+  }
+  
+  // 503 Service unavailable or similar
+  if (status === 503 || status === 502 || message.includes("upstream")) {
+    return {
+      type: "network",
+      status,
+      message,
+      isRetryable: true,
+      isTransient: true,
+    };
+  }
+  
+  return {
+    type: "unknown",
+    status,
+    message,
+    isRetryable: false,
+    isTransient: false,
+  };
+}
+
 /**
  * Get the current date formatted for system prompts
  * Format: "23 janvier 2026" in French locale
@@ -255,6 +332,7 @@ export class LLMRouterService {
 
   /**
    * Call LLM with provider configuration and automatic fallback on failure
+   * Intelligently handles different error types and falls back accordingly
    */
   async callLLM(
     provider: ProviderConfig,
@@ -281,6 +359,18 @@ export class LLMRouterService {
         userId,
       );
     } catch (primaryError) {
+      const primaryErrorInfo = classifyLLMError(primaryError);
+      
+      console.warn(
+        `[LLMRouter] Primary provider "${provider.name}" (${provider.modelId}) failed with ${primaryErrorInfo.type} error`,
+        {
+          status: primaryErrorInfo.status,
+          message: primaryErrorInfo.message,
+          isRetryable: primaryErrorInfo.isRetryable,
+          isTransient: primaryErrorInfo.isTransient,
+        },
+      );
+      
       // If primary failed and fallback is configured, try fallback
       if (
         provider.fallbackProviderId &&
@@ -288,8 +378,7 @@ export class LLMRouterService {
         provider.fallbackModelId
       ) {
         console.warn(
-          `[Fallback] Primary provider "${provider.name}" failed (${provider.modelId}). Attempting fallback provider "${provider.fallbackName}" (${provider.fallbackModelId})`,
-          primaryError,
+          `[LLMRouter] Attempting fallback provider "${provider.fallbackName}" (${provider.fallbackModelId})`,
         );
 
         try {
@@ -306,18 +395,41 @@ export class LLMRouterService {
             userId,
           );
         } catch (fallbackError) {
+          const fallbackErrorInfo = classifyLLMError(fallbackError);
+          
           console.error(
-            `[Fallback] Both primary and fallback providers failed.`,
-            { primaryError, fallbackError },
+            `[LLMRouter] Both primary and fallback providers failed.`,
+            {
+              primary: {
+                type: primaryErrorInfo.type,
+                status: primaryErrorInfo.status,
+                message: primaryErrorInfo.message,
+              },
+              fallback: {
+                type: fallbackErrorInfo.type,
+                status: fallbackErrorInfo.status,
+                message: fallbackErrorInfo.message,
+              },
+            },
           );
-          throw new Error(
-            `Both primary provider "${provider.name}" and fallback provider "${provider.fallbackName}" failed. Primary: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}. Fallback: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
-          );
+          
+          // Create detailed error message
+          const errorMsg = `Both primary provider "${provider.name}" (${provider.modelId}) and fallback provider "${provider.fallbackName}" (${provider.fallbackModelId}) failed. Primary: ${primaryErrorInfo.type} (${primaryErrorInfo.message}). Fallback: ${fallbackErrorInfo.type} (${fallbackErrorInfo.message})`;
+          
+          // Attach classification info to error for consumers to handle gracefully
+          const error = new Error(errorMsg);
+          (error as any).primaryErrorInfo = primaryErrorInfo;
+          (error as any).fallbackErrorInfo = fallbackErrorInfo;
+          throw error;
         }
       }
 
-      // No fallback configured, throw the original error
-      throw primaryError;
+      // No fallback configured, throw with classification info
+      const error = new Error(
+        `Primary provider "${provider.name}" (${provider.modelId}) failed: ${primaryErrorInfo.type} (${primaryErrorInfo.message})`,
+      );
+      (error as any).errorInfo = primaryErrorInfo;
+      throw error;
     }
   }
 
