@@ -7,8 +7,8 @@ const featureCards = [
   {
     title: "Intent Router",
     icon: Bot,
-    desc: "Understands every input in milliseconds, routing it to the right agent while filtering the noise.",
-    pill: "<100ms latency",
+    desc: "Runs a unified post-response LLM analysis to classify intent, assess value, and decide routing or memory storage without extra regex logic.",
+    pill: "LLM-driven intent",
   },
   {
     title: "Memory Engine",
@@ -25,14 +25,14 @@ const featureCards = [
   {
     title: "Tool Executor",
     icon: Zap,
-    desc: "Browser automations, APIs, and MCP tools run safely with full logging and guardrails.",
-    pill: "Sandboxed ops",
+    desc: "Built-in tools (todos, notifications, scheduled tasks, code execution, brave search, secrets) execute with timeouts, logging, and safety checks while sandboxed browser/API/MCP bridges are planned.",
+    pill: "Guarded toolchain",
   },
   {
     title: "Noise Filter",
     icon: ShieldCheck,
-    desc: "Separates signal from background chatter so only meaningful interactions are stored.",
-    pill: ">85% precision",
+    desc: "Combines local heuristics and LLM scoring to flag filler, media playback, and third-party chatter before storing a memory.",
+    pill: "Heuristic + LLM",
   },
   {
     title: "Privacy-First",

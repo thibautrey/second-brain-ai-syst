@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Bell, BellOff, CheckCircle, XCircle, Send, Loader2, AlertCircle, MessageCircle, ExternalLink, Copy, Trash2 } from "lucide-react";
 import { apiGet, apiPost, apiPut, apiDelete } from "../services/api";
+import { useTranslation } from "react-i18next";
 
 interface NotificationSettingsData {
   pushoverUserKey: string | null;
@@ -29,6 +30,14 @@ interface NotificationSettingsProps {
 export function NotificationSettings({ selectedChannel }: NotificationSettingsProps) {
   const { isConnected, permission, requestPermission, isSupported } =
     useNotificationListener();
+  const { t } = useTranslation();
+
+  const step1Instructions = t<string[]>("notificationSettings.setupStep1", {
+    returnObjects: true,
+  });
+  const step2Instructions = t<string[]>("notificationSettings.setupStep2", {
+    returnObjects: true,
+  });
 
   const [isRequesting, setIsRequesting] = useState(false);
   const [settings, setSettings] = useState<NotificationSettingsData | null>(null);
@@ -163,7 +172,7 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
   };
 
   const handleDisconnectTelegram = async () => {
-    if (!confirm("Are you sure you want to disconnect Telegram? You will stop receiving notifications.")) {
+    if (!confirm(t("notificationSettings.confirmDisconnect"))) {
       return;
     }
     setIsDisconnectingTelegram(true);
@@ -191,7 +200,7 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
       <Card className="p-6">
         <div className="flex items-center gap-3 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <p>Loading settings...</p>
+          <p>{t("notificationSettings.loading")}</p>
         </div>
       </Card>
     );
@@ -438,9 +447,19 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Status</span>
-                <span className={telegramSettings.telegramEnabled ? "text-green-600 text-sm" : "text-gray-500 text-sm"}>
-                  {telegramSettings.telegramEnabled ? "✓ Enabled" : "○ Disabled"}
+                <span className="text-sm font-medium">
+                  {t("notificationSettings.statusLabel")}
+                </span>
+                <span
+                  className={
+                    telegramSettings.telegramEnabled
+                      ? "text-green-600 text-sm"
+                      : "text-gray-500 text-sm"
+                  }
+                >
+                  {telegramSettings.telegramEnabled
+                    ? t("notificationSettings.status.enabled")
+                    : t("notificationSettings.status.disabled")}
                 </span>
               </div>
             </div>
@@ -450,7 +469,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
           {!telegramSettings?.hasBotToken && (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="telegramBotToken">Bot Token</Label>
+                <Label htmlFor="telegramBotToken">
+                  {t("notificationSettings.botToken")}
+                </Label>
                 <Input
                   id="telegramBotToken"
                   type={showBotToken ? "text" : "password"}
@@ -467,26 +488,26 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                     onChange={(e) => setShowBotToken(e.target.checked)}
                     className="rounded"
                   />
-                  <label htmlFor="showToken" className="text-xs text-muted-foreground">
-                    Show token
-                  </label>
+                <label htmlFor="showToken" className="text-xs text-muted-foreground">
+                  {t("notificationSettings.showToken")}
+                </label>
                 </div>
               </div>
 
-              <Button
-                onClick={handleSaveTelegram}
-                disabled={isSavingTelegram || !telegramBotToken}
-                size="sm"
-              >
-                {isSavingTelegram ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Validating...
-                  </>
-                ) : (
-                  "Connect Bot"
-                )}
-              </Button>
+                <Button
+                  onClick={handleSaveTelegram}
+                  disabled={isSavingTelegram || !telegramBotToken}
+                  size="sm"
+                >
+                  {isSavingTelegram ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {t("notificationSettings.validating")}
+                    </>
+                  ) : (
+                    t("notificationSettings.connectBot")
+                  )}
+                </Button>
             </div>
           )}
 
@@ -502,12 +523,12 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 {isTestingTelegram ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
+                    {t("notificationSettings.sending")}
                   </>
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
-                    Send Test
+                    {t("notificationSettings.sendTest")}
                   </>
                 )}
               </Button>
@@ -521,12 +542,12 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 {isDisconnectingTelegram ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Disconnecting...
+                    {t("notificationSettings.disconnecting")}
                   </>
                 ) : (
                   <>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Disconnect
+                    {t("notificationSettings.disconnect")}
                   </>
                 )}
               </Button>
@@ -556,23 +577,24 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
             <h4 className="font-medium text-sm text-blue-900">How to set up Telegram</h4>
             
             <div className="space-y-2">
-              <p className="text-xs text-blue-800 font-medium">Step 1: Create your bot</p>
+              <p className="text-xs text-blue-800 font-medium">
+                {t("notificationSettings.setupStep1Title")}
+              </p>
               <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside ml-2">
-                <li>Open Telegram and search for <strong>@BotFather</strong></li>
-                <li>Send <code className="bg-blue-100 px-1 rounded">/newbot</code> to create a new bot</li>
-                <li>Choose a name for your bot (e.g., "My Second Brain")</li>
-                <li>Choose a username ending in "bot" (e.g., "my_brain_bot")</li>
-                <li>Copy the token provided by BotFather</li>
+                {step1Instructions.map((instruction) => (
+                  <li key={instruction}>{instruction}</li>
+                ))}
               </ol>
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs text-blue-800 font-medium">Step 2: Connect the bot</p>
+              <p className="text-xs text-blue-800 font-medium">
+                {t("notificationSettings.setupStep2Title")}
+              </p>
               <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside ml-2">
-                <li>Paste your bot token above and click "Connect Bot"</li>
-                <li>Open your bot in Telegram (click the link BotFather gave you)</li>
-                <li>Send <code className="bg-blue-100 px-1 rounded">/start</code> to your bot</li>
-                <li>Your chat will be automatically connected!</li>
+                {step2Instructions.map((instruction) => (
+                  <li key={instruction}>{instruction}</li>
+                ))}
               </ol>
             </div>
 
@@ -582,7 +604,7 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline font-medium"
             >
-              Open BotFather
+              {t("notificationSettings.openBotFather")}
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>
@@ -593,9 +615,11 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-yellow-800">Waiting for connection</p>
+                  <p className="text-sm font-medium text-yellow-800">
+                    {t("notificationSettings.waitingTitle")}
+                  </p>
                   <p className="text-xs text-yellow-700 mt-1">
-                    Open your bot in Telegram and send <code className="bg-yellow-100 px-1 rounded">/start</code> to complete the setup.
+                    {t("notificationSettings.waitingBody")}
                   </p>
                 </div>
               </div>

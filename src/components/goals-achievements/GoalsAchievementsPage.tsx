@@ -83,18 +83,18 @@ export function GoalsAchievementsPage() {
     <div className="space-y-8 pb-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Goals & Achievements</h1>
-          <p className="text-gray-500 mt-1">
-            Track your progress and celebrate your accomplishments
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">
+          {t("goals.pageTitle")}
+        </h1>
+        <p className="text-gray-500 mt-1">{t("goals.pageDescription")}</p>
+      </div>
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg w-fit">
-        <button
-          onClick={() => setActiveTab("goals")}
+          <button
+            onClick={() => setActiveTab("goals")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
             activeTab === "goals"
               ? "bg-white text-gray-900 shadow-sm"
@@ -102,10 +102,10 @@ export function GoalsAchievementsPage() {
           }`}
         >
           <Target className="w-4 h-4" />
-          Goals
-        </button>
-        <button
-          onClick={() => setActiveTab("achievements")}
+              {t("goals.tabs.goals")}
+          </button>
+          <button
+            onClick={() => setActiveTab("achievements")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
             activeTab === "achievements"
               ? "bg-white text-gray-900 shadow-sm"
@@ -113,8 +113,8 @@ export function GoalsAchievementsPage() {
           }`}
         >
           <Trophy className="w-4 h-4" />
-          Achievements
-        </button>
+              {t("goals.tabs.achievements")}
+          </button>
       </div>
 
       {/* Goals Tab */}
@@ -144,6 +144,7 @@ function GoalsTabContent({
   deleteGoal,
   refresh,
 }: ReturnType<typeof useGoals>) {
+  const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<GoalStatus | "all">("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newGoal, setNewGoal] = useState({
@@ -160,6 +161,13 @@ function GoalsTabContent({
     activeFilter === "all"
       ? goals
       : goals.filter((g) => g.status === activeFilter);
+
+  const goalFilterOptions = [
+    { value: "all", label: t("goals.filters.all") },
+    { value: "ACTIVE", label: t("goals.filters.active") },
+    { value: "COMPLETED", label: t("goals.filters.completed") },
+    { value: "PAUSED", label: t("goals.filters.paused") },
+  ];
 
   const handleCreateGoal = async () => {
     if (!newGoal.title.trim()) return;
@@ -270,7 +278,7 @@ function GoalsTabContent({
       <div className="flex justify-end">
         <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          New Goal
+          {t("goals.newGoal")}
         </Button>
       </div>
 
@@ -279,28 +287,28 @@ function GoalsTabContent({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
             icon={<Target className="w-5 h-5" />}
-            label="Total Goals"
+            label={t("goals.stats.totalGoals")}
             value={stats.total}
             color="blue"
             isLoading={loading}
           />
           <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
-            label="Active"
+            label={t("goals.stats.active")}
             value={stats.active}
             color="purple"
             isLoading={loading}
           />
           <StatCard
             icon={<CheckCircle2 className="w-5 h-5" />}
-            label="Completed"
+            label={t("goals.stats.completed")}
             value={stats.completed}
             color="green"
             isLoading={loading}
           />
           <StatCard
             icon={<Sparkles className="w-5 h-5" />}
-            label="Success Rate"
+            label={t("goals.stats.successRate")}
             value={`${stats.completionRate.toFixed(0)}%`}
             color="yellow"
             isLoading={loading}
@@ -316,15 +324,14 @@ function GoalsTabContent({
               <Target className="w-8 h-8 text-blue-600" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Set Your First Goal!
+              {t("goals.emptyState.title")}
             </h3>
             <p className="text-gray-600 max-w-md mx-auto mb-4">
-              Goals help you stay focused and track your progress. Create your
-              first goal to get started on your journey.
+              {t("goals.emptyState.description")}
             </p>
             <Button onClick={() => setShowCreateDialog(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Create Goal
+              {t("goals.emptyState.callToAction")}
             </Button>
           </CardContent>
         </Card>
@@ -333,7 +340,7 @@ function GoalsTabContent({
       {/* Filters */}
       {goals.length > 0 && (
         <div className="flex items-center gap-1 sm:gap-2 bg-slate-100 p-1 rounded-lg overflow-x-auto w-fit">
-          {STATUS_FILTERS.map((filter) => (
+          {goalFilterOptions.map((filter) => (
             <button
               key={filter.value}
               onClick={() => setActiveFilter(filter.value as GoalStatus | "all")}
@@ -385,12 +392,10 @@ function GoalsTabContent({
           <CardContent className="pt-6 pb-6 relative">
             <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
               <Lightbulb className="w-4 h-4" />
-              <span>Daily Motivation</span>
+              <span>{t("goals.motivation.dailyTitle")}</span>
             </div>
             <p className="text-lg text-white/90">
-              You have <span className="font-bold">{stats.active}</span> active
-              goal{stats.active > 1 ? "s" : ""} in progress. Keep pushing
-              forward – every small step counts! 🚀
+              {t("goals.motivation.label", { count: stats.active })}
             </p>
           </CardContent>
         </Card>
@@ -703,13 +708,13 @@ function AchievementsTabContent({
       {achievements.length > 0 && (
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-1 sm:gap-2 bg-slate-100 p-1 rounded-lg">
-            {[
-              { value: "all", label: "All" },
-              { value: "unlocked", label: "Unlocked" },
-              { value: "locked", label: "Locked" },
-            ].map((filter) => (
-              <button
-                key={filter.value}
+          {[
+            { value: "all", label: t("goals.filters.allAchievements") },
+            { value: "unlocked", label: t("goals.filters.unlocked") },
+            { value: "locked", label: t("goals.filters.locked") },
+          ].map((filter) => (
+            <button
+              key={filter.value}
                 onClick={() =>
                   setActiveFilter(filter.value as "all" | "unlocked" | "locked")
                 }

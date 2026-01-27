@@ -128,6 +128,7 @@
     "title": "Memories",
     "memories": "Memories",
     "subtitle": "Explore and manage your memories",
+    "semanticSearchActive": "Semantic search active",
     "noMemoriesFound": "No memories found",
     "searchPlaceholder": "Search your memories...",
     "memoryType": "Memory Type",

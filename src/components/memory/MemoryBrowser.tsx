@@ -91,10 +91,10 @@ export function MemoryBrowser() {
         <div>
           <h2 className="text-3xl font-bold text-slate-900">{t("memory.title")}</h2>
           <p className="text-slate-600 mt-1">
-            Explorez et gérez vos souvenirs
+            {t("memory.subtitle")}
             {isSemanticSearch && searchQuery && (
               <span className="ml-2 text-purple-600 text-sm">
-                • Recherche sémantique active
+                • {t("memory.semanticSearchActive")}
               </span>
             )}
           </p>

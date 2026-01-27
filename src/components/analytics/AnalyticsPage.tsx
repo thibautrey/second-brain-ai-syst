@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useSummaryInsights } from "../../hooks/useSummaryInsights";
@@ -238,7 +239,7 @@ export function AnalyticsPage() {
             <CardContent>
               <ActivityChart data={activityByHour} isLoading={isLoading} />
               <p className="text-sm text-gray-500 mt-4 text-center">
-                {getMostActiveTime(activityByHour)}
+                {getMostActiveTime(activityByHour, t)}
               </p>
             </CardContent>
           </Card>
@@ -310,14 +311,17 @@ export function AnalyticsPage() {
                   <Zap className="w-8 h-8 text-amber-600" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900">
-                  {isLoading ? "..." : (stats?.currentStreak ?? 0)} Day Streak
+                  {isLoading
+                    ? "..."
+                    : `${stats?.currentStreak ?? 0} ${t("analytics.streak")}`}
                 </h3>
                 <p className="text-gray-600 mt-1">
-                  Keep capturing your thoughts!
+                  {t("analytics.keepCapturing")}
                 </p>
                 {stats?.longestStreak && stats.longestStreak > 0 && (
                   <p className="text-sm text-amber-600 mt-2">
-                    🏆 Best: {stats.longestStreak} days
+                    🏆 {t("analytics.bestStreak")}: {stats.longestStreak}{" "}
+                    {t("analytics.days")}
                   </p>
                 )}
               </div>
@@ -330,7 +334,7 @@ export function AnalyticsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-indigo-500" />
-                  Key Insights
+                  {t("analytics.keyInsights")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -354,10 +358,10 @@ export function AnalyticsPage() {
           {/* Mood Overview */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-rose-500" />
-                Mood Overview
-              </CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-rose-500" />
+                  {t("analytics.moodOverview")}
+                </CardTitle>
             </CardHeader>
             <CardContent>
               <SentimentChart
@@ -439,6 +443,7 @@ interface TopicBarProps {
 }
 
 function TopicBar({ name, count, percentage, rank }: TopicBarProps) {
+  const { t } = useTranslation();
   const colors = [
     "bg-indigo-500",
     "bg-purple-500",
@@ -451,7 +456,9 @@ function TopicBar({ name, count, percentage, rank }: TopicBarProps) {
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-gray-700 capitalize">{name}</span>
-        <span className="text-gray-500">{count} mentions</span>
+        <span className="text-gray-500">
+          {t("analytics.mentions", { count })}
+        </span>
       </div>
       <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
         <div
@@ -469,6 +476,7 @@ interface ActivityChartProps {
 }
 
 function ActivityChart({ data, isLoading }: ActivityChartProps) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <div className="flex items-end justify-between gap-1 h-32">
@@ -486,7 +494,7 @@ function ActivityChart({ data, isLoading }: ActivityChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center h-32 text-gray-400">
-        <p>No activity data yet</p>
+        <p>{t("analytics.activityNoData")}</p>
       </div>
     );
   }
@@ -510,8 +518,11 @@ function ActivityChart({ data, isLoading }: ActivityChartProps) {
               />
               {/* Tooltip */}
               <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                {item.hour}:00 - {item.count}{" "}
-                {item.count === 1 ? "memory" : "memories"}
+                {t("analytics.memoryTooltip", {
+                  hour: item.hour,
+                  count: item.count,
+                  memory: t("analytics.memory", { count: item.count }),
+                })}
               </div>
             </div>
           );
@@ -538,6 +549,7 @@ interface SentimentChartProps {
 }
 
 function SentimentChart({ data, isLoading }: SentimentChartProps) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -552,36 +564,36 @@ function SentimentChart({ data, isLoading }: SentimentChartProps) {
     return (
       <div className="text-center py-8 text-gray-400">
         <Heart className="w-12 h-12 mx-auto mb-2 text-gray-200" />
-        <p>No mood data yet</p>
+        <p>{t("analytics.moodNoData")}</p>
       </div>
     );
   }
 
   const total = data.positive + data.neutral + data.negative;
   if (total === 0) {
-    return (
-      <div className="text-center py-8 text-gray-400">
-        <Heart className="w-12 h-12 mx-auto mb-2 text-gray-200" />
-        <p>Start capturing memories to see your mood patterns</p>
-      </div>
-    );
+      return (
+        <div className="text-center py-8 text-gray-400">
+          <Heart className="w-12 h-12 mx-auto mb-2 text-gray-200" />
+          <p>{t("analytics.moodPatternHint")}</p>
+        </div>
+      );
   }
 
   const sentiments = [
     {
-      label: "Positive",
+      label: t("analytics.positive"),
       value: data.positive,
       color: "bg-green-500",
       emoji: "😊",
     },
     {
-      label: "Neutral",
+      label: t("analytics.neutral"),
       value: data.neutral,
       color: "bg-blue-400",
       emoji: "😐",
     },
     {
-      label: "Negative",
+      label: t("analytics.negative"),
       value: data.negative,
       color: "bg-rose-400",
       emoji: "😔",
@@ -689,9 +701,12 @@ function WeeklyOverview({ data, isLoading }: WeeklyOverviewProps) {
 // Helper function
 function getMostActiveTime(
   data?: Array<{ hour: number; count: number }>,
+  t?: TFunction,
 ): string {
   if (!data || data.length === 0) {
-    return "Capture some memories to discover your most active time!";
+    return t
+      ? t("analytics.activityNoData")
+      : "Capture some memories to discover your most active time!";
   }
 
   const maxHour = data.reduce(
@@ -700,7 +715,9 @@ function getMostActiveTime(
   );
 
   if (maxHour.count === 0) {
-    return "Capture some memories to discover your most active time!";
+    return t
+      ? t("analytics.activityNoData")
+      : "Capture some memories to discover your most active time!";
   }
 
   const hour = maxHour.hour;
@@ -721,7 +738,9 @@ function getMostActiveTime(
           ? "12pm"
           : `${hour - 12}pm`;
 
-  return `You're most active around ${timeStr} in the ${period}. That's a great time for reflection! ✨`;
+  return t
+    ? t("analytics.mostActiveSentence", { time: timeStr, period })
+    : `You're most active around ${timeStr} in the ${period}. That's a great time for reflection! ✨`;
 }
 
 export default AnalyticsPage;

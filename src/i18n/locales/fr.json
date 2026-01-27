@@ -128,6 +128,7 @@
     "title": "Mémoires",
     "memories": "Mémoires",
     "subtitle": "Explorez et gérez vos souvenirs",
+    "semanticSearchActive": "Recherche sémantique active",
     "noMemoriesFound": "Aucun souvenir trouvé",
     "searchPlaceholder": "Rechercher dans vos souvenirs...",
     "memoryType": "Type de mémoire",
