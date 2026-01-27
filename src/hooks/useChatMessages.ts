@@ -26,6 +26,8 @@ export function useChatMessages() {
     conversationId: null,
     currentToolCall: null,
     currentToolGeneration: null,
+    activeToolCalls: [],
+    thinkingPhase: null,
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -41,12 +43,15 @@ export function useChatMessages() {
         timestamp: new Date(),
       };
 
+      const assistantMessageId = generateId();
       const assistantMessage: ChatMessage = {
-        id: generateId(),
+        id: assistantMessageId,
         role: "assistant",
         content: "",
         timestamp: new Date(),
         isStreaming: true,
+        toolCalls: [],
+        toolGenerationSteps: [],
       };
 
       // Add user message and empty assistant message
@@ -57,6 +62,8 @@ export function useChatMessages() {
         error: null,
         currentToolCall: null,
         currentToolGeneration: null,
+        activeToolCalls: [],
+        thinkingPhase: "Analyse de la requête...",
       }));
 
       // Cancel any existing request
@@ -107,32 +114,90 @@ export function useChatMessages() {
               try {
                 const event = JSON.parse(line.slice(6));
 
-                if (event.type === "token") {
+                if (event.type === "start") {
+                  setState((prev) => ({
+                    ...prev,
+                    thinkingPhase: "Génération de la réponse...",
+                  }));
+                } else if (event.type === "token") {
                   setState((prev) => {
                     const messages = [...prev.messages];
                     const lastMsg = messages[messages.length - 1];
                     if (lastMsg && lastMsg.role === "assistant") {
                       lastMsg.content += event.data;
                     }
-                    return { ...prev, messages };
+                    return { ...prev, messages, thinkingPhase: null };
                   });
                 } else if (event.type === "tool_call") {
                   // Handle tool call events
                   const toolCallData = event.data as ToolCallData;
-                  setState((prev) => ({
-                    ...prev,
-                    currentToolCall: toolCallData,
-                    // Clear tool generation when a regular tool call comes in
-                    currentToolGeneration: null,
-                  }));
+                  
+                  setState((prev) => {
+                    const messages = [...prev.messages];
+                    const lastMsg = messages[messages.length - 1];
+                    
+                    // Update or add tool call to the assistant message
+                    if (lastMsg && lastMsg.role === "assistant") {
+                      const existingIndex = lastMsg.toolCalls?.findIndex(
+                        (tc) => tc.id === toolCallData.id
+                      );
+                      
+                      if (existingIndex !== undefined && existingIndex >= 0 && lastMsg.toolCalls) {
+                        // Update existing tool call
+                        lastMsg.toolCalls[existingIndex] = toolCallData;
+                      } else {
+                        // Add new tool call
+                        lastMsg.toolCalls = [...(lastMsg.toolCalls || []), toolCallData];
+                      }
+                    }
+                    
+                    // Also update activeToolCalls for current display
+                    const existingActiveIndex = prev.activeToolCalls.findIndex(
+                      (tc) => tc.id === toolCallData.id
+                    );
+                    
+                    let newActiveToolCalls = [...prev.activeToolCalls];
+                    if (existingActiveIndex >= 0) {
+                      newActiveToolCalls[existingActiveIndex] = toolCallData;
+                    } else {
+                      newActiveToolCalls.push(toolCallData);
+                    }
+                    
+                    return {
+                      ...prev,
+                      messages,
+                      currentToolCall: toolCallData,
+                      currentToolGeneration: null,
+                      activeToolCalls: newActiveToolCalls,
+                      thinkingPhase: toolCallData.status === "executing" 
+                        ? `Exécution de ${toolCallData.toolName}...`
+                        : prev.thinkingPhase,
+                    };
+                  });
                 } else if (event.type === "tool_generation") {
                   // Handle tool generation step events
                   const generationData = event.data as ToolGenerationStepData;
-                  setState((prev) => ({
-                    ...prev,
-                    currentToolGeneration: generationData,
-                    currentToolCall: null,
-                  }));
+                  
+                  setState((prev) => {
+                    const messages = [...prev.messages];
+                    const lastMsg = messages[messages.length - 1];
+                    
+                    // Add to generation steps history
+                    if (lastMsg && lastMsg.role === "assistant") {
+                      lastMsg.toolGenerationSteps = [
+                        ...(lastMsg.toolGenerationSteps || []),
+                        generationData,
+                      ];
+                    }
+                    
+                    return {
+                      ...prev,
+                      messages,
+                      currentToolGeneration: generationData,
+                      currentToolCall: null,
+                      thinkingPhase: generationData.message,
+                    };
+                  });
                 } else if (event.type === "error") {
                   setState((prev) => ({
                     ...prev,
@@ -140,6 +205,8 @@ export function useChatMessages() {
                     isLoading: false,
                     currentToolCall: null,
                     currentToolGeneration: null,
+                    activeToolCalls: [],
+                    thinkingPhase: null,
                   }));
                 } else if (event.type === "end") {
                   setState((prev) => {
@@ -154,6 +221,8 @@ export function useChatMessages() {
                       isLoading: false,
                       currentToolCall: null,
                       currentToolGeneration: null,
+                      activeToolCalls: [],
+                      thinkingPhase: null,
                     };
                   });
                 }
@@ -172,6 +241,8 @@ export function useChatMessages() {
           error:
             error instanceof Error ? error.message : "Une erreur est survenue",
           messages: prev.messages.slice(0, -1), // Remove empty assistant message
+          activeToolCalls: [],
+          thinkingPhase: null,
         }));
       }
     },
@@ -186,6 +257,8 @@ export function useChatMessages() {
       conversationId: null,
       currentToolCall: null,
       currentToolGeneration: null,
+      activeToolCalls: [],
+      thinkingPhase: null,
     });
   }, []);
 
@@ -197,6 +270,8 @@ export function useChatMessages() {
         isLoading: false,
         currentToolCall: null,
         currentToolGeneration: null,
+        activeToolCalls: [],
+        thinkingPhase: null,
       }));
     }
   }, []);
@@ -207,6 +282,8 @@ export function useChatMessages() {
     error: state.error,
     currentToolCall: state.currentToolCall,
     currentToolGeneration: state.currentToolGeneration,
+    activeToolCalls: state.activeToolCalls,
+    thinkingPhase: state.thinkingPhase,
     sendMessage,
     clearMessages,
     cancelStream,

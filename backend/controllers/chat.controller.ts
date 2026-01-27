@@ -180,6 +180,24 @@ NE GÉNÈRE JAMAIS de commandes curl, http ou json en texte brut - utilise TOUJO
 - user_profile: Pour ENREGISTRER les informations personnelles importantes de l'utilisateur (nom, métier, localisation, préférences, relations, etc.). UTILISE CET OUTIL quand l'utilisateur partage des informations structurelles sur lui-même.
 - long_running_task: Pour les tâches longue durée (recherches approfondies, analyses complexes, etc.). Utilise cet outil quand une tâche prend plus de quelques minutes.
 
+🔥 PERSISTANCE ET RÉSILIENCE - TRÈS IMPORTANT:
+Tu dois TOUJOURS essayer de répondre à l'utilisateur, même si un outil échoue.
+N'abandonne JAMAIS après un seul échec. Tu as plusieurs tentatives disponibles.
+
+QUAND UN OUTIL ÉCHOUE:
+1. Analyse l'erreur (clé API invalide? service indisponible? paramètres incorrects?)
+2. Essaie une APPROCHE ALTERNATIVE:
+   - Si une API échoue → essaie une autre source 
+   - Si un service nécessite une clé API → utilise un service gratuit sans authentification
+   - Si un endpoint est down → essaie un endpoint alternatif
+3. Continue d'essayer jusqu'à trouver une solution
+4. Informe l'utilisateur SEULEMENT après avoir épuisé toutes les alternatives
+
+EXEMPLES DE RÉSILIENCE:
+- Erreur "API key invalid" → N'abandonne pas! 
+- Erreur "Service unavailable" → Attends et réessaie, ou utilise une alternative
+- Erreur 404 → Vérifie l'URL et corrige-la, ou essaie une autre source
+
 USER PROFILE - PROFIL UTILISATEUR:
 IMPORTANT: Quand l'utilisateur partage une information personnelle importante (son nom, son métier, où il habite, ses préférences, ses proches, etc.), UTILISE IMMÉDIATEMENT l'outil user_profile pour l'enregistrer.
 - Ces informations sont ensuite toujours disponibles dans ton contexte
@@ -565,9 +583,11 @@ export async function chatStream(
     let allToolResults: any[] = [];
     let sanitizationResults = new Map<string, any>();
     let iterationCount = 0;
-    const MAX_ITERATIONS = 3;
+    let consecutiveFailures = 0;
+    const MAX_ITERATIONS = 30; // Allow more iterations for complex tasks
+    const MAX_CONSECUTIVE_FAILURES = 5; // Stop if 5 failures in a row
 
-    // Tool calling loop (max 3 iterations to prevent infinite loops)
+    // Tool calling loop - generous iterations but with failure circuit breaker
     while (iterationCount < MAX_ITERATIONS) {
       iterationCount++;
 
@@ -875,6 +895,14 @@ export async function chatStream(
             });
           });
 
+          // Track consecutive failures for text-based tool calls
+          const allTextToolsFailed = toolCallResults.every((r) => !r.success);
+          if (allTextToolsFailed) {
+            consecutiveFailures++;
+          } else {
+            consecutiveFailures = 0;
+          }
+
           // Continue to let AI process tool results
           continue;
         }
@@ -958,6 +986,15 @@ export async function chatStream(
             );
           });
 
+          // Track consecutive failures for circuit breaker
+          const allFailed = toolResults.every((r) => !r.success);
+          const someFailed = toolResults.some((r) => !r.success);
+          if (allFailed) {
+            consecutiveFailures++;
+          } else {
+            consecutiveFailures = 0; // Reset on any success
+          }
+
           flowTracker.trackEvent({
             flowId,
             stage: `tools_executed_iteration_${iterationCount}`,
@@ -968,8 +1005,25 @@ export async function chatStream(
               toolsExecuted: toolResults.length,
               successCount: toolResults.filter((r) => r.success).length,
               failureCount: toolResults.filter((r) => !r.success).length,
+              consecutiveFailures,
             },
           });
+
+          // Circuit breaker: stop if too many consecutive failures
+          if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            console.warn(
+              `[ChatController] Circuit breaker triggered: ${consecutiveFailures} consecutive tool failures`,
+            );
+            flowTracker.trackEvent({
+              flowId,
+              stage: `circuit_breaker_triggered`,
+              service: "ChatController",
+              status: "failed",
+              data: { consecutiveFailures, iteration: iterationCount },
+              decision: `Arrêt après ${consecutiveFailures} échecs consécutifs d'outils`,
+            });
+            // Don't break - let the LLM know about failures and generate a response
+          }
 
           // Sanitize tool results before storing
           const sanitizedToolResults = toolResults.map((result) => {

@@ -6,20 +6,6 @@
 
 export type ChatMessageRole = "user" | "assistant" | "system";
 
-export interface ChatMessage {
-  id: string;
-  role: ChatMessageRole;
-  content: string;
-  timestamp: Date;
-  isStreaming?: boolean;
-}
-
-export interface ChatRequest {
-  message: string;
-  messages?: ChatMessage[];
-  conversationId?: string;
-}
-
 // Tool call status
 export type ToolCallStatus = "pending" | "executing" | "success" | "error";
 
@@ -51,10 +37,29 @@ export interface ToolGenerationStepData {
   iteration?: number;
   maxIterations?: number;
   details?: Record<string, any>;
+  toolCallId?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: ChatMessageRole;
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+  // Tool calls associated with this assistant message
+  toolCalls?: ToolCallData[];
+  // Tool generation steps for this message
+  toolGenerationSteps?: ToolGenerationStepData[];
+}
+
+export interface ChatRequest {
+  message: string;
+  messages?: ChatMessage[];
+  conversationId?: string;
 }
 
 export interface ChatStreamEvent {
-  type: "start" | "token" | "end" | "error" | "tool_call" | "tool_generation";
+  type: "start" | "token" | "end" | "error" | "tool_call" | "tool_generation" | "thinking";
   data: string | ToolCallData | ToolGenerationStepData;
   messageId?: string;
 }
@@ -66,4 +71,8 @@ export interface ChatState {
   conversationId: string | null;
   currentToolCall: ToolCallData | null;
   currentToolGeneration: ToolGenerationStepData | null;
+  // Track all active tool calls for the current response
+  activeToolCalls: ToolCallData[];
+  // Current thinking/processing phase
+  thinkingPhase: string | null;
 }

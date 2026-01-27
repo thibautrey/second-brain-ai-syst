@@ -10,7 +10,8 @@ import { Button } from "./ui/button";
 import { useChatMessages } from "../hooks/useChatMessages";
 import { cn } from "../lib/utils";
 import { MarkdownContent } from "./MarkdownContent";
-import { ToolCallDisplay } from "./Chat/ToolCallDisplay";
+import { ToolActivityDisplay } from "./Chat/ToolActivityDisplay";
+import { MessageToolHistory } from "./Chat/MessageToolHistory";
 
 export function ChatPanel() {
   const {
@@ -19,6 +20,8 @@ export function ChatPanel() {
     error,
     currentToolCall,
     currentToolGeneration,
+    activeToolCalls,
+    thinkingPhase,
     sendMessage,
     clearMessages,
   } = useChatMessages();
@@ -29,7 +32,7 @@ export function ChatPanel() {
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, currentToolCall, currentToolGeneration]);
+  }, [messages, currentToolCall, currentToolGeneration, activeToolCalls, thinkingPhase]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,39 +119,37 @@ export function ChatPanel() {
                 <div className="text-sm">
                   <MarkdownContent content={msg.content} />
                 </div>
-                {msg.isStreaming && (
+                {msg.isStreaming && !msg.content && (
                   <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
                 )}
+                
+                {/* Tool history for assistant messages (only show when not streaming) */}
+                {msg.role === "assistant" &&
+                  !msg.isStreaming &&
+                  msg.toolCalls &&
+                  msg.toolCalls.length > 0 && (
+                    <MessageToolHistory toolCalls={msg.toolCalls} />
+                  )}
               </div>
             </div>
           ))
         )}
 
-        {/* Tool Call Display - Shows only the latest tool with animation */}
-        {(currentToolCall || currentToolGeneration) && (
+        {/* Real-time Tool Activity Display - Shows during processing */}
+        {isLoading && (
           <div className="flex gap-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-slate-200 text-slate-600">
               <Bot className="w-4 h-4" />
             </div>
             <div className="flex-1 max-w-[75%]">
-              <ToolCallDisplay
-                toolCall={currentToolCall}
-                generationStep={currentToolGeneration}
+              <ToolActivityDisplay
+                activeToolCalls={activeToolCalls}
+                currentToolGeneration={currentToolGeneration}
+                thinkingPhase={thinkingPhase}
               />
             </div>
           </div>
         )}
-
-        {/* Loading indicator - only show when no tool call is active */}
-        {isLoading &&
-          !currentToolCall &&
-          !currentToolGeneration &&
-          messages[messages.length - 1]?.content === "" && (
-            <div className="flex items-center gap-2 text-slate-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Réflexion en cours...</span>
-            </div>
-          )}
 
         {/* Error display */}
         {error && (
