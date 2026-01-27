@@ -22,10 +22,10 @@ const isMarkdown = (text: string): boolean => {
   // Check for common markdown patterns
   const markdownPatterns = [
     /^#+\s/m, // Headers
-    /\*\*[^*]+\*\*/m, // Bold
-    /(?<!\*)\*[^*]+\*(?!\*)/m, // Italic (single asterisk)
-    /__[^_]+__/m, // Bold alternate
-    /~~[^~]+~~/m, // Strikethrough
+    /\*\*[\s\S]+?\*\*/m, // Bold (including multiline)
+    /(?<!\*)\*[\s\S]+?\*(?!\*)/m, // Italic (single asterisk, including multiline)
+    /__[\s\S]+?__/m, // Bold alternate (including multiline)
+    /~~[\s\S]+?~~/m, // Strikethrough (including multiline)
     /\[.+?\]\(.+?\)/m, // Links
     /^[-*+]\s+/m, // Lists (with one or more spaces)
     /^\d+\.\s/m, // Numbered lists
