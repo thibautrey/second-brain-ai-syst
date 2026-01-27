@@ -31,6 +31,9 @@ export function useChatMessages() {
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Keep a ref to current messages for use in callbacks without re-creating them
+  const messagesRef = useRef<ChatMessage[]>([]);
+  messagesRef.current = state.messages;
 
   const sendMessage = useCallback(
     async (content: string) => {
