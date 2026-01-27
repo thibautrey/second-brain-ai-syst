@@ -94,6 +94,41 @@ class TelegramService {
   }
 
   /**
+   * Send typing/action status to chat
+   */
+  async sendChatAction(
+    botToken: string,
+    chatId: string,
+    action: "typing" | "upload_photo" | "record_video" | "record_voice" | "upload_video" | "upload_voice" | "upload_document" | "find_location" | "record_video_note",
+  ): Promise<boolean> {
+    try {
+      const response = await axios.post(
+        `${TELEGRAM_API_BASE}${botToken}/sendChatAction`,
+        {
+          chat_id: chatId,
+          action,
+        },
+      );
+
+      if (response.data.ok) {
+        return true;
+      }
+
+      console.error(
+        `[TelegramService] Failed to send chat action:`,
+        response.data.description,
+      );
+      return false;
+    } catch (error: any) {
+      console.error(
+        `[TelegramService] Error sending chat action:`,
+        error.response?.data?.description || error.message,
+      );
+      return false;
+    }
+  }
+
+  /**
    * Send a notification to a user via their configured Telegram bot
    */
   async sendNotification(
@@ -500,6 +535,9 @@ Your Chat ID: <code>${chatId}</code>`;
       const { processTelegramMessage } = await import(
         "../controllers/chat.controller.js"
       );
+
+      // Signal typing status so user knows we're working
+      await this.sendChatAction(botToken, chatId, "typing");
 
       // Process the message and get AI response
       const response = await processTelegramMessage(userId, text);
