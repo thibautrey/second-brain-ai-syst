@@ -248,10 +248,12 @@ export class DynamicToolGeneratorService {
         );
 
         // Execute the code with network access
+        // Allow up to 60 seconds for API calls with retries for network failures
         const result = await codeExecutorService.executeWithNetwork(
           code,
           secretValues,
-          30,
+          60, // Increase to 60 seconds for slow APIs
+          3, // Retry up to 3 times on network failures
         );
 
         if (result.success && result.result !== null) {
@@ -657,11 +659,12 @@ params = ${paramsJson}
 ${tool.code}
 `;
 
-      // Execute with network access
+      // Execute with network access with retries
       const result = await codeExecutorService.executeWithNetwork(
         fullCode,
         secretValues,
         tool.timeout / 1000,
+        3, // Retry up to 3 times on network failures
       );
 
       // Update usage stats

@@ -87,7 +87,7 @@ export class CodeExecutorService {
 
     this.client = axios.create({
       baseURL: `http://${this.config.host}:${this.config.port}`,
-      timeout: 60000, // 60 seconds for code execution
+      timeout: 120000, // 120 seconds for code execution (includes network calls)
     });
   }
 
@@ -158,16 +158,48 @@ export class CodeExecutorService {
   /**
    * Execute Python code with network access enabled
    * Useful for API calls, web requests, etc.
+   * Includes automatic retry logic for network failures
    */
   async executeWithNetwork(
     code: string,
     envVars?: Record<string, string>,
     timeout?: number,
+    maxRetries: number = 3,
   ): Promise<ExecuteCodeResponse> {
-    return this.executeCode(code, timeout, {
-      network_enabled: true,
-      env_vars: envVars,
-    });
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.executeCode(code, timeout, {
+          network_enabled: true,
+          env_vars: envVars,
+        });
+      } catch (error: any) {
+        lastError = error;
+
+        // Only retry on network/timeout errors
+        const isNetworkError =
+          error.code === "ECONNRESET" ||
+          error.code === "ETIMEDOUT" ||
+          error.code === "ENOTFOUND" ||
+          error.message?.includes("timeout") ||
+          error.message?.includes("ECONNREFUSED");
+
+        if (!isNetworkError || attempt === maxRetries) {
+          throw error;
+        }
+
+        // Exponential backoff: 1s, 2s, 4s...
+        const delayMs = Math.pow(2, attempt - 1) * 1000;
+        console.log(
+          `Network error on attempt ${attempt}/${maxRetries}, retrying in ${delayMs}ms...`,
+          error.message,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    throw lastError;
   }
 
   /**

@@ -1968,6 +1968,81 @@ app.post(
   },
 );
 
+// ==================== Telegram Conversation Routes ====================
+
+import {
+  getConversationHistory,
+  cleanupTelegramConversation,
+  expireTelegramMessages,
+  getTelegramConversationSummary,
+} from "../controllers/telegram-conversation.controller.js";
+
+/**
+ * GET /api/telegram/conversation
+ * Get recent Telegram conversation context
+ */
+app.get(
+  "/api/telegram/conversation",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      await getConversationHistory(req, res);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/telegram/conversation/cleanup
+ * Clean up old Telegram messages
+ */
+app.post(
+  "/api/telegram/conversation/cleanup",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      await cleanupTelegramConversation(req, res);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/telegram/conversation/expire
+ * Expire old Telegram messages
+ */
+app.post(
+  "/api/telegram/conversation/expire",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      await expireTelegramMessages(req, res);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/telegram/conversation/summary
+ * Get Telegram conversation summary
+ */
+app.get(
+  "/api/telegram/conversation/summary",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      await getTelegramConversationSummary(req, res);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+console.log("🚀 Telegram Conversation routes enabled");
+
 // ==================== Memory Routes ====================
 
 /**

@@ -185,11 +185,12 @@ params = ${paramsJson}
 ${tool.code}
 `;
 
-      // Execute with network access
+      // Execute with network access with retries
       const result = await codeExecutorService.executeWithNetwork(
         fullCode,
         secretValues,
         Math.ceil(tool.timeout / 1000),
+        3, // Retry up to 3 times on network failures
       );
 
       // Update usage stats

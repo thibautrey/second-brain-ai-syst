@@ -4,7 +4,18 @@
  * Handles message processing for Telegram integration
  * - Message processing with tool execution
  * - Telegram-specific response formatting
+ * - Intelligent context management to prevent token overflow
  */
+
+import {
+  buildTelegramContext,
+  estimateTokens,
+  validateContextSize,
+} from "./telegram-context-manager.js";
+import {
+  getConversationContext,
+  storeTelegramMessage,
+} from "./telegram-conversation-manager.js";
 
 import { CHAT_SYSTEM_PROMPT } from "./chat-context.js";
 import OpenAI from "openai";
@@ -116,6 +127,20 @@ export async function processTelegramMessage(
     );
 
     const maxTokens = await getDefaultMaxTokens(userId);
+
+    // Build context with intelligent token management
+    const contextBuilt = await buildTelegramContext(
+      userId,
+      message,
+      systemPromptWithContext,
+      modelId,
+      maxTokens,
+    );
+
+    if (contextBuilt.warning) {
+      console.warn(`[Telegram] ${contextBuilt.warning}`);
+    }
+
     const toolSchemas = (await toolExecutorService.getToolSchemasWithGenerated(
       userId,
     )) as ToolFunctionDefinition[];
@@ -124,10 +149,30 @@ export async function processTelegramMessage(
       function: schema,
     }));
 
-    const messages: ChatMessageParam[] = [
-      { role: "system", content: systemPromptWithContext },
-      { role: "user", content: message },
-    ];
+    // Use intelligently built context instead of single message
+    const messages: ChatMessageParam[] = contextBuilt.messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    // Validate context size before sending to LLM
+    const contextValidation = validateContextSize(
+      contextBuilt.messages,
+      modelId,
+      maxTokens,
+    );
+    if (!contextValidation.isValid) {
+      console.error(
+        `[Telegram] Context overflow: ${contextValidation.estimatedTokens} tokens exceeds ${maxTokens} limit`,
+      );
+      // Remove oldest messages if we still overflow
+      while (
+        messages.length > 2 &&
+        !validateContextSize(messages as any, modelId, maxTokens).isValid
+      ) {
+        messages.splice(1, 1); // Remove message before current user message
+      }
+    }
 
     let finalResponse = "";
     let iterationCount = 0;
@@ -337,13 +382,29 @@ export async function processTelegramMessage(
 
     console.log(`[Telegram] Response generated in ${Date.now() - startTime}ms`);
 
+    // Store messages in conversation history
+    try {
+      await storeTelegramMessage(userId, "user", message);
+      if (finalResponse && !finalResponse.startsWith("❌")) {
+        await storeTelegramMessage(userId, "assistant", finalResponse);
+      }
+    } catch (storageError) {
+      console.warn(
+        "[Telegram] Failed to store message in history:",
+        storageError,
+      );
+    }
+
     flowTracker.trackEvent({
       flowId,
       stage: "telegram_response",
       service: "Telegram",
       status: "success",
       duration: Date.now() - startTime,
-      data: { iterations: iterationCount },
+      data: {
+        iterations: iterationCount,
+        contextTokens: contextBuilt.contextTokens,
+      },
     });
     flowTracker.completeFlow(flowId, "completed");
 
