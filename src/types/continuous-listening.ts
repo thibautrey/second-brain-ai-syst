@@ -105,11 +105,19 @@ export type InputType =
   | "conversation"
   | "noise";
 
+export type TimeBucket =
+  | "today"
+  | "past_week"
+  | "past_month"
+  | "past_year"
+  | "all_time";
+
 export interface ClassificationResult {
   inputType: InputType;
   confidence: number;
   topic?: string;
   temporalReference?: string;
+  timeBucket?: TimeBucket;
   shouldStore: boolean;
   shouldCallTools: boolean;
   memoryScopes: string[];

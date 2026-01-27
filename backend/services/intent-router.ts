@@ -61,11 +61,19 @@ export type InputType =
   | "conversation"
   | "noise";
 
+export type TimeBucket =
+  | "today"
+  | "past_week"
+  | "past_month"
+  | "past_year"
+  | "all_time";
+
 export interface ClassificationResult {
   inputType: InputType;
   confidence: number;
   topic?: string;
   temporalReference?: string;
+  timeBucket?: TimeBucket;
   shouldStore: boolean;
   shouldCallTools: boolean;
   memoryScopes: string[]; // 'short_term', 'daily', 'weekly', 'monthly', etc.
@@ -108,6 +116,7 @@ You must respond with a JSON object containing:
   "entities": ["list", "of", "named", "entities"],
   "sentiment": "positive|negative|neutral",
   "temporalReference": "any time reference mentioned or null",
+  "timeBucket": "today|past_week|past_month|past_year|all_time",
   "shouldStore": true|false,
   "importanceScore": 0.0-1.0,
   "isFactualDeclaration": true|false,
@@ -129,6 +138,13 @@ Importance scoring:
 - 0.4-0.6: Moderate importance, useful observations
 - 0.6-0.8: Important: decisions, commitments, insights, personal reflections
 - 0.8-1.0: Critical: major life events, key decisions, deadlines
+
+Time bucket (deterministic):
+- today: The exchange is about the current day or has no time reference
+- past_week: Refers to the last 7 days
+- past_month: Refers to the last 30 days
+- past_year: Refers to the last 365 days
+- all_time: Long-term or timeless facts/insights
 
 Storage guidelines:
 - DO NOT STORE if:
@@ -185,7 +201,8 @@ You must respond with a JSON object containing:
   "importanceScore": 0.0-1.0 (how important is this for long-term memory?),
   "entities": ["list", "of", "named", "entities"],
   "sentiment": "positive|negative|neutral",
-  "temporalReference": "any time reference mentioned or null"
+  "temporalReference": "any time reference mentioned or null",
+  "timeBucket": "today|past_week|past_month|past_year|all_time"
 }
 
 Guidelines for importance scoring:
@@ -197,7 +214,14 @@ Guidelines for importance scoring:
 
 Guidelines for shouldStore:
 - false: Noise, filler words, unintelligible content, content too short to be meaningful, very short inputs (<5 chars)
-- true: Any meaningful content that could be valuable to recall later`;
+- true: Any meaningful content that could be valuable to recall later
+
+Time bucket (deterministic):
+- today: Current day or no explicit time reference
+- past_week: Mentions within last 7 days
+- past_month: Mentions within last 30 days
+- past_year: Mentions within last 365 days
+- all_time: Long-term facts, timeless knowledge, or goals without time bounds`;
 
 const RESPONSE_VALUE_SYSTEM_PROMPT = `You are a memory quality assessor for a personal AI assistant called "Second Brain".
 Your job is to evaluate if a question-response pair contains valuable information worth storing in long-term memory.
@@ -391,6 +415,7 @@ Provide a complete analysis including classification and storage decision.`;
           confidence: result.confidence || 0.7,
           topic: result.topic || undefined,
           temporalReference: result.temporalReference || undefined,
+          timeBucket: result.timeBucket || "today",
           shouldStore: result.shouldStore ?? false,
           shouldCallTools: false, // Post-response, tools already executed if needed
           memoryScopes: this.determineMemoryScopes(result),
@@ -459,6 +484,7 @@ Provide a complete analysis including classification and storage decision.`;
               confidence: result.confidence || 0.7,
               topic: result.topic || undefined,
               temporalReference: result.temporalReference || undefined,
+              timeBucket: result.timeBucket || "today",
               shouldStore: result.shouldStore ?? false,
               shouldCallTools: false,
               memoryScopes: this.determineMemoryScopes(result),
@@ -537,6 +563,7 @@ Provide a complete analysis including classification and storage decision.`;
         sentiment: "neutral",
         topic: "LLM classification unavailable",
         temporalReference: undefined,
+        timeBucket: "today",
       };
     }
   }
@@ -610,6 +637,7 @@ ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
         confidence: result.confidence || 0.7,
         topic: result.topic || undefined,
         temporalReference: result.temporalReference || undefined,
+        timeBucket: result.timeBucket || "today",
         shouldStore: result.shouldStore ?? false, // Default to NOT storing
         shouldCallTools: result.shouldCallTools ?? false,
         memoryScopes: this.determineMemoryScopes(result),
@@ -652,6 +680,7 @@ ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
             confidence: result.confidence || 0.7,
             topic: result.topic || undefined,
             temporalReference: result.temporalReference || undefined,
+            timeBucket: result.timeBucket || "today",
             shouldStore: result.shouldStore ?? false,
             shouldCallTools: result.shouldCallTools ?? false,
             memoryScopes: this.determineMemoryScopes(result),
@@ -772,14 +801,34 @@ Should this exchange be stored in the user's memory? Consider:
 
     const scopes = ["short_term"];
 
-    if (result.importanceScore >= 0.6) {
-      scopes.push("daily");
+    const bucket: TimeBucket | undefined = result.timeBucket;
+    switch (bucket) {
+      case "today":
+        scopes.push("daily");
+        break;
+      case "past_week":
+        scopes.push("daily", "weekly");
+        break;
+      case "past_month":
+        scopes.push("daily", "weekly", "monthly");
+        break;
+      case "past_year":
+        scopes.push("daily", "weekly", "monthly", "yearly");
+        break;
+      case "all_time":
+        scopes.push("daily", "weekly", "monthly", "quarterly", "yearly", "multi_year");
+        break;
+      default:
+        // Fall back to importance-based heuristics if bucket is missing
+        if (result.importanceScore >= 0.6) {
+          scopes.push("daily");
+        }
+        if (result.importanceScore >= 0.8) {
+          scopes.push("weekly");
+        }
+        break;
     }
 
-    if (result.importanceScore >= 0.8) {
-      scopes.push("weekly");
-    }
-
-    return scopes;
+    return Array.from(new Set(scopes));
   }
 }

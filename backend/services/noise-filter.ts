@@ -439,56 +439,69 @@ export class NoiseFilterService {
       // Determine if we have continuous audio context
       const hasContinuousContext = context?.fullChunkContext || context?.chunkCount && context.chunkCount > 1;
 
-      const systemPrompt = `Tu es un système de filtrage pour un assistant personnel qui écoute 24/7.
-Ta tâche est de déterminer si une transcription audio mérite d'être traitée ou si c'est du "bruit".
+      const systemPrompt = `You are a filtering system for a personal assistant that listens 24/7.
+Your task is to determine whether an audio transcription should be processed or treated as "noise".
 
-${hasContinuousContext ? `⚠️ IMPORTANT - CONTEXTE AUDIO CONTINU:
-Ce texte provient d'un flux audio en temps réel divisé en "chunks" (segments).
-Les chunks arrivent au fur et à mesure que l'utilisateur parle.
-Un chunk isolé peut sembler incomplet, mais il fait partie d'un discours continu.
-Utilise le contexte des chunks précédents pour comprendre le sens global.
-Si le chunk actuel semble être une continuation logique des précédents, considère-le comme "meaningful".
+${hasContinuousContext ? `⚠️ IMPORTANT - CONTINUOUS AUDIO CONTEXT:
+This text comes from a live audio stream split into chunks.
+Chunks arrive as the user speaks.
+An isolated chunk may seem incomplete, but it is part of a continuous speech.
+Use the context from previous chunks to understand the overall meaning.
+If the current chunk appears to continue the previous ones logically, treat it as "meaningful".
+Never label such chunks as "incomplete_fragment".
 ` : ''}
-Tu dois répondre avec un objet JSON:
+You must respond with a JSON object:
 {
   "isMeaningful": true|false,
   "confidence": 0.0-1.0,
   "category": "meaningful|background_conversation|media_playback|environmental_noise|filler_words|incomplete_fragment|repetitive_spam|self_talk_trivial|wake_word_false_positive|third_party_address",
-  "reason": "explication courte",
+  "reason": "short explanation",
   "suggestedAction": "process|discard|ask_user|store_minimal",
   "contextualRelevance": 0.0-1.0
 }
 
-Catégories:
-- meaningful: Contenu utile, question, commande, réflexion personnelle, information importante
-- background_conversation: Conversation en arrière-plan, pas l'utilisateur principal
-- media_playback: Télé, radio, podcast, vidéo YouTube, musique avec paroles
-- environmental_noise: Bruits transcrits par erreur, mots incompréhensibles
-- filler_words: Seulement des "euh", "um", "hmm", etc.
-- incomplete_fragment: SEULEMENT si vraiment isolé et sans contexte. Avec contexte continu, un chunk partiel est normal.
-- repetitive_spam: Même contenu répété, boucle
-- self_talk_trivial: "Où sont mes clés", "Bon alors", "Allez" - pensée à voix haute triviale
-- wake_word_false_positive: Mot d'activation détecté mais rien d'utile après
-- third_party_address: L'utilisateur parle à quelqu'un d'autre (son partenaire, ses enfants)
+Categories:
+- meaningful: Valuable content, a question, a command, a personal reflection, or important information
+- background_conversation: Background talk that is not the primary user
+- media_playback: TV, radio, podcast, YouTube video, or music with lyrics
+- environmental_noise: Noise transcribed by mistake or unintelligible words
+- filler_words: Only "uh", "um", "hmm", etc.
+- incomplete_fragment: Only when the chunk is truly isolated and lacks context. With continuous audio, partial chunks are normal—avoid this label when "isChunkContinuation" is true or chunkCount > 1.
+- repetitive_spam: Repeated or looping content
+- self_talk_trivial: "Where are my keys", "Alright then", "Come on"—trivial self-directed thoughts
+- wake_word_false_positive: Wake word detected but no useful content follows
+- third_party_address: The user is speaking to someone else (partner, children, etc.)
 
-Actions suggérées:
-- process: Traiter et potentiellement stocker
-- discard: Ignorer complètement
-- ask_user: Demander confirmation à l'utilisateur (cas ambigu important)
-- store_minimal: Stocker une trace minimale mais ne pas traiter
+Suggested actions (choose deterministically):
+- process: Handle and potentially store
+- discard: Only when confidence < 0.3 OR explicit noise evidence
+- ask_user: Use when 0.3 ≤ confidence < 0.6 or ambiguity remains
+- store_minimal: Low-signal but potentially relevant (e.g., brief but on-topic)
 
-IMPORTANT: 
-- En cas de doute, préfère "discard" pour éviter de polluer la mémoire.
-- SAUF si le contexte continu montre que ce chunk fait partie d'un discours cohérent.
-- Une conversation télé/podcast se reconnaît par: langage scripté, mentions de "abonnez-vous", etc.`;
+Confidence rubric:
+- 0.9-1.0: Clear evidence
+- 0.7-0.89: Likely correct, minor ambiguity
+- 0.5-0.69: Some evidence, noticeable ambiguity
+- <0.5: Uncertain — prefer ask_user or store_minimal
 
-      const userPrompt = `Analyse cette transcription:
+Contextual relevance rubric (0-1):
+- 0.8-1.0: Directly continues recent topic/chunk
+- 0.5-0.79: Related topic or same speaker context
+- 0.2-0.49: Weakly related
+- 0.0-0.19: No relation
+
+IMPORTANT:
+- When in doubt (confidence < 0.6), do NOT discard—prefer "ask_user" or "store_minimal".
+- TV/podcast conversations typically show scripted language or mention "subscribe", etc.
+`;
+
+      const userPrompt = `Analyze this transcription:
 
 "${text}"
 
 ${contextInfo}
 
-Est-ce du contenu significatif ou du bruit?`;
+Is this meaningful content or noise?`;
 
       // Validate max_tokens before making the request
       const validation = validateMaxTokens(256, modelId, 2, userPrompt);
