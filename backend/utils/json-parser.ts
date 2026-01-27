@@ -75,9 +75,37 @@ export function extractJSONFromText(text: string): string {
 
 /**
  * Try to repair incomplete JSON by adding missing closing braces
+ * Now also handles extremely large responses that may be truncated
  */
 export function repairIncompleteJSON(text: string): string {
   let repaired = text.trim();
+
+  // Check if the response seems to be truncated (ends abruptly without proper closure)
+  if (repaired.length > 50000) { // If response is very large, it might be truncated
+    console.warn("[JSONParser] Large response detected, checking for truncation...");
+    
+    // Find the last complete object or array
+    let lastValidBrace = -1;
+    let openBraces = 0;
+    
+    for (let i = 0; i < repaired.length; i++) {
+      const char = repaired[i];
+      if (char === "{") {
+        openBraces++;
+      } else if (char === "}") {
+        openBraces--;
+        if (openBraces === 0) {
+          lastValidBrace = i;
+        }
+      }
+    }
+    
+    // If we found a valid closing point, truncate there
+    if (lastValidBrace > 0 && lastValidBrace < repaired.length - 1) {
+      console.warn(`[JSONParser] Truncating response at character ${lastValidBrace + 1} to avoid parsing issues`);
+      repaired = repaired.substring(0, lastValidBrace + 1);
+    }
+  }
 
   // Count opening and closing braces
   let openBraces = 0;

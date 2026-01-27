@@ -14,12 +14,15 @@ import { codeExecutorService } from "./code-executor-wrapper.js";
 import { dynamicToolRegistry } from "./dynamic-tool-registry.js";
 import { dynamicToolGeneratorService } from "./dynamic-tool-generator.js";
 import { secretsService } from "./secrets.js";
+import { goalsService } from "./goals.service.js";
+import { achievementsService } from "./achievements.service.js";
 import {
   TodoStatus,
   TodoPriority,
   ScheduleType,
   TaskActionType,
   NotificationType,
+  GoalStatus,
 } from "@prisma/client";
 
 export interface ToolConfig {
@@ -233,6 +236,32 @@ const BUILTIN_TOOLS: ToolConfig[] = [
       actions: ["list", "check", "has", "retrieve", "create"],
     },
   },
+  {
+    id: "goals_management",
+    name: "Goals Management",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 30,
+    timeout: 5000,
+    config: {
+      description:
+        "Create, update, track, and manage user goals. Monitor progress, set milestones, update status, and organize goals by category. Use for goal setting, progress tracking, milestone management, and goal lifecycle management.",
+      actions: ["create", "update", "list", "get", "delete", "update_progress", "add_milestone", "get_stats", "get_categories"],
+    },
+  },
+  {
+    id: "achievements_management",
+    name: "Achievements Management",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 30,
+    timeout: 5000,
+    config: {
+      description:
+        "Create, unlock, and manage user achievements. Track accomplishments, celebrate milestones, and organize achievements by category. Use for achievement creation, unlocking, progress tracking, and celebration.",
+      actions: ["create", "update", "list", "get", "delete", "unlock", "get_stats", "get_categories"],
+    },
+  },
 ];
 
 export class ToolExecutorService {
@@ -407,6 +436,10 @@ export class ToolExecutorService {
         );
       case "secrets":
         return this.executeSecretsAction(userId, action, params);
+      case "goals_management":
+        return this.executeGoalsManagementAction(userId, action, params);
+      case "achievements_management":
+        return this.executeAchievementsManagementAction(userId, action, params);
       default:
         // Check if it's a generated tool
         if (dynamicToolRegistry.isGeneratedToolCall(toolId)) {
@@ -750,6 +783,328 @@ export class ToolExecutorService {
 
       default:
         throw new Error(`Unknown secrets action: ${action}`);
+    }
+  }
+
+  /**
+   * Execute goals management actions
+   */
+  private async executeGoalsManagementAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "create": {
+        if (!params.title) {
+          throw new Error("Missing required parameter: 'title'");
+        }
+
+        const goal = await goalsService.createGoal(userId, {
+          title: params.title,
+          description: params.description,
+          category: params.category || "personal_growth",
+          targetDate: params.target_date ? new Date(params.target_date) : undefined,
+          tags: params.tags || [],
+          metadata: params.metadata || {},
+        });
+
+        return {
+          action: "create",
+          success: true,
+          goal,
+          message: `Goal '${params.title}' created successfully`,
+        };
+      }
+
+      case "update": {
+        if (!params.goal_id) {
+          throw new Error("Missing required parameter: 'goal_id'");
+        }
+
+        const updateData: any = {};
+        if (params.title) updateData.title = params.title;
+        if (params.description !== undefined) updateData.description = params.description;
+        if (params.category) updateData.category = params.category;
+        if (params.status) updateData.status = params.status as GoalStatus;
+        if (params.progress !== undefined) updateData.progress = params.progress;
+        if (params.target_date) updateData.targetDate = new Date(params.target_date);
+        if (params.tags) updateData.tags = params.tags;
+        if (params.metadata) updateData.metadata = params.metadata;
+
+        const goal = await goalsService.updateGoal(params.goal_id, userId, updateData);
+
+        return {
+          action: "update",
+          success: true,
+          goal,
+          message: "Goal updated successfully",
+        };
+      }
+
+      case "list": {
+        const options: any = {};
+        if (params.filter_status) options.status = params.filter_status as GoalStatus;
+        if (params.filter_category) options.category = params.filter_category;
+        if (params.include_archived) options.includeArchived = params.include_archived;
+
+        const goals = await goalsService.getUserGoals(userId, options);
+
+        return {
+          action: "list",
+          goals,
+          count: goals.length,
+          filters: options,
+        };
+      }
+
+      case "get": {
+        if (!params.goal_id) {
+          throw new Error("Missing required parameter: 'goal_id'");
+        }
+
+        const goal = await goalsService.getGoal(params.goal_id, userId);
+
+        if (!goal) {
+          return {
+            action: "get",
+            success: false,
+            error: "Goal not found",
+          };
+        }
+
+        return {
+          action: "get",
+          success: true,
+          goal,
+        };
+      }
+
+      case "delete": {
+        if (!params.goal_id) {
+          throw new Error("Missing required parameter: 'goal_id'");
+        }
+
+        const deleted = await goalsService.deleteGoal(params.goal_id, userId);
+
+        return {
+          action: "delete",
+          success: deleted,
+          message: deleted ? "Goal deleted successfully" : "Goal not found",
+        };
+      }
+
+      case "update_progress": {
+        if (!params.goal_id || params.progress === undefined) {
+          throw new Error("Missing required parameters: 'goal_id' and 'progress'");
+        }
+
+        const goal = await goalsService.updateGoal(params.goal_id, userId, {
+          progress: Math.max(0, Math.min(100, params.progress)), // Clamp between 0-100
+        });
+
+        return {
+          action: "update_progress",
+          success: true,
+          goal,
+          message: `Goal progress updated to ${params.progress}%`,
+        };
+      }
+
+      case "add_milestone": {
+        if (!params.goal_id || !params.milestone_name) {
+          throw new Error("Missing required parameters: 'goal_id' and 'milestone_name'");
+        }
+
+        const milestone = {
+          name: params.milestone_name,
+          completed: params.milestone_completed || false,
+          date: new Date(),
+        };
+
+        const goal = await goalsService.addMilestone(params.goal_id, userId, milestone);
+
+        return {
+          action: "add_milestone",
+          success: true,
+          goal,
+          milestone,
+          message: `Milestone '${params.milestone_name}' added to goal`,
+        };
+      }
+
+      case "get_stats": {
+        const stats = await goalsService.getStats(userId);
+
+        return {
+          action: "get_stats",
+          success: true,
+          stats,
+        };
+      }
+
+      case "get_categories": {
+        const categories = await goalsService.getCategories(userId);
+
+        return {
+          action: "get_categories",
+          success: true,
+          categories,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown goals_management action: ${action}`);
+    }
+  }
+
+  /**
+   * Execute achievements management actions
+   */
+  private async executeAchievementsManagementAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "create": {
+        if (!params.title || !params.description) {
+          throw new Error("Missing required parameters: 'title' and 'description'");
+        }
+
+        const achievement = await achievementsService.createAchievement(userId, {
+          title: params.title,
+          description: params.description,
+          category: params.category || "personal_growth",
+          icon: params.icon,
+          significance: params.significance || "normal",
+          criteria: params.criteria || {},
+          isHidden: params.is_hidden !== false, // Default to hidden
+          metadata: params.metadata || {},
+        });
+
+        return {
+          action: "create",
+          success: true,
+          achievement,
+          message: `Achievement '${params.title}' created successfully`,
+        };
+      }
+
+      case "update": {
+        if (!params.achievement_id) {
+          throw new Error("Missing required parameter: 'achievement_id'");
+        }
+
+        const updateData: any = {};
+        if (params.title) updateData.title = params.title;
+        if (params.description) updateData.description = params.description;
+        if (params.category) updateData.category = params.category;
+        if (params.icon !== undefined) updateData.icon = params.icon;
+        if (params.significance) updateData.significance = params.significance;
+        if (params.criteria) updateData.criteria = params.criteria;
+        if (params.is_hidden !== undefined) updateData.isHidden = params.is_hidden;
+        if (params.metadata) updateData.metadata = params.metadata;
+
+        const achievement = await achievementsService.updateAchievement(params.achievement_id, userId, updateData);
+
+        return {
+          action: "update",
+          success: true,
+          achievement,
+          message: "Achievement updated successfully",
+        };
+      }
+
+      case "list": {
+        const options: any = {};
+        if (params.filter_category) options.category = params.filter_category;
+        if (params.unlocked_only) options.unlockedOnly = params.unlocked_only;
+        if (params.include_hidden) options.includeHidden = params.include_hidden;
+
+        const achievements = await achievementsService.getUserAchievements(userId, options);
+
+        return {
+          action: "list",
+          achievements,
+          count: achievements.length,
+          filters: options,
+        };
+      }
+
+      case "get": {
+        if (!params.achievement_id) {
+          throw new Error("Missing required parameter: 'achievement_id'");
+        }
+
+        const achievement = await achievementsService.getAchievement(params.achievement_id, userId);
+
+        if (!achievement) {
+          return {
+            action: "get",
+            success: false,
+            error: "Achievement not found",
+          };
+        }
+
+        return {
+          action: "get",
+          success: true,
+          achievement,
+        };
+      }
+
+      case "delete": {
+        if (!params.achievement_id) {
+          throw new Error("Missing required parameter: 'achievement_id'");
+        }
+
+        const deleted = await achievementsService.deleteAchievement(params.achievement_id, userId);
+
+        return {
+          action: "delete",
+          success: deleted,
+          message: deleted ? "Achievement deleted successfully" : "Achievement not found",
+        };
+      }
+
+      case "unlock": {
+        if (!params.achievement_id) {
+          throw new Error("Missing required parameter: 'achievement_id'");
+        }
+
+        const achievement = await achievementsService.unlockAchievement(params.achievement_id, userId);
+
+        return {
+          action: "unlock",
+          success: true,
+          achievement,
+          message: `Achievement '${achievement.title}' unlocked! 🎉`,
+        };
+      }
+
+      case "get_stats": {
+        const stats = await achievementsService.getStats(userId);
+
+        return {
+          action: "get_stats",
+          success: true,
+          stats,
+        };
+      }
+
+      case "get_categories": {
+        const categories = await achievementsService.getCategories(userId);
+
+        return {
+          action: "get_categories",
+          success: true,
+          categories,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown achievements_management action: ${action}`);
     }
   }
 
@@ -2579,6 +2934,160 @@ export class ToolExecutorService {
               type: "string",
               description:
                 "For 'list' or 'create': secret category (e.g., 'api_keys', 'oauth', 'database')",
+            },
+          },
+          required: ["action"],
+        },
+      },
+      {
+        name: "goals_management",
+        description:
+          "Create, update, track, and manage user goals. Monitor progress, set milestones, update status, and organize goals by category. Use for goal setting, progress tracking, milestone management, and goal lifecycle management.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: [
+                "create",
+                "update", 
+                "list",
+                "get",
+                "delete",
+                "update_progress",
+                "add_milestone",
+                "get_stats",
+                "get_categories"
+              ],
+              description:
+                "'create': new goal. 'update': modify existing goal. 'list': get all goals (with filters). 'get': get specific goal. 'delete': remove goal. 'update_progress': set progress percentage. 'add_milestone': add milestone to goal. 'get_stats': goal statistics. 'get_categories': available categories.",
+            },
+            goal_id: {
+              type: "string",
+              description: "Goal ID (required for update, get, delete, update_progress, add_milestone)",
+            },
+            title: {
+              type: "string",
+              description: "Goal title (required for create, optional for update)",
+            },
+            description: {
+              type: "string",
+              description: "Goal description (optional)",
+            },
+            category: {
+              type: "string",
+              description: "Goal category (e.g., 'health', 'career', 'learning', 'personal_growth', 'finance', 'relationships')",
+            },
+            status: {
+              type: "string",
+              enum: ["ACTIVE", "COMPLETED", "PAUSED", "ARCHIVED", "ABANDONED"],
+              description: "Goal status (for update)",
+            },
+            progress: {
+              type: "number",
+              description: "Progress percentage (0-100, for update_progress or update)",
+            },
+            target_date: {
+              type: "string",
+              description: "Target completion date (ISO format: YYYY-MM-DD, optional)",
+            },
+            tags: {
+              type: "array",
+              items: { type: "string" },
+              description: "Goal tags (optional)",
+            },
+            milestone_name: {
+              type: "string",
+              description: "Milestone name (required for add_milestone)",
+            },
+            milestone_completed: {
+              type: "boolean",
+              description: "Whether milestone is completed (for add_milestone, default false)",
+            },
+            // Filter options for list
+            filter_status: {
+              type: "string",
+              description: "Filter by status (for list)",
+            },
+            filter_category: {
+              type: "string",
+              description: "Filter by category (for list)",
+            },
+            include_archived: {
+              type: "boolean",
+              description: "Include archived goals (for list, default false)",
+            },
+          },
+          required: ["action"],
+        },
+      },
+      {
+        name: "achievements_management",
+        description:
+          "Create, unlock, and manage user achievements. Track accomplishments, celebrate milestones, and organize achievements by category. Use for achievement creation, unlocking, progress tracking, and celebration.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: [
+                "create",
+                "update",
+                "list",
+                "get",
+                "delete",
+                "unlock",
+                "get_stats",
+                "get_categories"
+              ],
+              description:
+                "'create': new achievement. 'update': modify existing achievement. 'list': get all achievements (with filters). 'get': get specific achievement. 'delete': remove achievement. 'unlock': unlock achievement for user. 'get_stats': achievement statistics. 'get_categories': available categories.",
+            },
+            achievement_id: {
+              type: "string",
+              description: "Achievement ID (required for update, get, delete, unlock)",
+            },
+            title: {
+              type: "string",
+              description: "Achievement title (required for create, optional for update)",
+            },
+            description: {
+              type: "string",
+              description: "Achievement description (required for create, optional for update)",
+            },
+            category: {
+              type: "string",
+              description: "Achievement category (e.g., 'consistency', 'milestone', 'personal_growth', 'skill_mastery', 'social', 'health')",
+            },
+            icon: {
+              type: "string",
+              description: "Achievement icon (emoji or icon identifier, optional)",
+            },
+            significance: {
+              type: "string",
+              enum: ["minor", "normal", "major", "milestone"],
+              description: "Achievement significance level (default: normal)",
+            },
+            criteria: {
+              type: "object",
+              description: "Achievement criteria (flexible JSON object describing unlock conditions)",
+            },
+            is_hidden: {
+              type: "boolean",
+              description: "Whether achievement is hidden until unlocked (default true for create)",
+            },
+            // Filter options for list
+            filter_category: {
+              type: "string",
+              description: "Filter by category (for list)",
+            },
+            unlocked_only: {
+              type: "boolean",
+              description: "Show only unlocked achievements (for list, default false)",
+            },
+            include_hidden: {
+              type: "boolean",
+              description: "Include hidden achievements (for list, default false)",
             },
           },
           required: ["action"],

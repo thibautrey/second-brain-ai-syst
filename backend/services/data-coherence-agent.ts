@@ -28,6 +28,8 @@ const MIN_CONFIDENCE_FOR_SUGGESTION = 0.7;
 const MIN_CONFIDENCE_FOR_ISSUE = 0.7; // Minimum confidence for considering an issue significant
 const MAX_QUESTIONS_PER_RUN = 3; // Don't overwhelm the user
 const MAX_MEMORIES_FOR_ANALYSIS = 30; // Limit memory context to avoid token limits
+const MAX_TODOS_FOR_ANALYSIS = 50; // Limit todos to avoid duplicate issues
+const MAX_GOALS_FOR_ANALYSIS = 20; // Limit goals to avoid huge contexts
 const MIN_HOURS_BETWEEN_STORAGE = 2; // Only store results if at least 2 hours have passed
 const MEMORY_CONTENT_PREVIEW_LENGTH = 200; // Character limit for memory content in context
 
@@ -94,6 +96,7 @@ Analysis Guidelines:
 - Identify activities that have been mentioned multiple times without tracking
 - Be conservative - only suggest changes with high confidence (>70%)
 - Respect user autonomy - suggestions should be helpful, not pushy
+- IMPORTANT: Avoid duplicate entries in affectedItems arrays - each ID should appear only once
 
 Response Format (JSON):
 {
@@ -174,6 +177,7 @@ export class DataCoherenceAgentService {
             status: { in: [GoalStatus.ACTIVE, GoalStatus.PAUSED] },
           },
           orderBy: { createdAt: "desc" },
+          take: MAX_GOALS_FOR_ANALYSIS,
         }),
         prisma.todo.findMany({
           where: {
@@ -182,6 +186,7 @@ export class DataCoherenceAgentService {
             createdAt: { gte: startDate },
           },
           orderBy: { createdAt: "desc" },
+          take: MAX_TODOS_FOR_ANALYSIS,
         }),
         prisma.memory.findMany({
           where: {
@@ -258,10 +263,28 @@ export class DataCoherenceAgentService {
   ): string {
     let context = "# User Data for Coherence Analysis\n\n";
 
+    // Deduplicate data to prevent issues with LLM response
+    const uniqueGoals = this.deduplicateById(goals);
+    const uniqueTodos = this.deduplicateById(todos);
+    const uniqueMemories = this.deduplicateById(memories);
+    const uniqueScheduledTasks = this.deduplicateById(scheduledTasks);
+
+    // Log deduplication stats
+    const goalsRemoved = goals.length - uniqueGoals.length;
+    const todosRemoved = todos.length - uniqueTodos.length;
+    const memoriesRemoved = memories.length - uniqueMemories.length;
+    const tasksRemoved = scheduledTasks.length - uniqueScheduledTasks.length;
+
+    if (goalsRemoved > 0 || todosRemoved > 0 || memoriesRemoved > 0 || tasksRemoved > 0) {
+      console.warn(`[DataCoherence] Duplicates removed during context building - Goals: ${goalsRemoved}, Todos: ${todosRemoved}, Memories: ${memoriesRemoved}, Tasks: ${tasksRemoved}`);
+    }
+
+    console.log(`[DataCoherence] Context includes: ${uniqueGoals.length} goals, ${uniqueTodos.length} todos, ${uniqueMemories.length} memories, ${uniqueScheduledTasks.length} tasks`);
+
     // Goals
     context += "## Active Goals\n\n";
-    if (goals.length > 0) {
-      goals.forEach((goal, i) => {
+    if (uniqueGoals.length > 0) {
+      uniqueGoals.forEach((goal, i) => {
         context += `### Goal ${i + 1}: ${goal.title}\n`;
         context += `- **Category**: ${goal.category}\n`;
         context += `- **Status**: ${goal.status}\n`;
@@ -280,8 +303,8 @@ export class DataCoherenceAgentService {
 
     // Todos
     context += "## Active Todos\n\n";
-    if (todos.length > 0) {
-      todos.forEach((todo, i) => {
+    if (uniqueTodos.length > 0) {
+      uniqueTodos.forEach((todo, i) => {
         context += `### Todo ${i + 1}: ${todo.title}\n`;
         context += `- **Status**: ${todo.status}\n`;
         context += `- **Priority**: ${todo.priority}\n`;
@@ -331,6 +354,20 @@ export class DataCoherenceAgentService {
   }
 
   /**
+   * Deduplicate array by ID field
+   */
+  private deduplicateById<T extends { id: string }>(items: T[]): T[] {
+    const seen = new Set<string>();
+    return items.filter(item => {
+      if (seen.has(item.id)) {
+        return false;
+      }
+      seen.add(item.id);
+      return true;
+    });
+  }
+
+  /**
    * Analyze data coherence using LLM
    */
   private async analyzeCoherence(userId: string, context: string): Promise<any> {
@@ -345,11 +382,56 @@ export class DataCoherenceAgentService {
     );
 
     try {
-      return parseJSONFromLLMResponse(response);
+      const parsed = parseJSONFromLLMResponse(response);
+      
+      // Validate and clean the response
+      return this.validateAndCleanCoherenceResponse(parsed);
     } catch (parseError) {
-      console.error("Failed to parse coherence analysis response:", response);
+      console.error("Failed to parse coherence analysis response:", response.substring(0, 500));
       throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
     }
+  }
+
+  /**
+   * Validate and clean coherence response to prevent duplicate entries
+   */
+  private validateAndCleanCoherenceResponse(response: any): any {
+    if (!response || typeof response !== 'object') {
+      throw new Error('Response must be an object');
+    }
+
+    let duplicatesRemoved = 0;
+
+    // Clean issues array
+    if (response.issues && Array.isArray(response.issues)) {
+      response.issues = response.issues.map((issue: any) => {
+        if (issue.affectedItems && Array.isArray(issue.affectedItems)) {
+          // Deduplicate affectedItems by id
+          const seen = new Set<string>();
+          const originalLength = issue.affectedItems.length;
+          issue.affectedItems = issue.affectedItems.filter((item: any) => {
+            if (!item.id || seen.has(item.id)) {
+              return false;
+            }
+            seen.add(item.id);
+            return true;
+          });
+          const removedCount = originalLength - issue.affectedItems.length;
+          duplicatesRemoved += removedCount;
+          
+          if (removedCount > 0) {
+            console.warn(`[DataCoherence] Removed ${removedCount} duplicate entries from issue "${issue.title}"`);
+          }
+        }
+        return issue;
+      });
+    }
+
+    if (duplicatesRemoved > 0) {
+      console.warn(`[DataCoherence] Total duplicates removed from response: ${duplicatesRemoved}`);
+    }
+
+    return response;
   }
 
   /**
