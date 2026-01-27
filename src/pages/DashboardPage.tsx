@@ -28,7 +28,7 @@ import { ScheduleList } from "../components/schedule";
 import { ToolsConfigPage } from "./ToolsConfigPage";
 import { NotificationTestPage } from "./NotificationTestPage";
 import { AnalyticsPage } from "../components/analytics";
-import { GoalsPage, AchievementsPage } from "../components/goals-achievements";
+import { GoalsAchievementsPage } from "../components/goals-achievements";
 import { useIsMobile } from "../hooks/use-mobile";
 import { fetchActiveTips, dismissTip, viewTip } from "../services/api";
 import type { Tip } from "../services/api";
@@ -161,15 +161,9 @@ export function DashboardPage() {
           />
           <NavItem
             icon={<Target className="w-5 h-5" />}
-            label="Goals"
-            onClick={() => handleNavigation("/dashboard/goals")}
-            isActive={activeTab === "goals"}
-          />
-          <NavItem
-            icon={<Trophy className="w-5 h-5" />}
-            label="Achievements"
-            onClick={() => handleNavigation("/dashboard/achievements")}
-            isActive={activeTab === "achievements"}
+            label="Goals & Achievements"
+            onClick={() => handleNavigation("/dashboard/goals-achievements")}
+            isActive={activeTab === "goals-achievements" || activeTab === "goals" || activeTab === "achievements"}
           />
           <NavItem
             icon={<Mic className="w-5 h-5" />}
@@ -285,8 +279,7 @@ export function DashboardPage() {
             {activeTab === "dashboard" && <AnalyticsPage />}
 
             {activeTab === "memories" && <MemoryBrowser />}
-            {activeTab === "goals" && <GoalsPage />}
-            {activeTab === "achievements" && <AchievementsPage />}
+            {(activeTab === "goals-achievements" || activeTab === "goals" || activeTab === "achievements") && <GoalsAchievementsPage />}
             {activeTab === "training" && <TrainingPage />}
             {activeTab === "todos" && <TodoList />}
             {activeTab === "schedule" && <ScheduleList />}

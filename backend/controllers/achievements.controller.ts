@@ -5,6 +5,7 @@
  */
 
 import { Request, Response } from "express";
+import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { achievementsService } from "../services/achievements.service.js";
 
 export class AchievementsController {
@@ -12,9 +13,9 @@ export class AchievementsController {
    * GET /api/achievements
    * Get all achievements for the authenticated user
    */
-  async listAchievements(req: Request, res: Response) {
+  async listAchievements(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId!;
       const { category, unlockedOnly, includeHidden } = req.query;
 
       const achievements = await achievementsService.getUserAchievements(userId, {
@@ -34,9 +35,9 @@ export class AchievementsController {
    * GET /api/achievements/stats
    * Get achievement statistics
    */
-  async getStats(req: Request, res: Response) {
+  async getStats(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId!;
       const stats = await achievementsService.getStats(userId);
 
       res.json({ success: true, stats });
@@ -50,9 +51,9 @@ export class AchievementsController {
    * GET /api/achievements/categories
    * Get all achievement categories
    */
-  async getCategories(req: Request, res: Response) {
+  async getCategories(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId!;
       const categories = await achievementsService.getCategories(userId);
 
       res.json({ success: true, categories });
@@ -66,9 +67,9 @@ export class AchievementsController {
    * GET /api/achievements/:id
    * Get a specific achievement
    */
-  async getAchievement(req: Request, res: Response) {
+  async getAchievement(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId!;
       const { id } = req.params;
 
       const achievement = await achievementsService.getAchievement(id, userId);
@@ -90,9 +91,9 @@ export class AchievementsController {
    * POST /api/achievements
    * Create a new achievement (manual)
    */
-  async createAchievement(req: Request, res: Response) {
+  async createAchievement(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId!;
       const {
         title,
         description,
@@ -135,9 +136,9 @@ export class AchievementsController {
    * PATCH /api/achievements/:id
    * Update an achievement
    */
-  async updateAchievement(req: Request, res: Response) {
+  async updateAchievement(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId!;
       const { id } = req.params;
       const updateData = req.body;
 
@@ -158,9 +159,9 @@ export class AchievementsController {
    * DELETE /api/achievements/:id
    * Delete an achievement
    */
-  async deleteAchievement(req: Request, res: Response) {
+  async deleteAchievement(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId!;
       const { id } = req.params;
 
       await achievementsService.deleteAchievement(id, userId);
@@ -176,9 +177,9 @@ export class AchievementsController {
    * POST /api/achievements/:id/unlock
    * Manually unlock an achievement
    */
-  async unlockAchievement(req: Request, res: Response) {
+  async unlockAchievement(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId!;
       const { id } = req.params;
 
       const achievement = await achievementsService.unlockAchievement(id, userId);
