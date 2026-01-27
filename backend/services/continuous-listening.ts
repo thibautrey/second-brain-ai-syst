@@ -1128,10 +1128,16 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
         },
       ];
 
+      // Format tools for OpenAI API (must be wrapped in {type: "function", function: schema})
+      const formattedTools = tools.length > 0 
+        ? tools.map((schema) => ({ type: "function" as const, function: schema }))
+        : undefined;
+
       let response = await openai.chat.completions.create({
         model: taskConfig.model?.modelId || "gpt-4",
         messages,
-        tools: tools.length > 0 ? tools : undefined,
+        tools: formattedTools,
+        tool_choice: formattedTools ? "auto" : undefined,
         max_tokens: 1000,
       });
 
@@ -1181,7 +1187,8 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
         response = await openai.chat.completions.create({
           model: taskConfig.model?.modelId || "gpt-4",
           messages,
-          tools: tools.length > 0 ? tools : undefined,
+          tools: formattedTools,
+          tool_choice: formattedTools ? "auto" : undefined,
           max_tokens: 1000,
         });
 
