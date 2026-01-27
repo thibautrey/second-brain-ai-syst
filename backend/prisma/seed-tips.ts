@@ -65,6 +65,15 @@ async function seedDefaultTips() {
       icon: "zap",
     },
     {
+      title: "Connect a notification channel",
+      description:
+        "Open the Notification tab to link Telegram, Pushover, or another interaction channel so alerts reach you where you already spend time.",
+      category: "notifications",
+      targetFeature: "notifications",
+      priority: 38,
+      icon: "message-circle",
+    },
+    {
       title: "Customize Your Settings",
       description: "Personalize your experience in the Settings section to match your preferences.",
       category: "getting-started",
