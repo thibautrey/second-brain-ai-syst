@@ -7,15 +7,19 @@
 import { Request, Response } from "express";
 import { goalsService } from "../services/goals.service.js";
 import { GoalStatus } from "@prisma/client";
+import { AuthRequest } from "../middlewares/auth.middleware.js";
 
 export class GoalsController {
   /**
    * GET /api/goals
    * Get all goals for the authenticated user
    */
-  async listGoals(req: Request, res: Response) {
+  async listGoals(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const { status, category, includeArchived } = req.query;
 
       const goals = await goalsService.getUserGoals(userId, {
@@ -35,9 +39,12 @@ export class GoalsController {
    * GET /api/goals/stats
    * Get goal statistics
    */
-  async getStats(req: Request, res: Response) {
+  async getStats(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const stats = await goalsService.getStats(userId);
 
       res.json({ success: true, stats });
@@ -51,9 +58,12 @@ export class GoalsController {
    * GET /api/goals/categories
    * Get all goal categories
    */
-  async getCategories(req: Request, res: Response) {
+  async getCategories(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const categories = await goalsService.getCategories(userId);
 
       res.json({ success: true, categories });
@@ -67,9 +77,12 @@ export class GoalsController {
    * GET /api/goals/:id
    * Get a specific goal
    */
-  async getGoal(req: Request, res: Response) {
+  async getGoal(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const { id } = req.params;
 
       const goal = await goalsService.getGoal(id, userId);
@@ -88,9 +101,12 @@ export class GoalsController {
    * POST /api/goals
    * Create a new goal
    */
-  async createGoal(req: Request, res: Response) {
+  async createGoal(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const { title, description, category, targetDate, tags, metadata } = req.body;
 
       if (!title || !category) {
@@ -122,9 +138,12 @@ export class GoalsController {
    * PATCH /api/goals/:id
    * Update a goal
    */
-  async updateGoal(req: Request, res: Response) {
+  async updateGoal(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const { id } = req.params;
       const updateData = req.body;
 
@@ -141,9 +160,12 @@ export class GoalsController {
    * DELETE /api/goals/:id
    * Delete a goal
    */
-  async deleteGoal(req: Request, res: Response) {
+  async deleteGoal(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const { id } = req.params;
 
       await goalsService.deleteGoal(id, userId);
@@ -159,9 +181,12 @@ export class GoalsController {
    * PATCH /api/goals/:id/progress
    * Update goal progress
    */
-  async updateProgress(req: Request, res: Response) {
+  async updateProgress(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const { id } = req.params;
       const { progress } = req.body;
 
@@ -185,9 +210,12 @@ export class GoalsController {
    * POST /api/goals/:id/milestones
    * Add a milestone to a goal
    */
-  async addMilestone(req: Request, res: Response) {
+  async addMilestone(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
       const { id } = req.params;
       const { name, completed, date } = req.body;
 

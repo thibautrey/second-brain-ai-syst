@@ -352,6 +352,14 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
       return;
     }
 
+    // Clean up any existing manager before creating new one
+    if (existingManager) {
+      cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+      cleanupFunctionsRef.current = [];
+      resetAudioConnectionManager();
+      connectionManagerRef.current = null;
+    }
+
     dispatch({ type: "SET_STATE", payload: "connecting" });
 
     try {
@@ -360,7 +368,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
         throw new Error("Not authenticated");
       }
 
-      // Get or create connection manager with fallback enabled
+      // Create fresh connection manager with fallback enabled
       const connectionManager = getAudioConnectionManager({
         deviceType: "BROWSER",
         enableFallback: true,
@@ -376,6 +384,22 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
       // Subscribe to state changes - handle transparently
       const unsubscribeState = connectionManager.onStateChange((connectionState) => {
         dispatch({ type: "SET_CONNECTION_STATE", payload: connectionState });
+        
+        // If the connection manager automatically reconnects after session invalidation,
+        // we need to restart the audio processor
+        if (connectionState === "connected" && !audioProcessorRef.current) {
+          const restartAudio = async () => {
+            try {
+              audioProcessorRef.current = new AudioProcessor();
+              await audioProcessorRef.current.start((audioData) => {
+                connectionManager.sendAudioChunk(audioData);
+              });
+            } catch (err) {
+              console.error("Failed to restart audio processor:", err);
+            }
+          };
+          restartAudio();
+        }
       });
       cleanupFunctionsRef.current.push(unsubscribeState);
 
@@ -395,6 +419,21 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
       dispatch({ type: "SET_CONNECTED", payload: true });
     } catch (error) {
       console.error("Failed to start listening:", error);
+      
+      // Reset state on failure
+      dispatch({ type: "SET_STATE", payload: "idle" });
+      dispatch({ type: "SET_CONNECTED", payload: false });
+      
+      // Cleanup any partial initialization
+      cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+      cleanupFunctionsRef.current = [];
+      if (audioProcessorRef.current) {
+        audioProcessorRef.current.stop();
+        audioProcessorRef.current = null;
+      }
+      resetAudioConnectionManager();
+      connectionManagerRef.current = null;
+      
       // Only show error if it's a critical failure (like no microphone)
       if (error instanceof Error && error.message.includes("microphone")) {
         dispatch({
@@ -402,7 +441,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
           payload: "Failed to access microphone",
         });
       }
-      // Otherwise, the connection manager will keep trying transparently
+      // For other errors, the connection is cleanly reset and user can retry
     }
   }, [handleSessionEvent]);
 

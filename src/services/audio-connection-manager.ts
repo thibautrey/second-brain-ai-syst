@@ -80,6 +80,14 @@ export interface SessionEvent {
 
 type EventHandler = (event: SessionEvent) => void;
 
+// Custom error for session/device validation failures
+class SessionValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SessionValidationError";
+  }
+}
+
 // ==================== Audio Connection Manager ====================
 
 export class AudioConnectionManager {
@@ -163,22 +171,95 @@ export class AudioConnectionManager {
 
     this.setState("connecting");
 
+    // Track retry attempts for session creation
+    let sessionRetryCount = 0;
+    const maxSessionRetries = 2;
+
+    while (sessionRetryCount <= maxSessionRetries) {
+      try {
+        // Try to use existing device ID from localStorage
+        const storedDeviceId = localStorage.getItem("audioDeviceId");
+        const storedDeviceToken = localStorage.getItem("audioDeviceToken");
+        
+        // Validate existing device if we have one
+        if (storedDeviceId && storedDeviceToken && !this.deviceId) {
+          const isValid = await this.validateDevice(storedDeviceId);
+          if (isValid) {
+            this.deviceId = storedDeviceId;
+            this.deviceToken = storedDeviceToken;
+            this.stats.deviceId = storedDeviceId;
+          } else {
+            // Clear stale device data
+            console.log("AudioConnectionManager: Clearing stale device data");
+            this.clearStoredCredentials();
+          }
+        }
+
+        // Register device if needed
+        if (!this.deviceId) {
+          await this.registerDevice();
+        }
+
+        // Create session
+        await this.createSession();
+
+        // Connect with preferred protocol
+        await this.connectWithProtocol(this.config.preferredProtocol);
+
+        return true;
+      } catch (error) {
+        console.error("AudioConnectionManager: Connection failed", error);
+        
+        // Check if this is a session/device validation error
+        if (error instanceof SessionValidationError) {
+          sessionRetryCount++;
+          console.log(`AudioConnectionManager: Session validation failed, retry ${sessionRetryCount}/${maxSessionRetries}`);
+          
+          // Clear all stored credentials and start fresh
+          this.clearStoredCredentials();
+          this.deviceId = null;
+          this.deviceToken = null;
+          this.sessionId = null;
+          
+          if (sessionRetryCount <= maxSessionRetries) {
+            continue; // Retry with fresh credentials
+          }
+        }
+        
+        this.handleConnectionError();
+        return false;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Clear stored credentials (device/session)
+   */
+  private clearStoredCredentials(): void {
+    localStorage.removeItem("audioDeviceId");
+    localStorage.removeItem("audioDeviceToken");
+  }
+
+  /**
+   * Validate if a device ID is still valid
+   */
+  private async validateDevice(deviceId: string): Promise<boolean> {
     try {
-      // Register device if needed
-      if (!this.deviceId) {
-        await this.registerDevice();
+      const response = await fetch(`${API_BASE_URL}/api/audio/devices`, {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        return false;
       }
 
-      // Create session
-      await this.createSession();
-
-      // Connect with preferred protocol
-      await this.connectWithProtocol(this.config.preferredProtocol);
-
-      return true;
-    } catch (error) {
-      console.error("AudioConnectionManager: Connection failed", error);
-      this.handleConnectionError();
+      const data = await response.json();
+      return data.devices?.some((d: any) => d.id === deviceId && d.isActive);
+    } catch {
       return false;
     }
   }
@@ -190,6 +271,12 @@ export class AudioConnectionManager {
     this.cleanup();
     this.setState("disconnected");
     this.reconnectAttempts = 0;
+    // Clear internal state so next connect starts fresh
+    this.sessionId = null;
+    this.deviceId = null;
+    this.deviceToken = null;
+    this.stats.sessionId = null;
+    this.stats.deviceId = null;
   }
 
   /**
@@ -315,7 +402,14 @@ export class AudioConnectionManager {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to create session");
+      const errorData = await response.json().catch(() => ({}));
+      // Check for device-related errors that need credential refresh
+      if (response.status === 400 || response.status === 404 || response.status === 403) {
+        throw new SessionValidationError(
+          errorData.error || "Device or session validation failed"
+        );
+      }
+      throw new Error(errorData.error || "Failed to create session");
     }
 
     const data = await response.json();
@@ -424,6 +518,24 @@ export class AudioConnectionManager {
   }
 
   private async connectSSE(): Promise<void> {
+    // Pre-validate session before opening SSE connection
+    // This allows us to catch 401/404 errors and trigger proper recovery
+    const validationResponse = await fetch(
+      `${API_BASE_URL}/api/audio/sessions/${this.sessionId}`,
+      {
+        headers: { Authorization: `Bearer ${this.token}` },
+      }
+    );
+
+    if (!validationResponse.ok) {
+      // Session is invalid - throw SessionValidationError to trigger recovery
+      if (validationResponse.status === 401 || validationResponse.status === 404) {
+        console.log(`AudioConnectionManager: Session validation failed (${validationResponse.status})`);
+        throw new SessionValidationError("Session not found or unauthorized");
+      }
+      throw new Error(`Session validation failed: ${validationResponse.status}`);
+    }
+
     return new Promise((resolve, reject) => {
       const eventSource = new EventSource(
         `${API_BASE_URL}/api/audio/sessions/${this.sessionId}/events?token=${this.token}`
@@ -466,8 +578,27 @@ export class AudioConnectionManager {
   }
 
   private async startPolling(): Promise<void> {
+    // Validate session before starting polling
+    const validationResponse = await fetch(
+      `${API_BASE_URL}/api/audio/sessions/${this.sessionId}`,
+      {
+        headers: { Authorization: `Bearer ${this.token}` },
+      }
+    );
+
+    if (!validationResponse.ok) {
+      if (validationResponse.status === 401 || validationResponse.status === 404) {
+        throw new SessionValidationError("Session not found or unauthorized for polling");
+      }
+      throw new Error(`Session validation failed: ${validationResponse.status}`);
+    }
+
     this.setState("fallback");
     this.reconnectAttempts = 0;
+
+    // Track consecutive failures for session validity
+    let consecutiveFailures = 0;
+    const maxConsecutiveFailures = 5;
 
     // Poll for events every 2 seconds
     this.pollingInterval = window.setInterval(async () => {
@@ -480,6 +611,7 @@ export class AudioConnectionManager {
         );
 
         if (response.ok) {
+          consecutiveFailures = 0; // Reset on success
           const data = await response.json();
           for (const event of data.events) {
             this.handleEvent(event);
@@ -487,11 +619,51 @@ export class AudioConnectionManager {
           if (data.lastEventId) {
             this.lastEventId = data.lastEventId;
           }
+        } else if (response.status === 401 || response.status === 404) {
+          // Session is invalid - stop polling and trigger reconnection
+          console.log("AudioConnectionManager: Polling detected invalid session");
+          if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+          }
+          this.handleSessionInvalidated();
+        } else {
+          consecutiveFailures++;
+          if (consecutiveFailures >= maxConsecutiveFailures) {
+            console.log("AudioConnectionManager: Too many polling failures");
+            this.handleConnectionLost();
+          }
         }
       } catch (error) {
-        // Silent fail - polling is resilient
+        consecutiveFailures++;
+        if (consecutiveFailures >= maxConsecutiveFailures) {
+          console.log("AudioConnectionManager: Too many polling errors");
+          this.handleConnectionLost();
+        }
       }
     }, 2000);
+  }
+
+  /**
+   * Handle session becoming invalid during active connection
+   * This triggers a full reconnection with fresh session
+   */
+  private handleSessionInvalidated(): void {
+    console.log("AudioConnectionManager: Session invalidated, will create new session");
+    this.cleanup(true);
+    this.clearStoredCredentials();
+    this.deviceId = null;
+    this.deviceToken = null;
+    this.sessionId = null;
+    this.reconnectAttempts = 0;
+    
+    // Attempt to reconnect with fresh session
+    this.connect().then(success => {
+      if (!success) {
+        console.log("AudioConnectionManager: Failed to create new session after invalidation");
+        this.setState("disconnected");
+      }
+    });
   }
 
   // ==================== Chunk Sending ====================
@@ -525,6 +697,13 @@ export class AudioConnectionManager {
       if (response.ok) {
         this.updateStats(audioData.byteLength);
         return true;
+      }
+
+      // Check for session invalidation
+      if (response.status === 401 || response.status === 404) {
+        console.log("AudioConnectionManager: Chunk upload detected invalid session");
+        this.handleSessionInvalidated();
+        return false;
       }
 
       return false;
@@ -595,9 +774,15 @@ export class AudioConnectionManager {
       );
       try {
         await this.connectWithProtocol(nextProtocol);
-      } catch {
-        // Try next fallback
-        this.tryFallback();
+      } catch (error) {
+        // If it's a session validation error, don't try more fallbacks
+        // The session itself is invalid and needs to be recreated
+        if (error instanceof SessionValidationError) {
+          console.log("AudioConnectionManager: Session invalid, cannot use fallback protocols");
+          throw error; // Propagate up to trigger session recreation
+        }
+        // Try next fallback for other errors
+        await this.tryFallback();
       }
     } else {
       // All protocols failed - start polling as final fallback
