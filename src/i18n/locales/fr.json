@@ -16,6 +16,14 @@
     "password": "Mot de passe",
     "none": "Aucun"
   },
+  "timeAgo": {
+    "justNow": "À l'instant",
+    "minutesAgo": "il y a {{count}}m",
+    "hoursAgo": "il y a {{count}}h",
+    "daysAgo": "il y a {{count}}j",
+    "weeksAgo": "il y a {{count}}sem",
+    "monthsAgo": "il y a {{count}}mo"
+  },
   "auth": {
     "login": {
       "title": "Bienvenue",
@@ -49,9 +57,16 @@
   },
   "dashboard": {
     "welcome": "Bienvenue de retour",
+    "greeting": "Bienvenue de retour, {{name}} !",
+    "summary": "Voici un résumé de votre Second Brain",
     "totalMemories": "Mémoires totales",
     "totalInteractions": "Interactions totales",
-    "dailySummaries": "Résumés quotidiens"
+    "dailySummaries": "Résumés quotidiens",
+    "recentActivity": "Activité récente",
+    "noRecentActivity": "Aucune activité récente. Commencez par capturer vos pensées ou créer des tâches !",
+    "recordThought": "Enregistrer une pensée",
+    "viewMemories": "Voir les mémoires",
+    "todaysSummary": "Résumé du jour"
   },
   "navigation": {
     "settings": "Paramètres",
