@@ -201,6 +201,11 @@ router.post(
         preferredProtocol: preferredProtocol as ConnectionProtocol,
       });
 
+      console.log(`\n🌐 [API] POST /api/audio/sessions - New session created`);
+      console.log(`   → Session ID: ${result.sessionId}`);
+      console.log(`   → User: ${req.userId}`);
+      console.log(`   → Device: ${resolvedDeviceId}`);
+
       // Update device activity
       await audioSessionManager.updateDeviceActivity(
         resolvedDeviceId,
@@ -294,6 +299,8 @@ router.delete(
         return res.status(404).json({ error: "Session not found" });
       }
 
+      console.log(`\n🌐 [API] DELETE /api/audio/sessions/${req.params.sessionId} - Session closed`);
+
       res.json({ success: true });
     } catch (error: any) {
       console.error("Close session error:", error);
@@ -363,6 +370,11 @@ router.post(
         isFinal,
       });
 
+      if (sequence % 10 === 0 || isFinal) {
+        // Log every 10th chunk or final chunk to avoid spam
+        console.log(`📦 [API] Chunk #${sequence} received (${audioData.length} bytes)${isFinal ? ' [FINAL]' : ''} - session: ${sessionId.slice(0, 8)}...`);
+      }
+
       if (!result.success) {
         return res.status(400).json({ error: result.error });
       }
@@ -409,6 +421,8 @@ router.get(
       res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
       res.flushHeaders();
 
+      console.log(`🔗 [SSE] Client connected to events stream - session: ${sessionId.slice(0, 8)}...`);
+
       // Send initial connection event
       res.write(
         `event: connected\ndata: ${JSON.stringify({ sessionId, timestamp: Date.now() })}\n\n`,
@@ -447,6 +461,7 @@ router.get(
 
       // Clean up on close
       req.on("close", () => {
+        console.log(`🔔 [SSE] Client disconnected from events stream - session: ${sessionId.slice(0, 8)}...`);
         clearInterval(heartbeat);
         audioSessionManager.off(`session:${sessionId}:event`, eventHandler);
       });

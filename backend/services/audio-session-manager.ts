@@ -223,10 +223,21 @@ export class AudioSessionManager extends EventEmitter {
     this.sessionEventBuffers.set(session.id, []);
     this.sessionEventCounters.set(session.id, 0);
 
-    // Initialize the continuous listening service for this session
-    await this.initializeListeningService(session.id, config.userId);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`🎙️ [AUDIO SESSION] New continuous audio session starting`);
+    console.log(`${'='.repeat(60)}`);
+    console.log(`📋 Session ID: ${session.id}`);
+    console.log(`👤 User ID: ${config.userId}`);
+    console.log(`📱 Device ID: ${config.deviceId}`);
+    console.log(`🔌 Protocol: ${protocol}`);
+    console.log(`🎵 Audio Format: ${JSON.stringify(config.audioFormat || { codec: 'pcm16', sampleRate: 16000, channels: 1 })}`);
+    console.log(`⏰ Started at: ${new Date().toISOString()}`);
 
-    console.log(`🎙️ Audio session created: ${session.id} (protocol: ${protocol})`);
+    // Initialize the continuous listening service for this session
+    console.log(`\n🔧 [AUDIO SESSION] Initializing continuous listening service...`);
+    await this.initializeListeningService(session.id, config.userId);
+    console.log(`✅ [AUDIO SESSION] Session ${session.id} is now active and listening`);
+    console.log(`${'='.repeat(60)}\n`)
 
     return {
       sessionId: session.id,
@@ -346,7 +357,10 @@ export class AudioSessionManager extends EventEmitter {
       },
     });
 
-    console.log(`✅ Session closed: ${sessionId}`);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`✅ [AUDIO SESSION] Session closed: ${sessionId}`);
+    console.log(`⏰ Ended at: ${new Date().toISOString()}`);
+    console.log(`${'='.repeat(60)}\n`);
 
     return true;
   }
@@ -366,10 +380,12 @@ export class AudioSessionManager extends EventEmitter {
     });
 
     if (!session) {
+      console.log(`❌ [CHUNK] Session not found: ${chunkData.sessionId}`);
       return { success: false, error: 'Session not found' };
     }
 
     if (!['ACTIVE', 'RESUMING', 'CONNECTING'].includes(session.status)) {
+      console.log(`❌ [CHUNK] Session not active: ${chunkData.sessionId} (status: ${session.status})`);
       return { success: false, error: `Session not active (status: ${session.status})` };
     }
 
@@ -409,6 +425,11 @@ export class AudioSessionManager extends EventEmitter {
           timestamp: Date.now(),
           sampleRate: chunkData.sampleRate || 16000,
         });
+
+        // Log VAD result for visibility
+        if (result.data?.isSpeech) {
+          console.log(`🎤 [VAD] Speech detected in chunk #${chunkData.sequence} (session: ${chunkData.sessionId.slice(0, 8)}...)`);
+        }
 
         // Mark chunk as processed
         await prisma.audioChunk.update({
@@ -558,6 +579,8 @@ export class AudioSessionManager extends EventEmitter {
    * Initialize the continuous listening service for a session
    */
   private async initializeListeningService(sessionId: string, userId: string): Promise<void> {
+    console.log(`\n🔧 [INIT] Loading configuration for session ${sessionId}...`);
+    
     // Get user settings
     const settings = await prisma.userSettings.findUnique({
       where: { userId },
@@ -567,6 +590,9 @@ export class AudioSessionManager extends EventEmitter {
     const speakerProfile = await prisma.speakerProfile.findFirst({
       where: { userId, isEnrolled: true },
     });
+
+    console.log(`📝 [INIT] User settings loaded: ${settings ? 'custom' : 'defaults'}`);
+    console.log(`🗣️ [INIT] Speaker profile: ${speakerProfile ? `enrolled (${speakerProfile.id})` : 'not enrolled'}`);
 
     const config: ContinuousListeningConfig = {
       userId,
@@ -581,6 +607,13 @@ export class AudioSessionManager extends EventEmitter {
         ? (speakerProfile.centroidEmbedding as number[])
         : undefined,
     };
+
+    console.log(`⚙️ [INIT] Configuration applied:`);
+    console.log(`   - Wake word: "${config.wakeWord}" (sensitivity: ${config.wakeWordSensitivity})`);
+    console.log(`   - VAD sensitivity: ${config.vadSensitivity}`);
+    console.log(`   - Silence detection: ${config.silenceDetectionMs}ms`);
+    console.log(`   - Min importance threshold: ${config.minImportanceThreshold}`);
+    console.log(`   - Speaker confidence threshold: ${config.speakerConfidenceThreshold}`);
 
     const service = new ContinuousListeningService(config);
 

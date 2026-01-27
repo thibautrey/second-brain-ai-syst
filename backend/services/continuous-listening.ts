@@ -272,6 +272,8 @@ export class ContinuousListeningService extends EventEmitter {
       // Accumulate speech in separate buffer
       this.speechBuffer.write(chunk.data);
 
+      console.log(`🟢 [VAD] Voice detected! Energy: ${vadResult.energyLevel?.toFixed(3) || 'N/A'}, Score: ${vadResult.vadScore?.toFixed(3) || 'N/A'}, Confidence: ${(vadResult.confidence * 100).toFixed(1)}%`);
+
       this.emit("vad_status", {
         isSpeech: true,
         energyLevel: vadResult.energyLevel,
@@ -287,6 +289,8 @@ export class ContinuousListeningService extends EventEmitter {
 
     // Check if speech just ended
     if (this.vad.hasSpeechEnded() && this.speechBuffer.hasMinDuration(0.5)) {
+      console.log(`\n🟡 [VAD] Speech segment ended - accumulated ${this.speechBuffer.getDuration().toFixed(2)}s of audio`);
+      console.log(`🔄 [PROCESSING] Starting speech processing pipeline...`);
       // Process the accumulated speech
       return this.processAccumulatedSpeech();
     }
@@ -313,6 +317,10 @@ export class ContinuousListeningService extends EventEmitter {
     const flowId = randomBytes(8).toString("hex");
     const startTime = Date.now();
 
+    console.log(`\n${'─'.repeat(50)}`);
+    console.log(`🎯 [PIPELINE] Processing speech segment (flow: ${flowId})`);
+    console.log(`${'─'.repeat(50)}`);
+
     // Start flow tracking for audio processing
     flowTracker.startFlow(flowId, "audio_stream");
     flowTracker.trackEvent({
@@ -331,8 +339,14 @@ export class ContinuousListeningService extends EventEmitter {
       this.speechBuffer.clear();
 
       // Step 1: Speaker Identification
+      console.log(`\n👤 [STEP 1] Speaker Identification...`);
       const speakerStart = Date.now();
       const speakerResult = await this.identifySpeaker(audioData);
+
+      console.log(`   → Speaker: ${speakerResult.isTargetUser ? '✅ Target user' : '❌ Other/Unknown'}`);
+      console.log(`   → Confidence: ${(speakerResult.confidence * 100).toFixed(1)}%`);
+      console.log(`   → Speaker ID: ${speakerResult.speakerId}`);
+      console.log(`   → Duration: ${Date.now() - speakerStart}ms`);
 
       flowTracker.trackEvent({
         flowId,
@@ -367,8 +381,14 @@ export class ContinuousListeningService extends EventEmitter {
       }
 
       // Step 2: Transcription
+      console.log(`\n📝 [STEP 2] Transcribing audio...`);
       const transcriptionStart = Date.now();
       const transcription = await this.transcribeAudio(audioData, duration);
+
+      console.log(`   → Text: "${transcription.text.slice(0, 100)}${transcription.text.length > 100 ? '...' : ''}"`);
+      console.log(`   → Language: ${transcription.language}`);
+      console.log(`   → Confidence: ${(transcription.confidence * 100).toFixed(1)}%`);
+      console.log(`   → Duration: ${Date.now() - transcriptionStart}ms`);
 
       flowTracker.trackEvent({
         flowId,
@@ -400,6 +420,7 @@ export class ContinuousListeningService extends EventEmitter {
       }
 
       // Step 2.5: NOISE FILTERING - Filter out irrelevant content BEFORE classification
+      console.log(`\n🚫 [STEP 2.5] Noise filtering...`);
       const noiseFilterStart = Date.now();
 
       // Load user preferences for noise filtering
@@ -439,6 +460,13 @@ export class ContinuousListeningService extends EventEmitter {
         noiseFilterContext,
       );
 
+      console.log(`   → Is meaningful: ${noiseFilterResult.isMeaningful ? '✅ Yes' : '❌ No'}`);
+      console.log(`   → Category: ${noiseFilterResult.category}`);
+      console.log(`   → Confidence: ${(noiseFilterResult.confidence * 100).toFixed(1)}%`);
+      console.log(`   → Suggested action: ${noiseFilterResult.suggestedAction}`);
+      console.log(`   → Reason: ${noiseFilterResult.reason}`);
+      console.log(`   → Duration: ${Date.now() - noiseFilterStart}ms`);
+
       flowTracker.trackEvent({
         flowId,
         stage: "noise_filtering",
@@ -464,6 +492,9 @@ export class ContinuousListeningService extends EventEmitter {
         !noiseFilterResult.isMeaningful &&
         noiseFilterResult.suggestedAction === "discard"
       ) {
+        console.log(`\n🗑️ [RESULT] Content filtered as noise - skipping further processing`);
+        console.log(`${'─'.repeat(50)}\n`);
+        
         flowTracker.completeFlow(flowId, "completed");
         this.state = "listening";
         this.isProcessing = false;
@@ -479,12 +510,19 @@ export class ContinuousListeningService extends EventEmitter {
       }
 
       // Step 3: Wake word detection + Intent classification
+      console.log(`\n🧠 [STEP 3] Intent classification...`);
       const classificationStart = Date.now();
       const hasWakeWord = this.detectWakeWord(transcription.text);
       const classification = await this.intentRouter.classifyInput(
         transcription.text,
         { hasWakeWord, duration },
       );
+
+      console.log(`   → Wake word detected: ${hasWakeWord ? '✅ Yes' : '❌ No'}`);
+      console.log(`   → Input type: ${classification.inputType}`);
+      console.log(`   → Confidence: ${(classification.confidence * 100).toFixed(1)}%`);
+      console.log(`   → Should store: ${classification.shouldStore ? '✅ Yes' : '❌ No'}`);
+      console.log(`   → Duration: ${Date.now() - classificationStart}ms`);
 
       flowTracker.trackEvent({
         flowId,
@@ -503,6 +541,10 @@ export class ContinuousListeningService extends EventEmitter {
       if (hasWakeWord) {
         // Command mode - active response needed
         const commandText = this.removeWakeWord(transcription.text);
+
+        console.log(`\n💡 [RESULT] Wake word detected! Activating command mode`);
+        console.log(`   → Command: "${commandText}"`);
+        console.log(`${'─'.repeat(50)}\n`);
 
         flowTracker.trackEvent({
           flowId,
@@ -533,6 +575,7 @@ export class ContinuousListeningService extends EventEmitter {
         classification.shouldStore &&
         classification.confidence >= this.config.minImportanceThreshold
       ) {
+        console.log(`\n💾 [STEP 4] Storing to memory...`);
         const memoryStart = Date.now();
         const memory = await this.memoryManager.ingestInteraction(
           this.config.userId,
@@ -543,6 +586,12 @@ export class ContinuousListeningService extends EventEmitter {
             occurredAt: new Date(),
           },
         );
+
+        console.log(`   → Memory ID: ${memory.id}`);
+        console.log(`   → Duration: ${Date.now() - memoryStart}ms`);
+        console.log(`\n✅ [RESULT] Memory stored successfully!`);
+        console.log(`   → Total processing time: ${Date.now() - startTime}ms`);
+        console.log(`${'─'.repeat(50)}\n`);
 
         flowTracker.trackEvent({
           flowId,
@@ -570,6 +619,11 @@ export class ContinuousListeningService extends EventEmitter {
       }
 
       // Not relevant enough to store
+      console.log(`\n⚠️ [RESULT] Content below importance threshold - not storing`);
+      console.log(`   → Confidence: ${(classification.confidence * 100).toFixed(1)}% < ${(this.config.minImportanceThreshold * 100).toFixed(1)}% threshold`);
+      console.log(`   → Should store: ${classification.shouldStore}`);
+      console.log(`${'─'.repeat(50)}\n`);
+      
       flowTracker.trackEvent({
         flowId,
         stage: "memory_storage",
@@ -587,7 +641,8 @@ export class ContinuousListeningService extends EventEmitter {
         data: { reason: "below_importance_threshold", classification },
       };
     } catch (error) {
-      console.error("Error processing speech:", error);
+      console.error(`\n❌ [ERROR] Error processing speech:`, error);
+      console.log(`${'─'.repeat(50)}\n`);
 
       flowTracker.trackEvent({
         flowId,
@@ -926,7 +981,16 @@ export class ContinuousListeningManager {
     const service = new ContinuousListeningService(config);
     this.sessions.set(userId, service);
 
-    console.log(`✓ Started continuous listening session for user ${userId}`);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`✅ [SESSION] Started continuous listening session`);
+    console.log(`${'='.repeat(60)}`);
+    console.log(`👤 User ID: ${userId}`);
+    console.log(`🗣️ Wake word: "${config.wakeWord}"`);
+    console.log(`🎤 VAD sensitivity: ${config.vadSensitivity}`);
+    console.log(`📊 Min importance: ${config.minImportanceThreshold}`);
+    console.log(`👤 Speaker profile: ${config.speakerProfileId || 'none'}`);
+    console.log(`${'='.repeat(60)}\n`);
+
     return service;
   }
 
@@ -945,7 +1009,9 @@ export class ContinuousListeningManager {
     if (session) {
       session.stop();
       this.sessions.delete(userId);
-      console.log(`✓ Stopped continuous listening session for user ${userId}`);
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`🛑 [SESSION] Stopped continuous listening session for user ${userId}`);
+      console.log(`${'='.repeat(60)}\n`);
     }
   }
 
