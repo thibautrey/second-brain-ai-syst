@@ -85,7 +85,8 @@ export function useChatMessages() {
           },
           body: JSON.stringify({
             message: content,
-            messages: state.messages.filter(
+            // Use ref to get current messages without needing it as a dependency
+            messages: messagesRef.current.filter(
               (m) => m.role !== "assistant" || m.content,
             ),
           }),
