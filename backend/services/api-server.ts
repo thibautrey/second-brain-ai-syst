@@ -88,9 +88,9 @@ import audioIngestionController from "../controllers/audio-ingestion.controller.
 import { audioSessionManager } from "./audio-session-manager.js";
 import factCheckController from "../controllers/fact-check.controller.js";
 import analyticsController from "../controllers/analytics.controller.js";
-import { 
-  cleanupDuplicateTodos, 
-  disableDataCoherenceAgent 
+import {
+  cleanupDuplicateTodos,
+  disableDataCoherenceAgent,
 } from "../controllers/data-cleanup.controller.js";
 
 // Environment validation
@@ -168,7 +168,14 @@ const corsOptions = {
   origin: process.env.FRONTEND_URL || "http://localhost:5173",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Chunk-Sequence", "X-Is-Final", "X-Audio-Format", "X-Sample-Rate"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Chunk-Sequence",
+    "X-Is-Final",
+    "X-Audio-Format",
+    "X-Sample-Rate",
+  ],
   maxAge: 86400, // 24 hours
 };
 
@@ -1076,7 +1083,11 @@ if (process.env.NODE_ENV !== "production") {
 // ==================== Data Cleanup Routes ====================
 
 app.post("/api/cleanup/duplicate-todos", authMiddleware, cleanupDuplicateTodos);
-app.post("/api/cleanup/disable-coherence-agent", authMiddleware, disableDataCoherenceAgent);
+app.post(
+  "/api/cleanup/disable-coherence-agent",
+  authMiddleware,
+  disableDataCoherenceAgent,
+);
 console.log("🧹 Data cleanup routes enabled at /api/cleanup");
 
 // ==================== Built-in Tools Routes ====================
@@ -3167,7 +3178,9 @@ app.patch(
           ...(notifyOnCommandDetected !== undefined && {
             notifyOnCommandDetected,
           }),
-          ...(metadataWithTheme !== undefined && { metadata: metadataWithTheme }),
+          ...(metadataWithTheme !== undefined && {
+            metadata: metadataWithTheme,
+          }),
         },
         create: {
           userId: req.userId,
@@ -3191,7 +3204,9 @@ app.patch(
           ...(notifyOnCommandDetected !== undefined && {
             notifyOnCommandDetected,
           }),
-          ...(metadataWithTheme !== undefined && { metadata: metadataWithTheme }),
+          ...(metadataWithTheme !== undefined && {
+            metadata: metadataWithTheme,
+          }),
         },
       });
 
@@ -3437,6 +3452,17 @@ export async function startServer(port: number = 3000) {
         });
     }, EMBEDDING_STARTUP_DELAY_MS);
 
+    // Start Telegram polling for all users with configured bots
+    try {
+      await telegramService.startAllPolling();
+      console.log("✓ Telegram polling service started");
+    } catch (error) {
+      console.warn(
+        "⚠️  Telegram polling initialization failed:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+
     // Create HTTP server
     const httpServer: HttpServer = createServer(app);
 
@@ -3456,7 +3482,37 @@ export async function startServer(port: number = 3000) {
     });
 
     setupNotificationWebSocketServer(notificationWss);
-    console.log("✓ WebSocket notification server initialized at /ws/notifications");
+    console.log(
+      "✓ WebSocket notification server initialized at /ws/notifications",
+    );
+
+    // Setup graceful shutdown
+    const gracefulShutdown = async () => {
+      console.log("\n🛑 Starting graceful shutdown...");
+
+      // Stop Telegram polling
+      telegramService.stopAllPolling();
+      console.log("✓ Telegram polling stopped");
+
+      // Stop continuous listening
+      await continuousListeningManager.stopAll();
+      console.log("✓ Continuous listening stopped");
+
+      // Close HTTP server
+      httpServer.close(() => {
+        console.log("✓ HTTP server closed");
+        process.exit(0);
+      });
+
+      // Force exit after 30 seconds
+      setTimeout(() => {
+        console.error("⚠️ Forced shutdown after timeout");
+        process.exit(1);
+      }, 30000);
+    };
+
+    process.on("SIGTERM", gracefulShutdown);
+    process.on("SIGINT", gracefulShutdown);
 
     // Start server
     httpServer.listen(port, "0.0.0.0", () => {

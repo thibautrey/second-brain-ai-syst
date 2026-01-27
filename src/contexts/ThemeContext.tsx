@@ -1,12 +1,13 @@
 import React, {
+  ReactNode,
   createContext,
+  useCallback,
   useContext,
   useEffect,
-  useState,
-  useCallback,
   useMemo,
-  ReactNode,
+  useState,
 } from "react";
+
 import { useAuth } from "./AuthContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -26,12 +27,16 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
-  const [themePreference, setThemePreferenceState] = useState<ThemePreference>("system");
+  const [themePreference, setThemePreferenceState] =
+    useState<ThemePreference>("system");
   const [systemTheme, setSystemTheme] = useState<ThemeMode>("light");
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
       return;
     }
 
@@ -84,8 +89,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const preference =
-          settings?.metadata?.appearance?.themePreference as ThemePreference | undefined;
+        const preference = settings?.metadata?.appearance?.themePreference as
+          | ThemePreference
+          | undefined;
 
         if (preference) {
           setThemePreferenceState(preference);
@@ -152,15 +158,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 
   const appearanceAttribute: ThemeMode = resolvedTheme;
-  const className = appearanceAttribute === "dark" ? "dark-theme" : "";
 
   return (
     <ThemeContext.Provider value={contextValue}>
-      <div
-        id="spark-app"
-        data-appearance={appearanceAttribute}
-        className={className}
-      >
+      <div id="spark-app" data-appearance={appearanceAttribute}>
         {children}
       </div>
     </ThemeContext.Provider>
