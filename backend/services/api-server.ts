@@ -3221,11 +3221,11 @@ export async function startServer(port: number = 3000) {
     // Initialize WebSocket server for notifications
     const notificationWss = new WebSocketServer({
       server: httpServer,
-      path: "/",
+      path: "/ws/notifications",
     });
 
     setupNotificationWebSocketServer(notificationWss);
-    console.log("✓ WebSocket notification server initialized at /");
+    console.log("✓ WebSocket notification server initialized at /ws/notifications");
 
     // Start server
     httpServer.listen(port, "0.0.0.0", () => {
