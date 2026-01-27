@@ -736,7 +736,7 @@ function AchievementsTabContent({
               onClick={() => setCategoryFilter(null)}
             >
               <Filter className="w-4 h-4 mr-1" />
-              Clear filter: {categoryFilter}
+              {t("goals.clearFilter", { category: categoryFilter })}
             </Button>
           )}
         </div>
