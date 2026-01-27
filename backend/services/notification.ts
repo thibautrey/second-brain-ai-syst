@@ -84,11 +84,9 @@ class NotificationService {
       const optimizedChannels =
         await smartNotificationRouter.getOptimalChannels(
           userId,
-          Array.from(channels),
+          channels,
         );
-      finalChannels = (
-        optimizedChannels.includes("CHAT") ? ["CHAT"] : channels
-      ) as NotificationChannel[];
+      finalChannels = optimizedChannels;
     }
 
     // Create notification in database

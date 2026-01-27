@@ -996,6 +996,7 @@ enum NotificationChannel {
     WEBHOOK // External webhook
     PUSHOVER // Pushover notification service
     TELEGRAM // Telegram bot notification
+    CHAT // Chat interface notification (when user is active in web)
 }
 
 // ==================== Tips & Hints System ====================

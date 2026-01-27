@@ -1,5 +1,6 @@
 import prisma from "./prisma.js";
 import { websocketBroadcast } from "./websocket-broadcast.js";
+import { NotificationChannel } from "@prisma/client";
 
 /**
  * Smart Notification Router Service
@@ -44,13 +45,13 @@ class SmartNotificationRouterService {
    */
   async getOptimalChannels(
     userId: string,
-    preferredChannels: string[] = ["IN_APP", "PUSH"],
-  ): Promise<string[]> {
+    preferredChannels: NotificationChannel[] = [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+  ): Promise<NotificationChannel[]> {
     const isActive = await this.isUserActiveInWeb(userId);
 
     if (isActive) {
       // User is actively viewing web interface - use chat channel
-      return ["CHAT"];
+      return [NotificationChannel.CHAT];
     }
 
     // User is not active in web - use standard channels
