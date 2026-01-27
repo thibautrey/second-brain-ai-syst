@@ -71,6 +71,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { createServer, Server as HttpServer, IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
 import { wsBroadcastService } from "./websocket-broadcast.js";
+import { adaptiveLearningController } from "../controllers/adaptive-learning.controller.js";
 
 import cors from "cors";
 import prisma from "./prisma.js";
@@ -490,6 +491,188 @@ app.post(
   upload.single("audio"),
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     await voiceTrainingController.verifyVoice(req, res, next);
+  },
+);
+
+// ==================== Adaptive Speaker Learning Routes ====================
+
+/**
+ * GET /api/adaptive-learning/status/:profileId
+ * Get adaptive learning status for a profile
+ */
+app.get(
+  "/api/adaptive-learning/status/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.getStatus(req, res, next);
+  },
+);
+
+/**
+ * POST /api/adaptive-learning/enable/:profileId
+ * Enable adaptive learning for a profile
+ */
+app.post(
+  "/api/adaptive-learning/enable/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.enable(req, res, next);
+  },
+);
+
+/**
+ * POST /api/adaptive-learning/disable/:profileId
+ * Disable adaptive learning for a profile
+ */
+app.post(
+  "/api/adaptive-learning/disable/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.disable(req, res, next);
+  },
+);
+
+/**
+ * POST /api/adaptive-learning/unfreeze/:profileId
+ * Unfreeze a frozen profile
+ */
+app.post(
+  "/api/adaptive-learning/unfreeze/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.unfreeze(req, res, next);
+  },
+);
+
+/**
+ * GET /api/adaptive-learning/health/:profileId
+ * Get health metrics for a profile
+ */
+app.get(
+  "/api/adaptive-learning/health/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.getHealth(req, res, next);
+  },
+);
+
+/**
+ * GET /api/adaptive-learning/health-history/:profileId
+ * Get health check history for a profile
+ */
+app.get(
+  "/api/adaptive-learning/health-history/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.getHealthHistory(req, res, next);
+  },
+);
+
+/**
+ * GET /api/adaptive-learning/samples/:profileId
+ * Get adaptive samples for a profile
+ */
+app.get(
+  "/api/adaptive-learning/samples/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.getSamples(req, res, next);
+  },
+);
+
+/**
+ * DELETE /api/adaptive-learning/samples/:profileId/:sampleId
+ * Remove a specific adaptive sample
+ */
+app.delete(
+  "/api/adaptive-learning/samples/:profileId/:sampleId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.removeSample(req, res, next);
+  },
+);
+
+/**
+ * GET /api/adaptive-learning/snapshots/:profileId
+ * List available snapshots for rollback
+ */
+app.get(
+  "/api/adaptive-learning/snapshots/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.getSnapshots(req, res, next);
+  },
+);
+
+/**
+ * POST /api/adaptive-learning/rollback/:profileId
+ * Rollback to a previous snapshot
+ */
+app.post(
+  "/api/adaptive-learning/rollback/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.rollback(req, res, next);
+  },
+);
+
+/**
+ * POST /api/adaptive-learning/snapshot/:profileId
+ * Create a manual backup snapshot
+ */
+app.post(
+  "/api/adaptive-learning/snapshot/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.createSnapshot(req, res, next);
+  },
+);
+
+/**
+ * GET /api/adaptive-learning/negatives
+ * Get negative examples for current user
+ */
+app.get(
+  "/api/adaptive-learning/negatives",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.getNegatives(req, res, next);
+  },
+);
+
+/**
+ * DELETE /api/adaptive-learning/negatives/:exampleId
+ * Delete a specific negative example
+ */
+app.delete(
+  "/api/adaptive-learning/negatives/:exampleId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.deleteNegative(req, res, next);
+  },
+);
+
+/**
+ * DELETE /api/adaptive-learning/negatives
+ * Clear all negative examples for current user
+ */
+app.delete(
+  "/api/adaptive-learning/negatives",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.clearNegatives(req, res, next);
+  },
+);
+
+/**
+ * GET /api/adaptive-learning/config
+ * Get current adaptive learning configuration
+ */
+app.get(
+  "/api/adaptive-learning/config",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.getConfig(req, res, next);
   },
 );
 

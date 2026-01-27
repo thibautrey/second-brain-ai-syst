@@ -8,6 +8,7 @@
  * 4. Transcription via configured provider
  * 5. Wake word detection + Intent classification
  * 6. Memory storage (if relevant) or Command execution
+ * 7. Adaptive speaker learning (optional)
  *
  * Cost Optimization:
  * - Only voice-containing audio chunks are sent to the provider API
@@ -40,6 +41,10 @@ import {
 import { notificationService } from "./notification.js";
 import { memorySearchService } from "./memory-search.js";
 import { toolExecutorService } from "./tool-executor.js";
+import { 
+  adaptiveSpeakerLearningService,
+  DEFAULT_ADAPTIVE_CONFIG,
+} from "./adaptive-speaker-learning.js";
 
 // ==================== Types ====================
 
@@ -73,6 +78,8 @@ export interface SpeakerIdentificationResult {
   isTargetUser: boolean;
   confidence: number;
   speakerId: string;
+  /** The voice embedding extracted for this audio segment (for adaptive learning) */
+  embedding?: number[];
 }
 
 export interface TranscriptionResult {
@@ -383,6 +390,42 @@ export class ContinuousListeningService extends EventEmitter {
       console.log(`   → Confidence: ${(speakerResult.confidence * 100).toFixed(1)}%`);
       console.log(`   → Speaker ID: ${speakerResult.speakerId}`);
       console.log(`   → Duration: ${Date.now() - speakerStart}ms`);
+
+      // Step 1.5: Adaptive Speaker Learning (background, non-blocking)
+      // This helps the system improve speaker detection over time
+      if (
+        this.config.speakerProfileId &&
+        speakerResult.embedding &&
+        duration >= DEFAULT_ADAPTIVE_CONFIG.audioQuality.minDurationSeconds
+      ) {
+        // Run in background - don't block the main pipeline
+        adaptiveSpeakerLearningService
+          .processAudioForLearning(
+            this.config.speakerProfileId,
+            speakerResult.embedding,
+            speakerResult.confidence,
+            audioData
+          )
+          .then((result) => {
+            if (result.action === "admitted") {
+              console.log(
+                `   🧠 [ADAPTIVE] Sample accepted for learning (similarity: ${(speakerResult.confidence * 100).toFixed(1)}%)`
+              );
+            } else if (result.action === "negative_stored") {
+              console.log(
+                `   🧠 [ADAPTIVE] Collected as negative example (other speaker)`
+              );
+            }
+            // Log rejection reasons at debug level only
+            if (result.action === "rejected") {
+              console.debug(`   🧠 [ADAPTIVE] Rejected: ${result.reason}`);
+            }
+          })
+          .catch((err) => {
+            // Silent failure - adaptive learning should never break the main flow
+            console.debug(`   🧠 [ADAPTIVE] Error (non-critical): ${err.message}`);
+          });
+      }
 
       flowTracker.trackEvent({
         flowId,
@@ -904,6 +947,7 @@ export class ContinuousListeningService extends EventEmitter {
         speakerId: isTargetUser
           ? this.config.speakerProfileId || "user"
           : "other",
+        embedding, // Include embedding for adaptive learning
       };
     } catch (error) {
       console.error("Speaker identification failed:", error);

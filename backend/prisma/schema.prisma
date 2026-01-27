@@ -77,6 +77,9 @@ model User {
     factCheckResults        FactCheckResult[]
     correctionNotifications CorrectionNotification[]
 
+    // Adaptive Speaker Learning
+    negativeExamples NegativeExample[]
+
     @@map("users")
 }
 
