@@ -93,6 +93,7 @@ model UserSettings {
     wakeWordSensitivity        Float   @default(0.8) // 0.0 - 1.0
     minImportanceThreshold     Float   @default(0.3) // Seuil pour stockage mémoire passive
     silenceDetectionMs         Int     @default(1500) // Durée silence = fin de phrase
+    autoRespondToQuestions     Boolean @default(true) // Respond to questions without wake word
 
     // Audio Processing Settings
     vadSensitivity              Float   @default(0.5) // 0.0 - 1.0
@@ -309,12 +310,29 @@ model SpeakerProfile {
     enrollmentDate   DateTime?
     lastTrainingDate DateTime?
 
+    // Adaptive learning fields
+    adaptiveLearningEnabled Boolean   @default(false)
+    lastAdaptiveUpdate      DateTime?
+    adaptiveUpdateCount     Int       @default(0)
+
+    // Profile health metrics
+    profileHealth    Float     @default(1.0) // 0-1, degradation indicator
+    lastHealthCheck  DateTime?
+
+    // Frozen flag - stops all updates if health drops
+    isFrozen     Boolean   @default(false)
+    frozenAt     DateTime?
+    frozenReason String?
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     // Relations
-    voiceSamples     VoiceSample[]
-    trainingSessions TrainingSession[]
+    voiceSamples      VoiceSample[]
+    trainingSessions  TrainingSession[]
+    adaptiveSamples   AdaptiveSample[]
+    profileSnapshots  ProfileSnapshot[]
+    healthLogs        ProfileHealthLog[]
 
     @@index([userId])
     @@map("speaker_profiles")
@@ -384,6 +402,108 @@ model TrainingSession {
     @@index([speakerProfileId])
     @@index([status])
     @@map("training_sessions")
+}
+
+// ==================== Adaptive Speaker Learning Models ====================
+
+model AdaptiveSample {
+    id               String         @id @default(cuid())
+    speakerProfileId String
+    speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+
+    // Source information
+    sourceType      String  // 'continuous_listening', 'manual_training', 'verification'
+    sourceSessionId String? // Link to listening session
+
+    // Audio characteristics
+    embedding         Json  // The voice embedding
+    durationSeconds   Float
+    audioQualityScore Float // 0-1 computed quality
+
+    // Confidence metrics at admission time
+    admissionSimilarity  Float // Similarity to centroid when admitted
+    crossValidationScore Float // Consistency with other samples
+
+    // Contribution tracking
+    contributionWeight Float @default(1.0) // How much this affects centroid
+    decayFactor        Float @default(1.0) // Decreases over time
+
+    // Audit
+    admittedAt         DateTime  @default(now())
+    lastUsedInCentroid DateTime?
+    isActive           Boolean   @default(true) // Can be soft-deleted
+
+    @@index([speakerProfileId])
+    @@index([admittedAt])
+    @@index([isActive])
+    @@map("adaptive_samples")
+}
+
+model NegativeExample {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Cluster information
+    clusterId String? // For grouping similar negatives
+    embedding Json
+
+    // Source
+    capturedAt      DateTime @default(now())
+    sourceSessionId String?
+    confidence      Float // How confident we are this is NOT the user
+
+    // Optional: identified person
+    externalPersonId String? // If this was identified as a known external person
+
+    @@index([userId])
+    @@index([clusterId])
+    @@map("negative_examples")
+}
+
+model ProfileSnapshot {
+    id               String         @id @default(cuid())
+    speakerProfileId String
+    speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+
+    // Snapshot data
+    centroid              Json     // The centroid embedding at snapshot time
+    adaptiveSampleIds     String[] // IDs of adaptive samples included
+    trainingSampleCount   Int      // Number of original training samples
+    adaptiveSampleCount   Int      // Number of adaptive samples
+    healthScore           Float
+    intraClassVariance    Float?
+
+    // Metadata
+    reason    String   // 'before_adaptive_update', 'manual_backup', 'scheduled', 'health_drop'
+    createdAt DateTime @default(now())
+
+    @@index([speakerProfileId])
+    @@index([createdAt])
+    @@map("profile_snapshots")
+}
+
+model ProfileHealthLog {
+    id               String         @id @default(cuid())
+    speakerProfileId String
+    speakerProfile   SpeakerProfile @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+
+    // Health metrics snapshot
+    healthScore          Float
+    intraClassVariance   Float
+    interClassSeparation Float? // If negative examples exist
+    sampleCount          Int
+    adaptiveSampleCount  Int
+
+    // Event
+    eventType       String // 'scheduled_check', 'after_update', 'manual_audit', 'threshold_breach'
+    recommendations Json?  // Suggested actions
+
+    createdAt DateTime @default(now())
+
+    @@index([speakerProfileId])
+    @@index([createdAt])
+    @@map("profile_health_logs")
 }
 
 model AudioStreamSession {

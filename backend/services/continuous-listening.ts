@@ -37,6 +37,9 @@ import {
   TranscriptionChunk,
   ChunkAnalysisContext,
 } from "./transcription-context-buffer.js";
+import { notificationService } from "./notification.js";
+import { memorySearchService } from "./memory-search.js";
+import { toolExecutorService } from "./tool-executor.js";
 
 // ==================== Types ====================
 
@@ -51,6 +54,7 @@ export interface ContinuousListeningConfig {
   speakerConfidenceThreshold: number;
   speakerProfileId?: string;
   centroidEmbedding?: number[];
+  autoRespondToQuestions: boolean; // NEW: Respond to questions without wake word
 }
 
 export interface AudioChunk {
@@ -650,6 +654,10 @@ export class ContinuousListeningService extends EventEmitter {
           status: "success",
           decision: "Command mode activated",
         });
+
+        // Process the command through AI and send notification
+        await this.processQuestionAndRespond(commandText, flowId, startTime);
+
         flowTracker.completeFlow(flowId, "completed");
 
         this.emit("command_detected", {
@@ -664,6 +672,59 @@ export class ContinuousListeningService extends EventEmitter {
           type: "command",
           timestamp: Date.now(),
           data: { text: commandText, classification },
+        };
+      }
+
+      // NEW: Auto-respond to questions without wake word
+      if (
+        this.config.autoRespondToQuestions &&
+        classification.inputType === "question" &&
+        classification.confidence >= 0.7
+      ) {
+        console.log(`\n❓ [AUTO-RESPOND] Question detected - processing without wake word`);
+        console.log(`   → Question: "${transcription.text}"`);
+        console.log(`   → Confidence: ${(classification.confidence * 100).toFixed(1)}%`);
+
+        flowTracker.trackEvent({
+          flowId,
+          stage: "auto_respond_question",
+          service: "ContinuousListeningService",
+          status: "started",
+          decision: "Auto-responding to question (no wake word needed)",
+        });
+
+        // Process the question through AI and send notification
+        await this.processQuestionAndRespond(transcription.text, flowId, startTime);
+
+        // Also store to memory
+        const memoryStart = Date.now();
+        const memory = await this.memoryManager.ingestInteraction(
+          this.config.userId,
+          transcription.text,
+          {
+            sourceType: "continuous_listening",
+            entities: [],
+            occurredAt: new Date(),
+          },
+        );
+
+        console.log(`   → Memory ID: ${memory.id}`);
+        console.log(`   → Memory storage duration: ${Date.now() - memoryStart}ms`);
+
+        flowTracker.completeFlow(flowId, "completed");
+
+        this.emit("question_answered", {
+          text: transcription.text,
+          classification,
+          memoryId: memory.id,
+        });
+
+        this.state = "listening";
+        this.isProcessing = false;
+        return {
+          type: "command", // Treat as command since we responded
+          timestamp: Date.now(),
+          data: { text: transcription.text, classification, memoryId: memory.id },
         };
       }
 
@@ -950,6 +1011,198 @@ export class ContinuousListeningService extends EventEmitter {
   }
 
   /**
+   * Process a question through the AI and send a notification with the response
+   * This is used for both wake-word commands and auto-respond questions
+   */
+  private async processQuestionAndRespond(
+    questionText: string,
+    flowId: string,
+    startTime: number,
+  ): Promise<void> {
+    try {
+      console.log(`\n🤖 [AI] Processing question: "${questionText}"`);
+      const aiStart = Date.now();
+
+      // Get user's AI provider configuration
+      const taskConfig = await prisma.aITaskConfig.findFirst({
+        where: {
+          userId: this.config.userId,
+          taskType: "REFLECTION",
+        },
+        include: {
+          provider: true,
+          model: true,
+        },
+      });
+
+      if (!taskConfig?.provider) {
+        console.log(`   ⚠️ No AI provider configured - skipping AI response`);
+        return;
+      }
+
+      // Search for relevant memories
+      let relevantMemories: string[] = [];
+      try {
+        const searchResponse = await memorySearchService.semanticSearch(
+          this.config.userId,
+          questionText,
+          3,
+        );
+        relevantMemories = searchResponse.results
+          .map((r: any) => r.memory?.content || r.memory?.text)
+          .filter(Boolean);
+      } catch (error) {
+        console.log(`   ⚠️ Memory search failed:`, error);
+      }
+
+      // Build context
+      const memoryContext = relevantMemories.length > 0
+        ? `\n\nRelevant memories:\n${relevantMemories.map((m, i) => `${i + 1}. ${m}`).join('\n')}`
+        : '';
+
+      // Create OpenAI client
+      const openai = new OpenAI({
+        apiKey: taskConfig.provider.apiKey,
+        baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
+      });
+
+      // Get available tools for LLM function calling
+      const tools = toolExecutorService.getToolSchemas();
+
+      // Make LLM call with tools
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        {
+          role: "system",
+          content: `You are a helpful AI assistant integrated into a "Second Brain" system. 
+You help the user with questions and tasks based on their voice commands.
+Respond concisely and helpfully. If you need to use tools to answer the question, use them.
+The current time is ${new Date().toLocaleString()}.${memoryContext}`,
+        },
+        {
+          role: "user",
+          content: questionText,
+        },
+      ];
+
+      let response = await openai.chat.completions.create({
+        model: taskConfig.model?.modelId || "gpt-4",
+        messages,
+        tools: tools.length > 0 ? tools : undefined,
+        max_tokens: 1000,
+      });
+
+      let assistantMessage = response.choices[0].message;
+      let finalResponse = assistantMessage.content || "";
+
+      // Handle tool calls if any
+      let toolCallCount = 0;
+      const maxToolCalls = 5;
+
+      while (assistantMessage.tool_calls && toolCallCount < maxToolCalls) {
+        toolCallCount++;
+        console.log(`   🔧 Tool call ${toolCallCount}: ${assistantMessage.tool_calls.map(tc => tc.function.name).join(', ')}`);
+
+        // Add assistant message with tool calls
+        messages.push(assistantMessage);
+
+        // Execute each tool call
+        for (const toolCall of assistantMessage.tool_calls) {
+          try {
+            const toolParams = JSON.parse(toolCall.function.arguments);
+            const toolResult = await toolExecutorService.executeTool(
+              this.config.userId,
+              {
+                toolId: toolCall.function.name,
+                action: toolParams.action || 'default',
+                params: toolParams,
+              },
+            );
+
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+            });
+          } catch (toolError) {
+            console.log(`   ⚠️ Tool error: ${toolError}`);
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: `Error: ${toolError instanceof Error ? toolError.message : String(toolError)}`,
+            });
+          }
+        }
+
+        // Get next response
+        response = await openai.chat.completions.create({
+          model: taskConfig.model?.modelId || "gpt-4",
+          messages,
+          tools: tools.length > 0 ? tools : undefined,
+          max_tokens: 1000,
+        });
+
+        assistantMessage = response.choices[0].message;
+        if (assistantMessage.content) {
+          finalResponse = assistantMessage.content;
+        }
+      }
+
+      console.log(`   → AI response generated in ${Date.now() - aiStart}ms`);
+      console.log(`   → Response: "${finalResponse.substring(0, 100)}${finalResponse.length > 100 ? '...' : ''}"`);
+
+      // Send notification with the response
+      if (finalResponse) {
+        const notificationStart = Date.now();
+        
+        await notificationService.createNotification({
+          userId: this.config.userId,
+          title: "🎤 Voice Question Answer",
+          message: finalResponse,
+          type: "INFO",
+          channels: ["IN_APP", "PUSH", "TELEGRAM"],
+          sourceType: "voice_question",
+          metadata: {
+            question: questionText,
+            flowId,
+            processingTime: Date.now() - startTime,
+            toolCallCount,
+          },
+          skipSpamCheck: true, // Voice questions should always get through
+        });
+
+        console.log(`   → Notification sent in ${Date.now() - notificationStart}ms`);
+
+        flowTracker.trackEvent({
+          flowId,
+          stage: "ai_response_sent",
+          service: "ContinuousListeningService",
+          status: "success",
+          duration: Date.now() - aiStart,
+          data: {
+            responseLength: finalResponse.length,
+            toolCallCount,
+          },
+        });
+
+        this.emit("ai_response", {
+          question: questionText,
+          response: finalResponse,
+          toolCallCount,
+        });
+      }
+    } catch (error) {
+      console.error(`   ⚠️ AI processing failed:`, error);
+      flowTracker.trackEvent({
+        flowId,
+        stage: "ai_response_failed",
+        service: "ContinuousListeningService",
+        status: "failed",
+        data: { error: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  }
+
+  /**
    * Detect wake word in text
    */
   private detectWakeWord(text: string): boolean {
@@ -1135,6 +1388,7 @@ export class ContinuousListeningManager {
       centroidEmbedding: speakerProfile?.centroidEmbedding as
         | number[]
         | undefined,
+      autoRespondToQuestions: (settings as any).autoRespondToQuestions ?? true, // Default to true
     };
 
     const service = new ContinuousListeningService(config);
@@ -1148,6 +1402,7 @@ export class ContinuousListeningManager {
     console.log(`🎤 VAD sensitivity: ${config.vadSensitivity}`);
     console.log(`📊 Min importance: ${config.minImportanceThreshold}`);
     console.log(`👤 Speaker profile: ${config.speakerProfileId || 'none'}`);
+    console.log(`❓ Auto-respond to questions: ${config.autoRespondToQuestions ? '✅ Yes' : '❌ No'}`);
     console.log(`${'='.repeat(60)}\n`);
 
     return service;

@@ -607,6 +607,7 @@ export class AudioSessionManager extends EventEmitter {
       centroidEmbedding: speakerProfile?.centroidEmbedding 
         ? (speakerProfile.centroidEmbedding as number[])
         : undefined,
+      autoRespondToQuestions: (settings as any)?.autoRespondToQuestions ?? true,
     };
 
     console.log(`⚙️ [INIT] Configuration applied:`);
