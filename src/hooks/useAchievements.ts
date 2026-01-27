@@ -45,17 +45,18 @@ export function useAchievements(options: UseAchievementsOptions = {}) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch achievements");
+      if (!response.ok) throw new Error(`Failed to fetch achievements: ${response.status}`);
 
       const data = await response.json();
       setAchievements(data.achievements || []);
     } catch (err: any) {
       setError(err.message);
       console.error("Error fetching achievements:", err);
+      setAchievements([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
-  }, [token, API_URL, options.filters]);
+  }, [token, options.filters?.category, options.filters?.unlockedOnly, options.filters?.includeHidden]);
 
   const fetchStats = useCallback(async () => {
     if (!token) return;
@@ -65,14 +66,15 @@ export function useAchievements(options: UseAchievementsOptions = {}) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch stats");
+      if (!response.ok) throw new Error(`Failed to fetch stats: ${response.status}`);
 
       const data = await response.json();
       setStats(data.stats);
     } catch (err: any) {
       console.error("Error fetching achievement stats:", err);
+      setStats(null); // Set null on error
     }
-  }, [token, API_URL]);
+  }, [token]);
 
   const fetchCategories = useCallback(async () => {
     if (!token) return;
@@ -82,20 +84,31 @@ export function useAchievements(options: UseAchievementsOptions = {}) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch categories");
+      if (!response.ok) throw new Error(`Failed to fetch categories: ${response.status}`);
 
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (err: any) {
       console.error("Error fetching categories:", err);
+      setCategories([]); // Set empty array on error
     }
-  }, [token, API_URL]);
+  }, [token]);
 
+  // Initial load when token becomes available
   useEffect(() => {
-    fetchAchievements();
-    fetchStats();
-    fetchCategories();
-  }, [fetchAchievements, fetchStats, fetchCategories]);
+    if (token) {
+      fetchAchievements();
+      fetchStats();
+      fetchCategories();
+    }
+  }, [token]); // Only depend on token for initial load
+
+  // Update achievements when filters change
+  useEffect(() => {
+    if (token) {
+      fetchAchievements();
+    }
+  }, [JSON.stringify(options.filters)]); // Serialize filters to avoid reference changes
 
   const createAchievement = async (data: CreateAchievementInput) => {
     if (!token) return;

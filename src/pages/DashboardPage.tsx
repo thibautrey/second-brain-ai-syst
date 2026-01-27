@@ -23,8 +23,7 @@ import { useState, useEffect, useRef } from "react";
 import { TrainingPage } from "./TrainingPage";
 import { SettingsPage } from "./SettingsPage";
 import { MemoryBrowser } from "../components/memory";
-import { TodoList } from "../components/todos";
-import { ScheduleList } from "../components/schedule";
+import { TasksSchedulingPage } from "../components/tasks-scheduling";
 import { ToolsConfigPage } from "./ToolsConfigPage";
 import { NotificationTestPage } from "./NotificationTestPage";
 import { AnalyticsPage } from "../components/analytics";
@@ -100,6 +99,13 @@ export function DashboardPage() {
     userToggledSidebar.current = true;
   }
 
+  // Redirect old todos/schedule URLs to the new unified page
+  useEffect(() => {
+    if (activeTab === "todos" || activeTab === "schedule") {
+      navigate("/dashboard/tasks-scheduling", { replace: true });
+    }
+  }, [activeTab, navigate]);
+
   function handleNavigation(path: string) {
     navigate(path);
     if (isMobile) {
@@ -173,15 +179,9 @@ export function DashboardPage() {
           />
           <NavItem
             icon={<CheckSquare className="w-5 h-5" />}
-            label="Tâches"
-            onClick={() => handleNavigation("/dashboard/todos")}
-            isActive={activeTab === "todos"}
-          />
-          <NavItem
-            icon={<Calendar className="w-5 h-5" />}
-            label="Planifications"
-            onClick={() => handleNavigation("/dashboard/schedule")}
-            isActive={activeTab === "schedule"}
+            label={t("navigation.tasksScheduling")}
+            onClick={() => handleNavigation("/dashboard/tasks-scheduling")}
+            isActive={activeTab === "tasks-scheduling" || activeTab === "todos" || activeTab === "schedule"}
           />
           <NavItem
             icon={<Wrench className="w-5 h-5" />}
@@ -281,8 +281,7 @@ export function DashboardPage() {
             {activeTab === "memories" && <MemoryBrowser />}
             {(activeTab === "goals-achievements" || activeTab === "goals" || activeTab === "achievements") && <GoalsAchievementsPage />}
             {activeTab === "training" && <TrainingPage />}
-            {activeTab === "todos" && <TodoList />}
-            {activeTab === "schedule" && <ScheduleList />}
+            {(activeTab === "tasks-scheduling" || activeTab === "todos" || activeTab === "schedule") && <TasksSchedulingPage />}
             {activeTab === "tools" && <ToolsConfigPage />}
             {activeTab === "notifications" && <NotificationTestPage />}
             {activeTab === "settings" && <SettingsPage />}

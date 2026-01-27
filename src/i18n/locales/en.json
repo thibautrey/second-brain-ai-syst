@@ -61,7 +61,8 @@
     "training": "Training",
     "tools": "Tools",
     "notifications": "Notifications",
-    "schedule": "Schedule"
+    "schedule": "Schedule",
+    "tasksScheduling": "Tasks & Scheduling"
   },
   "settings": {
     "title": "Settings",

@@ -1,4 +1,4 @@
-import { useTranslation } from 'i18next-react';
+import { useTranslation } from 'react-i18next';
 
 export const useI18n = () => {
   const { t } = useTranslation();

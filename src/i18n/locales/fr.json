@@ -61,7 +61,8 @@
     "training": "Entraînement",
     "tools": "Outils",
     "notifications": "Notifications",
-    "schedule": "Planification"
+    "schedule": "Planification",
+    "tasksScheduling": "Tâches & Planifications"
   },
   "settings": {
     "title": "Paramètres",

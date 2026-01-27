@@ -46,17 +46,18 @@ export function useGoals(options: UseGoalsOptions = {}) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch goals");
+      if (!response.ok) throw new Error(`Failed to fetch goals: ${response.status}`);
 
       const data = await response.json();
       setGoals(data.goals || []);
     } catch (err: any) {
       setError(err.message);
       console.error("Error fetching goals:", err);
+      setGoals([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
-  }, [token, API_URL, options.filters]);
+  }, [token, options.filters?.status, options.filters?.category, options.filters?.includeArchived]);
 
   const fetchStats = useCallback(async () => {
     if (!token) return;
@@ -66,14 +67,15 @@ export function useGoals(options: UseGoalsOptions = {}) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch stats");
+      if (!response.ok) throw new Error(`Failed to fetch stats: ${response.status}`);
 
       const data = await response.json();
       setStats(data.stats);
     } catch (err: any) {
       console.error("Error fetching goal stats:", err);
+      setStats(null); // Set null on error
     }
-  }, [token, API_URL]);
+  }, [token]);
 
   const fetchCategories = useCallback(async () => {
     if (!token) return;
@@ -83,20 +85,31 @@ export function useGoals(options: UseGoalsOptions = {}) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch categories");
+      if (!response.ok) throw new Error(`Failed to fetch categories: ${response.status}`);
 
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (err: any) {
       console.error("Error fetching categories:", err);
+      setCategories([]); // Set empty array on error
     }
-  }, [token, API_URL]);
+  }, [token]);
 
+  // Initial load when token becomes available
   useEffect(() => {
-    fetchGoals();
-    fetchStats();
-    fetchCategories();
-  }, [fetchGoals, fetchStats, fetchCategories]);
+    if (token) {
+      fetchGoals();
+      fetchStats();
+      fetchCategories();
+    }
+  }, [token]); // Only depend on token for initial load
+
+  // Update goals when filters change
+  useEffect(() => {
+    if (token) {
+      fetchGoals();
+    }
+  }, [JSON.stringify(options.filters)]); // Serialize filters to avoid reference changes
 
   const createGoal = async (data: CreateGoalInput) => {
     if (!token) return;
