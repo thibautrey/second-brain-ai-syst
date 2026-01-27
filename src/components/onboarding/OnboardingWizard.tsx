@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
@@ -7,6 +7,7 @@ import { WelcomeStep } from './WelcomeStep';
 import { AIConfigStep } from './AIConfigStep';
 import { NotificationsStep } from './NotificationsStep';
 import { CompletionStep } from './CompletionStep';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiPost } from '../../services/api';
 
@@ -54,6 +55,7 @@ export function OnboardingWizard() {
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [isCompleting, setIsCompleting] = useState(false);
   const { completeOnboarding } = useAuth();
+  const navigate = useNavigate();
 
   const currentStep = ONBOARDING_STEPS[currentStepIndex];
   const progress = ((currentStepIndex + 1) / ONBOARDING_STEPS.length) * 100;
@@ -98,6 +100,7 @@ export function OnboardingWizard() {
     try {
       await apiPost('/onboarding/finish', {});
       await completeOnboarding();
+      navigate('/dashboard');
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
       setIsCompleting(false);

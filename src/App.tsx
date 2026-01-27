@@ -4,7 +4,6 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ContinuousListeningProvider } from "./contexts/ContinuousListeningContext";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -13,6 +12,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TrainingPage } from "./pages/TrainingPage";
+import { LandingPage } from "./pages/LandingPage";
 import { FloatingActionButtons } from "./components/FloatingActionButtons";
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard";
 import { useUserPresence } from "./hooks/useUserPresence";
@@ -53,20 +53,7 @@ function AppContent() {
         />
 
         {/* Redirect */}
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              hasCompletedOnboarding ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Navigate to="/onboarding" replace />
-              )
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
+        <Route path="/" element={<LandingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

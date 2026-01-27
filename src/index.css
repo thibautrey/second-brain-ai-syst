@@ -1,1 +1,38 @@
-/* This is where custom CSS goes */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap");
+
+:root {
+  --font-display: "Space Grotesk", "Sora", system-ui, -apple-system, sans-serif;
+  --font-body: "Manrope", "Work Sans", system-ui, -apple-system, sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.glow-ring {
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(circle at 30% 20%, rgba(94, 234, 212, 0.18), transparent 35%),
+    radial-gradient(circle at 80% 10%, rgba(129, 140, 248, 0.2), transparent 35%),
+    radial-gradient(circle at 50% 70%, rgba(16, 185, 129, 0.18), transparent 35%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glass-surface {
+  backdrop-filter: blur(18px);
+  background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.02)
+    );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}

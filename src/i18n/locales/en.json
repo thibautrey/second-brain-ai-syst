@@ -16,6 +16,14 @@
     "password": "Password",
     "none": "None"
   },
+  "timeAgo": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago",
+    "weeksAgo": "{{count}}w ago",
+    "monthsAgo": "{{count}}mo ago"
+  },
   "auth": {
     "login": {
       "title": "Welcome Back",
@@ -49,20 +57,32 @@
   },
   "dashboard": {
     "welcome": "Welcome back",
+    "greeting": "Welcome back, {{name}}!",
+    "summary": "Here's a summary of your Second Brain",
     "totalMemories": "Total Memories",
     "totalInteractions": "Total Interactions",
-    "dailySummaries": "Daily Summaries"
+    "dailySummaries": "Daily Summaries",
+    "recentActivity": "Recent Activity",
+    "noRecentActivity": "No recent activity yet. Start by capturing your thoughts or creating tasks!",
+    "recordThought": "Record Thought",
+    "viewMemories": "View Memories",
+    "todaysSummary": "Today's Summary"
   },
   "navigation": {
-    "settings": "Settings",
-    "logout": "Logout",
-    "home": "Home",
-    "memory": "Memory",
-    "training": "Training",
+    "appName": "Second Brain AI",
+    "dashboard": "Dashboard",
+    "memories": "Memories",
+    "interactions": "Interactions",
+    "goalsAchievements": "Goals & Achievements",
+    "voiceTraining": "Voice Training",
     "tools": "Tools",
     "notifications": "Notifications",
+    "settings": "Settings",
+    "logout": "Logout",
     "schedule": "Schedule",
-    "tasksScheduling": "Tasks & Scheduling"
+    "tasksScheduling": "Tasks & Scheduling",
+    "menuClose": "Close navigation menu",
+    "menuOpen": "Open navigation menu"
   },
   "settings": {
     "title": "Settings",
@@ -102,6 +122,7 @@
   "memory": {
     "title": "Memories",
     "memories": "Memories",
+    "subtitle": "Explore and manage your memories",
     "noMemoriesFound": "No memories found",
     "searchPlaceholder": "Search your memories...",
     "memoryType": "Memory Type",
@@ -146,6 +167,42 @@
   "notifications": {
     "errorSaving": "Error saving"
   },
+  "notificationSettings": {
+    "loading": "Loading settings...",
+    "statusLabel": "Status",
+    "status": {
+      "enabled": "✓ Enabled",
+      "disabled": "○ Disabled"
+    },
+    "botToken": "Bot Token",
+    "showToken": "Show token",
+    "connectBot": "Connect Bot",
+    "validating": "Validating...",
+    "sendTest": "Send Test",
+    "sending": "Sending...",
+    "disconnect": "Disconnect",
+    "disconnecting": "Disconnecting...",
+    "setupTitle": "How to set up Telegram",
+    "setupStep1Title": "Step 1: Create your bot",
+    "setupStep1": [
+      "Open Telegram and search for @BotFather",
+      "Send /newbot to create a new bot",
+      "Choose a name for your bot (e.g., \"My Second Brain\")",
+      "Choose a username ending in \"bot\" (e.g., \"my_brain_bot\")",
+      "Copy the token provided by BotFather"
+    ],
+    "setupStep2Title": "Step 2: Connect the bot",
+    "setupStep2": [
+      "Paste your bot token above and click Connect Bot",
+      "Open your bot in Telegram (click the link BotFather gave you)",
+      "Send /start to your bot",
+      "Your chat will be automatically connected!"
+    ],
+    "openBotFather": "Open BotFather",
+    "waitingTitle": "Waiting for connection",
+    "waitingBody": "Open your bot in Telegram and send /start to complete the setup.",
+    "confirmDisconnect": "Are you sure you want to disconnect Telegram? You will stop receiving notifications."
+  },
   "analytics": {
     "title": "Your Insights",
     "subtitle": "Discover patterns and trends in your thinking",
@@ -168,7 +225,7 @@
     "bestStreak": "Best",
     "days": "days",
     "weekAtGlance": "Your Week at a Glance",
-    "mostActive": "You're most active around",
+    "mostActiveSentence": "You're most active around {{time}} in the {{period}}. That's a great time for reflection! ✨",
     "positive": "Positive",
     "neutral": "Neutral",
     "negative": "Negative",
@@ -181,6 +238,249 @@
     },
     "noDataYet": "No data yet",
     "startCapturing": "Start capturing memories to see your top topics!",
-    "analyzing": "Analyzing your memories..."
+    "analyzing": "Analyzing your memories...",
+    "errorTitle": "Unable to load your insights",
+    "errorDescription": "We couldn't fetch your analytics right now. Please try again.",
+    "tryAgain": "Try Again",
+    "aiSummaryLabel": "AI-Generated Summary",
+    "activityNoData": "No activity data yet",
+    "topicNoData": "Start capturing memories to see your top topics!",
+    "moodNoData": "No mood data yet",
+    "moodPatternHint": "Start capturing memories to see your mood patterns",
+    "dailyMotivationTitle": "Daily Motivation",
+    "dailyMotivationLabel": "You have {{count}} active goal in progress. Keep pushing forward – every small step counts! 🚀",
+    "dailyMotivationLabel_plural": "You have {{count}} active goals in progress. Keep pushing forward – every small step counts! 🚀",
+    "achievementProgress": "Achievement Progress",
+    "achievementsUnlocked": "{{count}} / {{total}} achievements unlocked",
+    "memoryTooltip": "{{hour}}:00 - {{count}} {{memory}}",
+    "memory": "memory",
+    "memory_plural": "memories",
+    "mentions": "{{count}} mentions"
+  }
+  ,
+  "goals": {
+    "pageTitle": "Goals & Achievements",
+    "pageDescription": "Track your progress and celebrate your accomplishments",
+    "tabs": {
+      "goals": "Goals",
+      "achievements": "Achievements"
+    },
+    "filters": {
+      "all": "All Goals",
+      "active": "Active",
+      "completed": "Completed",
+      "paused": "Paused",
+      "allAchievements": "All",
+      "unlocked": "Unlocked",
+      "locked": "Locked"
+    },
+    "stats": {
+      "totalGoals": "Total Goals",
+      "active": "Active",
+      "completed": "Completed",
+      "successRate": "Success Rate"
+    },
+    "emptyState": {
+      "title": "Set Your First Goal!",
+      "description": "Goals help you stay focused and track your progress. Create your first goal to get started on your journey.",
+      "callToAction": "Create Goal"
+    },
+    "newGoal": "New Goal",
+    "createGoal": "Create Goal",
+    "filtersLabel": "Filters",
+    "clearFilter": "Clear filter: {{category}}",
+    "actions": {
+      "complete": "Complete",
+      "pause": "Pause",
+      "resume": "Resume",
+      "delete": "Delete"
+    },
+    "dialog": {
+      "createTitle": "Create New Goal",
+      "createDescription": "Set a new goal to track your progress and stay motivated.",
+      "goalTitle": "Goal Title *",
+      "description": "Description",
+      "category": "Category",
+      "targetDate": "Target Date",
+      "tags": "Tags",
+      "addTag": "Add",
+      "cancel": "Cancel",
+      "save": "Create Goal"
+    },
+    "milestones": "Milestones",
+    "progress": "Progress",
+    "motivation": {
+      "dailyTitle": "Daily Motivation",
+      "label": "You have {{count}} active goal in progress. Keep pushing forward – every small step counts! 🚀",
+      "label_plural": "You have {{count}} active goals in progress. Keep pushing forward – every small step counts! 🚀"
+    },
+    "achievement": {
+      "progress": "Achievement Progress",
+      "achievementsUnlocked": "{{count}} / {{total}} achievements unlocked",
+      "keepGoing": "Keep Going!",
+      "locked": "You still have {{count}} achievement to unlock. Every interaction with your Second Brain brings you closer! 🌟",
+      "locked_plural": "You still have {{count}} achievements to unlock. Every interaction with your Second Brain brings you closer! 🌟"
+    },
+    "emptyAchievement": {
+      "title": "Start Your Journey!",
+      "description": "As you use your Second Brain, you'll unlock achievements for consistency, milestones, and personal growth. Keep going!",
+      "rewards": {
+        "consistency": "Consistency rewards",
+        "milestones": "Milestone badges",
+        "growth": "Growth recognition"
+      }
+    }
+  }
+  ,
+  "onboarding": {
+    "progress": "Step {{current}} of {{total}}",
+    "buttons": {
+      "back": "Back",
+      "skip": "Skip for now",
+      "continue": "Continue",
+      "complete": "Complete Setup",
+      "skipChannel": "Skip This Channel",
+      "continueWithoutNotifications": "Continue Without Notifications",
+      "setUpLater": "Set Up Later"
+    },
+    "steps": {
+      "welcome": {
+        "title": "Welcome",
+        "description": "Learn about your Second Brain AI System"
+      },
+      "aiConfig": {
+        "title": "AI Configuration",
+        "description": "Set up your AI models and providers"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Configure how you want to be notified"
+      },
+      "completion": {
+        "title": "All Set!",
+        "description": "Your system is ready to use"
+      }
+    },
+    "welcomeStep": {
+      "title": "Your Personal AI Operating System",
+      "subtitle": "Second Brain AI is designed to be your cognitive companion — capturing, organizing, and helping you act on information throughout your life.",
+      "features": {
+        "memorySystem": {
+          "title": "Memory System",
+          "description": "Automatically captures and organizes your interactions, creating a searchable personal knowledge base."
+        },
+        "aiConversations": {
+          "title": "AI Conversations",
+          "description": "Chat with AI models that have access to your personal context and memory."
+        },
+        "proactiveInsights": {
+          "title": "Proactive Insights",
+          "description": "Get helpful suggestions and reminders based on your patterns and goals."
+        },
+        "smartAutomation": {
+          "title": "Smart Automation",
+          "description": "Execute tasks and workflows with AI agents that understand your preferences."
+        },
+        "privacyFirst": {
+          "title": "Privacy First",
+          "description": "All your data stays local and private. You control what gets stored and processed."
+        },
+        "timeSummaries": {
+          "title": "Time-based Summaries",
+          "description": "Automatic daily, weekly, and monthly summaries help you track progress and insights."
+        }
+      },
+      "gettingStartedTitle": "Getting Started",
+      "gettingStartedCopy": "We'll help you configure the essential settings to get your Second Brain AI system up and running. This includes setting up AI providers, notification preferences, and giving you a quick tour of the features."
+    },
+    "aiConfigStep": {
+      "title": "Configure AI Models",
+      "subtitle": "Add at least one AI provider to power your Second Brain. We recommend starting with OpenAI for the best experience.",
+      "existingProvidersTitle": "Existing Providers",
+      "providerStatus": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "addProvider": "Add AI Provider",
+      "form": {
+        "providerName": "Provider Name",
+        "placeholderProvider": "OpenAI",
+        "baseUrl": "Base URL",
+        "placeholderBaseUrl": "https://api.openai.com/v1",
+        "apiKey": "API Key",
+        "apiPlaceholder": "sk-..."
+      },
+      "securityCopy": "Your API key is stored securely and only used to make requests to the AI provider.",
+      "testConnection": "Test Connection",
+      "testResultSuccess": "Successfully connected to API!",
+      "testResultFailure": "Connection failed",
+      "addProviderButton": "Add Provider",
+      "helpTitle": "Need an API Key?",
+      "helpCopy": "You'll need an API key from an AI provider. Here are some popular options:",
+      "apiLinks": {
+        "openai": "OpenAI API Keys",
+        "anthropic": "Anthropic Console"
+      },
+      "continueButton": "Continue to Notifications",
+      "loading": "Loading AI settings..."
+    },
+    "notificationsStep": {
+      "title": "Set Up Notifications",
+      "subtitle": "Choose how you'd like to receive notifications from your Second Brain AI. You can configure multiple channels or skip this step for now.",
+      "channels": {
+        "browser": {
+          "title": "Browser Notifications",
+          "description": "Get notifications directly in your browser while using the app",
+          "recommendedTag": "Recommended"
+        },
+        "pushover": {
+          "title": "Pushover (Mobile)",
+          "description": "Receive push notifications on your phone via the Pushover app"
+        },
+        "telegram": {
+          "title": "Telegram Bot",
+          "description": "Get notifications through a private Telegram bot"
+        }
+      },
+      "backToSelection": "← Back to channel selection",
+      "setupCopy": "{{channel}} Setup",
+      "configuredNoticeTitle": "You can configure notifications later",
+      "configuredNoticeBody": "All notification settings can be changed in the Settings page after setup is complete."
+    },
+    "completionStep": {
+      "title": "🎉 Setup Complete!",
+      "subtitle": "Your Second Brain AI system is now configured and ready to help you capture, organize, and act on information throughout your day.",
+      "nextSectionTitle": "What happens next?",
+      "nextSteps": {
+        "conversation": {
+          "title": "Start a Conversation",
+          "description": "Open the Chat tab and start talking to your AI assistant",
+          "action": "Try it now"
+        },
+        "memory": {
+          "title": "Explore Memory Browser",
+          "description": "View how your interactions are being stored and organized",
+          "action": "Browse memories"
+        },
+        "settings": {
+          "title": "Customize Settings",
+          "description": "Fine-tune AI models, notifications, and other preferences",
+          "action": "Open settings"
+        },
+        "docs": {
+          "title": "Read Documentation",
+          "description": "Learn about advanced features and capabilities",
+          "action": "View docs"
+        }
+      },
+      "proTipsTitle": "💡 Pro Tips",
+      "proTips": [
+        "Use natural language - the AI understands context and intent",
+        "Check the Memory Browser to see how your data is organized",
+        "Explore the Settings to customize your experience",
+        "All your data is stored locally and privately"
+      ],
+      "enterButton": "Enter Second Brain AI"
+    }
   }
 }
