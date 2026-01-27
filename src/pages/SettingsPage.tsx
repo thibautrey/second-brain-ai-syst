@@ -571,7 +571,10 @@ function ModelsConfigSection() {
   } = useAISettings();
   const MODE_STORAGE_KEY = "aiSettingsMode";
   const [mode, setMode] = useState<"simple" | "advanced">(() => {
-    const saved = localStorage.getItem(MODE_STORAGE_KEY);
+    const saved =
+      typeof window !== "undefined"
+        ? localStorage.getItem(MODE_STORAGE_KEY)
+        : null;
     return saved === "advanced" ? "advanced" : "simple";
   });
 
