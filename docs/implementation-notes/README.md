@@ -40,6 +40,14 @@ These are **working documents** that capture:
 - `INPUT_IMPLEMENTATION.md` - Implementation summary
 - `INPUT_CHECKLIST.md` - Feature checklist and tasks
 
+### Conversation Recording
+
+- `CONVERSATION_RECORDING_README.md` - Quick overview
+- `CONVERSATION_RECORDING_SYSTEM.md` - Complete system guide
+- `CONVERSATION_RECORDING_INTEGRATION.md` - Integration checklist
+- `CONVERSATION_RECORDING_FRONTEND.md` - Frontend code examples
+- `CONVERSATION_RECORDING_COMPLETE.md` - Technical summary
+
 ### General
 
 - `COMPLETION_SUMMARY.md` - Project restructuring summary
