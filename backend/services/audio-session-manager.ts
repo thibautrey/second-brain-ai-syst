@@ -596,6 +596,7 @@ export class AudioSessionManager extends EventEmitter {
 
     const config: ContinuousListeningConfig = {
       userId,
+      sessionId, // NEW: Pass session ID for context tracking
       wakeWord: settings?.wakeWord || 'Hey Brain',
       wakeWordSensitivity: settings?.wakeWordSensitivity || 0.8,
       minImportanceThreshold: settings?.minImportanceThreshold || 0.3,
@@ -609,11 +610,13 @@ export class AudioSessionManager extends EventEmitter {
     };
 
     console.log(`⚙️ [INIT] Configuration applied:`);
+    console.log(`   - Session ID: ${sessionId}`);
     console.log(`   - Wake word: "${config.wakeWord}" (sensitivity: ${config.wakeWordSensitivity})`);
     console.log(`   - VAD sensitivity: ${config.vadSensitivity}`);
     console.log(`   - Silence detection: ${config.silenceDetectionMs}ms`);
     console.log(`   - Min importance threshold: ${config.minImportanceThreshold}`);
     console.log(`   - Speaker confidence threshold: ${config.speakerConfidenceThreshold}`);
+    console.log(`   - Context buffer: enabled (2000 tokens, 5 min window)`);
 
     const service = new ContinuousListeningService(config);
 

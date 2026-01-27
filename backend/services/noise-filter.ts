@@ -77,6 +77,23 @@ export interface NoiseFilterContext {
 
   userId?: string;
 
+  // ============================================================================
+  // Continuous Audio Context (NEW)
+  // ============================================================================
+  
+  /** Full context including all recent chunks */
+  fullChunkContext?: string;
+  /** Summary of older context that was rotated out */
+  olderContextSummary?: string;
+  /** Is this chunk a continuation of the previous one? */
+  isChunkContinuation?: boolean;
+  /** Number of chunks in current context window */
+  chunkCount?: number;
+  /** Total conversation duration in seconds */
+  conversationDuration?: number;
+  /** Text from the immediately previous chunk */
+  previousChunkText?: string;
+
   // User preferences (loaded from UserSettings)
   userPreferences?: {
     noiseFilterEnabled?: boolean;
@@ -419,9 +436,19 @@ export class NoiseFilterService {
 
       const contextInfo = this.buildContextInfo(context);
 
+      // Determine if we have continuous audio context
+      const hasContinuousContext = context?.fullChunkContext || context?.chunkCount && context.chunkCount > 1;
+
       const systemPrompt = `Tu es un système de filtrage pour un assistant personnel qui écoute 24/7.
 Ta tâche est de déterminer si une transcription audio mérite d'être traitée ou si c'est du "bruit".
 
+${hasContinuousContext ? `⚠️ IMPORTANT - CONTEXTE AUDIO CONTINU:
+Ce texte provient d'un flux audio en temps réel divisé en "chunks" (segments).
+Les chunks arrivent au fur et à mesure que l'utilisateur parle.
+Un chunk isolé peut sembler incomplet, mais il fait partie d'un discours continu.
+Utilise le contexte des chunks précédents pour comprendre le sens global.
+Si le chunk actuel semble être une continuation logique des précédents, considère-le comme "meaningful".
+` : ''}
 Tu dois répondre avec un objet JSON:
 {
   "isMeaningful": true|false,
@@ -438,7 +465,7 @@ Catégories:
 - media_playback: Télé, radio, podcast, vidéo YouTube, musique avec paroles
 - environmental_noise: Bruits transcrits par erreur, mots incompréhensibles
 - filler_words: Seulement des "euh", "um", "hmm", etc.
-- incomplete_fragment: Phrase coupée, trop courte pour avoir du sens
+- incomplete_fragment: SEULEMENT si vraiment isolé et sans contexte. Avec contexte continu, un chunk partiel est normal.
 - repetitive_spam: Même contenu répété, boucle
 - self_talk_trivial: "Où sont mes clés", "Bon alors", "Allez" - pensée à voix haute triviale
 - wake_word_false_positive: Mot d'activation détecté mais rien d'utile après
@@ -450,11 +477,10 @@ Actions suggérées:
 - ask_user: Demander confirmation à l'utilisateur (cas ambigu important)
 - store_minimal: Stocker une trace minimale mais ne pas traiter
 
-IMPORTANT: En cas de doute, préfère "discard" pour éviter de polluer la mémoire.
-Une conversation télé/podcast se reconnaît par:
-- Langage trop formel/scripté
-- Mentions de "abonnez-vous", "restez connectés", "après la pause"
-- Voix multiples qui ne semblent pas être une conversation naturelle`;
+IMPORTANT: 
+- En cas de doute, préfère "discard" pour éviter de polluer la mémoire.
+- SAUF si le contexte continu montre que ce chunk fait partie d'un discours cohérent.
+- Une conversation télé/podcast se reconnaît par: langage scripté, mentions de "abonnez-vous", etc.`;
 
       const userPrompt = `Analyse cette transcription:
 
@@ -623,7 +649,43 @@ Est-ce du contenu significatif ou du bruit?`;
 
     const info: string[] = [];
 
-    if (context.recentTranscripts && context.recentTranscripts.length > 0) {
+    // ============================================================================
+    // Continuous Audio Context (Priority - show first)
+    // ============================================================================
+    
+    if (context.fullChunkContext) {
+      info.push(`\n📜 CONTEXTE AUDIO CONTINU:\n${context.fullChunkContext}`);
+    }
+
+    if (context.olderContextSummary) {
+      info.push(`\n📋 Résumé contexte antérieur: ${context.olderContextSummary}`);
+    }
+
+    if (context.isChunkContinuation !== undefined) {
+      info.push(context.isChunkContinuation 
+        ? "⚡ Ce chunk est une CONTINUATION directe du précédent"
+        : "Ce chunk commence un nouveau segment de parole"
+      );
+    }
+
+    if (context.chunkCount !== undefined && context.chunkCount > 1) {
+      info.push(`Nombre de chunks dans le contexte: ${context.chunkCount}`);
+    }
+
+    if (context.conversationDuration !== undefined && context.conversationDuration > 0) {
+      info.push(`Durée conversation: ${context.conversationDuration.toFixed(1)}s`);
+    }
+
+    if (context.previousChunkText) {
+      info.push(`Chunk précédent: "${context.previousChunkText.slice(0, 100)}${context.previousChunkText.length > 100 ? '...' : ''}"`);
+    }
+
+    // ============================================================================
+    // Original Context Info
+    // ============================================================================
+
+    if (context.recentTranscripts && context.recentTranscripts.length > 0 && !context.fullChunkContext) {
+      // Only show recentTranscripts if we don't have fullChunkContext (avoid duplication)
       info.push(
         `Transcriptions récentes: "${context.recentTranscripts.slice(-3).join('", "')}"`,
       );

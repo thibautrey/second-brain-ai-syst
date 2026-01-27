@@ -32,11 +32,17 @@ import {
 import OpenAI from "openai";
 import { flowTracker } from "./flow-tracker.js";
 import { randomBytes } from "crypto";
+import { 
+  TranscriptionContextBuffer, 
+  TranscriptionChunk,
+  ChunkAnalysisContext,
+} from "./transcription-context-buffer.js";
 
 // ==================== Types ====================
 
 export interface ContinuousListeningConfig {
   userId: string;
+  sessionId?: string; // NEW: Optional session ID for context tracking
   wakeWord: string;
   wakeWordSensitivity: number;
   minImportanceThreshold: number;
@@ -195,6 +201,7 @@ export class ContinuousListeningService extends EventEmitter {
   private memoryManager: MemoryManagerService;
   private intentRouter: IntentRouterService;
   private isProcessing: boolean = false;
+  private contextBuffer: TranscriptionContextBuffer; // NEW: Context buffer for chunk continuity
 
   constructor(config: ContinuousListeningConfig) {
     super();
@@ -203,6 +210,14 @@ export class ContinuousListeningService extends EventEmitter {
     // 30 seconds max buffer, 10 seconds for speech segments
     this.audioBuffer = new CircularAudioBuffer(30, 16000);
     this.speechBuffer = new CircularAudioBuffer(10, 16000);
+
+    // Initialize transcription context buffer for continuous audio
+    this.contextBuffer = new TranscriptionContextBuffer({
+      maxTokens: 2000, // Keep ~2000 tokens of context
+      maxTimeWindowSeconds: 300, // 5 minutes max window
+      minTokensAfterRotation: 500,
+      newConversationThresholdSeconds: 60, // 1 minute silence = new conversation
+    });
 
     // Initialize improved VAD (will be replaced with async initialization)
     this.vad = new ImprovedVAD({
@@ -215,6 +230,11 @@ export class ContinuousListeningService extends EventEmitter {
 
     // Initialize VAD in the background
     this.initializeVAD();
+
+    // Log context buffer initialization
+    if (config.sessionId) {
+      console.log(`📝 [ContinuousListening] Context buffer initialized for session ${config.sessionId.slice(0, 8)}...`);
+    }
   }
 
   /**
@@ -419,8 +439,55 @@ export class ContinuousListeningService extends EventEmitter {
         return { type: "ignored", timestamp: Date.now() };
       }
 
-      // Step 2.5: NOISE FILTERING - Filter out irrelevant content BEFORE classification
-      console.log(`\n🚫 [STEP 2.5] Noise filtering...`);
+      // ============================================================================
+      // Step 2.25: ADD TO CONTEXT BUFFER (NEW)
+      // Add transcription to context buffer for continuous conversation tracking
+      // ============================================================================
+      console.log(`\n📚 [STEP 2.25] Adding to context buffer...`);
+      
+      const transcriptionChunk: TranscriptionChunk = {
+        text: transcription.text,
+        timestamp: Date.now(),
+        duration: duration,
+        confidence: transcription.confidence,
+        isPartial: transcription.text.length < 20, // Mark short chunks as potentially partial
+      };
+
+      const chunkAnalysis = this.contextBuffer.addChunk(transcriptionChunk);
+      const contextStats = this.contextBuffer.getStats();
+      
+      console.log(`   → Chunk added to context buffer`);
+      console.log(`   → Is continuation: ${chunkAnalysis.isContinuation ? '✅ Yes' : '❌ No'}`);
+      console.log(`   → Time since last chunk: ${chunkAnalysis.timeSinceLastChunk.toFixed(1)}s`);
+      console.log(`   → Total chunks in context: ${contextStats.chunkCount}`);
+      console.log(`   → Context tokens: ~${contextStats.tokenCount}`);
+      console.log(`   → Conversation duration: ${contextStats.conversationDurationSeconds.toFixed(1)}s`);
+      if (chunkAnalysis.previousChunkText) {
+        console.log(`   → Previous chunk: "${chunkAnalysis.previousChunkText.slice(0, 50)}..."`);
+      }
+
+      flowTracker.trackEvent({
+        flowId,
+        stage: "context_buffer",
+        service: "TranscriptionContextBuffer",
+        status: "success",
+        data: {
+          isContinuation: chunkAnalysis.isContinuation,
+          timeSinceLastChunk: chunkAnalysis.timeSinceLastChunk,
+          chunkCount: contextStats.chunkCount,
+          tokenCount: contextStats.tokenCount,
+          conversationDuration: contextStats.conversationDurationSeconds,
+        },
+        decision: chunkAnalysis.isContinuation 
+          ? "Chunk is continuation of previous speech"
+          : "New speech segment",
+      });
+
+      // ============================================================================
+      // Step 2.5: NOISE FILTERING with CONTINUOUS CONTEXT (UPDATED)
+      // Now includes full context from context buffer
+      // ============================================================================
+      console.log(`\n🚫 [STEP 2.5] Noise filtering (with continuous context)...`);
       const noiseFilterStart = Date.now();
 
       // Load user preferences for noise filtering
@@ -431,6 +498,9 @@ export class ContinuousListeningService extends EventEmitter {
       // Cast to any to access new fields that may not be in the generated types yet
       const settingsAny = userSettings as any;
 
+      // Get noise filter context from the context buffer
+      const bufferContext = this.contextBuffer.getNoiseFilterContext();
+
       const noiseFilterContext: NoiseFilterContext = {
         speakerId: speakerResult.speakerId,
         isTargetUser: speakerResult.isTargetUser,
@@ -439,6 +509,18 @@ export class ContinuousListeningService extends EventEmitter {
         userId: this.config.userId,
         // Determine time of day
         timeOfDay: this.getTimeOfDay(),
+        
+        // ============================================================================
+        // NEW: Continuous Audio Context from buffer
+        // ============================================================================
+        fullChunkContext: bufferContext.fullContext,
+        olderContextSummary: bufferContext.previousContextSummary,
+        isChunkContinuation: bufferContext.isChunkContinuation,
+        chunkCount: bufferContext.chunkCount,
+        conversationDuration: bufferContext.conversationDuration,
+        previousChunkText: chunkAnalysis.previousChunkText,
+        recentTranscripts: bufferContext.recentTranscripts,
+        
         // User preferences for noise filtering (use defaults if new fields don't exist yet)
         userPreferences: userSettings
           ? {
@@ -466,6 +548,7 @@ export class ContinuousListeningService extends EventEmitter {
       console.log(`   → Suggested action: ${noiseFilterResult.suggestedAction}`);
       console.log(`   → Reason: ${noiseFilterResult.reason}`);
       console.log(`   → Duration: ${Date.now() - noiseFilterStart}ms`);
+      console.log(`   → Context used: ${bufferContext.chunkCount} chunks, ${bufferContext.conversationDuration.toFixed(1)}s`);
 
       flowTracker.trackEvent({
         flowId,
@@ -479,6 +562,8 @@ export class ContinuousListeningService extends EventEmitter {
           confidence: noiseFilterResult.confidence,
           suggestedAction: noiseFilterResult.suggestedAction,
           contextualRelevance: noiseFilterResult.contextualRelevance,
+          contextChunkCount: bufferContext.chunkCount,
+          hadPreviousContext: !!bufferContext.previousContextSummary,
         },
         decision: noiseFilterResult.isMeaningful
           ? `Contenu pertinent détecté: ${noiseFilterResult.reason}`
@@ -922,7 +1007,33 @@ export class ContinuousListeningService extends EventEmitter {
     this.audioBuffer.clear();
     this.speechBuffer.clear();
     this.vad.reset();
+    
+    // Clear context buffer and log stats before cleanup
+    const contextStats = this.contextBuffer.getStats();
+    if (contextStats.chunkCount > 0 || contextStats.rotatedChunksCount > 0) {
+      console.log(`📊 [ContinuousListening] Context buffer stats on stop:`);
+      console.log(`   → Total chunks processed: ${contextStats.chunkCount + contextStats.rotatedChunksCount}`);
+      console.log(`   → Final tokens: ${contextStats.tokenCount}`);
+      console.log(`   → Conversation duration: ${contextStats.conversationDurationSeconds.toFixed(1)}s`);
+    }
+    this.contextBuffer.clear();
+    
     this.removeAllListeners();
+  }
+
+  /**
+   * Get current context buffer statistics
+   */
+  getContextStats() {
+    return this.contextBuffer.getStats();
+  }
+
+  /**
+   * Clear context buffer (e.g., when user says "new conversation")
+   */
+  clearContext(): void {
+    console.log(`🗑️ [ContinuousListening] Context buffer cleared manually`);
+    this.contextBuffer.clear();
   }
 }
 
