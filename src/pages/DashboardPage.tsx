@@ -16,7 +16,6 @@ import {
   Calendar,
   Wrench,
   Bell,
-  BarChart3,
   Target,
   Trophy,
 } from "lucide-react";
@@ -30,11 +29,7 @@ import { ToolsConfigPage } from "./ToolsConfigPage";
 import { NotificationTestPage } from "./NotificationTestPage";
 import { AnalyticsPage } from "../components/analytics";
 import { GoalsPage, AchievementsPage } from "../components/goals-achievements";
-import { useDashboardStats } from "../hooks/useDashboardStats";
-import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useIsMobile } from "../hooks/use-mobile";
-import { MobileDashboard } from "../components/dashboard/MobileDashboard";
-import { DesktopDashboard } from "../components/dashboard/DesktopDashboard";
 import { fetchActiveTips, dismissTip, viewTip } from "../services/api";
 import type { Tip } from "../services/api";
 
@@ -57,16 +52,6 @@ export function DashboardPage() {
 
   const userToggledSidebar = useRef(false);
   const activeTab = tab || "dashboard";
-
-  const { totalMemories, totalInteractions, dailySummaries, isLoading, error } =
-    useDashboardStats();
-
-  const {
-    items: recentActivityItems,
-    isLoading: activityLoading,
-    error: activityError,
-  } = useRecentActivity(10);
-
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
 
@@ -173,12 +158,6 @@ export function DashboardPage() {
             label="Interactions"
             onClick={() => handleNavigation("/dashboard/interactions")}
             isActive={activeTab === "interactions"}
-          />
-          <NavItem
-            icon={<BarChart3 className="w-5 h-5" />}
-            label="Analytics"
-            onClick={() => handleNavigation("/dashboard/analytics")}
-            isActive={activeTab === "analytics"}
           />
           <NavItem
             icon={<Target className="w-5 h-5" />}
@@ -303,40 +282,9 @@ export function DashboardPage() {
           className={`flex-1 overflow-auto ${isMobile ? "p-4 pt-20" : "p-8 pt-24"}`}
         >
           <div className="max-w-6xl mx-auto">
-            {activeTab === "dashboard" && (
-              <>
-                {isMobile ? (
-                  <MobileDashboard
-                    user={user}
-                    totalMemories={totalMemories}
-                    totalInteractions={totalInteractions}
-                    dailySummaries={dailySummaries}
-                    isLoading={isLoading}
-                    error={error}
-                    recentActivityItems={recentActivityItems}
-                    activityLoading={activityLoading}
-                    activityError={activityError}
-                    formatTimeAgo={formatTimeAgo}
-                  />
-                ) : (
-                  <DesktopDashboard
-                    user={user}
-                    totalMemories={totalMemories}
-                    totalInteractions={totalInteractions}
-                    dailySummaries={dailySummaries}
-                    isLoading={isLoading}
-                    error={error}
-                    recentActivityItems={recentActivityItems}
-                    activityLoading={activityLoading}
-                    activityError={activityError}
-                    formatTimeAgo={formatTimeAgo}
-                  />
-                )}
-              </>
-            )}
+            {activeTab === "dashboard" && <AnalyticsPage />}
 
             {activeTab === "memories" && <MemoryBrowser />}
-            {activeTab === "analytics" && <AnalyticsPage />}
             {activeTab === "goals" && <GoalsPage />}
             {activeTab === "achievements" && <AchievementsPage />}
             {activeTab === "training" && <TrainingPage />}
