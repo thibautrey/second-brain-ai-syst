@@ -24,6 +24,7 @@ import { aiInstructionsService } from "./ai-instructions.service.js";
 import { llmRouterService } from "./llm-router.js";
 import { notificationService } from "./notification.js";
 import prisma from "./prisma.js";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
 
 // Configuration constants
 const MAX_MEMORIES_FOR_ANALYSIS = 100;

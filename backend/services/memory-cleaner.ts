@@ -13,15 +13,18 @@ import prisma from "./prisma.js";
 export interface CleanupResult {
   userId: string;
   success: boolean;
+  error?: string;
   memoriesAnalyzed: number;
-  memoriesArchived: number;
-  memoriesDeleted: number;
+  memoriesArchived?: number;
+  memoriesDeleted?: number;
+  memoriesToRemove?: string[];
+  memoriesToArchive?: string[];
   details?: {
     archivedIds: string[];
     deletedIds: string[];
     reasons: Record<string, string[]>; // Maps memory ID to cleanup reason
   };
-  createdAt: Date;
+  createdAt?: Date;
 }
 
 const MEMORY_CLEANUP_PROMPT = `You are a memory optimization assistant for a "Second Brain" system.

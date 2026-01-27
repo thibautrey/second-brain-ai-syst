@@ -10,6 +10,7 @@ import { MemoryType, TimeScale } from "@prisma/client";
 import { llmRouterService } from "./llm-router.js";
 import { memoryCleanerService } from "./memory-cleaner.js";
 import prisma from "./prisma.js";
+import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
 
 export interface AgentResult {
   agentId: string;

@@ -190,13 +190,13 @@ try {
 }
 console.log();
 
-// Test 11: Handle exact format from problem statement
-console.log("Test 11: Handle exact format from problem statement");
-const input11 = '```json\n{\n  "title": "Weekly Summary"\n}\n```';
-const result11 = parseJSONFromLLMResponse(input11);
-console.log("Input:", input11);
-console.log("Result:", JSON.stringify(result11));
-console.log("✓ Pass:", result11.title === "Weekly Summary");
+// Test 15: Handle exact format from problem statement
+console.log("Test 15: Handle exact format from problem statement");
+const input15 = '```json\n{\n  "title": "Weekly Summary"\n}\n```';
+const result15 = parseJSONFromLLMResponse(input15);
+console.log("Input:", input15);
+console.log("Result:", JSON.stringify(result15));
+console.log("✓ Pass:", result15.title === "Weekly Summary");
 console.log();
 
 console.log("✅ All tests completed!");
