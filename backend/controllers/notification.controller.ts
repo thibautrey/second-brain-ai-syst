@@ -67,6 +67,45 @@ export class NotificationController {
   }
 
   /**
+   * GET /api/notifications/poll
+   * Polling endpoint for notifications (WebSocket fallback)
+   * Returns notifications sent since the specified timestamp
+   */
+  async poll(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const since = parseInt(req.query.since as string) || 0;
+
+      // Get recent notifications since the specified timestamp
+      const result = await notificationService.getUserNotifications(userId, {
+        limit: 100,
+        offset: 0,
+        unreadOnly: false, // Send all notifications regardless of read status
+      });
+
+      // Filter to only notifications created after 'since'
+      const sinceDate = new Date(since);
+      const filteredNotifications = result.notifications.filter(
+        (n: any) => new Date(n.createdAt) > sinceDate
+      );
+
+      res.json({
+        success: true,
+        notifications: filteredNotifications,
+        total: filteredNotifications.length,
+        polledAt: Date.now(),
+      });
+    } catch (error: any) {
+      console.error("[NotificationController] Poll error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * PATCH /api/notifications/:id/read
    * Mark notification as read
    */

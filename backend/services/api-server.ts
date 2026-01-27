@@ -1105,6 +1105,15 @@ app.patch(
   },
 );
 
+// Poll for notifications (WebSocket fallback)
+app.get(
+  "/api/notifications/poll",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await notificationController.poll(req, res);
+  },
+);
+
 // Record user interaction with notification (resets spam cooldown)
 app.post(
   "/api/notifications/:id/interact",
