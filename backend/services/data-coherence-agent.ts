@@ -14,13 +14,19 @@
  * while AI instructions are for the AI's internal knowledge.
  */
 
-import prisma from "./prisma.js";
+import {
+  AIInstructionCategory,
+  GoalStatus,
+  TodoPriority,
+  TodoStatus,
+} from "@prisma/client";
+
+import { aiInstructionsService } from "./ai-instructions.service.js";
 import { llmRouterService } from "./llm-router.js";
 import { notificationService } from "./tools/notification.service.js";
-import { todoService } from "./tools/todo.service.js";
-import { aiInstructionsService } from "./ai-instructions.service.js";
 import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
-import { TodoStatus, GoalStatus, AIInstructionCategory, TodoPriority } from "@prisma/client";
+import prisma from "./prisma.js";
+import { todoService } from "./tools/todo.service.js";
 
 // Configuration constants
 const COHERENCE_CHECK_LOOKBACK_DAYS = 14; // Look back 14 days for pattern analysis
@@ -49,7 +55,12 @@ export interface CoherenceAgentResult {
 }
 
 export interface CoherenceIssue {
-  type: "task_should_be_recurring" | "goal_todo_mismatch" | "missing_feedback" | "stale_data" | "inconsistent_schedule";
+  type:
+    | "task_should_be_recurring"
+    | "goal_todo_mismatch"
+    | "missing_feedback"
+    | "stale_data"
+    | "inconsistent_schedule";
   severity: "low" | "medium" | "high";
   title: string;
   description: string;
@@ -59,7 +70,11 @@ export interface CoherenceIssue {
 }
 
 export interface CoherenceSuggestion {
-  type: "create_recurring_task" | "update_goal" | "cleanup_todo" | "create_scheduled_task";
+  type:
+    | "create_recurring_task"
+    | "update_goal"
+    | "cleanup_todo"
+    | "create_scheduled_task";
   priority: "low" | "medium" | "high";
   title: string;
   message: string;
@@ -69,7 +84,11 @@ export interface CoherenceSuggestion {
 }
 
 export interface ProactiveQuestion {
-  category: "activity_completion" | "goal_progress" | "habit_check" | "data_clarification";
+  category:
+    | "activity_completion"
+    | "goal_progress"
+    | "habit_check"
+    | "data_clarification";
   priority: "low" | "medium" | "high";
   question: string;
   context: string;
@@ -210,13 +229,22 @@ export class DataCoherenceAgentService {
       ]);
 
       // Build context for analysis
-      const context = this.buildCoherenceContext(goals, todos, memories, scheduledTasks);
+      const context = this.buildCoherenceContext(
+        goals,
+        todos,
+        memories,
+        scheduledTasks,
+      );
 
       // Analyze coherence
       const coherenceResult = await this.analyzeCoherence(userId, context);
 
       // Generate proactive questions
-      const questionsResult = await this.generateProactiveQuestions(userId, context, coherenceResult);
+      const questionsResult = await this.generateProactiveQuestions(
+        userId,
+        context,
+        coherenceResult,
+      );
 
       // Store results and send notifications
       await this.processResults(userId, coherenceResult, questionsResult);
@@ -227,7 +255,7 @@ export class DataCoherenceAgentService {
         questions: questionsResult.questions?.length || 0,
         goalsAnalyzed: goals.length,
         todosAnalyzed: todos.length,
-        memoriesAnalyzed: memories.length
+        memoriesAnalyzed: memories.length,
       });
 
       return {
@@ -271,7 +299,7 @@ export class DataCoherenceAgentService {
     goals: any[],
     todos: any[],
     memories: any[],
-    scheduledTasks: any[]
+    scheduledTasks: any[],
   ): string {
     let context = "# User Data for Coherence Analysis\n\n";
 
@@ -287,11 +315,20 @@ export class DataCoherenceAgentService {
     const memoriesRemoved = memories.length - uniqueMemories.length;
     const tasksRemoved = scheduledTasks.length - uniqueScheduledTasks.length;
 
-    if (goalsRemoved > 0 || todosRemoved > 0 || memoriesRemoved > 0 || tasksRemoved > 0) {
-      console.warn(`[DataCoherence] Duplicates removed during context building - Goals: ${goalsRemoved}, Todos: ${todosRemoved}, Memories: ${memoriesRemoved}, Tasks: ${tasksRemoved}`);
+    if (
+      goalsRemoved > 0 ||
+      todosRemoved > 0 ||
+      memoriesRemoved > 0 ||
+      tasksRemoved > 0
+    ) {
+      console.warn(
+        `[DataCoherence] Duplicates removed during context building - Goals: ${goalsRemoved}, Todos: ${todosRemoved}, Memories: ${memoriesRemoved}, Tasks: ${tasksRemoved}`,
+      );
     }
 
-    console.log(`[DataCoherence] Context includes: ${uniqueGoals.length} goals, ${uniqueTodos.length} todos, ${uniqueMemories.length} memories, ${uniqueScheduledTasks.length} tasks`);
+    console.log(
+      `[DataCoherence] Context includes: ${uniqueGoals.length} goals, ${uniqueTodos.length} todos, ${uniqueMemories.length} memories, ${uniqueScheduledTasks.length} tasks`,
+    );
 
     // Goals
     context += "## Active Goals\n\n";
@@ -305,7 +342,7 @@ export class DataCoherenceAgentService {
           context += `- **Description**: ${goal.description}\n`;
         }
         if (goal.targetDate) {
-          context += `- **Target Date**: ${goal.targetDate.toISOString().split('T')[0]}\n`;
+          context += `- **Target Date**: ${goal.targetDate.toISOString().split("T")[0]}\n`;
         }
         context += `- **ID**: ${goal.id}\n\n`;
       });
@@ -320,12 +357,12 @@ export class DataCoherenceAgentService {
         context += `### Todo ${i + 1}: ${todo.title}\n`;
         context += `- **Status**: ${todo.status}\n`;
         context += `- **Priority**: ${todo.priority}\n`;
-        context += `- **Is Recurring**: ${todo.isRecurring ? 'Yes' : 'No'}\n`;
+        context += `- **Is Recurring**: ${todo.isRecurring ? "Yes" : "No"}\n`;
         if (todo.isRecurring && todo.recurrenceRule) {
           context += `- **Recurrence Rule**: ${todo.recurrenceRule}\n`;
         }
         if (todo.dueDate) {
-          context += `- **Due Date**: ${todo.dueDate.toISOString().split('T')[0]}\n`;
+          context += `- **Due Date**: ${todo.dueDate.toISOString().split("T")[0]}\n`;
         }
         if (todo.description) {
           context += `- **Description**: ${todo.description}\n`;
@@ -356,9 +393,13 @@ export class DataCoherenceAgentService {
     context += "## Recent Memories (Sample)\n\n";
     // Use all fetched memories for context
     memories.forEach((memory, i) => {
-      const date = memory.createdAt.toISOString().split('T')[0];
-      const preview = memory.content.substring(0, MEMORY_CONTENT_PREVIEW_LENGTH);
-      const truncated = memory.content.length > MEMORY_CONTENT_PREVIEW_LENGTH ? '...' : '';
+      const date = memory.createdAt.toISOString().split("T")[0];
+      const preview = memory.content.substring(
+        0,
+        MEMORY_CONTENT_PREVIEW_LENGTH,
+      );
+      const truncated =
+        memory.content.length > MEMORY_CONTENT_PREVIEW_LENGTH ? "..." : "";
       context += `[${i + 1}] ${date}: ${preview}${truncated}\n`;
     });
 
@@ -370,7 +411,7 @@ export class DataCoherenceAgentService {
    */
   private deduplicateById<T extends { id: string }>(items: T[]): T[] {
     const seen = new Set<string>();
-    return items.filter(item => {
+    return items.filter((item) => {
       if (seen.has(item.id)) {
         return false;
       }
@@ -382,7 +423,10 @@ export class DataCoherenceAgentService {
   /**
    * Analyze data coherence using LLM
    */
-  private async analyzeCoherence(userId: string, context: string): Promise<any> {
+  private async analyzeCoherence(
+    userId: string,
+    context: string,
+  ): Promise<any> {
     const userPrompt = `Analyze my data for coherence issues and suggest improvements:\n\n${context}`;
 
     const response = await llmRouterService.executeTask(
@@ -390,17 +434,22 @@ export class DataCoherenceAgentService {
       "analysis",
       userPrompt,
       COHERENCE_ANALYSIS_PROMPT,
-      { responseFormat: "json" }
+      { responseFormat: "json", maxTokens: 10000 },
     );
 
     try {
       const parsed = parseJSONFromLLMResponse(response);
-      
+
       // Validate and clean the response
       return this.validateAndCleanCoherenceResponse(parsed);
     } catch (parseError) {
-      console.error("Failed to parse coherence analysis response:", response.substring(0, 500));
-      throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      console.error(
+        "Failed to parse coherence analysis response:",
+        response.substring(0, 500),
+      );
+      throw new Error(
+        `Invalid JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+      );
     }
   }
 
@@ -408,8 +457,8 @@ export class DataCoherenceAgentService {
    * Validate and clean coherence response to prevent duplicate entries
    */
   private validateAndCleanCoherenceResponse(response: any): any {
-    if (!response || typeof response !== 'object') {
-      throw new Error('Response must be an object');
+    if (!response || typeof response !== "object") {
+      throw new Error("Response must be an object");
     }
 
     let duplicatesRemoved = 0;
@@ -430,9 +479,11 @@ export class DataCoherenceAgentService {
           });
           const removedCount = originalLength - issue.affectedItems.length;
           duplicatesRemoved += removedCount;
-          
+
           if (removedCount > 0) {
-            console.warn(`[DataCoherence] Removed ${removedCount} duplicate entries from issue "${issue.title}"`);
+            console.warn(
+              `[DataCoherence] Removed ${removedCount} duplicate entries from issue "${issue.title}"`,
+            );
           }
         }
         return issue;
@@ -440,7 +491,9 @@ export class DataCoherenceAgentService {
     }
 
     if (duplicatesRemoved > 0) {
-      console.warn(`[DataCoherence] Total duplicates removed from response: ${duplicatesRemoved}`);
+      console.warn(
+        `[DataCoherence] Total duplicates removed from response: ${duplicatesRemoved}`,
+      );
     }
 
     return response;
@@ -449,10 +502,14 @@ export class DataCoherenceAgentService {
   /**
    * Generate proactive questions for the user
    */
-  private async generateProactiveQuestions(userId: string, context: string, coherenceResult: any): Promise<any> {
+  private async generateProactiveQuestions(
+    userId: string,
+    context: string,
+    coherenceResult: any,
+  ): Promise<any> {
     // Build question context including coherence issues
     let questionContext = context;
-    
+
     if (coherenceResult.issues && coherenceResult.issues.length > 0) {
       questionContext += "\n\n## Detected Issues\n\n";
       coherenceResult.issues.forEach((issue: CoherenceIssue, i: number) => {
@@ -467,7 +524,7 @@ export class DataCoherenceAgentService {
       "analysis",
       userPrompt,
       PROACTIVE_QUESTIONS_PROMPT,
-      { responseFormat: "json" }
+      { responseFormat: "json", maxTokens: 3072 },
     );
 
     try {
@@ -485,17 +542,21 @@ export class DataCoherenceAgentService {
 
   /**
    * Process results: create tasks, store AI instructions, and notify
-   * 
+   *
    * IMPORTANT: We no longer store coherence results as user memories.
    * Instead:
    * - Actionable issues become tasks (todos)
    * - AI learnings go to AI Instructions
    * - Users are notified via notifications only
    */
-  private async processResults(userId: string, coherenceResult: any, questionsResult: any): Promise<void> {
+  private async processResults(
+    userId: string,
+    coherenceResult: any,
+    questionsResult: any,
+  ): Promise<void> {
     // Filter high-confidence issues
     const significantIssues = (coherenceResult.issues || []).filter(
-      (issue: CoherenceIssue) => issue.confidence >= MIN_CONFIDENCE_FOR_ISSUE
+      (issue: CoherenceIssue) => issue.confidence >= MIN_CONFIDENCE_FOR_ISSUE,
     );
 
     // Check if too many system-improvement todos already exist
@@ -503,13 +564,15 @@ export class DataCoherenceAgentService {
       where: {
         userId,
         category: { in: ["system-improvement", "personal-improvement"] },
-        status: { in: [TodoStatus.PENDING, TodoStatus.IN_PROGRESS] }
-      }
+        status: { in: [TodoStatus.PENDING, TodoStatus.IN_PROGRESS] },
+      },
     });
 
     // Skip creating new suggestions if user already has too many
     if (systemTodos.length > 5) {
-      console.log(`User ${userId} has ${systemTodos.length} system todos, skipping new suggestions`);
+      console.log(
+        `User ${userId} has ${systemTodos.length} system todos, skipping new suggestions`,
+      );
       return;
     }
 
@@ -520,9 +583,12 @@ export class DataCoherenceAgentService {
           // Create a task for the AI to fix this issue
           await this.createTaskFromSuggestion(userId, suggestion);
         }
-        
+
         // Send notifications for high/medium priority suggestions
-        if (suggestion.priority === "high" || suggestion.priority === "medium") {
+        if (
+          suggestion.priority === "high" ||
+          suggestion.priority === "medium"
+        ) {
           await notificationService.sendNotification(userId, {
             title: `💡 ${suggestion.title}`,
             message: suggestion.message,
@@ -563,12 +629,15 @@ export class DataCoherenceAgentService {
     if (significantIssues.length > 0) {
       for (const issue of significantIssues) {
         // Check for existing similar instruction to avoid duplicates
-        const keywords = issue.title.toLowerCase().split(" ").filter((w: string) => w.length > 3);
+        const keywords = issue.title
+          .toLowerCase()
+          .split(" ")
+          .filter((w: string) => w.length > 3);
         const existing = await aiInstructionsService.findSimilarInstruction(
           userId,
           "data-coherence",
           AIInstructionCategory.DATA_COHERENCE,
-          keywords
+          keywords,
         );
 
         if (!existing) {
@@ -577,14 +646,21 @@ export class DataCoherenceAgentService {
             content: `${issue.description}\n\nSuggested action: ${issue.suggestedAction || "Review and address"}`,
             category: AIInstructionCategory.DATA_COHERENCE,
             sourceAgent: "data-coherence",
-            priority: issue.severity === "high" ? 8 : issue.severity === "medium" ? 5 : 2,
+            priority:
+              issue.severity === "high"
+                ? 8
+                : issue.severity === "medium"
+                  ? 5
+                  : 2,
             confidence: issue.confidence,
-            relatedGoalIds: issue.affectedItems
-              ?.filter((i: any) => i.type === "goal")
-              .map((i: any) => i.id) || [],
-            relatedTodoIds: issue.affectedItems
-              ?.filter((i: any) => i.type === "todo")
-              .map((i: any) => i.id) || [],
+            relatedGoalIds:
+              issue.affectedItems
+                ?.filter((i: any) => i.type === "goal")
+                .map((i: any) => i.id) || [],
+            relatedTodoIds:
+              issue.affectedItems
+                ?.filter((i: any) => i.type === "todo")
+                .map((i: any) => i.id) || [],
             metadata: {
               issueType: issue.type,
               severity: issue.severity,
@@ -599,7 +675,10 @@ export class DataCoherenceAgentService {
   /**
    * Create a task from an actionable suggestion
    */
-  private async createTaskFromSuggestion(userId: string, suggestion: CoherenceSuggestion): Promise<void> {
+  private async createTaskFromSuggestion(
+    userId: string,
+    suggestion: CoherenceSuggestion,
+  ): Promise<void> {
     try {
       // Check for existing similar todos to prevent duplicates
       const existingTodos = await prisma.todo.findMany({
@@ -607,16 +686,16 @@ export class DataCoherenceAgentService {
           userId,
           status: { in: [TodoStatus.PENDING, TodoStatus.IN_PROGRESS] },
           OR: [
-            { title: { contains: suggestion.title, mode: 'insensitive' } },
-            { 
+            { title: { contains: suggestion.title, mode: "insensitive" } },
+            {
               metadata: {
                 path: ["suggestionType"],
-                equals: suggestion.type
-              }
-            }
-          ]
+                equals: suggestion.type,
+              },
+            },
+          ],
         },
-        take: 5
+        take: 5,
       });
 
       // If similar todos exist, skip creation
@@ -625,15 +704,16 @@ export class DataCoherenceAgentService {
         return;
       }
 
-      const priority = suggestion.priority === "high" 
-        ? TodoPriority.HIGH 
-        : suggestion.priority === "medium" 
-          ? TodoPriority.MEDIUM 
-          : TodoPriority.LOW;
+      const priority =
+        suggestion.priority === "high"
+          ? TodoPriority.HIGH
+          : suggestion.priority === "medium"
+            ? TodoPriority.MEDIUM
+            : TodoPriority.LOW;
 
       // Create the task with a more user-friendly title
       const userFriendlyTitle = this.makeUserFriendlyTitle(suggestion.title);
-      
+
       await todoService.createTodo(userId, {
         title: userFriendlyTitle,
         description: suggestion.message,
@@ -650,7 +730,10 @@ export class DataCoherenceAgentService {
 
       console.log(`Created task for suggestion: ${userFriendlyTitle}`);
     } catch (error) {
-      console.error(`Failed to create task for suggestion: ${suggestion.title}`, error);
+      console.error(
+        `Failed to create task for suggestion: ${suggestion.title}`,
+        error,
+      );
     }
   }
 
@@ -659,27 +742,35 @@ export class DataCoherenceAgentService {
    */
   private makeUserFriendlyTitle(title: string): string {
     return title
-      .replace(/\[Auto\]\s?/g, '')
-      .replace(/Set Up/g, 'Set up')
-      .replace(/Create central goal for/g, 'Set up goal for')
-      .replace(/Create recurring task/g, 'Set up recurring reminder')
-      .replace(/Schedule sport sessions/g, 'Set up sport reminders')
-      .replace(/Remove duplicate/g, 'Clean up duplicate')
-      .replace(/data-coherence/g, 'system maintenance')
+      .replace(/\[Auto\]\s?/g, "")
+      .replace(/Set Up/g, "Set up")
+      .replace(/Create central goal for/g, "Set up goal for")
+      .replace(/Create recurring task/g, "Set up recurring reminder")
+      .replace(/Schedule sport sessions/g, "Set up sport reminders")
+      .replace(/Remove duplicate/g, "Clean up duplicate")
+      .replace(/data-coherence/g, "system maintenance")
       .trim();
   }
 
   /**
    * Format results as markdown (for notifications/logging only, not storage)
    */
-  private formatResultsAsMarkdown(coherenceResult: any, questionsResult: any): string {
+  private formatResultsAsMarkdown(
+    coherenceResult: any,
+    questionsResult: any,
+  ): string {
     let content = "# Data Coherence Check\n\n";
     content += `${coherenceResult.overallCoherence}\n\n`;
 
     if (coherenceResult.issues && coherenceResult.issues.length > 0) {
       content += "## Issues Detected\n\n";
       coherenceResult.issues.forEach((issue: CoherenceIssue, i: number) => {
-        const emoji = issue.severity === "high" ? "🔴" : issue.severity === "medium" ? "🟡" : "🟢";
+        const emoji =
+          issue.severity === "high"
+            ? "🔴"
+            : issue.severity === "medium"
+              ? "🟡"
+              : "🟢";
         content += `### ${emoji} ${issue.title}\n\n`;
         content += `${issue.description}\n\n`;
         if (issue.suggestedAction) {
@@ -690,18 +781,22 @@ export class DataCoherenceAgentService {
 
     if (coherenceResult.suggestions && coherenceResult.suggestions.length > 0) {
       content += "## Suggestions\n\n";
-      coherenceResult.suggestions.forEach((suggestion: CoherenceSuggestion, i: number) => {
-        content += `### ${suggestion.title}\n\n`;
-        content += `${suggestion.message}\n\n`;
-      });
+      coherenceResult.suggestions.forEach(
+        (suggestion: CoherenceSuggestion, i: number) => {
+          content += `### ${suggestion.title}\n\n`;
+          content += `${suggestion.message}\n\n`;
+        },
+      );
     }
 
     if (questionsResult.questions && questionsResult.questions.length > 0) {
       content += "## Questions for You\n\n";
-      questionsResult.questions.forEach((question: ProactiveQuestion, i: number) => {
-        content += `**Q${i + 1}**: ${question.question}\n\n`;
-        content += `*Context*: ${question.context}\n\n`;
-      });
+      questionsResult.questions.forEach(
+        (question: ProactiveQuestion, i: number) => {
+          content += `**Q${i + 1}**: ${question.question}\n\n`;
+          content += `*Context*: ${question.context}\n\n`;
+        },
+      );
     }
 
     return content;
