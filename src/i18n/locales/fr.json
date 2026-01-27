@@ -94,11 +94,13 @@
     "subtitle": "Configurez vos providers d'IA et assignez les modèles aux différentes tâches.",
     "tabs": {
       "providers": "Providers IA",
+      "appearance": "Apparence",
       "models": "Configuration des Modèles",
       "secrets": "Secrets & Clés API",
       "listening": "Écoute Continue"
     },
     "providers": {
+      "title": "Providers IA",
       "addProvider": "Ajouter un Provider",
       "noProvidersConfigured": "Aucun provider configuré.",
       "editProvider": "Modifier le Provider",
@@ -122,6 +124,25 @@
       "notifications": "Paramètres des alertes visuelles et sonores",
       "memoryRecorded": "Mémoire enregistrée",
       "notifyWhenSaved": "Notifier quand une parole est sauvegardée en mémoire"
+    },
+    "appearance": {
+      "title": "Apparence",
+      "subtitle": "Choisissez un thème ou suivez la préférence de votre appareil.",
+      "description": "Choisissez un jeu de couleurs qui s'adapte à votre flux. Ce choix est enregistré dans vos préférences.",
+      "sectionTitle": "Thème",
+      "options": {
+        "system": "Suivre le système",
+        "light": "Mode clair",
+        "dark": "Mode sombre"
+      },
+      "descriptions": {
+        "system": "Synchronise automatiquement avec macOS, Windows ou Linux.",
+        "light": "Interface lumineuse avec un bon contraste.",
+        "dark": "Mode sombre pour travailler en basse lumière."
+      },
+      "current": "Thème actif : {{theme}}",
+      "saving": "Enregistrement...",
+      "loading": "Chargement de la préférence..."
     }
   },
   "memory": {
@@ -346,6 +367,7 @@
       "skip": "Passer pour l'instant",
       "continue": "Continuer",
       "complete": "Terminer la configuration",
+      "completing": "Finalisation...",
       "skipChannel": "Passer ce canal",
       "continueWithoutNotifications": "Continuer sans notifications",
       "setUpLater": "Configurer plus tard"

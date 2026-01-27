@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ContinuousListeningProvider } from "./contexts/ContinuousListeningContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
@@ -78,17 +79,19 @@ function NotificationInitializer() {
 
 function App() {
   return (
-    <TooltipProvider>
-      <Router>
-        <AuthProvider>
-          <ContinuousListeningProvider>
-            <PresenceTracker />
-            <NotificationInitializer />
-            <AppContent />
-          </ContinuousListeningProvider>
-        </AuthProvider>
-      </Router>
-    </TooltipProvider>
+    <Router>
+      <AuthProvider>
+        <ThemeProvider>
+          <TooltipProvider>
+            <ContinuousListeningProvider>
+              <PresenceTracker />
+              <NotificationInitializer />
+              <AppContent />
+            </ContinuousListeningProvider>
+          </TooltipProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

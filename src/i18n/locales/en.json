@@ -94,11 +94,13 @@
     "subtitle": "Configure your AI providers and assign models to different tasks.",
     "tabs": {
       "providers": "AI Providers",
+      "appearance": "Appearance",
       "models": "Model Configuration",
       "secrets": "Secrets & API Keys",
       "listening": "Continuous Listening"
     },
     "providers": {
+      "title": "AI Providers",
       "addProvider": "Add Provider",
       "noProvidersConfigured": "No providers configured.",
       "editProvider": "Edit Provider",
@@ -122,6 +124,25 @@
       "notifications": "Visual and sound notification settings",
       "memoryRecorded": "Memory Recorded",
       "notifyWhenSaved": "Notify when speech is saved to memory"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "subtitle": "Choose a theme or follow your device preference.",
+      "description": "Pick a color scheme that matches your workflow. The choice is stored in your preferences for future sessions.",
+      "sectionTitle": "Theme",
+      "options": {
+        "system": "Follow system preference",
+        "light": "Light mode",
+        "dark": "Dark mode"
+      },
+      "descriptions": {
+        "system": "Automatically syncs with macOS, Windows, or Linux appearance.",
+        "light": "For a bright and airy interface with high contrast.",
+        "dark": "Keeps the workspace dark for low-light sessions."
+      },
+      "current": "Currently using: {{theme}}",
+      "saving": "Saving preference...",
+      "loading": "Loading saved preference..."
     }
   },
   "memory": {
@@ -345,6 +366,7 @@
       "skip": "Skip for now",
       "continue": "Continue",
       "complete": "Complete Setup",
+      "completing": "Completing...",
       "skipChannel": "Skip This Channel",
       "continueWithoutNotifications": "Continue Without Notifications",
       "setUpLater": "Set Up Later"

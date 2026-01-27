@@ -683,23 +683,25 @@ function AchievementsTabContent({
               <Trophy className="w-8 h-8 text-amber-600" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Start Your Journey!
+              {t("goals.emptyAchievement.title")}
             </h3>
             <p className="text-gray-600 max-w-md mx-auto mb-4">
-              As you use your Second Brain, you'll unlock achievements for
-              consistency, milestones, and personal growth. Keep going!
+              {t("goals.emptyAchievement.description")}
             </p>
-            <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
-              <span className="flex items-center gap-1">
-                <Zap className="w-4 h-4 text-amber-500" /> Consistency rewards
-              </span>
-              <span className="flex items-center gap-1">
-                <Crown className="w-4 h-4 text-purple-500" /> Milestone badges
-              </span>
-              <span className="flex items-center gap-1">
-                <Sparkles className="w-4 h-4 text-blue-500" /> Growth recognition
-              </span>
-            </div>
+              <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Zap className="w-4 h-4 text-amber-500" />
+                  {t("goals.emptyAchievement.rewards.consistency")}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Crown className="w-4 h-4 text-purple-500" />
+                  {t("goals.emptyAchievement.rewards.milestones")}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-4 h-4 text-blue-500" />
+                  {t("goals.emptyAchievement.rewards.growth")}
+                </span>
+              </div>
           </CardContent>
         </Card>
       )}
@@ -776,12 +778,10 @@ function AchievementsTabContent({
           <CardContent className="pt-6 pb-6 relative">
             <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
               <Sparkles className="w-4 h-4" />
-              <span>Keep Going!</span>
+              <span>{t("goals.achievement.keepGoing")}</span>
             </div>
             <p className="text-lg text-white/90">
-              You still have <span className="font-bold">{stats.locked}</span>{" "}
-              achievement{stats.locked > 1 ? "s" : ""} to unlock. Every
-              interaction with your Second Brain brings you closer! 🌟
+              {t("goals.achievement.locked", { count: stats.locked })}
             </p>
           </CardContent>
         </Card>
@@ -842,6 +842,7 @@ function GoalCard({
   getStatusColor,
   getCategoryEmoji,
 }: GoalCardProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -867,7 +868,7 @@ function GoalCard({
           {/* Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">Progress</span>
+              <span className="text-sm text-gray-600">{t("goals.progress")}</span>
               <span className="text-sm font-semibold">{goal.progress}%</span>
             </div>
             <Progress value={goal.progress} className="h-2" />
@@ -894,18 +895,19 @@ function GoalCard({
           {/* Milestones */}
           {goal.milestones && goal.milestones.length > 0 && (
             <div className="pt-3 border-t">
-              <button
-                className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2"
-                onClick={() => setExpanded(!expanded)}
-              >
-                <ChevronRight
-                  className={`w-4 h-4 transition-transform ${
-                    expanded ? "rotate-90" : ""
-                  }`}
-                />
-                Milestones ({goal.milestones.filter((m) => m.completed).length}/
+            <button
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2"
+              onClick={() => setExpanded(!expanded)}
+            >
+              <ChevronRight
+                className={`w-4 h-4 transition-transform ${
+                  expanded ? "rotate-90" : ""
+                }`}
+              />
+              {t("goals.milestones")} (
+                {goal.milestones.filter((m) => m.completed).length}/
                 {goal.milestones.length})
-              </button>
+            </button>
               {expanded && (
                 <div className="space-y-2 ml-6">
                   {goal.milestones.map((milestone: Milestone, i: number) => (
@@ -940,7 +942,7 @@ function GoalCard({
                   onClick={() => onUpdate(goal.id, { status: "COMPLETED" })}
                 >
                   <CheckCircle2 className="w-4 h-4 mr-1" />
-                  Complete
+                  {t("goals.actions.complete")}
                 </Button>
                 <Button
                   size="sm"
@@ -948,7 +950,7 @@ function GoalCard({
                   onClick={() => onUpdate(goal.id, { status: "PAUSED" })}
                 >
                   <Pause className="w-4 h-4 mr-1" />
-                  Pause
+                  {t("goals.actions.pause")}
                 </Button>
               </>
             )}
@@ -959,7 +961,7 @@ function GoalCard({
                 onClick={() => onUpdate(goal.id, { status: "ACTIVE" })}
               >
                 <Play className="w-4 h-4 mr-1" />
-                Resume
+                {t("goals.actions.resume")}
               </Button>
             )}
             <Button
@@ -967,13 +969,13 @@ function GoalCard({
               variant="outline"
               className="text-red-600 hover:text-red-700"
               onClick={() => {
-                if (confirm("Are you sure you want to delete this goal?")) {
+                if (confirm(t("goals.deleteConfirm"))) {
                   onDelete(goal.id);
                 }
               }}
             >
               <Trash2 className="w-4 h-4 mr-1" />
-              Delete
+              {t("goals.actions.delete")}
             </Button>
           </div>
         </div>

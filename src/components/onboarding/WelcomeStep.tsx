@@ -1,6 +1,7 @@
 import React from 'react';
 import { Brain, MessageSquare, Bell, Zap, Shield, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { useTranslation } from 'react-i18next';
 
 interface WelcomeStepProps {
   onNext: () => void;
@@ -10,46 +11,50 @@ interface WelcomeStepProps {
 const features = [
   {
     icon: Brain,
-    title: 'Memory System',
-    description: 'Automatically captures and organizes your interactions, creating a searchable personal knowledge base.',
+    titleKey: 'onboarding.welcomeStep.features.memorySystem.title',
+    descriptionKey: 'onboarding.welcomeStep.features.memorySystem.description',
   },
   {
     icon: MessageSquare,
-    title: 'AI Conversations',
-    description: 'Chat with AI models that have access to your personal context and memory.',
+    titleKey: 'onboarding.welcomeStep.features.aiConversations.title',
+    descriptionKey: 'onboarding.welcomeStep.features.aiConversations.description',
   },
   {
     icon: Bell,
-    title: 'Proactive Insights',
-    description: 'Get helpful suggestions and reminders based on your patterns and goals.',
+    titleKey: 'onboarding.welcomeStep.features.proactiveInsights.title',
+    descriptionKey: 'onboarding.welcomeStep.features.proactiveInsights.description',
   },
   {
     icon: Zap,
-    title: 'Smart Automation',
-    description: 'Execute tasks and workflows with AI agents that understand your preferences.',
+    titleKey: 'onboarding.welcomeStep.features.smartAutomation.title',
+    descriptionKey: 'onboarding.welcomeStep.features.smartAutomation.description',
   },
   {
     icon: Shield,
-    title: 'Privacy First',
-    description: 'All your data stays local and private. You control what gets stored and processed.',
+    titleKey: 'onboarding.welcomeStep.features.privacyFirst.title',
+    descriptionKey: 'onboarding.welcomeStep.features.privacyFirst.description',
   },
   {
     icon: Clock,
-    title: 'Time-based Summaries',
-    description: 'Automatic daily, weekly, and monthly summaries help you track progress and insights.',
+    titleKey: 'onboarding.welcomeStep.features.timeSummaries.title',
+    descriptionKey: 'onboarding.welcomeStep.features.timeSummaries.description',
   },
 ];
 
 export function WelcomeStep({ onNext }: WelcomeStepProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-6">
       <div className="text-center">
         <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
           <Brain className="w-10 h-10 text-primary" />
         </div>
-        <h2 className="text-2xl font-bold mb-2">Your Personal AI Operating System</h2>
+        <h2 className="text-2xl font-bold mb-2">
+          {t('onboarding.welcomeStep.title')}
+        </h2>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Second Brain AI is designed to be your cognitive companion — capturing, organizing, and helping you act on information throughout your life.
+          {t('onboarding.welcomeStep.subtitle')}
         </p>
       </div>
 
@@ -61,11 +66,15 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
               <CardHeader className="pb-2">
                 <div className="flex items-center space-x-2">
                   <Icon className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-base">{feature.title}</CardTitle>
+                  <CardTitle className="text-base">
+                    {t(feature.titleKey)}
+                  </CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">{feature.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t(feature.descriptionKey)}
+                </p>
               </CardContent>
             </Card>
           );
@@ -73,10 +82,11 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
       </div>
 
       <div className="bg-muted/50 p-4 rounded-lg">
-        <h3 className="font-semibold mb-2">Getting Started</h3>
+        <h3 className="font-semibold mb-2">
+          {t('onboarding.welcomeStep.gettingStartedTitle')}
+        </h3>
         <p className="text-sm text-muted-foreground">
-          We'll help you configure the essential settings to get your Second Brain AI system up and running.
-          This includes setting up AI providers, notification preferences, and giving you a quick tour of the features.
+          {t('onboarding.welcomeStep.gettingStartedCopy')}
         </p>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Bell, Smartphone, MessageSquare, Monitor, CheckCircle } from 'lucide-react';
 import { NotificationSettings } from '../NotificationSettings';
+import { useTranslation } from 'react-i18next';
 
 interface NotificationsStepProps {
   onNext: () => void;
@@ -15,22 +16,23 @@ const notificationChannels = [
   {
     id: 'browser' as const,
     icon: Monitor,
-    title: 'Browser Notifications',
-    description: 'Get notifications directly in your browser while using the app',
+    titleKey: 'onboarding.notificationsStep.channels.browser.title',
+    descriptionKey: 'onboarding.notificationsStep.channels.browser.description',
+    recommendedTagKey: 'onboarding.notificationsStep.channels.browser.recommendedTag',
     recommended: true,
   },
   {
     id: 'pushover' as const,
     icon: Smartphone,
-    title: 'Pushover (Mobile)',
-    description: 'Receive push notifications on your phone via the Pushover app',
+    titleKey: 'onboarding.notificationsStep.channels.pushover.title',
+    descriptionKey: 'onboarding.notificationsStep.channels.pushover.description',
     recommended: false,
   },
   {
     id: 'telegram' as const,
     icon: MessageSquare,
-    title: 'Telegram Bot',
-    description: 'Get notifications through a private Telegram bot',
+    titleKey: 'onboarding.notificationsStep.channels.telegram.title',
+    descriptionKey: 'onboarding.notificationsStep.channels.telegram.description',
     recommended: false,
   },
 ];
@@ -38,6 +40,7 @@ const notificationChannels = [
 export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
   const [selectedChannel, setSelectedChannel] = useState<ChannelType>(null);
   const [hasConfigured, setHasConfigured] = useState(false);
+  const { t } = useTranslation();
 
   const handleChannelSelect = (channel: ChannelType) => {
     setSelectedChannel(channel);
@@ -51,10 +54,11 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
     <div className="space-y-6">
       <div className="text-center">
         <Bell className="mx-auto w-12 h-12 text-primary mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Set Up Notifications</h2>
+        <h2 className="text-xl font-semibold mb-2">
+          {t("onboarding.notificationsStep.title")}
+        </h2>
         <p className="text-muted-foreground">
-          Choose how you'd like to receive notifications from your Second Brain AI.
-          You can configure multiple channels or skip this step for now.
+          {t("onboarding.notificationsStep.subtitle")}
         </p>
       </div>
 
@@ -68,24 +72,24 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
                 className="cursor-pointer border-2 hover:border-primary/50 transition-colors"
                 onClick={() => handleChannelSelect(channel.id)}
               >
-                <CardHeader className="text-center">
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
-                    <Icon className="w-6 h-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-base">
-                    {channel.title}
-                    {channel.recommended && (
+              <CardHeader className="text-center">
+                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
+                  <Icon className="w-6 h-6 text-primary" />
+                </div>
+                <CardTitle className="text-base">
+                    {t(channel.titleKey)}
+                    {channel.recommended && channel.recommendedTagKey && (
                       <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                        Recommended
+                        {t(channel.recommendedTagKey)}
                       </span>
                     )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground text-center">
-                    {channel.description}
-                  </p>
-                </CardContent>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground text-center">
+                    {t(channel.descriptionKey)}
+                </p>
+              </CardContent>
               </Card>
             );
           })}
@@ -98,7 +102,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
               size="sm" 
               onClick={() => setSelectedChannel(null)}
             >
-              ← Back to channel selection
+              ← {t("onboarding.notificationsStep.backToSelection")}
             </Button>
           </div>
           
@@ -121,10 +125,10 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
         {!selectedChannel && (
           <>
             <Button variant="outline" onClick={onSkip}>
-              Skip for Now
+              {t("onboarding.buttons.skip")}
             </Button>
             <Button onClick={onNext}>
-              Continue Without Notifications
+              {t("onboarding.buttons.continueWithoutNotifications")}
             </Button>
           </>
         )}
@@ -132,10 +136,12 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
         {selectedChannel && (
           <>
             <Button variant="outline" onClick={onSkip}>
-              Skip This Channel
+              {t("onboarding.buttons.skipChannel")}
             </Button>
             <Button onClick={onNext}>
-              {hasConfigured ? 'Continue' : 'Set Up Later'}
+              {hasConfigured
+                ? t("onboarding.buttons.continue")
+                : t("onboarding.buttons.setUpLater")}
             </Button>
           </>
         )}
@@ -144,15 +150,17 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
       {/* Info Card */}
       <Card className="bg-muted/50">
         <CardContent className="pt-4">
-          <div className="flex items-start space-x-2">
-            <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium">You can configure notifications later</p>
-              <p className="text-xs text-muted-foreground">
-                All notification settings can be changed in the Settings page after setup is complete.
-              </p>
-            </div>
-          </div>
+              <div className="flex items-start space-x-2">
+                <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">
+                    {t("onboarding.notificationsStep.configuredNoticeTitle")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("onboarding.notificationsStep.configuredNoticeBody")}
+                  </p>
+                </div>
+              </div>
         </CardContent>
       </Card>
     </div>

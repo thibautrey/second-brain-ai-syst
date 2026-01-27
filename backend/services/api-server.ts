@@ -3071,7 +3071,38 @@ app.patch(
         autoDeleteAudioAfterProcess,
         notifyOnMemoryStored,
         notifyOnCommandDetected,
+        themePreference,
       } = req.body;
+
+      const allowedThemePreferences = ["system", "light", "dark"] as const;
+      if (
+        themePreference !== undefined &&
+        (typeof themePreference !== "string" ||
+          !allowedThemePreferences.includes(themePreference))
+      ) {
+        return res
+          .status(400)
+          .json({ error: "themePreference must be system, light, or dark" });
+      }
+
+      const existingSettings = await prisma.userSettings.findUnique({
+        where: { userId: req.userId },
+      });
+
+      const currentMetadata =
+        (existingSettings?.metadata as Record<string, any>) || {};
+      const currentAppearance =
+        (currentMetadata?.appearance as Record<string, any>) || {};
+      const metadataWithTheme =
+        themePreference !== undefined
+          ? {
+              ...currentMetadata,
+              appearance: {
+                ...currentAppearance,
+                themePreference,
+              },
+            }
+          : undefined;
 
       // Validate numeric fields
       if (
@@ -3130,6 +3161,7 @@ app.patch(
           ...(notifyOnCommandDetected !== undefined && {
             notifyOnCommandDetected,
           }),
+          ...(metadataWithTheme !== undefined && { metadata: metadataWithTheme }),
         },
         create: {
           userId: req.userId,
@@ -3153,6 +3185,7 @@ app.patch(
           ...(notifyOnCommandDetected !== undefined && {
             notifyOnCommandDetected,
           }),
+          ...(metadataWithTheme !== undefined && { metadata: metadataWithTheme }),
         },
       });
 

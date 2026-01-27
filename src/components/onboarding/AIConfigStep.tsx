@@ -6,6 +6,7 @@ import { Label } from '../ui/label';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, Plus, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAISettings } from '../../hooks/useAISettings';
+import { useTranslation } from 'react-i18next';
 
 interface AIConfigStepProps {
   onNext: () => void;
@@ -14,6 +15,7 @@ interface AIConfigStepProps {
 
 export function AIConfigStep({ onNext }: AIConfigStepProps) {
   const { settings, addProvider, testApiKey, isLoading, isSaving } = useAISettings();
+  const { t } = useTranslation();
   const [newProvider, setNewProvider] = useState({
     name: 'OpenAI',
     apiKey: '',
@@ -93,7 +95,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin" />
-        <span className="ml-2">Loading AI settings...</span>
+        <span className="ml-2">{t("onboarding.aiConfigStep.loading")}</span>
       </div>
     );
   }
@@ -101,16 +103,20 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-xl font-semibold mb-2">Configure AI Models</h2>
+        <h2 className="text-xl font-semibold mb-2">
+          {t("onboarding.aiConfigStep.title")}
+        </h2>
         <p className="text-muted-foreground">
-          Add at least one AI provider to power your Second Brain. We recommend starting with OpenAI for the best experience.
+          {t("onboarding.aiConfigStep.subtitle")}
         </p>
       </div>
 
       {/* Existing Providers */}
       {settings.providers.length > 0 && (
         <div className="space-y-2">
-          <h3 className="font-medium">Existing Providers</h3>
+          <h3 className="font-medium">
+            {t("onboarding.aiConfigStep.existingProvidersTitle")}
+          </h3>
           {settings.providers.map((provider, index) => (
             <Card key={index} className="border-muted">
               <CardContent className="pt-4">
@@ -123,9 +129,11 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
                     )}
                     <span className="font-medium">{provider.name}</span>
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    {provider.isEnabled ? 'Active' : 'Inactive'}
-                  </span>
+                    <span className="text-sm text-muted-foreground">
+                      {provider.isEnabled
+                        ? t("onboarding.aiConfigStep.providerStatus.active")
+                        : t("onboarding.aiConfigStep.providerStatus.inactive")}
+                    </span>
                 </div>
               </CardContent>
             </Card>
@@ -139,13 +147,15 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
           <CardHeader>
             <CardTitle className="text-lg flex items-center space-x-2">
               <Plus className="w-5 h-5" />
-              <span>Add AI Provider</span>
+              <span>{t("onboarding.aiConfigStep.addProvider")}</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="provider-name">Provider Name</Label>
+                <Label htmlFor="provider-name">
+                  {t("onboarding.aiConfigStep.form.providerName")}
+                </Label>
                 <Input
                   id="provider-name"
                   value={newProvider.name}
@@ -154,7 +164,9 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
                 />
               </div>
               <div>
-                <Label htmlFor="base-url">Base URL</Label>
+                <Label htmlFor="base-url">
+                  {t("onboarding.aiConfigStep.form.baseUrl")}
+                </Label>
                 <Input
                   id="base-url"
                   value={newProvider.baseUrl}
@@ -165,7 +177,9 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
             </div>
             
             <div>
-              <Label htmlFor="api-key">API Key</Label>
+              <Label htmlFor="api-key">
+                {t("onboarding.aiConfigStep.form.apiKey")}
+              </Label>
               <Input
                 id="api-key"
                 type="password"
@@ -174,7 +188,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
                 placeholder="sk-..."
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Your API key is stored securely and only used to make requests to the AI provider.
+                {t("onboarding.aiConfigStep.securityCopy")}
               </p>
             </div>
 
@@ -187,7 +201,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
                 {isTesting ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : null}
-                Test Connection
+                {t("onboarding.aiConfigStep.testConnection")}
               </Button>
               
               {testResult?.success && (
@@ -198,7 +212,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
                   {isSaving ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   ) : null}
-                  Add Provider
+                  {t("onboarding.aiConfigStep.addProviderButton")}
                 </Button>
               )}
             </div>
@@ -215,9 +229,11 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
       {/* Help Section */}
       <Card className="bg-muted/50">
         <CardContent className="pt-4">
-          <h3 className="font-medium mb-2">Need an API Key?</h3>
+          <h3 className="font-medium mb-2">
+            {t("onboarding.aiConfigStep.helpTitle")}
+          </h3>
           <p className="text-sm text-muted-foreground mb-2">
-            You'll need an API key from an AI provider. Here are some popular options:
+            {t("onboarding.aiConfigStep.helpCopy")}
           </p>
           <ul className="text-sm space-y-1">
             <li className="flex items-center space-x-2">
@@ -228,7 +244,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
                 rel="noopener noreferrer"
                 className="text-primary hover:underline flex items-center space-x-1"
               >
-                <span>OpenAI API Keys</span>
+                <span>{t("onboarding.aiConfigStep.apiLinks.openai")}</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
             </li>
@@ -240,7 +256,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
                 rel="noopener noreferrer"
                 className="text-primary hover:underline flex items-center space-x-1"
               >
-                <span>Anthropic Console</span>
+                <span>{t("onboarding.aiConfigStep.apiLinks.anthropic")}</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
             </li>
@@ -252,7 +268,7 @@ export function AIConfigStep({ onNext }: AIConfigStepProps) {
       {canProceed && (
         <div className="text-center">
           <Button onClick={onNext} size="lg">
-            Continue to Notifications
+            {t("onboarding.aiConfigStep.continueButton")}
           </Button>
         </div>
       )}

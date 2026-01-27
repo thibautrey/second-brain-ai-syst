@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
@@ -13,8 +14,8 @@ import { apiPost } from '../../services/api';
 
 interface OnboardingStep {
   id: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   component: React.ComponentType<{ onNext: () => void; onSkip: () => void }>;
   skippable: boolean;
 }
@@ -22,29 +23,29 @@ interface OnboardingStep {
 const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome',
-    description: 'Learn about your Second Brain AI System',
+    titleKey: 'onboarding.steps.welcome.title',
+    descriptionKey: 'onboarding.steps.welcome.description',
     component: WelcomeStep,
     skippable: false,
   },
   {
     id: 'ai-config',
-    title: 'AI Configuration',
-    description: 'Set up your AI models and providers',
+    titleKey: 'onboarding.steps.aiConfig.title',
+    descriptionKey: 'onboarding.steps.aiConfig.description',
     component: AIConfigStep,
     skippable: false,
   },
   {
     id: 'notifications',
-    title: 'Notifications',
-    description: 'Configure how you want to be notified',
+    titleKey: 'onboarding.steps.notifications.title',
+    descriptionKey: 'onboarding.steps.notifications.description',
     component: NotificationsStep,
     skippable: true,
   },
   {
     id: 'completion',
-    title: 'All Set!',
-    description: 'Your system is ready to use',
+    titleKey: 'onboarding.steps.completion.title',
+    descriptionKey: 'onboarding.steps.completion.description',
     component: CompletionStep,
     skippable: false,
   },
@@ -55,6 +56,7 @@ export function OnboardingWizard() {
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [isCompleting, setIsCompleting] = useState(false);
   const { completeOnboarding } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const currentStep = ONBOARDING_STEPS[currentStepIndex];
@@ -113,9 +115,14 @@ export function OnboardingWizard() {
         {/* Progress Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold">Welcome to Second Brain AI</h1>
+            <h1 className="text-3xl font-bold">
+              {t("onboarding.welcomeStep.title")}
+            </h1>
             <span className="text-sm text-muted-foreground">
-              Step {currentStepIndex + 1} of {ONBOARDING_STEPS.length}
+              {t("onboarding.progress", {
+                current: currentStepIndex + 1,
+                total: ONBOARDING_STEPS.length,
+              })}
             </span>
           </div>
           <Progress value={progress} className="h-2" />
@@ -160,41 +167,43 @@ export function OnboardingWizard() {
         {/* Main Content */}
         <Card>
           <CardHeader>
-            <CardTitle>{currentStep.title}</CardTitle>
-            <CardDescription>{currentStep.description}</CardDescription>
+            <CardTitle>{t(currentStep.titleKey)}</CardTitle>
+            <CardDescription>{t(currentStep.descriptionKey)}</CardDescription>
           </CardHeader>
           <CardContent>
             <currentStep.component onNext={handleNext} onSkip={handleSkip} />
             
             {/* Navigation */}
             <div className="flex items-center justify-between mt-8 pt-6 border-t">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentStepIndex === 0}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+                {t("onboarding.buttons.back")}
+            </Button>
+            
+            <div className="flex items-center space-x-2">
+              {currentStep.skippable && (
+                <Button variant="ghost" onClick={handleSkip}>
+                  {t("onboarding.buttons.skip")}
+                </Button>
+              )}
               <Button
-                variant="outline"
-                onClick={handleBack}
-                disabled={currentStepIndex === 0}
+                onClick={handleNext}
+                disabled={isCompleting}
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              
-              <div className="flex items-center space-x-2">
-                {currentStep.skippable && (
-                  <Button variant="ghost" onClick={handleSkip}>
-                    Skip for now
-                  </Button>
-                )}
-                <Button
-                  onClick={handleNext}
-                  disabled={isCompleting}
-                >
                   {currentStepIndex === ONBOARDING_STEPS.length - 1 ? (
-                    isCompleting ? 'Completing...' : 'Complete Setup'
+                    isCompleting
+                      ? t("onboarding.buttons.completing")
+                      : t("onboarding.buttons.complete")
                   ) : (
-                    'Continue'
+                    t("onboarding.buttons.continue")
                   )}
                   <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
+              </Button>
+            </div>
             </div>
           </CardContent>
         </Card>
