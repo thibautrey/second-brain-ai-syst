@@ -26,11 +26,6 @@ import { memorySearchService } from "../services/memory-search.js";
 import { notificationService } from "../services/notification.js";
 import prisma from "../services/prisma.js";
 import OpenAI from "openai";
-import type {
-  ChatCompletionFunctionTool,
-  ChatCompletionMessageParam,
-  ChatCompletionTool,
-} from "openai/resources/chat/completions/completions";
 import { flowTracker } from "../services/flow-tracker.js";
 import { randomBytes } from "crypto";
 import { toolExecutorService } from "../services/tool-executor.js";
@@ -54,6 +49,23 @@ import { responseCacheService } from "../services/response-cache.js";
 import { precomputedMemoryIndex } from "../services/precomputed-memory-index.js";
 import { speculativeExecutor } from "../services/speculative-executor.js";
 import { optimizedRetrieval } from "../services/optimized-retrieval.js";
+
+type ToolFunctionDefinition = {
+  name: string;
+  description?: string;
+  parameters?: Record<string, any>;
+};
+type LlmTool = {
+  type: "function";
+  function: ToolFunctionDefinition;
+};
+type ChatMessageParam = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: any[];
+  tool_call_id?: string;
+  name?: string;
+};
 
 const intentRouter = new IntentRouterService();
 
@@ -548,25 +560,17 @@ export async function chatStream(
     const toolSchemas =
       (await toolExecutorService.getToolSchemasWithGenerated(
         userId,
-      )) as ChatCompletionFunctionTool[];
+      )) as ToolFunctionDefinition[];
 
     // 7. HYBRID STREAMING MODE: Initial call to detect tool usage
     const llmStart = Date.now();
-    type ChatMessage = {
-      role: "system" | "user" | "assistant" | "tool";
-      content: string | null;
-      tool_calls?: any[];
-      tool_call_id?: string;
-      name?: string;
-    };
-
     // Build message history from previous messages + current message
     // Inject current date and user profile into system prompt
     const systemPromptWithContext = await injectContextIntoPrompt(
       systemPrompt,
       userId,
     );
-    let messages: ChatMessage[] = [
+    let messages: ChatMessageParam[] = [
       { role: "system", content: systemPromptWithContext },
     ];
 
@@ -678,7 +682,7 @@ export async function chatStream(
           tools: toolSchemas.map((schema) => ({
             type: "function",
             function: schema,
-          })),
+          })) as LlmTool[],
           tool_choice: "auto",
           stream: false,
         });
@@ -1124,7 +1128,7 @@ export async function chatStream(
                   tools: toolSchemas.map((schema) => ({
                     type: "function",
                     function: schema,
-                  })),
+                  })) as LlmTool[],
                   tool_choice: "auto",
                   stream: false,
                 });
@@ -1276,7 +1280,7 @@ export async function chatStream(
                   tools: toolSchemas.map((schema) => ({
                     type: "function",
                     function: schema,
-                  })),
+                  })) as LlmTool[],
                   tool_choice: "auto",
                   stream: false,
                 });
@@ -1335,7 +1339,7 @@ export async function chatStream(
               tools: toolSchemas.map((schema) => ({
                 type: "function",
                 function: schema,
-              })),
+              })) as LlmTool[],
               tool_choice: "auto",
               stream: false,
             });
@@ -1746,15 +1750,15 @@ export async function processTelegramMessage(
 
     const maxTokens = await getDefaultMaxTokens(userId);
     const toolSchemas =
-      await toolExecutorService.getToolSchemasWithGenerated(userId);
-    const llmTools: ChatCompletionTool[] = toolSchemas.map(
-      (schema: ChatCompletionFunctionTool) => ({
-        type: "function",
-        function: schema,
-      }),
-    );
+      (await toolExecutorService.getToolSchemasWithGenerated(
+        userId,
+      )) as ToolFunctionDefinition[];
+    const llmTools: LlmTool[] = toolSchemas.map((schema) => ({
+      type: "function",
+      function: schema,
+    }));
 
-    const messages: ChatCompletionMessageParam[] = [
+    const messages: ChatMessageParam[] = [
       { role: "system", content: systemPromptWithContext },
       { role: "user", content: message },
     ];
@@ -1789,7 +1793,7 @@ export async function processTelegramMessage(
 
       const response = await openai.chat.completions.create({
         model: modelId,
-        messages,
+        messages: messages as any,
         temperature: 0.7,
         max_tokens: tokensForCall,
         tools: llmTools,

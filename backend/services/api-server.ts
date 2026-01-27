@@ -3075,10 +3075,16 @@ app.patch(
       } = req.body;
 
       const allowedThemePreferences = ["system", "light", "dark"] as const;
+      type ThemePreference = (typeof allowedThemePreferences)[number];
+      const normalizedThemePreference =
+        typeof themePreference === "string" &&
+        allowedThemePreferences.includes(themePreference as ThemePreference)
+          ? (themePreference as ThemePreference)
+          : undefined;
+
       if (
         themePreference !== undefined &&
-        (typeof themePreference !== "string" ||
-          !allowedThemePreferences.includes(themePreference))
+        normalizedThemePreference === undefined
       ) {
         return res
           .status(400)
@@ -3094,12 +3100,12 @@ app.patch(
       const currentAppearance =
         (currentMetadata?.appearance as Record<string, any>) || {};
       const metadataWithTheme =
-        themePreference !== undefined
+        normalizedThemePreference !== undefined
           ? {
               ...currentMetadata,
               appearance: {
                 ...currentAppearance,
-                themePreference,
+                themePreference: normalizedThemePreference,
               },
             }
           : undefined;
