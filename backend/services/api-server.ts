@@ -1596,6 +1596,7 @@ app.get(
 /**
  * PUT /api/settings/telegram
  * Update Telegram bot token
+ * When successfully configured, Telegram becomes the primary notification channel
  */
 app.put(
   "/api/settings/telegram",
@@ -1603,6 +1604,7 @@ app.put(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { telegramBotToken, telegramEnabled } = req.body;
+      const userId = req.userId!;
 
       // Validate bot token if provided
       if (telegramBotToken) {
@@ -1617,9 +1619,9 @@ app.put(
 
       // Upsert settings
       const settings = await prisma.userSettings.upsert({
-        where: { userId: req.userId! },
+        where: { userId },
         create: {
-          userId: req.userId!,
+          userId,
           telegramBotToken: telegramBotToken || null,
           telegramEnabled: telegramEnabled ?? false,
         },
@@ -1640,9 +1642,17 @@ app.put(
 
       // Start or stop polling based on configuration
       if (settings.telegramBotToken && settings.telegramEnabled) {
-        await telegramService.startPolling(req.userId!);
+        await telegramService.startPolling(userId);
+        console.log(
+          `[API] Telegram enabled for user ${userId} - will become primary notification channel once /start is sent`,
+        );
       } else if (settings.telegramBotToken) {
         telegramService.stopPolling(settings.telegramBotToken);
+        console.log(
+          `[API] Telegram disabled for user ${userId} - reverting to default notification channels`,
+        );
+      } else {
+        console.log(`[API] Telegram removed for user ${userId}`);
       }
 
       res.json({

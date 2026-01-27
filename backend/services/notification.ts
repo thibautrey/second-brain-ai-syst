@@ -78,15 +78,27 @@ class NotificationService {
       }
     }
 
-    // Determine optimal channels based on user presence
+    // Determine optimal channels based on user presence and configuration
     let finalChannels: NotificationChannel[] = channels;
     if (!scheduledFor) {
       const optimizedChannels =
-        await smartNotificationRouter.getOptimalChannels(
-          userId,
-          channels,
-        );
+        await smartNotificationRouter.getOptimalChannels(userId, channels);
       finalChannels = optimizedChannels;
+
+      // Log channel selection for debugging
+      if (finalChannels.includes("TELEGRAM" as any)) {
+        console.log(
+          `[NotificationService] Notification will be sent via Telegram (primary channel)`,
+        );
+      } else if (finalChannels.includes("CHAT" as any)) {
+        console.log(
+          `[NotificationService] User is active in web - notification routed to chat`,
+        );
+      } else {
+        console.log(
+          `[NotificationService] Using default channels: ${finalChannels.join(", ")}`,
+        );
+      }
     }
 
     // Create notification in database
@@ -106,6 +118,7 @@ class NotificationService {
           ...metadata,
           spamCheckTopic: spamCheck.matchedTopic,
           originalChannels: channels, // Store original channels for reference
+          routedChannels: finalChannels, // Track which channels were actually used
         },
         sentAt: scheduledFor ? null : new Date(),
       },

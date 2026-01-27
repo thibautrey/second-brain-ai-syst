@@ -1,6 +1,6 @@
+import { NotificationChannel } from "@prisma/client";
 import prisma from "./prisma.js";
 import { websocketBroadcast } from "./websocket-broadcast.js";
-import { NotificationChannel } from "@prisma/client";
 
 /**
  * Smart Notification Router Service
@@ -39,14 +39,66 @@ class SmartNotificationRouterService {
   }
 
   /**
-   * Route notification based on user presence
-   * If active in web: return 'CHAT'
-   * Otherwise: return original channels
+   * Check if user has Telegram successfully configured
+   * Requires both bot token and chat ID (which is set after /start command)
+   */
+  async isTelegramConfigured(userId: string): Promise<boolean> {
+    try {
+      const settings = await prisma.userSettings.findUnique({
+        where: { userId },
+        select: {
+          telegramBotToken: true,
+          telegramChatId: true,
+          telegramEnabled: true,
+        },
+      });
+
+      if (!settings) {
+        return false;
+      }
+
+      // Telegram is configured if all conditions are met:
+      // 1. Bot token is set
+      // 2. Chat ID is set (user has sent /start)
+      // 3. Telegram is enabled
+      return (
+        !!settings.telegramBotToken &&
+        !!settings.telegramChatId &&
+        settings.telegramEnabled === true
+      );
+    } catch (error) {
+      console.error(
+        "[SmartNotificationRouter] Error checking Telegram configuration:",
+        error,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Route notification based on user presence and configured channels
+   * Priority:
+   * 1. If Telegram is configured: use TELEGRAM (primary channel)
+   * 2. If user is active in web: use CHAT
+   * 3. Otherwise: use preferred/default channels
    */
   async getOptimalChannels(
     userId: string,
-    preferredChannels: NotificationChannel[] = [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+    preferredChannels: NotificationChannel[] = [
+      NotificationChannel.IN_APP,
+      NotificationChannel.PUSH,
+    ],
   ): Promise<NotificationChannel[]> {
+    // Check if Telegram is configured - it becomes the primary channel
+    const hasTelegram = await this.isTelegramConfigured(userId);
+    if (hasTelegram) {
+      console.log(
+        `[SmartNotificationRouter] Using Telegram as primary channel for user ${userId}`,
+      );
+      return [NotificationChannel.TELEGRAM];
+    }
+
+    // Fall back to presence-based routing
     const isActive = await this.isUserActiveInWeb(userId);
 
     if (isActive) {
