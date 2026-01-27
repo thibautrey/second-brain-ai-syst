@@ -290,19 +290,25 @@ export function AnalyticsPage() {
 
         {/* Right Column - Mood & Insights */}
         <div className="space-y-6">
-          {/* Mood Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-rose-500" />
-                Mood Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SentimentChart
-                data={sentimentOverview ?? undefined}
-                isLoading={isLoading}
-              />
+          {/* Streak & Consistency */}
+          <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
+                  <Zap className="w-8 h-8 text-amber-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {isLoading ? "..." : (stats?.currentStreak ?? 0)} Day Streak
+                </h3>
+                <p className="text-gray-600 mt-1">
+                  Keep capturing your thoughts!
+                </p>
+                {stats?.longestStreak && stats.longestStreak > 0 && (
+                  <p className="text-sm text-amber-600 mt-2">
+                    🏆 Best: {stats.longestStreak} days
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -333,25 +339,19 @@ export function AnalyticsPage() {
             </Card>
           )}
 
-          {/* Streak & Consistency */}
-          <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
-                  <Zap className="w-8 h-8 text-amber-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900">
-                  {isLoading ? "..." : (stats?.currentStreak ?? 0)} Day Streak
-                </h3>
-                <p className="text-gray-600 mt-1">
-                  Keep capturing your thoughts!
-                </p>
-                {stats?.longestStreak && stats.longestStreak > 0 && (
-                  <p className="text-sm text-amber-600 mt-2">
-                    🏆 Best: {stats.longestStreak} days
-                  </p>
-                )}
-              </div>
+          {/* Mood Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-rose-500" />
+                Mood Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SentimentChart
+                data={sentimentOverview ?? undefined}
+                isLoading={isLoading}
+              />
             </CardContent>
           </Card>
         </div>
