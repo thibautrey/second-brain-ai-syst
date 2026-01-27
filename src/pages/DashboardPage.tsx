@@ -51,6 +51,63 @@ export function DashboardPage() {
 
   const userToggledSidebar = useRef(false);
   const activeTab = tab || "dashboard";
+
+  const navItems = [
+    {
+      icon: <Home className="w-5 h-5" />,
+      label: t("navigation.dashboard"),
+      path: "/dashboard/dashboard",
+      matches: ["dashboard"],
+    },
+    {
+      icon: <Brain className="w-5 h-5" />,
+      label: t("navigation.memories"),
+      path: "/dashboard/memories",
+      matches: ["memories"],
+    },
+    {
+      icon: <FileText className="w-5 h-5" />,
+      label: t("navigation.interactions"),
+      path: "/dashboard/interactions",
+      matches: ["interactions"],
+    },
+    {
+      icon: <Target className="w-5 h-5" />,
+      label: t("navigation.goalsAchievements"),
+      path: "/dashboard/goals-achievements",
+      matches: ["goals-achievements", "goals", "achievements"],
+    },
+    {
+      icon: <Mic className="w-5 h-5" />,
+      label: t("navigation.voiceTraining"),
+      path: "/dashboard/training",
+      matches: ["training"],
+    },
+    {
+      icon: <CheckSquare className="w-5 h-5" />,
+      label: t("navigation.tasksScheduling"),
+      path: "/dashboard/tasks-scheduling",
+      matches: ["tasks-scheduling", "todos", "schedule"],
+    },
+    {
+      icon: <Wrench className="w-5 h-5" />,
+      label: t("navigation.tools"),
+      path: "/dashboard/tools",
+      matches: ["tools"],
+    },
+    {
+      icon: <Bell className="w-5 h-5" />,
+      label: t("navigation.notifications"),
+      path: "/dashboard/notifications",
+      matches: ["notifications"],
+    },
+    {
+      icon: <Settings className="w-5 h-5" />,
+      label: t("navigation.settings"),
+      path: "/dashboard/settings",
+      matches: ["settings"],
+    },
+  ];
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
 
@@ -139,68 +196,23 @@ export function DashboardPage() {
           sidebarOpen ? "w-64" : "w-0"
         } fixed left-0 top-0 h-screen bg-slate-900 text-white transition-all duration-300 flex flex-col overflow-hidden z-50`}
       >
-        <div className="p-6 border-b border-slate-800">
-          <h1 className="flex items-center gap-2 text-xl font-bold">
-            <Brain className="w-5 h-5" />
-            Second Brain
-          </h1>
-        </div>
+          <div className="p-6 border-b border-slate-800">
+            <h1 className="flex items-center gap-2 text-xl font-bold">
+              <Brain className="w-5 h-5" />
+              {t("navigation.appName")}
+            </h1>
+          </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          <NavItem
-            icon={<Home className="w-5 h-5" />}
-            label="Dashboard"
-            onClick={() => handleNavigation("/dashboard/dashboard")}
-            isActive={activeTab === "dashboard"}
-          />
-          <NavItem
-            icon={<Brain className="w-5 h-5" />}
-            label="Memories"
-            onClick={() => handleNavigation("/dashboard/memories")}
-            isActive={activeTab === "memories"}
-          />
-          <NavItem
-            icon={<FileText className="w-5 h-5" />}
-            label="Interactions"
-            onClick={() => handleNavigation("/dashboard/interactions")}
-            isActive={activeTab === "interactions"}
-          />
-          <NavItem
-            icon={<Target className="w-5 h-5" />}
-            label="Goals & Achievements"
-            onClick={() => handleNavigation("/dashboard/goals-achievements")}
-            isActive={activeTab === "goals-achievements" || activeTab === "goals" || activeTab === "achievements"}
-          />
-          <NavItem
-            icon={<Mic className="w-5 h-5" />}
-            label="Voice Training"
-            onClick={() => handleNavigation("/dashboard/training")}
-            isActive={activeTab === "training"}
-          />
-          <NavItem
-            icon={<CheckSquare className="w-5 h-5" />}
-            label={t("navigation.tasksScheduling")}
-            onClick={() => handleNavigation("/dashboard/tasks-scheduling")}
-            isActive={activeTab === "tasks-scheduling" || activeTab === "todos" || activeTab === "schedule"}
-          />
-          <NavItem
-            icon={<Wrench className="w-5 h-5" />}
-            label="Tools"
-            onClick={() => handleNavigation("/dashboard/tools")}
-            isActive={activeTab === "tools"}
-          />
-          <NavItem
-            icon={<Bell className="w-5 h-5" />}
-            label="Notifications"
-            onClick={() => handleNavigation("/dashboard/notifications")}
-            isActive={activeTab === "notifications"}
-          />
-          <NavItem
-            icon={<Settings className="w-5 h-5" />}
-            label="Settings"
-            onClick={() => handleNavigation("/dashboard/settings")}
-            isActive={activeTab === "settings"}
-          />
+          {navItems.map((item) => (
+            <NavItem
+              key={item.path}
+              icon={item.icon}
+              label={item.label}
+              onClick={() => handleNavigation(item.path)}
+              isActive={item.matches.includes(activeTab)}
+            />
+          ))}
         </nav>
 
         {/* Tips Carousel - Bottom of sidebar */}
@@ -222,16 +234,16 @@ export function DashboardPage() {
         )}
 
         <div className="p-4 border-t border-slate-800">
-          <Button
-            onClick={handleLogout}
-            variant="ghost"
-            className="justify-start w-full text-white hover:bg-slate-800 hover:text-white"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              className="justify-start w-full text-white hover:bg-slate-800 hover:text-white"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              {t("navigation.logout")}
+            </Button>
+          </div>
         </div>
-      </div>
 
       {/* Main Content */}
       <div
@@ -241,14 +253,14 @@ export function DashboardPage() {
         <div
           className={`fixed top-0 flex items-center gap-4 p-4 bg-white border-b border-slate-200 z-40 ${sidebarOpen ? "left-64" : "left-0"} right-0 transition-all duration-300`}
         >
-          <button
-            onClick={handleSidebarToggle}
-            className="p-2 transition-colors rounded-lg hover:bg-slate-100"
-            aria-label={
-              sidebarOpen ? "Close navigation menu" : "Open navigation menu"
-            }
-            aria-expanded={sidebarOpen}
-          >
+            <button
+              onClick={handleSidebarToggle}
+              className="p-2 transition-colors rounded-lg hover:bg-slate-100"
+              aria-label={
+                sidebarOpen ? t("navigation.menuClose") : t("navigation.menuOpen")
+              }
+              aria-expanded={sidebarOpen}
+            >
             <Menu className="w-5 h-5 text-slate-700" />
           </button>
 

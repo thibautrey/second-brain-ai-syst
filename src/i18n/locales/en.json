@@ -67,6 +67,11 @@
     "recordThought": "Record Thought",
     "viewMemories": "View Memories",
     "todaysSummary": "Today's Summary"
+    ,
+    "quickActions": "Quick Actions",
+    "recordThoughtDescription": "Capture your ideas now",
+    "viewMemoriesDescription": "Browse your knowledge",
+    "todaysSummaryDescription": "See your highlights"
   },
   "navigation": {
     "appName": "Second Brain AI",

@@ -67,17 +67,27 @@
     "recordThought": "Enregistrer une pensée",
     "viewMemories": "Voir les mémoires",
     "todaysSummary": "Résumé du jour"
+    ,
+    "quickActions": "Actions rapides",
+    "recordThoughtDescription": "Capturez vos idées maintenant",
+    "viewMemoriesDescription": "Parcourez vos connaissances",
+    "todaysSummaryDescription": "Découvrez vos temps forts"
   },
   "navigation": {
-    "settings": "Paramètres",
-    "logout": "Déconnexion",
-    "home": "Accueil",
-    "memory": "Mémoire",
-    "training": "Entraînement",
+    "appName": "Second Brain AI",
+    "dashboard": "Tableau de bord",
+    "memories": "Mémoires",
+    "interactions": "Interactions",
+    "goalsAchievements": "Objectifs & Accomplissements",
+    "voiceTraining": "Entraînement vocal",
     "tools": "Outils",
     "notifications": "Notifications",
+    "settings": "Paramètres",
+    "logout": "Déconnexion",
     "schedule": "Planification",
-    "tasksScheduling": "Tâches & Planifications"
+    "tasksScheduling": "Tâches & Planifications",
+    "menuClose": "Fermer le menu de navigation",
+    "menuOpen": "Ouvrir le menu de navigation"
   },
   "settings": {
     "title": "Paramètres",
@@ -117,6 +127,7 @@
   "memory": {
     "title": "Mémoires",
     "memories": "Mémoires",
+    "subtitle": "Explorez et gérez vos souvenirs",
     "noMemoriesFound": "Aucun souvenir trouvé",
     "searchPlaceholder": "Rechercher dans vos souvenirs...",
     "memoryType": "Type de mémoire",
@@ -161,6 +172,42 @@
   "notifications": {
     "errorSaving": "Erreur lors de la sauvegarde"
   },
+  "notificationSettings": {
+    "loading": "Chargement des paramètres...",
+    "statusLabel": "Statut",
+    "status": {
+      "enabled": "✓ Activé",
+      "disabled": "○ Désactivé"
+    },
+    "botToken": "Jeton du bot",
+    "showToken": "Afficher le jeton",
+    "connectBot": "Connecter le bot",
+    "validating": "Validation...",
+    "sendTest": "Envoyer un test",
+    "sending": "Envoi...",
+    "disconnect": "Déconnecter",
+    "disconnecting": "Déconnexion...",
+    "setupTitle": "Comment configurer Telegram",
+    "setupStep1Title": "Étape 1 : Créez votre bot",
+    "setupStep1": [
+      "Ouvrez Telegram et recherchez @BotFather",
+      "Envoyez /newbot pour créer un nouveau bot",
+      "Choisissez un nom pour votre bot (par exemple, \"Mon Second Brain\")",
+      "Choisissez un nom d'utilisateur qui se termine par \"bot\" (par exemple, \"mon_brain_bot\")",
+      "Copiez le jeton fourni par BotFather"
+    ],
+    "setupStep2Title": "Étape 2 : Connectez le bot",
+    "setupStep2": [
+      "Collez votre jeton de bot ci-dessus et cliquez sur Connecter le bot",
+      "Ouvrez votre bot dans Telegram (cliquez sur le lien fourni par BotFather)",
+      "Envoyez /start à votre bot",
+      "Votre conversation sera automatiquement connectée !"
+    ],
+    "openBotFather": "Ouvrir BotFather",
+    "waitingTitle": "En attente de connexion",
+    "waitingBody": "Ouvrez votre bot dans Telegram et envoyez /start pour terminer la configuration.",
+    "confirmDisconnect": "Êtes-vous sûr de vouloir déconnecter Telegram ? Vous ne recevrez plus de notifications."
+  },
   "analytics": {
     "title": "Vos Insights",
     "subtitle": "Découvrez les tendances et patterns de votre pensée",
@@ -196,6 +243,250 @@
     },
     "noDataYet": "Pas encore de données",
     "startCapturing": "Commencez à capturer des mémoires pour voir vos sujets favoris !",
-    "analyzing": "Analyse de vos mémoires..."
+    "analyzing": "Analyse de vos mémoires...",
+    "errorTitle": "Impossible de charger vos insights",
+    "errorDescription": "Nous n'avons pas pu récupérer vos analytics pour le moment. Veuillez réessayer.",
+    "tryAgain": "Réessayer",
+    "aiSummaryLabel": "Résumé généré par IA",
+    "activityNoData": "Aucune activité enregistrée pour le moment",
+    "topicNoData": "Commencez à capturer des mémoires pour découvrir vos sujets favoris !",
+    "moodNoData": "Pas encore de données d'humeur",
+    "moodPatternHint": "Capturez vos souvenirs pour observer vos tendances d'humeur",
+    "dailyMotivationTitle": "Motivation quotidienne",
+    "dailyMotivationLabel": "Vous avez {{count}} objectif actif en cours. Continuez à avancer, chaque petit pas compte ! 🚀",
+    "dailyMotivationLabel_plural": "Vous avez {{count}} objectifs actifs en cours. Continuez à avancer, chaque petit pas compte ! 🚀",
+    "achievementProgress": "Progression des accomplissements",
+    "achievementsUnlocked": "{{count}} / {{total}} accomplissements débloqués",
+    "memoryTooltip": "{{hour}}:00 - {{count}} {{memoryLabel}}",
+    "memory": "mémoire",
+    "memory_plural": "mémoires",
+    "mentions": "{{count}} mentions",
+    "mostActiveSentence": "Vous êtes le plus actif vers {{time}} dans la {{period}}. C'est un excellent moment pour réfléchir ! ✨"
+  }
+  ,
+  "goals": {
+    "pageTitle": "Objectifs & Accomplissements",
+    "pageDescription": "Suivez vos progrès et célébrez vos réalisations",
+    "tabs": {
+      "goals": "Objectifs",
+      "achievements": "Accomplissements"
+    },
+    "filters": {
+      "all": "Tous les objectifs",
+      "active": "Actifs",
+      "completed": "Terminés",
+      "paused": "En pause",
+      "allAchievements": "Tout",
+      "unlocked": "Débloqués",
+      "locked": "Verrouillés"
+    },
+    "stats": {
+      "totalGoals": "Objectifs totaux",
+      "active": "Actifs",
+      "completed": "Terminés",
+      "successRate": "Taux de réussite"
+    },
+    "emptyState": {
+      "title": "Définissez votre premier objectif !",
+      "description": "Les objectifs vous aident à rester concentré et suivre vos progrès. Créez votre premier objectif pour commencer.",
+      "callToAction": "Créer un objectif"
+    },
+    "newGoal": "Nouvel objectif",
+    "createGoal": "Créer un objectif",
+    "filtersLabel": "Filtres",
+    "clearFilter": "Effacer le filtre : {{category}}",
+    "actions": {
+      "complete": "Compléter",
+      "pause": "Mettre en pause",
+      "resume": "Reprendre",
+      "delete": "Supprimer"
+    },
+    "dialog": {
+      "createTitle": "Créer un nouvel objectif",
+      "createDescription": "Définissez un objectif pour suivre vos progrès et rester motivé.",
+      "goalTitle": "Titre de l'objectif *",
+      "description": "Description",
+      "category": "Catégorie",
+      "targetDate": "Date cible",
+      "tags": "Étiquettes",
+      "addTag": "Ajouter",
+      "cancel": "Annuler",
+      "save": "Créer l'objectif"
+    },
+    "milestones": "Étapes",
+    "progress": "Progression",
+    "motivation": {
+      "dailyTitle": "Motivation quotidienne",
+      "label": "Vous avez {{count}} objectif actif en cours. Continuez à avancer, chaque petit pas compte ! 🚀",
+      "label_plural": "Vous avez {{count}} objectifs actifs en cours. Continuez à avancer, chaque petit pas compte ! 🚀"
+    },
+    "achievement": {
+      "progress": "Progression des accomplissements",
+      "achievementsUnlocked": "{{count}} / {{total}} accomplissements débloqués",
+      "keepGoing": "Continuez !",
+      "locked": "Il vous reste {{count}} accomplissement à débloquer. Chaque interaction avec votre Second Brain vous rapproche ! 🌟",
+      "locked_plural": "Il vous reste {{count}} accomplissements à débloquer. Chaque interaction avec votre Second Brain vous rapproche ! 🌟"
+    },
+    "emptyAchievement": {
+      "title": "Commencez votre aventure !",
+      "description": "En utilisant votre Second Brain, vous débloquerez des accomplissements pour la cohérence, les étapes et la croissance personnelle. Continuez !",
+      "rewards": {
+        "consistency": "Récompenses de cohérence",
+        "milestones": "Badges d'étape",
+        "growth": "Reconnaissance de croissance"
+      }
+    }
+  }
+  ,
+  "onboarding": {
+    "progress": "Étape {{current}} sur {{total}}",
+    "buttons": {
+      "back": "Retour",
+      "skip": "Passer pour l'instant",
+      "continue": "Continuer",
+      "complete": "Terminer la configuration",
+      "skipChannel": "Passer ce canal",
+      "continueWithoutNotifications": "Continuer sans notifications",
+      "setUpLater": "Configurer plus tard"
+    },
+    "steps": {
+      "welcome": {
+        "title": "Bienvenue",
+        "description": "Découvrez votre système Second Brain AI"
+      },
+      "aiConfig": {
+        "title": "Configuration IA",
+        "description": "Configurez vos modèles et providers"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Choisissez comment recevoir les notifications"
+      },
+      "completion": {
+        "title": "Tout est prêt !",
+        "description": "Votre système est prêt à l'emploi"
+      }
+    },
+    "welcomeStep": {
+      "title": "Votre système d'exploitation IA personnel",
+      "subtitle": "Second Brain AI est conçu pour être votre compagnon cognitif — capturant, organisant et vous aidant à agir sur l'information tout au long de votre vie.",
+      "features": {
+        "memorySystem": {
+          "title": "Système de mémoire",
+          "description": "Capture et organise automatiquement vos interactions, créant une base de connaissances personnelle consultable."
+        },
+        "aiConversations": {
+          "title": "Conversations IA",
+          "description": "Discutez avec des modèles IA ayant accès à votre contexte et vos mémoires."
+        },
+        "proactiveInsights": {
+          "title": "Insights proactifs",
+          "description": "Recevez des suggestions et rappels utiles basés sur vos habitudes et objectifs."
+        },
+        "smartAutomation": {
+          "title": "Automatisation intelligente",
+          "description": "Exécutez des tâches et workflows avec des agents IA qui comprennent vos préférences."
+        },
+        "privacyFirst": {
+          "title": "Confidentialité d'abord",
+          "description": "Toutes vos données restent locales et privées. Vous contrôlez ce qui est stocké et traité."
+        },
+        "timeSummaries": {
+          "title": "Résumés temporels",
+          "description": "Des résumés quotidiens, hebdomadaires et mensuels automatiques vous aident à suivre vos progrès."
+        }
+      },
+      "gettingStartedTitle": "Premiers pas",
+      "gettingStartedCopy": "Nous allons vous aider à configurer les paramètres essentiels pour que votre Second Brain AI soit opérationnel : providers IA, notifications, et une présentation rapide des fonctionnalités."
+    },
+    "aiConfigStep": {
+      "title": "Configurer les modèles IA",
+      "subtitle": "Ajoutez au moins un provider IA pour alimenter votre Second Brain. Nous recommandons OpenAI pour une expérience optimale.",
+      "existingProvidersTitle": "Providers existants",
+      "providerStatus": {
+        "active": "Actif",
+        "inactive": "Inactif"
+      },
+      "addProvider": "Ajouter un provider IA",
+      "form": {
+        "providerName": "Nom du provider",
+        "placeholderProvider": "OpenAI",
+        "baseUrl": "URL de base",
+        "placeholderBaseUrl": "https://api.openai.com/v1",
+        "apiKey": "Clé API",
+        "apiPlaceholder": "sk-..."
+      },
+      "securityCopy": "Votre clé API est stockée de manière sécurisée et utilisée uniquement pour interroger le provider.",
+      "testConnection": "Tester la connexion",
+      "testResultSuccess": "Connexion à l'API réussie !",
+      "testResultFailure": "Connexion échouée",
+      "addProviderButton": "Ajouter le provider",
+      "helpTitle": "Besoin d'une clé API ?",
+      "helpCopy": "Vous aurez besoin d'une clé API d'un provider IA. Voici quelques options populaires :",
+      "apiLinks": {
+        "openai": "Clés API OpenAI",
+        "anthropic": "Console Anthropic"
+      },
+      "continueButton": "Continuer vers Notifications",
+      "loading": "Chargement des paramètres IA..."
+    },
+    "notificationsStep": {
+      "title": "Configurer les notifications",
+      "subtitle": "Choisissez comment recevoir vos notifications de Second Brain AI. Vous pouvez configurer plusieurs canaux ou passer cette étape.",
+      "channels": {
+        "browser": {
+          "title": "Notifications navigateur",
+          "description": "Recevez des notifications directement dans votre navigateur pendant l'utilisation",
+          "recommendedTag": "Recommandé"
+        },
+        "pushover": {
+          "title": "Pushover (mobile)",
+          "description": "Recevez des notifications sur votre téléphone via l'app Pushover"
+        },
+        "telegram": {
+          "title": "Bot Telegram",
+          "description": "Recevez des notifications via un bot Telegram privé"
+        }
+      },
+      "backToSelection": "← Retour à la sélection de canal",
+      "setupCopy": "Configuration {{channel}}",
+      "configuredNoticeTitle": "Vous pouvez configurer les notifications plus tard",
+      "configuredNoticeBody": "Tous les paramètres de notifications peuvent être modifiés depuis la page Paramètres après la configuration."
+    },
+    "completionStep": {
+      "title": "🎉 Configuration terminée !",
+      "subtitle": "Votre Second Brain AI est maintenant configuré et prêt à vous aider à capturer, organiser et agir sur l'information de votre journée.",
+      "nextSectionTitle": "Et ensuite ?",
+      "nextSteps": {
+        "conversation": {
+          "title": "Lancer une conversation",
+          "description": "Ouvrez l'onglet Chat et échangez avec votre assistant IA",
+          "action": "Essayez maintenant"
+        },
+        "memory": {
+          "title": "Explorer la mémoire",
+          "description": "Découvrez comment vos interactions sont stockées et organisées",
+          "action": "Parcourir les mémoires"
+        },
+        "settings": {
+          "title": "Personnaliser les paramètres",
+          "description": "Affinez les modèles IA, les notifications et vos préférences",
+          "action": "Ouvrir les paramètres"
+        },
+        "docs": {
+          "title": "Lire la documentation",
+          "description": "Approfondissez les fonctionnalités avancées",
+          "action": "Consulter les docs"
+        }
+      },
+      "proTipsTitle": "💡 Astuces pro",
+      "proTips": [
+        "Utilisez un langage naturel : l'IA comprend le contexte et l'intention",
+        "Consultez le Memory Browser pour voir l'organisation de vos données",
+        "Explorez les Paramètres pour personnaliser votre expérience",
+        "Toutes vos données sont stockées localement et de manière privée"
+      ],
+      "enterButton": "Entrer dans Second Brain AI"
+    }
   }
 }

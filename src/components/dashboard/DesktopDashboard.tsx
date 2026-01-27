@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { BarChart3, Brain, Mic } from "lucide-react";
 
@@ -42,17 +43,19 @@ export function DesktopDashboard({
   formatTimeAgo,
 }: DesktopDashboardProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const displayName = user?.name || user?.email?.split("@")[0] || "";
+  const greetingText = displayName
+    ? t("dashboard.greeting", { name: displayName })
+    : t("dashboard.welcome");
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">
-          Welcome back, {user?.name || user?.email?.split("@")[0]}!
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Here's a summary of your Second Brain
-        </p>
+        <h1 className="text-3xl font-bold text-gray-900">{greetingText}</h1>
+        <p className="text-gray-600 mt-2">{t("dashboard.summary")}</p>
       </div>
 
       {/* Main Grid */}
@@ -61,7 +64,9 @@ export function DesktopDashboard({
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Memories Captured</p>
+              <p className="text-sm font-medium text-gray-600">
+                {t("dashboard.totalMemories")}
+              </p>
               <p className="text-3xl font-bold text-gray-900 mt-2">
                 {isLoading ? (
                   <span className="animate-pulse">...</span>
@@ -79,7 +84,9 @@ export function DesktopDashboard({
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Interactions Logged</p>
+              <p className="text-sm font-medium text-gray-600">
+                {t("dashboard.totalInteractions")}
+              </p>
               <p className="text-3xl font-bold text-gray-900 mt-2">
                 {isLoading ? (
                   <span className="animate-pulse">...</span>
@@ -97,7 +104,9 @@ export function DesktopDashboard({
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Daily Summaries</p>
+              <p className="text-sm font-medium text-gray-600">
+                {t("dashboard.dailySummaries")}
+              </p>
               <p className="text-3xl font-bold text-gray-900 mt-2">
                 {isLoading ? (
                   <span className="animate-pulse">...</span>
@@ -122,34 +131,36 @@ export function DesktopDashboard({
 
       {/* Quick Actions */}
       <div className="grid grid-cols-3 gap-6">
-        <Button
-          onClick={() => console.log("Record thought")}
-          className="h-32 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-lg font-semibold flex flex-col items-center justify-center gap-2"
-        >
-          <Mic className="w-8 h-8" />
-          Record Thought
-        </Button>
+          <Button
+            onClick={() => console.log("Record thought")}
+            className="h-32 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-lg font-semibold flex flex-col items-center justify-center gap-2"
+          >
+            <Mic className="w-8 h-8" />
+            {t("dashboard.recordThought")}
+          </Button>
 
-        <Button
-          onClick={() => navigate("/dashboard/memories")}
-          className="h-32 bg-gradient-to-br from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white text-lg font-semibold flex flex-col items-center justify-center gap-2"
-        >
-          <Brain className="w-8 h-8" />
-          View Memories
-        </Button>
+          <Button
+            onClick={() => navigate("/dashboard/memories")}
+            className="h-32 bg-gradient-to-br from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white text-lg font-semibold flex flex-col items-center justify-center gap-2"
+          >
+            <Brain className="w-8 h-8" />
+            {t("dashboard.viewMemories")}
+          </Button>
 
-        <Button
-          onClick={() => navigate("/dashboard/analytics")}
-          className="h-32 bg-gradient-to-br from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white text-lg font-semibold flex flex-col items-center justify-center gap-2"
-        >
-          <BarChart3 className="w-8 h-8" />
-          Today's Summary
-        </Button>
+          <Button
+            onClick={() => navigate("/dashboard/analytics")}
+            className="h-32 bg-gradient-to-br from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white text-lg font-semibold flex flex-col items-center justify-center gap-2"
+          >
+            <BarChart3 className="w-8 h-8" />
+            {t("dashboard.todaysSummary")}
+          </Button>
       </div>
 
       {/* Recent Activity */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">Recent Activity</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-6">
+          {t("dashboard.recentActivity")}
+        </h2>
 
         {activityError && (
           <div className="p-3 bg-orange-50 border border-orange-300 rounded mb-4">
@@ -183,7 +194,7 @@ export function DesktopDashboard({
           </div>
         ) : (
           <p className="text-gray-500">
-            No recent activity yet. Start by capturing your thoughts or creating tasks!
+            {t("dashboard.noRecentActivity")}
           </p>
         )}
       </div>

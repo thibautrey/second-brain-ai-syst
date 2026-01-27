@@ -64,14 +64,14 @@ export function AnalyticsPage() {
           <Brain className="w-8 h-8 text-red-500" />
         </div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Unable to load your insights
+          {t("analytics.errorTitle")}
         </h3>
         <p className="text-gray-500 mb-4 max-w-sm">
-          We couldn't fetch your analytics right now. Please try again.
+          {t("analytics.errorDescription")}
         </p>
         <Button onClick={refresh} variant="outline">
           <RefreshCw className="w-4 h-4 mr-2" />
-          Try Again
+          {t("analytics.tryAgain")}
         </Button>
       </div>
     );
@@ -82,19 +82,17 @@ export function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Your Insights</h1>
-          <p className="text-gray-500 mt-1">
-            Discover patterns and trends in your thinking
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">{t("analytics.title")}</h1>
+          <p className="text-gray-500 mt-1">{t("analytics.subtitle")}</p>
         </div>
 
         {/* Time Period Selector */}
         <div className="flex items-center gap-1 sm:gap-2 bg-slate-100 p-1 rounded-lg overflow-x-auto">
           {[
-            { value: "today", label: "Today", shortLabel: "1D" },
-            { value: "week", label: "This Week", shortLabel: "7D" },
-            { value: "month", label: "This Month", shortLabel: "30D" },
-            { value: "year", label: "This Year", shortLabel: "1Y" },
+            { value: "today", label: t("analytics.today"), shortLabel: "1D" },
+            { value: "week", label: t("analytics.thisWeek"), shortLabel: "7D" },
+            { value: "month", label: t("analytics.thisMonth"), shortLabel: "30D" },
+            { value: "year", label: t("analytics.thisYear"), shortLabel: "1Y" },
           ].map((option) => (
             <button
               key={option.value}
@@ -114,31 +112,31 @@ export function AnalyticsPage() {
 
       {/* AI-Generated Summary Card */}
       {latestSummary && (
-        <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 border-0 text-white overflow-hidden relative">
+        <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 border-0 text-white overflow-hidden relative motion-safe:animate-fade-in-up motion-reduce:animate-none">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
           <CardHeader className="relative">
             <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
               <Sparkles className="w-4 h-4" />
-              <span>AI-Generated Summary</span>
+              <span>{t("analytics.aiSummaryLabel")}</span>
             </div>
             <CardTitle className="text-2xl text-white">
-              {latestSummary.title || "Your Recent Activity"}
+              {latestSummary.title || t("analytics.yourRecentActivity")}
             </CardTitle>
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-white/90 leading-relaxed mb-4">
-              {insightsLoading ? (
-                <span className="animate-pulse">
-                  Analyzing your memories...
-                </span>
-              ) : (
-                <MarkdownContent 
-                  content={latestSummary.summary} 
-                  className="[&_p]:text-white/90 [&_strong]:text-white [&_h1]:text-white [&_h2]:text-white [&_h3]:text-white [&_h4]:text-white [&_ul]:text-white/90 [&_ol]:text-white/90 [&_li]:text-white/90 [&_code]:bg-white/20 [&_code]:text-white [&_blockquote]:border-white/30 [&_blockquote]:text-white/80"
-                />
-              )}
-            </div>
+                  <div className="text-white/90 leading-relaxed mb-4">
+                    {insightsLoading ? (
+                      <span className="animate-pulse">
+                        {t("analytics.analyzing")}
+                      </span>
+                    ) : (
+                      <MarkdownContent
+                        content={latestSummary.summary}
+                        className="[&_p]:text-white/90 [&_strong]:text-white [&_h1]:text-white [&_h2]:text-white [&_h3]:text-white [&_h4]:text-white [&_ul]:text-white/90 [&_ol]:text-white/90 [&_li]:text-white/90 [&_code]:bg-white/20 [&_code]:text-white [&_blockquote]:border-white/30 [&_blockquote]:text-white/80"
+                      />
+                    )}
+                  </div>
             {latestSummary.keyInsights &&
               latestSummary.keyInsights.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-4">
@@ -158,37 +156,37 @@ export function AnalyticsPage() {
 
       {/* Quick Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <QuickStatCard
-          icon={<Brain className="w-5 h-5" />}
-          label="Memories"
-          value={stats?.totalMemories ?? 0}
-          trend={trends?.memoriesChange}
-          color="blue"
-          isLoading={isLoading}
-        />
-        <QuickStatCard
-          icon={<MessageSquare className="w-5 h-5" />}
-          label="Interactions"
-          value={stats?.totalInteractions ?? 0}
-          trend={trends?.interactionsChange}
-          color="purple"
-          isLoading={isLoading}
-        />
-        <QuickStatCard
-          icon={<Target className="w-5 h-5" />}
-          label="Goals Tracked"
-          value={stats?.activeGoals ?? 0}
-          trend={trends?.goalsChange}
-          color="green"
-          isLoading={isLoading}
-        />
-        <QuickStatCard
-          icon={<Zap className="w-5 h-5" />}
-          label="Achievements"
-          value={stats?.achievements ?? 0}
-          trend={trends?.achievementsChange}
-          color="yellow"
-          isLoading={isLoading}
+          <QuickStatCard
+            icon={<Brain className="w-5 h-5" />}
+            label={t("analytics.memories")}
+            value={stats?.totalMemories ?? 0}
+            trend={trends?.memoriesChange}
+            color="blue"
+            isLoading={isLoading}
+          />
+          <QuickStatCard
+            icon={<MessageSquare className="w-5 h-5" />}
+            label={t("analytics.interactions")}
+            value={stats?.totalInteractions ?? 0}
+            trend={trends?.interactionsChange}
+            color="purple"
+            isLoading={isLoading}
+          />
+          <QuickStatCard
+            icon={<Target className="w-5 h-5" />}
+            label={t("analytics.goalsTracked")}
+            value={stats?.activeGoals ?? 0}
+            trend={trends?.goalsChange}
+            color="green"
+            isLoading={isLoading}
+          />
+          <QuickStatCard
+            icon={<Zap className="w-5 h-5" />}
+            label={t("analytics.achievements")}
+            value={stats?.achievements ?? 0}
+            trend={trends?.achievementsChange}
+            color="yellow"
+            isLoading={isLoading}
         />
       </div>
 
@@ -199,27 +197,26 @@ export function AnalyticsPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
               <Brain className="w-8 h-8 text-blue-600" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Your Second Brain is Ready!
-            </h3>
-            <p className="text-gray-600 max-w-md mx-auto mb-4">
-              Start capturing your thoughts, ideas, and memories. As you use
-              your Second Brain, we'll show you beautiful insights about your
-              thinking patterns.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
-              <span className="flex items-center gap-1">
-                <Sparkles className="w-4 h-4 text-amber-500" /> AI-powered
-                summaries
-              </span>
-              <span className="flex items-center gap-1">
-                <Heart className="w-4 h-4 text-rose-500" /> Mood tracking
-              </span>
-              <span className="flex items-center gap-1">
-                <TrendingUp className="w-4 h-4 text-green-500" /> Activity
-                trends
-              </span>
-            </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                {t("analytics.emptyState.title")}
+              </h3>
+              <p className="text-gray-600 max-w-md mx-auto mb-4">
+                {t("analytics.emptyState.description")}
+              </p>
+              <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-4 h-4 text-amber-500" />{" "}
+                  {t("analytics.emptyState.aiSummaries")}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Heart className="w-4 h-4 text-rose-500" />{" "}
+                  {t("analytics.emptyState.moodTracking")}
+                </span>
+                <span className="flex items-center gap-1">
+                  <TrendingUp className="w-4 h-4 text-green-500" />{" "}
+                  {t("analytics.emptyState.activityTrends")}
+                </span>
+              </div>
           </CardContent>
         </Card>
       )}
@@ -232,10 +229,10 @@ export function AnalyticsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-blue-500" />
-                  Your Activity Pattern
-                </CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-blue-500" />
+                {t("analytics.activityPattern")}
+              </CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -251,51 +248,51 @@ export function AnalyticsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Lightbulb className="w-5 h-5 text-amber-500" />
-                What's on Your Mind
+                {t("analytics.whatsOnYourMind")}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                      key={i}
-                      className="animate-pulse flex items-center gap-3"
-                    >
-                      <div className="w-full h-8 bg-gray-100 rounded-lg" />
-                    </div>
-                  ))}
-                </div>
-              ) : topTopics && topTopics.length > 0 ? (
-                <div className="space-y-3">
-                  {topTopics.map((topic, idx) => (
-                    <TopicBar
-                      key={topic.name}
-                      name={topic.name}
-                      count={topic.count}
-                      percentage={topic.percentage}
-                      rank={idx + 1}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Lightbulb className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>Start capturing memories to see your top topics!</p>
-                </div>
-              )}
-            </CardContent>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className="animate-pulse flex items-center gap-3"
+                      >
+                        <div className="w-full h-8 bg-gray-100 rounded-lg" />
+                      </div>
+                    ))}
+                  </div>
+                ) : topTopics && topTopics.length > 0 ? (
+                  <div className="space-y-3">
+                    {topTopics.map((topic, idx) => (
+                      <TopicBar
+                        key={topic.name}
+                        name={topic.name}
+                        count={topic.count}
+                        percentage={topic.percentage}
+                        rank={idx + 1}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Lightbulb className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>{t("analytics.startCapturing")}</p>
+                  </div>
+                )}
+              </CardContent>
           </Card>
 
           {/* Weekly Summary */}
           {period === "week" && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-500" />
-                  Your Week at a Glance
-                </CardTitle>
-              </CardHeader>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-500" />
+                {t("analytics.weekAtGlance")}
+              </CardTitle>
+            </CardHeader>
               <CardContent>
                 <WeeklyOverview data={stats?.weeklyData} isLoading={isLoading} />
               </CardContent>

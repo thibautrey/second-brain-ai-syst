@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface User {
   id: string;
@@ -143,23 +144,25 @@ export function MobileDashboard({
   formatTimeAgo,
 }: MobileDashboardProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const displayName = user?.name || user?.email?.split("@")[0] || "";
 
   return (
     <div className="space-y-6">
       {/* Mobile Header */}
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">
-          Welcome back!
-        </h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">
+            {t("dashboard.welcome")}
+          </h2>
         <p className="text-sm text-slate-600">
-          {user?.name || user?.email?.split("@")[0]}
+          {displayName || t("dashboard.summary")}
         </p>
       </div>
 
       {/* Key Insights - Text Format */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
         <h3 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">
-          Your Second Brain
+          {t("navigation.appName")}
         </h3>
         {error && (
           <div className="p-3 mb-4 text-sm text-red-700 border border-red-200 rounded-lg bg-red-50">
@@ -179,17 +182,17 @@ export function MobileDashboard({
           <div className="space-y-2 text-sm">
             <InsightLine
               icon="📚"
-              label="Memories captured"
+              label={t("dashboard.totalMemories")}
               value={totalMemories}
             />
             <InsightLine
               icon="💬"
-              label="Interactions logged"
+              label={t("dashboard.totalInteractions")}
               value={totalInteractions}
             />
             <InsightLine
               icon="📝"
-              label="Daily summaries"
+              label={t("dashboard.dailySummaries")}
               value={dailySummaries}
             />
           </div>
@@ -199,13 +202,13 @@ export function MobileDashboard({
       {/* Primary Actions */}
       <div className="space-y-3">
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1">
-          Quick Actions
+          {t("dashboard.quickActions")}
         </h3>
         <MobileActionButton
           icon="🎤"
           iconLabel="Microphone"
-          title="Record Thought"
-          description="Capture your ideas now"
+          title={t("dashboard.recordThought")}
+          description={t("dashboard.recordThoughtDescription")}
           onClick={() => {
             // TODO: Implement voice recording functionality
             console.log("Record thought clicked");
@@ -215,15 +218,15 @@ export function MobileDashboard({
         <MobileActionButton
           icon="🧠"
           iconLabel="Brain"
-          title="View Memories"
-          description="Browse your knowledge"
+          title={t("dashboard.viewMemories")}
+          description={t("dashboard.viewMemoriesDescription")}
           onClick={() => navigate("/dashboard/memories")}
         />
         <MobileActionButton
           icon="📊"
           iconLabel="Chart"
-          title="Today's Summary"
-          description="See your highlights"
+          title={t("dashboard.todaysSummary")}
+          description={t("dashboard.todaysSummaryDescription")}
           onClick={() => navigate("/dashboard/analytics")}
         />
       </div>
@@ -260,10 +263,9 @@ export function MobileDashboard({
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500 py-4">
-            No recent activity yet. Start by capturing your thoughts or creating
-            tasks!
-          </p>
+            <p className="text-sm text-slate-500 py-4">
+              {t("dashboard.noRecentActivity")}
+            </p>
         )}
       </div>
     </div>
