@@ -16,9 +16,6 @@ import {
   Bell,
   Sliders,
   Play,
-  Monitor,
-  Moon,
-  Sun,
   AlertCircle,
   Lock,
   Calendar,
@@ -58,7 +55,6 @@ import {
   DEFAULT_OPENAI_MODELS,
 } from "../types/ai-settings";
 import { useContinuousListening } from "../contexts/ContinuousListeningContext";
-import { useTheme, ThemePreference } from "../contexts/ThemeContext";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -72,14 +68,10 @@ export function SettingsPage() {
       </p>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="providers">
             <span className="hidden sm:inline">{t("settings.tabs.providers")}</span>
             <span className="sm:hidden">{t("settings.tabs.providers")}</span>
-          </TabsTrigger>
-          <TabsTrigger value="appearance">
-            <span className="hidden sm:inline">{t("settings.tabs.appearance")}</span>
-            <span className="sm:hidden">{t("settings.tabs.appearance")}</span>
           </TabsTrigger>
           <TabsTrigger value="models">
             <span className="hidden sm:inline">{t("settings.tabs.models")}</span>
@@ -97,10 +89,6 @@ export function SettingsPage() {
 
         <TabsContent value="providers">
           <ProvidersSection />
-        </TabsContent>
-
-        <TabsContent value="appearance">
-          <AppearanceSection />
         </TabsContent>
 
         <TabsContent value="models">
@@ -217,128 +205,7 @@ function ProvidersSection() {
   );
 }
 
-function AppearanceSection() {
-  const { t } = useTranslation();
-  const { themePreference, resolvedTheme, isReady, setThemePreference } = useTheme();
-  const [savingPreference, setSavingPreference] = useState<ThemePreference | null>(null);
 
-  const appearanceOptions: Array<{
-    id: ThemePreference;
-    title: string;
-    description: string;
-    icon: LucideIcon;
-  }> = [
-    {
-      id: "system",
-      title: t("settings.appearance.options.system"),
-      description: t("settings.appearance.descriptions.system"),
-      icon: Monitor,
-    },
-    {
-      id: "light",
-      title: t("settings.appearance.options.light"),
-      description: t("settings.appearance.descriptions.light"),
-      icon: Sun,
-    },
-    {
-      id: "dark",
-      title: t("settings.appearance.options.dark"),
-      description: t("settings.appearance.descriptions.dark"),
-      icon: Moon,
-    },
-  ];
-
-  const handleSelect = async (preference: ThemePreference) => {
-    if (!isReady || preference === themePreference) {
-      return;
-    }
-
-    setSavingPreference(preference);
-    try {
-      await setThemePreference(preference);
-    } finally {
-      setSavingPreference(null);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900">
-          {t("settings.appearance.title")}
-        </h3>
-        <p className="text-sm text-slate-500">
-          {t("settings.appearance.subtitle")}
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between gap-4">
-            {t("settings.appearance.sectionTitle")}
-            {savingPreference && (
-              <span className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-                {t("settings.appearance.saving")}
-              </span>
-            )}
-          </CardTitle>
-          <CardDescription>
-            {t("settings.appearance.description")}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            {appearanceOptions.map((option) => {
-              const selected = themePreference === option.id;
-              const Icon = option.icon;
-
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => handleSelect(option.id)}
-                  disabled={!isReady}
-                  className={cn(
-                    "group flex flex-col gap-2 rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                    selected ? "border-blue-500 bg-blue-50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300",
-                    !isReady && "cursor-not-allowed opacity-70",
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-5 h-5 text-slate-500" />
-                      <span className="text-base font-semibold text-slate-900">
-                        {option.title}
-                      </span>
-                    </div>
-                    {selected && <Check className="w-4 h-4 text-blue-600" />}
-                  </div>
-                  <p className="text-sm text-slate-500">{option.description}</p>
-                  {savingPreference === option.id && (
-                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-blue-600">
-                      {t("settings.appearance.saving")}
-                    </p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-4 text-sm text-slate-500">
-            {t("settings.appearance.current", {
-              theme: t(`settings.appearance.options.${resolvedTheme}`),
-            })}
-          </p>
-          {!isReady && (
-            <p className="mt-1 text-xs text-slate-400">
-              {t("settings.appearance.loading")}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 interface ProviderFormData {
   name: string;

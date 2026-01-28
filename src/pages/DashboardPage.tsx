@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { TrainingProgressWidget } from "../components/ui/training-progress-widget";
+import { ThemeToggleButton } from "../components/ui/theme-toggle-button";
 import { TipsCarousel } from "../components/TipsCarousel";
 import {
   Menu,
@@ -283,8 +284,10 @@ export function DashboardPage() {
 
           <div className="flex-1" />
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {!isMobile && <TrainingProgressWidget />}
+
+            <ThemeToggleButton />
 
             <div className="text-right">
               <p className="text-sm font-medium text-slate-900">
