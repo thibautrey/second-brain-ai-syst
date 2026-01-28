@@ -348,3 +348,39 @@ export async function getProviderHints(
     return [];
   }
 }
+
+/**
+ * Unblacklist a model and reset its error tracking
+ */
+export async function unblacklistModel(
+  providerId: string,
+  modelId: string,
+): Promise<void> {
+  try {
+    await prisma.modelCompatibilityHint.update({
+      where: {
+        providerId_modelId: {
+          providerId,
+          modelId,
+        },
+      },
+      data: {
+        isBlacklisted: false,
+        blacklistReason: null,
+        errorCount: 0,
+        successCount: 1,
+        lastSuccessTime: new Date(),
+      },
+    });
+
+    console.log(
+      `[CompatibilityHint] Unblacklisted ${providerId}/${modelId}`,
+    );
+  } catch (error) {
+    console.error(
+      `[CompatibilityHint] Failed to unblacklist ${providerId}/${modelId}:`,
+      error,
+    );
+    throw error;
+  }
+}

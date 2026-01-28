@@ -12,6 +12,7 @@ import { optimizedRetrieval } from "../services/optimized-retrieval.js";
 import { precomputedMemoryIndex } from "../services/precomputed-memory-index.js";
 import { responseCacheService } from "../services/response-cache.js";
 import { speculativeExecutor } from "../services/speculative-executor.js";
+import { modelRecoveryService } from "../services/model-recovery.js";
 
 const router = Router();
 
@@ -771,6 +772,48 @@ router.get("/user-context/:userId", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error getting user context:", error);
     res.status(500).json({ error: "Failed to get user context" });
+  }
+});
+
+/**
+ * GET /debug/model-recovery/status
+ * Get the status of blacklisted models and recovery attempts
+ */
+router.get("/model-recovery/status", async (req: Request, res: Response) => {
+  try {
+    const status = await modelRecoveryService.getRecoveryStatus();
+    res.json(status);
+  } catch (error) {
+    console.error("Error getting model recovery status:", error);
+    res.status(500).json({
+      error: "Failed to get recovery status",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+/**
+ * POST /debug/model-recovery/trigger
+ * Manually trigger recovery for a specific model
+ */
+router.post("/model-recovery/trigger", async (req: Request, res: Response) => {
+  try {
+    const { providerId, modelId } = req.body;
+
+    if (!providerId || !modelId) {
+      return res
+        .status(400)
+        .json({ error: "providerId and modelId are required" });
+    }
+
+    await modelRecoveryService.triggerRecovery(providerId, modelId);
+    res.json({ message: "Recovery triggered", providerId, modelId });
+  } catch (error) {
+    console.error("Error triggering recovery:", error);
+    res.status(500).json({
+      error: "Failed to trigger recovery",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 });
 

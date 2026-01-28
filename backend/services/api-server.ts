@@ -63,6 +63,7 @@ import { embeddingSchedulerService } from "./embedding-scheduler.js";
 import { backgroundAgentService } from "./background-agents.js";
 import { memoryCleanerService } from "./memory-cleaner.js";
 import { scheduledTaskService } from "./tools/scheduled-task.service.js";
+import { modelRecoveryService } from "./model-recovery.js";
 import toolsController from "../controllers/tools.controller.js";
 import longRunningTaskController from "../controllers/long-running-task.controller.js";
 import { notificationController } from "../controllers/notification.controller.js";
@@ -3505,6 +3506,10 @@ export async function startServer(port: number = 3000) {
     // Start the scheduler for background tasks
     schedulerService.start();
     console.log("✓ Scheduler service started");
+
+    // Start the model recovery service for automatic blacklist recovery
+    modelRecoveryService.start();
+    console.log("✓ Model recovery service started");
 
     // Initialize user scheduled tasks service
     await scheduledTaskService.initialize();
