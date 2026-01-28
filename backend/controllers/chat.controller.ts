@@ -13,8 +13,9 @@
 
 import {
   CHAT_SYSTEM_PROMPT,
+  analyzeTaskIntent,
   buildMemoryContext,
-  buildSystemPrompt,
+  buildSystemPromptWithIntent,
   getUserContextData,
   prepareSystemPrompt,
 } from "../services/chat-context.js";
@@ -199,17 +200,43 @@ export async function chatStream(
         })
       : null;
 
-    // 4. Build system prompt with memory
-    const systemPrompt = buildSystemPrompt(
+    // 4. Analyze task intent for smart context injection
+    const taskIntentAnalysis = analyzeTaskIntent(message);
+
+    // Log intent analysis if a task request was detected
+    if (taskIntentAnalysis.isTaskRequest) {
+      flowTracker.trackEvent({
+        flowId,
+        stage: "task_intent_analysis",
+        service: "TaskIntentAnalyzer",
+        status: "success",
+        data: {
+          taskType: taskIntentAnalysis.taskType,
+          subject: taskIntentAnalysis.extractedEntities.subject?.type,
+          location: taskIntentAnalysis.extractedEntities.location,
+          onlyOnChange: taskIntentAnalysis.notificationIntent.onlyOnChange,
+          hasExpiration: !!taskIntentAnalysis.temporalInfo.expiresAt,
+          needsClarification: taskIntentAnalysis.clarification?.needed,
+          confidence: taskIntentAnalysis.confidence,
+        },
+        decision: taskIntentAnalysis.clarification?.needed
+          ? `Clarification needed: ${taskIntentAnalysis.clarification.type}`
+          : "All information available for task creation",
+      });
+    }
+
+    // 5. Build system prompt with memory AND intent analysis
+    const systemPrompt = buildSystemPromptWithIntent(
       CHAT_SYSTEM_PROMPT,
       memoryResult.memoryContext,
+      taskIntentAnalysis,
     );
     const systemPromptWithContext = await prepareSystemPrompt(
       systemPrompt,
       userId,
     );
 
-    // 5. Get tool schemas
+    // 6. Get tool schemas
     const toolSchemas = (await toolExecutorService.getToolSchemasWithGenerated(
       userId,
     )) as ToolFunctionDefinition[];

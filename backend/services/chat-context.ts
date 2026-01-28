@@ -5,7 +5,13 @@
  * - Memory search and retrieval
  * - User context loading
  * - System prompt injection with memory context
+ * - Task intent analysis and smart clarification
  */
+
+import {
+  TaskIntentAnalysis,
+  taskIntentAnalyzer,
+} from "./task-intent-analyzer.js";
 
 import { injectContextIntoPrompt } from "./llm-router.js";
 import { memorySearchService } from "./memory-search.js";
@@ -104,6 +110,46 @@ If verification fails:
 Examples of a correct workflow:
 - "Create a task" → todo create → todo get to verify → "Task created successfully."
 - "Remind me tomorrow" → notification schedule → verify success=true → "Reminder scheduled."
+
+🧠 INTELLIGENT TASK UNDERSTANDING:
+When users ask for monitoring, alerts, or recurring checks, analyze their IMPLICIT intent:
+
+1. **TEMPORAL ANALYSIS** - Infer expiration dates:
+   - "ce weekend" / "this weekend" → expiresAt = Sunday 23:59
+   - "cette semaine" / "this week" → expiresAt = end of week
+   - "jusqu'à demain" / "until tomorrow" → expiresAt = tomorrow 23:59
+   - "pour mon voyage vendredi" → ASK when the trip ends if not clear
+   - Event-based requests ALWAYS need an expiration date
+
+2. **CHANGE DETECTION** - Set dedupe.notifyOn="crossing" when user says:
+   - "let me know if it changes" / "si ça change"
+   - "alert me when different" / "préviens-moi si"
+   - "notify only on change" / "en cas de changement"
+
+3. **MONITORING FREQUENCY DEFAULTS**:
+   - Weather: interval=120 (every 2 hours)
+   - Prices/Tickets: interval=60 (every hour)
+   - Availability/Stock: interval=30 (every 30 minutes)
+   - News/Updates: interval=240 (every 4 hours)
+
+4. **SMART CLARIFICATION** - Ask ONLY when truly needed:
+   - Missing location for weather → "Pour quelle ville ?"
+   - Ambiguous end date → "Jusqu'à quand dois-je surveiller ?"
+   - Use user's language, be concise, offer options when possible
+
+EXAMPLE TRANSFORMATION:
+User: "Let me know if the weather changes for Ax-les-thermes pour ce weekend"
+Analysis:
+- Subject: weather → interval=120
+- Location: Ax-les-Thermes
+- "if changes" → dedupe.notifyOn="crossing"
+- "ce weekend" → expiresAt=Sunday 23:59
+
+Create scheduled_task with:
+- scheduleType: INTERVAL, interval: 120
+- expiresAt: [Sunday end of day ISO]
+- actionType: WATCH_RESOURCE
+- actionPayload.dedupe.notifyOn: "crossing"
 
 IMPORTANT INSTRUCTIONS:
 - Respond in a VERY CONCISE and helpful way.
@@ -277,4 +323,49 @@ export async function prepareSystemPrompt(
   userId: string,
 ): Promise<string> {
   return injectContextIntoPrompt(basePrompt, userId);
+}
+
+/**
+ * Analyze user message for task creation intent
+ * Returns analysis with extracted entities, temporal info, and clarification needs
+ */
+export function analyzeTaskIntent(message: string): TaskIntentAnalysis {
+  return taskIntentAnalyzer.analyze(message);
+}
+
+/**
+ * Build system prompt with memory context AND task intent analysis
+ */
+export function buildSystemPromptWithIntent(
+  basePrompt: string,
+  memoryContext: string[],
+  intentAnalysis: TaskIntentAnalysis | null,
+): string {
+  let prompt = basePrompt;
+
+  // Add memory context
+  if (memoryContext.length > 0) {
+    prompt += `\n\nContexte des mémoires pertinentes:\n${memoryContext.join("\n")}`;
+  }
+
+  // Add task intent analysis if detected
+  if (intentAnalysis?.isTaskRequest && intentAnalysis.contextForLLM) {
+    prompt += `\n${intentAnalysis.contextForLLM}`;
+  }
+
+  return prompt;
+}
+
+/**
+ * Check if a clarification response should be generated
+ * Returns the clarification question if needed, null otherwise
+ */
+export function getSmartClarification(
+  intentAnalysis: TaskIntentAnalysis | null,
+): string | null {
+  if (!intentAnalysis?.clarification?.needed) {
+    return null;
+  }
+
+  return taskIntentAnalyzer.generateClarificationResponse(intentAnalysis);
 }

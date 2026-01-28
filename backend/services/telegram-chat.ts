@@ -5,8 +5,14 @@
  * - Message processing with tool execution
  * - Telegram-specific response formatting
  * - Intelligent context management to prevent token overflow
+ * - Task intent analysis for smart clarification
  */
 
+import {
+  CHAT_SYSTEM_PROMPT,
+  analyzeTaskIntent,
+  buildSystemPromptWithIntent,
+} from "./chat-context.js";
 import {
   buildTelegramContext,
   estimateTokens,
@@ -17,7 +23,6 @@ import {
   storeTelegramMessage,
 } from "./telegram-conversation-manager.js";
 
-import { CHAT_SYSTEM_PROMPT } from "./chat-context.js";
 import OpenAI from "openai";
 import { extractAllTextToolCalls } from "./chat-tools.js";
 import { flowTracker } from "./flow-tracker.js";
@@ -115,11 +120,36 @@ export async function processTelegramMessage(
       console.warn("[Telegram] Failed to search memories:", error);
     }
 
-    // Build system prompt with context
-    let systemPrompt = CHAT_SYSTEM_PROMPT;
-    if (memoryContext) {
-      systemPrompt += `\n\nMÉMOIRES PERTINENTES:\n${memoryContext}`;
+    // Analyze task intent for smart clarification
+    const taskIntentAnalysis = analyzeTaskIntent(message);
+
+    if (taskIntentAnalysis.isTaskRequest) {
+      flowTracker.trackEvent({
+        flowId,
+        stage: "task_intent_analysis",
+        service: "TaskIntentAnalyzer",
+        status: "success",
+        data: {
+          taskType: taskIntentAnalysis.taskType,
+          subject: taskIntentAnalysis.extractedEntities.subject?.type,
+          location: taskIntentAnalysis.extractedEntities.location,
+          onlyOnChange: taskIntentAnalysis.notificationIntent.onlyOnChange,
+          needsClarification: taskIntentAnalysis.clarification?.needed,
+          confidence: taskIntentAnalysis.confidence,
+        },
+      });
     }
+
+    // Build system prompt with context and intent analysis
+    const memoryContextArray = memoryContext
+      ? memoryContext.split("\n").filter((line) => line.trim())
+      : [];
+
+    let systemPrompt = buildSystemPromptWithIntent(
+      CHAT_SYSTEM_PROMPT,
+      memoryContextArray,
+      taskIntentAnalysis,
+    );
 
     const systemPromptWithContext = await injectContextIntoPrompt(
       systemPrompt,
