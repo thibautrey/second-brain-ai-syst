@@ -461,7 +461,7 @@ model NegativeExample {
 
   // Cluster information
   clusterId String? // For grouping similar negatives
-  embedding Json
+  embedding Float[] // Store embeddings as PostgreSQL array of floats
 
   // Source
   capturedAt      DateTime @default(now())
