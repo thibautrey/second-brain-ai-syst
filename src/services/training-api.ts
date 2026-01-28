@@ -61,6 +61,7 @@ export async function uploadSample(
   speakerProfileId?: string,
   phraseText?: string,
   phraseCategory?: string,
+  language?: string,
 ): Promise<VoiceSampleResponse> {
   const formData = new FormData();
   formData.append("audio", audioFile);
@@ -73,6 +74,9 @@ export async function uploadSample(
   }
   if (phraseCategory) {
     formData.append("phraseCategory", phraseCategory);
+  }
+  if (language) {
+    formData.append("language", language);
   }
 
   const response = await fetch(`${API_BASE_URL}/api/training/samples`, {

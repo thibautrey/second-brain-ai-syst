@@ -44,6 +44,7 @@ import { MemoryManagerService } from "./memory-manager.js";
 import OpenAI from "openai";
 import { flowTracker } from "./flow-tracker.js";
 import { getEmbeddingService } from "./embedding-wrapper.js";
+import { getTrainedLanguages } from "./user-profile.js";
 import { notificationService } from "./notification.js";
 import prisma from "./prisma.js";
 import { randomBytes } from "crypto";
@@ -1177,6 +1178,11 @@ export class ContinuousListeningService extends EventEmitter {
         throw new Error("No speech-to-text provider configured");
       }
 
+      // Get user's trained languages to hint to the transcription API
+      const trainedLanguages = await getTrainedLanguages(this.config.userId);
+      const languageHint =
+        trainedLanguages.length > 0 ? trainedLanguages[0] : undefined;
+
       // Save audio as temp WAV file - use shared volume for Docker compatibility
       const sharedTmpDir = process.env.AUDIO_TMP_DIR || "/app/data/audio/tmp";
       const fsPromises = await import("fs/promises");
@@ -1193,11 +1199,20 @@ export class ContinuousListeningService extends EventEmitter {
         baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
       });
 
-      const response = await openai.audio.transcriptions.create({
+      // Build transcription request with language hint
+      const transcriptionRequest: any = {
         file: audioFile,
         model: taskConfig.model?.modelId || "whisper-1",
         response_format: "verbose_json",
-      });
+      };
+
+      // Add language hint if available (improves accuracy)
+      if (languageHint) {
+        transcriptionRequest.language = languageHint;
+      }
+
+      const response: any =
+        await openai.audio.transcriptions.create(transcriptionRequest);
 
       // Cleanup
       await fsPromises.unlink(tempPath).catch(() => {});

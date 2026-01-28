@@ -348,6 +348,7 @@ export function TrainingPage() {
         speakerProfileId,
         phrase.text,
         phrase.category,
+        language,
       );
 
       // Update recording with server ID and mark as completed
@@ -467,6 +468,7 @@ export function TrainingPage() {
         speakerProfileId,
         paragraph.text,
         "paragraph", // Use 'paragraph' as category for longer texts
+        language,
       );
 
       // Update recording with server ID and mark as completed
@@ -767,9 +769,7 @@ export function TrainingPage() {
             <div className="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-red-900">
-                  {t("common.error")}
-                </p>
+                <p className="font-medium text-red-900">{t("common.error")}</p>
                 <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
             </div>
@@ -883,8 +883,7 @@ export function TrainingPage() {
                     <div className="space-y-2 text-sm text-slate-500">
                       <p>
                         {t("training.page.training.processingSamples", {
-                          count:
-                            recordings.length + paragraphRecordings.length,
+                          count: recordings.length + paragraphRecordings.length,
                         })}
                       </p>
                       <p className="text-xs">

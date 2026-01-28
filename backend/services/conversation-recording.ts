@@ -1,12 +1,12 @@
 /**
  * Conversation Recording Service
- * 
+ *
  * Manages long-form conversation recording for:
  * - Multi-speaker conversations (group calls, meetings, discussions)
  * - Continuous audio capture without interrupting flow
  * - Later transcription and summarization
  * - Memory linking and analysis
- * 
+ *
  * Features:
  * - Start/stop recording without affecting continuous listening
  * - Chunk-based audio storage for efficiency
@@ -27,17 +27,19 @@ import {
 } from "@prisma/client";
 
 // Type for recording with all relations included
-type ConversationRecordingWithRelations = Prisma.ConversationRecordingGetPayload<{
-  include: {
-    speakers: true;
-    audioSegments: true;
-    transcriptSegments: true;
-  };
-}>;
+type ConversationRecordingWithRelations =
+  Prisma.ConversationRecordingGetPayload<{
+    include: {
+      speakers: true;
+      audioSegments: true;
+      transcriptSegments: true;
+    };
+  }>;
 import { EventEmitter } from "events";
 import OpenAI from "openai";
 import { getEmbeddingService } from "./embedding-wrapper.js";
 import { MemoryManagerService } from "./memory-manager.js";
+import { getTrainedLanguages } from "./user-profile.js";
 import { randomUUID } from "crypto";
 import { notificationService } from "./notification.js";
 
@@ -159,7 +161,9 @@ export class ConversationRecordingService extends EventEmitter {
   /**
    * Get recording by ID
    */
-  async getRecording(recordingId: string): Promise<ConversationRecordingWithRelations | null> {
+  async getRecording(
+    recordingId: string,
+  ): Promise<ConversationRecordingWithRelations | null> {
     return prisma.conversationRecording.findUnique({
       where: { id: recordingId },
       include: {
@@ -385,6 +389,7 @@ export class ConversationRecordingService extends EventEmitter {
           const transcript = await this.transcribeAudioSegment(
             segment.audioData,
             segment.audioCodec,
+            recording.userId,
           );
 
           // Calculate speaking stats
@@ -404,19 +409,13 @@ export class ConversationRecordingService extends EventEmitter {
             segmentId: segment.id,
           });
         } catch (error) {
-          console.error(
-            `Failed to transcribe segment ${segment.id}:`,
-            error,
-          );
+          console.error(`Failed to transcribe segment ${segment.id}:`, error);
         }
       }
 
       // Store transcription segments
       if (transcriptionSegments.length > 0) {
-        await this.addTranscriptionSegments(
-          recordingId,
-          transcriptionSegments,
-        );
+        await this.addTranscriptionSegments(recordingId, transcriptionSegments);
 
         // Combine transcriptions
         const fullTranscript = transcriptionSegments
@@ -480,18 +479,34 @@ export class ConversationRecordingService extends EventEmitter {
   private async transcribeAudioSegment(
     audioData: Buffer,
     audioCodec: string,
+    userId: string,
   ): Promise<string> {
     try {
+      // Get user's trained languages to hint to the transcription API
+      const trainedLanguages = await getTrainedLanguages(userId);
+      const languageHint =
+        trainedLanguages.length > 0 ? trainedLanguages[0] : undefined;
+
       // Create a temporary file-like object for the API
       const file = new File([audioData], "audio.aac", {
         type: "audio/aac",
       });
 
-      const response = await this.openaiClient.audio.transcriptions.create({
+      // Build transcription request with language hint
+      const transcriptionRequest: any = {
         file,
         model: "whisper-1",
-        language: "en",
-      });
+      };
+
+      // Add language hint if available (improves accuracy)
+      if (languageHint) {
+        transcriptionRequest.language = languageHint;
+      }
+
+      const response =
+        await this.openaiClient.audio.transcriptions.create(
+          transcriptionRequest,
+        );
 
       return response.text;
     } catch (error) {
@@ -638,7 +653,10 @@ ${summary.keyPoints.map((p) => `- ${p}`).join("\n")}
         },
       });
 
-      this.emit("memory_created", { recordingId: recording.id, memoryId: memory.id });
+      this.emit("memory_created", {
+        recordingId: recording.id,
+        memoryId: memory.id,
+      });
     } catch (error) {
       console.error("Failed to create memory from conversation:", error);
     }

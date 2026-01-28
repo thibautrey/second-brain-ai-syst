@@ -681,7 +681,8 @@ export class VoiceTrainingController {
         return;
       }
 
-      const { speakerProfileId, phraseText, phraseCategory } = req.body;
+      const { speakerProfileId, phraseText, phraseCategory, language } =
+        req.body;
 
       if (!req.file) {
         res.status(400).json({ error: "No audio file provided" });
@@ -696,6 +697,7 @@ export class VoiceTrainingController {
           speakerProfileId,
           phraseText,
           phraseCategory,
+          language,
         },
       );
 

@@ -373,6 +373,7 @@ model VoiceSample {
   // Training phrase info
   phraseText     String? // The phrase that was spoken
   phraseCategory String? // 'passphrase', 'sentence', 'numeric'
+  language       String  @default("en") // ISO 639-1 language code (e.g., "en", "fr", "es")
 
   // Embedding data
   embedding      Json? // Vector embedding extracted from this sample

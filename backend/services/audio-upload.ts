@@ -21,6 +21,7 @@ export interface AudioUploadOptions {
   speakerProfileId?: string;
   phraseText?: string;
   phraseCategory?: string;
+  language?: string; // ISO 639-1 language code (e.g., "en", "fr", "es")
   autoProcess?: boolean;
 }
 
@@ -96,6 +97,7 @@ export class AudioUploadService {
         durationSeconds: audioMetadata.durationSeconds || 0,
         phraseText: options.phraseText,
         phraseCategory: options.phraseCategory,
+        language: options.language || "en",
         status: options.autoProcess ? "pending" : "uploaded",
       },
     });

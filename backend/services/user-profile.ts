@@ -305,6 +305,32 @@ export function formatProfileForPrompt(profile: UserProfile): string {
   return `[Profil utilisateur]\n${parts.join("\n")}`;
 }
 
+/**
+ * Get all languages the user has trained on by examining their voice samples
+ * Returns unique language codes in ISO 639-1 format
+ */
+export async function getTrainedLanguages(userId: string): Promise<string[]> {
+  const voiceSamples = await prisma.voiceSample.findMany({
+    where: {
+      speakerProfile: {
+        userId,
+      },
+    },
+    select: {
+      language: true,
+    },
+    distinct: ["language"],
+  });
+
+  // Extract and return unique language codes, filtering out null/undefined
+  const languages = voiceSamples
+    .map((sample) => sample.language)
+    .filter((lang): lang is string => !!lang)
+    .sort();
+
+  return [...new Set(languages)]; // Remove any duplicates
+}
+
 // Export singleton-style functions
 export const userProfileService = {
   getUserProfile,
@@ -312,6 +338,7 @@ export const userProfileService = {
   mergeUserProfile,
   deleteProfileFields,
   formatProfileForPrompt,
+  getTrainedLanguages,
 };
 
 export default userProfileService;
