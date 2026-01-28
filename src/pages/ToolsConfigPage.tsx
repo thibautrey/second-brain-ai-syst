@@ -1,6 +1,3 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,21 +6,21 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
-import { Switch } from "../components/ui/switch";
-import { Badge } from "../components/ui/badge";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { Textarea } from "../components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "../components/ui/tooltip";
+  Check,
+  Download,
+  ExternalLink,
+  Plus,
+  Power,
+  PowerOff,
+  RefreshCw,
+  Server,
+  Settings,
+  ShoppingBag,
+  Star,
+  Trash2,
+  Wrench,
+  Zap,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,20 +31,26 @@ import {
   DialogTrigger,
 } from "../components/ui/dialog";
 import {
-  Wrench,
-  Server,
-  ShoppingBag,
-  Plus,
-  Settings,
-  Trash2,
-  Power,
-  PowerOff,
-  Download,
-  Check,
-  Star,
-  RefreshCw,
-  ExternalLink,
-} from "lucide-react";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
+import { useEffect, useState } from "react";
+
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { SelfHealDialog } from "../components/tools/SelfHealDialog";
+import { Switch } from "../components/ui/switch";
+import { Textarea } from "../components/ui/textarea";
+import { useAuth } from "../contexts/AuthContext";
 
 // ==================== Types ====================
 
@@ -209,6 +212,11 @@ export function ToolsConfigPage() {
 
   // State for generated tools
   const [generatedTools, setGeneratedTools] = useState<GeneratedTool[]>([]);
+
+  // State for self-heal dialog
+  const [selfHealOpen, setSelfHealOpen] = useState(false);
+  const [selfHealToolId, setSelfHealToolId] = useState<string | null>(null);
+  const [selfHealToolName, setSelfHealToolName] = useState<string | null>(null);
 
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -427,6 +435,12 @@ export function ToolsConfigPage() {
     }
   }
 
+  function openSelfHealDialog(toolId: string, toolName: string) {
+    setSelfHealToolId(toolId);
+    setSelfHealToolName(toolName);
+    setSelfHealOpen(true);
+  }
+
   // ==================== Render ====================
 
   if (loading) {
@@ -494,7 +508,12 @@ export function ToolsConfigPage() {
             Gérez les outils intégrés, serveurs MCP et outils du marketplace
           </p>
         </div>
-        <Button onClick={loadData} variant="outline" size="sm" className="hidden md:inline-flex">
+        <Button
+          onClick={loadData}
+          variant="outline"
+          size="sm"
+          className="hidden md:inline-flex"
+        >
           <RefreshCw className="w-4 h-4 mr-2" />
           Actualiser
         </Button>
@@ -527,19 +546,31 @@ export function ToolsConfigPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="w-full overflow-x-auto overflow-y-hidden">
           <TabsList className="inline-flex gap-1">
-            <TabsTrigger value="builtin" className="flex items-center gap-2 whitespace-nowrap">
+            <TabsTrigger
+              value="builtin"
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
               <Wrench className="w-4 h-4" />
               <span>Outils Intégrés</span>
             </TabsTrigger>
-            <TabsTrigger value="mcp" className="flex items-center gap-2 whitespace-nowrap">
+            <TabsTrigger
+              value="mcp"
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
               <Server className="w-4 h-4" />
               <span>Serveurs MCP</span>
             </TabsTrigger>
-            <TabsTrigger value="marketplace" className="flex items-center gap-2 whitespace-nowrap">
+            <TabsTrigger
+              value="marketplace"
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
               <ShoppingBag className="w-4 h-4" />
               <span>Marketplace</span>
             </TabsTrigger>
-            <TabsTrigger value="generated" className="flex items-center gap-2 whitespace-nowrap">
+            <TabsTrigger
+              value="generated"
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
               <Star className="w-4 h-4" />
               <span>Outils Générés</span>
             </TabsTrigger>
@@ -1039,16 +1070,25 @@ export function ToolsConfigPage() {
 
                       {tool.actions && tool.actions.length > 0 && (
                         <div className="flex flex-wrap gap-1">
-                          <span className="text-xs font-medium text-slate-600">Actions:</span>
+                          <span className="text-xs font-medium text-slate-600">
+                            Actions:
+                          </span>
                           {tool.actions.slice(0, 2).map((action) => (
-                            <Badge key={action} variant="secondary" className="text-xs">
+                            <Badge
+                              key={action}
+                              variant="secondary"
+                              className="text-xs"
+                            >
                               {action}
                             </Badge>
                           ))}
                           {tool.actions.length > 2 && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Badge variant="outline" className="cursor-help text-xs">
+                                <Badge
+                                  variant="outline"
+                                  className="cursor-help text-xs"
+                                >
                                   +{tool.actions.length - 2}
                                 </Badge>
                               </TooltipTrigger>
@@ -1124,6 +1164,17 @@ export function ToolsConfigPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          className="flex-1 text-yellow-600 border-yellow-200 hover:text-yellow-700 hover:bg-yellow-50"
+                          onClick={() =>
+                            openSelfHealDialog(tool.id, tool.displayName)
+                          }
+                        >
+                          <Zap className="w-3 h-3 mr-1" />
+                          Auto-réparation
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="flex-1 text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50"
                           onClick={() => deleteGeneratedTool(tool.id)}
                         >
@@ -1139,6 +1190,16 @@ export function ToolsConfigPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Self-Heal Dialog */}
+      {selfHealToolId && selfHealToolName && (
+        <SelfHealDialog
+          open={selfHealOpen}
+          onOpenChange={setSelfHealOpen}
+          toolId={selfHealToolId}
+          toolName={selfHealToolName}
+        />
+      )}
     </div>
   );
 }
