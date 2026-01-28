@@ -325,17 +325,16 @@ function RecordingItem({
       const API_BASE_URL =
         import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-      // Try to get audio from source session
+      // Determine the correct endpoint based on recording type
       let audioUrl = "";
-      if (recording.sourceSessionId) {
-        // Fetch audio from the session
-        audioUrl = `${API_BASE_URL}/api/conversations/sessions/${recording.sourceSessionId}/audio`;
+      if (recording.type === "negative_example") {
+        audioUrl = `${API_BASE_URL}/api/adaptive-learning/negative-examples/${recording.id}/audio`;
+      } else if (recording.type === "adaptive_sample") {
+        audioUrl = `${API_BASE_URL}/api/adaptive-learning/adaptive-samples/${recording.id}/audio`;
       }
 
       if (!audioUrl) {
-        setAudioError(
-          "Audio source not available for this recording. Original session data may have been archived.",
-        );
+        setAudioError("Audio source not available for this recording type.");
         setIsLoadingAudio(false);
         return;
       }
