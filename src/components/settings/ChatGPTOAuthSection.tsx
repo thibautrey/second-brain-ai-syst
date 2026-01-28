@@ -21,11 +21,11 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Switch } from "../components/ui/switch";
-import { Label } from "../components/ui/label";
-import { useChatGPTOAuth } from "../hooks/useChatGPTOAuth";
+} from "../ui/card";
+import { Button } from "../ui/button";
+import { Switch } from "../ui/switch";
+import { Label } from "../ui/label";
+import { useChatGPTOAuth } from "../../hooks/useChatGPTOAuth";
 
 interface ChatGPTOAuthSectionProps {
   className?: string;
