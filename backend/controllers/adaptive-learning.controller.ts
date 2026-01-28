@@ -601,6 +601,8 @@ export class AdaptiveLearningController {
           confidence: true,
           capturedAt: true,
           sourceSessionId: true,
+          audioData: true,
+          durationSeconds: true,
         },
       });
 
@@ -626,6 +628,7 @@ export class AdaptiveLearningController {
               sourceSessionId: true,
               durationSeconds: true,
               audioQualityScore: true,
+              audioData: true,
             },
           });
         }
@@ -640,7 +643,8 @@ export class AdaptiveLearningController {
           confidence: ne.confidence,
           sourceSessionId: ne.sourceSessionId || undefined,
           similarity: 1 - ne.confidence, // Inverse of confidence = similarity to user
-          hasAudio: false, // Negative examples don't store audio
+          duration: ne.durationSeconds || undefined,
+          hasAudio: !!ne.audioData, // Audio is available if audioData is stored
         })),
         ...adaptiveSamples.map((as) => ({
           id: as.id,
@@ -650,7 +654,7 @@ export class AdaptiveLearningController {
           sourceSessionId: as.sourceSessionId || undefined,
           similarity: as.admissionSimilarity,
           duration: as.durationSeconds,
-          hasAudio: false, // Adaptive samples store embeddings, not audio
+          hasAudio: !!as.audioData, // Audio is available if audioData is stored
         })),
       ];
 
@@ -802,6 +806,89 @@ export class AdaptiveLearningController {
         message: `Cleared ${result.count} negative examples`,
         deletedCount: result.count,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/adaptive-learning/negative-examples/:recordingId/audio
+   * Download audio for a negative example
+   */
+  async getNegativeExampleAudio(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { recordingId } = req.params;
+
+      const recording = await prisma.negativeExample.findUnique({
+        where: { id: recordingId },
+      });
+
+      if (!recording || recording.userId !== req.userId) {
+        res.status(404).json({ error: "Recording not found" });
+        return;
+      }
+
+      if (!recording.audioData) {
+        res.status(404).json({ error: "Audio data not available" });
+        return;
+      }
+
+      res.setHeader("Content-Type", recording.audioMimeType || "audio/webm");
+      res.setHeader("Content-Length", recording.audioData.length);
+      res.send(recording.audioData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/adaptive-learning/adaptive-samples/:recordingId/audio
+   * Download audio for an adaptive sample
+   */
+  async getAdaptiveSampleAudio(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { recordingId } = req.params;
+
+      const sample = await prisma.adaptiveSample.findUnique({
+        where: { id: recordingId },
+        include: {
+          speakerProfile: {
+            select: { userId: true },
+          },
+        },
+      });
+
+      if (!sample || sample.speakerProfile.userId !== req.userId) {
+        res.status(404).json({ error: "Sample not found" });
+        return;
+      }
+
+      if (!sample.audioData) {
+        res.status(404).json({ error: "Audio data not available" });
+        return;
+      }
+
+      res.setHeader("Content-Type", sample.audioMimeType || "audio/webm");
+      res.setHeader("Content-Length", sample.audioData.length);
+      res.send(sample.audioData);
     } catch (error) {
       next(error);
     }

@@ -437,6 +437,8 @@ model AdaptiveSample {
   embedding         Json // The voice embedding
   durationSeconds   Float
   audioQualityScore Float // 0-1 computed quality
+  audioData         Bytes? // Store raw audio data (last 50 samples)
+  audioMimeType     String? // e.g., "audio/webm", "audio/wav"
 
   // Confidence metrics at admission time
   admissionSimilarity  Float // Similarity to centroid when admitted
@@ -470,6 +472,11 @@ model NegativeExample {
   capturedAt      DateTime @default(now())
   sourceSessionId String?
   confidence      Float // How confident we are this is NOT the user
+  durationSeconds Float? // Duration of the audio sample
+
+  // Audio storage
+  audioData     Bytes? // Store raw audio data (last 50 samples)
+  audioMimeType String? // e.g., "audio/webm", "audio/wav"
 
   // Optional: identified person
   externalPersonId String? // If this was identified as a known external person

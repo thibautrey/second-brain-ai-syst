@@ -162,7 +162,7 @@ export class AudioQualityAnalyzer {
    */
   async analyze(
     audioBuffer: Buffer,
-    sampleRate: number = 16000
+    sampleRate: number = 16000,
   ): Promise<AudioQualityResult> {
     const samples = this.bufferToFloat32(audioBuffer);
     const durationSeconds = samples.length / sampleRate;
@@ -232,7 +232,7 @@ export class AudioQualityAnalyzer {
 
   private computeMetrics(
     samples: Float32Array,
-    sampleRate: number
+    sampleRate: number,
   ): AudioQualityResult["metrics"] {
     const durationSeconds = samples.length / sampleRate;
 
@@ -251,7 +251,10 @@ export class AudioQualityAnalyzer {
     const signalToNoiseDb = this.estimateSNR(samples, sampleRate);
 
     // Compute energy consistency across windows
-    const energyConsistency = this.computeEnergyConsistency(samples, sampleRate);
+    const energyConsistency = this.computeEnergyConsistency(
+      samples,
+      sampleRate,
+    );
 
     return {
       durationSeconds,
@@ -267,8 +270,7 @@ export class AudioQualityAnalyzer {
     // Divide into frames
     const frameSize = Math.floor(sampleRate * 0.025); // 25ms frames
     const hopSize = Math.floor(frameSize / 2);
-    const frameCount =
-      Math.floor((samples.length - frameSize) / hopSize) + 1;
+    const frameCount = Math.floor((samples.length - frameSize) / hopSize) + 1;
 
     const frameEnergies: number[] = [];
 
@@ -297,7 +299,7 @@ export class AudioQualityAnalyzer {
 
   private computeEnergyConsistency(
     samples: Float32Array,
-    sampleRate: number
+    sampleRate: number,
   ): number {
     // Divide into ~500ms windows
     const windowSize = Math.floor(sampleRate * 0.5);
@@ -376,7 +378,7 @@ export class CrossValidator {
   async validate(
     newEmbedding: number[],
     existingSamples: Array<{ embedding: unknown }>,
-    centroid: number[]
+    centroid: number[],
   ): Promise<CrossValidationResult> {
     if (existingSamples.length === 0) {
       // No existing samples - just check against centroid
@@ -437,14 +439,14 @@ export class CrossValidator {
   }
 
   private computeIntraClassSimilarities(
-    samples: Array<{ embedding: unknown }>
+    samples: Array<{ embedding: unknown }>,
   ): number[] {
     const similarities: number[] = [];
     for (let i = 0; i < samples.length; i++) {
       for (let j = i + 1; j < samples.length; j++) {
         const sim = this.cosineSimilarity(
           samples[i].embedding as number[],
-          samples[j].embedding as number[]
+          samples[j].embedding as number[],
         );
         similarities.push(sim);
       }
@@ -490,7 +492,7 @@ export class AdaptiveProfileUpdater {
     embedding: number[],
     audioBuffer: Buffer,
     similarity: number,
-    sourceInfo: { type: string; sessionId?: string }
+    sourceInfo: { type: string; sessionId?: string },
   ): Promise<AdmissionResult> {
     // 1. Get profile and check if adaptive learning is enabled
     const profile = await prisma.speakerProfile.findUnique({
@@ -577,12 +579,18 @@ export class AdaptiveProfileUpdater {
     // 6. Cross-validation with existing samples
     const existingEmbeddings = [
       ...(profile.voiceSamples as Array<{ embedding: unknown }>)
-        .filter((s): s is { embedding: number[] } => s.embedding != null && Array.isArray(s.embedding))
+        .filter(
+          (s): s is { embedding: number[] } =>
+            s.embedding != null && Array.isArray(s.embedding),
+        )
         .map((s) => ({
           embedding: s.embedding as number[],
         })),
       ...(profile.adaptiveSamples as Array<{ embedding: unknown }>)
-        .filter((s): s is { embedding: number[] } => s.embedding != null && Array.isArray(s.embedding))
+        .filter(
+          (s): s is { embedding: number[] } =>
+            s.embedding != null && Array.isArray(s.embedding),
+        )
         .map((s) => ({
           embedding: s.embedding as number[],
         })),
@@ -592,7 +600,7 @@ export class AdaptiveProfileUpdater {
     const crossValidation = await this.crossValidator.validate(
       embedding,
       existingEmbeddings,
-      centroid
+      centroid,
     );
 
     if (!crossValidation.isConsistent) {
@@ -619,13 +627,15 @@ export class AdaptiveProfileUpdater {
         embedding: embedding,
         durationSeconds: qualityResult.metrics.durationSeconds,
         audioQualityScore: qualityResult.score,
+        audioData: audioBuffer, // Store raw audio data
+        audioMimeType: sourceInfo.mimeType || "audio/webm",
         admissionSimilarity: similarity,
         crossValidationScore: crossValidation.score,
         contributionWeight: 0.5, // New samples start with lower weight
       },
     });
 
-    // 9. Prune excess samples if needed
+    // 9. Prune excess samples if needed (keep last 50)
     await this.pruneExcessSamples(profileId);
 
     // 10. Apply time decay and recompute centroid
@@ -664,7 +674,7 @@ export class AdaptiveProfileUpdater {
     }
 
     console.log(
-      `[AdaptiveLearning] Sample admitted to profile ${profileId}: similarity=${(similarity * 100).toFixed(1)}%, quality=${(qualityResult.score * 100).toFixed(1)}%, health=${(healthResult.healthScore * 100).toFixed(1)}%`
+      `[AdaptiveLearning] Sample admitted to profile ${profileId}: similarity=${(similarity * 100).toFixed(1)}%, quality=${(qualityResult.score * 100).toFixed(1)}%, health=${(healthResult.healthScore * 100).toFixed(1)}%`,
     );
 
     return {
@@ -692,7 +702,7 @@ export class AdaptiveProfileUpdater {
       voiceSamples: { embedding: unknown }[];
       adaptiveSamples: { id: string }[];
     },
-    reason: string
+    reason: string,
   ): Promise<void> {
     if (!profile.centroidEmbedding) return;
 
@@ -734,7 +744,7 @@ export class AdaptiveProfileUpdater {
     });
 
     console.log(
-      `[AdaptiveLearning] Pruned ${toRemove.length} low-quality samples from profile ${profileId}`
+      `[AdaptiveLearning] Pruned ${toRemove.length} low-quality samples from profile ${profileId}`,
     );
   }
 
@@ -782,16 +792,35 @@ export class AdaptiveProfileUpdater {
     }
 
     // Training samples get full weight
-    const trainingEmbeddings = (profile.voiceSamples as Array<{ embedding: unknown }>)
-      .filter((s): s is { embedding: number[] } => s.embedding != null && Array.isArray(s.embedding))
+    const trainingEmbeddings = (
+      profile.voiceSamples as Array<{ embedding: unknown }>
+    )
+      .filter(
+        (s): s is { embedding: number[] } =>
+          s.embedding != null && Array.isArray(s.embedding),
+      )
       .map((s) => ({
         embedding: s.embedding as number[],
         weight: 1.0,
       }));
 
     // Adaptive samples get weighted by quality and decay
-    const adaptiveEmbeddings = (profile.adaptiveSamples as Array<{ embedding: unknown; contributionWeight: number; decayFactor: number }>)
-      .filter((s): s is { embedding: number[]; contributionWeight: number; decayFactor: number } => s.embedding != null && Array.isArray(s.embedding))
+    const adaptiveEmbeddings = (
+      profile.adaptiveSamples as Array<{
+        embedding: unknown;
+        contributionWeight: number;
+        decayFactor: number;
+      }>
+    )
+      .filter(
+        (
+          s,
+        ): s is {
+          embedding: number[];
+          contributionWeight: number;
+          decayFactor: number;
+        } => s.embedding != null && Array.isArray(s.embedding),
+      )
       .map((s) => ({
         embedding: s.embedding as number[],
         weight: s.contributionWeight * s.decayFactor,
@@ -851,10 +880,16 @@ export class AdaptiveProfileUpdater {
     const centroid = profile.centroidEmbedding as number[];
     const allEmbeddings = [
       ...(profile.voiceSamples as Array<{ embedding: unknown }>)
-        .filter((s): s is { embedding: number[] } => s.embedding != null && Array.isArray(s.embedding))
+        .filter(
+          (s): s is { embedding: number[] } =>
+            s.embedding != null && Array.isArray(s.embedding),
+        )
         .map((s) => s.embedding as number[]),
       ...(profile.adaptiveSamples as Array<{ embedding: unknown }>)
-        .filter((s): s is { embedding: number[] } => s.embedding != null && Array.isArray(s.embedding))
+        .filter(
+          (s): s is { embedding: number[] } =>
+            s.embedding != null && Array.isArray(s.embedding),
+        )
         .map((s) => s.embedding as number[]),
     ];
 
@@ -903,9 +938,12 @@ export class AdaptiveProfileUpdater {
     // Compute average quality of adaptive samples
     const avgQuality =
       profile.adaptiveSamples.length > 0
-        ? (profile.adaptiveSamples as Array<{ audioQualityScore: number }>).reduce(
-            (sum: number, s: { audioQualityScore: number }) => sum + s.audioQualityScore,
-            0
+        ? (
+            profile.adaptiveSamples as Array<{ audioQualityScore: number }>
+          ).reduce(
+            (sum: number, s: { audioQualityScore: number }) =>
+              sum + s.audioQualityScore,
+            0,
           ) / profile.adaptiveSamples.length
         : 1.0;
 
@@ -916,15 +954,15 @@ export class AdaptiveProfileUpdater {
 
     const ageDistribution = {
       recent: (profile.adaptiveSamples as Array<{ admittedAt: Date }>).filter(
-        (s: { admittedAt: Date }) => now - s.admittedAt.getTime() < oneDay
+        (s: { admittedAt: Date }) => now - s.admittedAt.getTime() < oneDay,
       ).length,
       medium: (profile.adaptiveSamples as Array<{ admittedAt: Date }>).filter(
         (s: { admittedAt: Date }) =>
           now - s.admittedAt.getTime() >= oneDay &&
-          now - s.admittedAt.getTime() < oneWeek
+          now - s.admittedAt.getTime() < oneWeek,
       ).length,
       old: (profile.adaptiveSamples as Array<{ admittedAt: Date }>).filter(
-        (s: { admittedAt: Date }) => now - s.admittedAt.getTime() >= oneWeek
+        (s: { admittedAt: Date }) => now - s.admittedAt.getTime() >= oneWeek,
       ).length,
     };
 
@@ -958,17 +996,17 @@ export class AdaptiveProfileUpdater {
     const recommendations: string[] = [];
     if (variance > this.config.health.varianceThreshold * 0.8) {
       recommendations.push(
-        "Consider removing outlier samples or retraining from scratch"
+        "Consider removing outlier samples or retraining from scratch",
       );
     }
     if (avgQuality < 0.7) {
       recommendations.push(
-        "Audio quality of recent samples is low - check microphone setup"
+        "Audio quality of recent samples is low - check microphone setup",
       );
     }
     if (trend === "degrading") {
       recommendations.push(
-        "Profile quality is degrading - consider pausing adaptive learning"
+        "Profile quality is degrading - consider pausing adaptive learning",
       );
     }
 
@@ -1040,7 +1078,10 @@ export class NegativeExampleManager {
     userId: string,
     embedding: number[],
     confidence: number,
-    sourceSessionId?: string
+    sourceSessionId?: string,
+    audioBuffer?: Buffer,
+    audioMimeType?: string,
+    durationSeconds?: number,
   ): Promise<{ added: boolean; reason: string }> {
     // Only store if we're confident it's not the user
     if (confidence < 1 - this.config.confidence.negativeExampleThreshold) {
@@ -1060,11 +1101,14 @@ export class NegativeExampleManager {
     for (const existing of existingNegatives) {
       const similarity = this.cosineSimilarity(
         embedding,
-        existing.embedding as number[]
+        existing.embedding as number[],
       );
       if (similarity > 0.95) {
         // Too similar to existing - skip
-        return { added: false, reason: "Duplicate of existing negative example" };
+        return {
+          added: false,
+          reason: "Duplicate of existing negative example",
+        };
       }
     }
 
@@ -1074,17 +1118,22 @@ export class NegativeExampleManager {
         embedding,
         confidence,
         sourceSessionId,
+        audioData: audioBuffer,
+        audioMimeType: audioMimeType || "audio/webm",
+        durationSeconds,
       },
     });
 
-    // Limit total stored negatives
-    const totalCount = await prisma.negativeExample.count({ where: { userId } });
-    if (totalCount > 500) {
+    // Limit total stored negatives (keep last 50 per user)
+    const totalCount = await prisma.negativeExample.count({
+      where: { userId },
+    });
+    if (totalCount > 50) {
       // Remove oldest
       const oldest = await prisma.negativeExample.findMany({
         where: { userId },
         orderBy: { capturedAt: "asc" },
-        take: totalCount - 500,
+        take: totalCount - 50,
       });
       await prisma.negativeExample.deleteMany({
         where: { id: { in: oldest.map((n) => n.id) } },
@@ -1092,7 +1141,7 @@ export class NegativeExampleManager {
     }
 
     console.log(
-      `[AdaptiveLearning] Added negative example for user ${userId}: confidence=${(confidence * 100).toFixed(1)}%`
+      `[AdaptiveLearning] Added negative example for user ${userId}: confidence=${(confidence * 100).toFixed(1)}%`,
     );
 
     return { added: true, reason: "Negative example stored" };
@@ -1102,7 +1151,7 @@ export class NegativeExampleManager {
    * Get negative examples for contrastive scoring
    */
   async getNegativeExamples(
-    userId: string
+    userId: string,
   ): Promise<Array<{ id: string; embedding: number[]; confidence: number }>> {
     const negatives = await prisma.negativeExample.findMany({
       where: { userId },
@@ -1124,7 +1173,7 @@ export class NegativeExampleManager {
    */
   async computeInterClassSeparation(
     userId: string,
-    userCentroid: number[]
+    userCentroid: number[],
   ): Promise<number | null> {
     const negatives = await this.getNegativeExamples(userId);
 
@@ -1133,7 +1182,10 @@ export class NegativeExampleManager {
     // Average similarity to negative examples (lower is better)
     let totalSimilarity = 0;
     for (const negative of negatives) {
-      totalSimilarity += this.cosineSimilarity(userCentroid, negative.embedding);
+      totalSimilarity += this.cosineSimilarity(
+        userCentroid,
+        negative.embedding,
+      );
     }
 
     const avgSimilarity = totalSimilarity / negatives.length;
@@ -1196,7 +1248,7 @@ export class ProfileRollbackService {
    */
   async rollback(
     profileId: string,
-    snapshotId?: string
+    snapshotId?: string,
   ): Promise<{
     success: boolean;
     message: string;
@@ -1236,7 +1288,8 @@ export class ProfileRollbackService {
     await prisma.speakerProfile.update({
       where: { id: profileId },
       data: {
-        centroidEmbedding: snapshot.centroid !== null ? snapshot.centroid : undefined,
+        centroidEmbedding:
+          snapshot.centroid !== null ? snapshot.centroid : undefined,
         profileHealth: snapshot.healthScore,
         isFrozen: false,
         frozenAt: null,
@@ -1245,7 +1298,7 @@ export class ProfileRollbackService {
     });
 
     console.log(
-      `[AdaptiveLearning] Rolled back profile ${profileId} to snapshot from ${snapshot.createdAt.toISOString()}`
+      `[AdaptiveLearning] Rolled back profile ${profileId} to snapshot from ${snapshot.createdAt.toISOString()}`,
     );
 
     return {
@@ -1308,7 +1361,10 @@ export class ProfileRollbackService {
     });
 
     if (!profile || !profile.centroidEmbedding) {
-      return { success: false, message: "Profile not found or has no centroid" };
+      return {
+        success: false,
+        message: "Profile not found or has no centroid",
+      };
     }
 
     const snapshot = await prisma.profileSnapshot.create({
@@ -1358,7 +1414,9 @@ export class AdaptiveSpeakerLearningService {
     embedding: number[],
     similarity: number,
     audioBuffer: Buffer,
-    sessionId?: string
+    sessionId?: string,
+    audioMimeType?: string,
+    durationSeconds?: number,
   ): Promise<{
     action: "admitted" | "negative_stored" | "ignored" | "rejected";
     reason: string;
@@ -1380,7 +1438,7 @@ export class AdaptiveSpeakerLearningService {
         embedding,
         audioBuffer,
         similarity,
-        { type: "continuous_listening", sessionId }
+        { type: "continuous_listening", sessionId, mimeType: audioMimeType },
       );
 
       return {
@@ -1397,7 +1455,10 @@ export class AdaptiveSpeakerLearningService {
         profile.userId,
         embedding,
         confidence,
-        sessionId
+        sessionId,
+        audioBuffer,
+        audioMimeType,
+        durationSeconds,
       );
 
       return {
@@ -1417,7 +1478,10 @@ export class AdaptiveSpeakerLearningService {
   /**
    * Get status of adaptive learning for a profile
    */
-  async getStatus(profileId: string, userId: string): Promise<AdaptiveLearningStatus | null> {
+  async getStatus(
+    profileId: string,
+    userId: string,
+  ): Promise<AdaptiveLearningStatus | null> {
     const profile = await prisma.speakerProfile.findUnique({
       where: { id: profileId },
       include: {
@@ -1452,7 +1516,10 @@ export class AdaptiveSpeakerLearningService {
   /**
    * Enable adaptive learning for a profile
    */
-  async enable(profileId: string, userId: string): Promise<{ success: boolean; message: string }> {
+  async enable(
+    profileId: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
     const profile = await prisma.speakerProfile.findUnique({
       where: { id: profileId },
       include: {
@@ -1470,11 +1537,14 @@ export class AdaptiveSpeakerLearningService {
     if (!profile.isEnrolled || !profile.centroidEmbedding) {
       return {
         success: false,
-        message: "Profile must be enrolled with a trained model before enabling adaptive learning",
+        message:
+          "Profile must be enrolled with a trained model before enabling adaptive learning",
       };
     }
 
-    if (profile.voiceSamples.length < this.config.profile.minSamplesBeforeAdaptive) {
+    if (
+      profile.voiceSamples.length < this.config.profile.minSamplesBeforeAdaptive
+    ) {
       return {
         success: false,
         message: `Need at least ${this.config.profile.minSamplesBeforeAdaptive} training samples before enabling adaptive learning (current: ${profile.voiceSamples.length})`,
@@ -1500,7 +1570,10 @@ export class AdaptiveSpeakerLearningService {
   /**
    * Disable adaptive learning for a profile
    */
-  async disable(profileId: string, userId: string): Promise<{ success: boolean; message: string }> {
+  async disable(
+    profileId: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
     const profile = await prisma.speakerProfile.findUnique({
       where: { id: profileId },
     });
@@ -1520,7 +1593,10 @@ export class AdaptiveSpeakerLearningService {
   /**
    * Unfreeze a frozen profile
    */
-  async unfreeze(profileId: string, userId: string): Promise<{ success: boolean; message: string }> {
+  async unfreeze(
+    profileId: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
     const profile = await prisma.speakerProfile.findUnique({
       where: { id: profileId },
     });
@@ -1548,7 +1624,10 @@ export class AdaptiveSpeakerLearningService {
   /**
    * Run a health check on a profile
    */
-  async runHealthCheck(profileId: string, userId: string): Promise<HealthCheckResult | null> {
+  async runHealthCheck(
+    profileId: string,
+    userId: string,
+  ): Promise<HealthCheckResult | null> {
     const profile = await prisma.speakerProfile.findUnique({
       where: { id: profileId },
     });
@@ -1566,7 +1645,7 @@ export class AdaptiveSpeakerLearningService {
   async getAdaptiveSamples(
     profileId: string,
     userId: string,
-    options: { includeInactive?: boolean } = {}
+    options: { includeInactive?: boolean } = {},
   ): Promise<
     Array<{
       id: string;
@@ -1618,7 +1697,7 @@ export class AdaptiveSpeakerLearningService {
   async removeAdaptiveSample(
     profileId: string,
     sampleId: string,
-    userId: string
+    userId: string,
   ): Promise<{ success: boolean; message: string }> {
     const profile = await prisma.speakerProfile.findUnique({
       where: { id: profileId },
@@ -1642,7 +1721,8 @@ export class AdaptiveSpeakerLearningService {
     });
 
     // Recompute centroid
-    const newCentroid = await this.profileUpdater.computeWeightedCentroid(profileId);
+    const newCentroid =
+      await this.profileUpdater.computeWeightedCentroid(profileId);
     await prisma.speakerProfile.update({
       where: { id: profileId },
       data: { centroidEmbedding: newCentroid },
@@ -1671,7 +1751,8 @@ export class AdaptiveSpeakerLearningService {
 
 // ==================== Singleton Instance ====================
 
-export const adaptiveSpeakerLearningService = new AdaptiveSpeakerLearningService();
+export const adaptiveSpeakerLearningService =
+  new AdaptiveSpeakerLearningService();
 
 // Export individual components for direct use
 export const audioQualityAnalyzer = new AudioQualityAnalyzer();
