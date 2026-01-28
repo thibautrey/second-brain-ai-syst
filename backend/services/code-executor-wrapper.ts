@@ -87,7 +87,7 @@ export class CodeExecutorService {
 
     this.client = axios.create({
       baseURL: `http://${this.config.host}:${this.config.port}`,
-      timeout: 120000, // 120 seconds for code execution (includes network calls)
+      timeout: 300000, // 300 seconds (5 minutes) for code execution including tool generation and testing
     });
   }
 

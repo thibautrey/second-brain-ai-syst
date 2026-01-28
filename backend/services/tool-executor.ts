@@ -231,7 +231,7 @@ const BUILTIN_TOOLS: ToolConfig[] = [
     category: "builtin",
     enabled: true,
     rateLimit: 5,
-    timeout: 120000,
+    timeout: 300000, // 5 minutes - tool generation can take time for complex tools
     config: {
       description:
         "Generate a new custom tool with Python code to accomplish a specific task. Use this when you need to create reusable functionality like API integrations, data processing pipelines, or custom calculations. The generated tool will be saved and available for future use. You can specify which API keys/secrets are needed.",
@@ -261,7 +261,17 @@ const BUILTIN_TOOLS: ToolConfig[] = [
     config: {
       description:
         "Create, update, track, and manage user goals. Monitor progress, set milestones, update status, and organize goals by category. Use for goal setting, progress tracking, milestone management, and goal lifecycle management.",
-      actions: ["create", "update", "list", "get", "delete", "update_progress", "add_milestone", "get_stats", "get_categories"],
+      actions: [
+        "create",
+        "update",
+        "list",
+        "get",
+        "delete",
+        "update_progress",
+        "add_milestone",
+        "get_stats",
+        "get_categories",
+      ],
     },
   },
   {
@@ -274,7 +284,16 @@ const BUILTIN_TOOLS: ToolConfig[] = [
     config: {
       description:
         "Create, unlock, and manage user achievements. Track accomplishments, celebrate milestones, and organize achievements by category. Use for achievement creation, unlocking, progress tracking, and celebration.",
-      actions: ["create", "update", "list", "get", "delete", "unlock", "get_stats", "get_categories"],
+      actions: [
+        "create",
+        "update",
+        "list",
+        "get",
+        "delete",
+        "unlock",
+        "get_stats",
+        "get_categories",
+      ],
     },
   },
 ];
@@ -821,7 +840,9 @@ export class ToolExecutorService {
           title: params.title,
           description: params.description,
           category: params.category || "personal_growth",
-          targetDate: params.target_date ? new Date(params.target_date) : undefined,
+          targetDate: params.target_date
+            ? new Date(params.target_date)
+            : undefined,
           tags: params.tags || [],
           metadata: params.metadata || {},
         });
@@ -841,15 +862,22 @@ export class ToolExecutorService {
 
         const updateData: any = {};
         if (params.title) updateData.title = params.title;
-        if (params.description !== undefined) updateData.description = params.description;
+        if (params.description !== undefined)
+          updateData.description = params.description;
         if (params.category) updateData.category = params.category;
         if (params.status) updateData.status = params.status as GoalStatus;
-        if (params.progress !== undefined) updateData.progress = params.progress;
-        if (params.target_date) updateData.targetDate = new Date(params.target_date);
+        if (params.progress !== undefined)
+          updateData.progress = params.progress;
+        if (params.target_date)
+          updateData.targetDate = new Date(params.target_date);
         if (params.tags) updateData.tags = params.tags;
         if (params.metadata) updateData.metadata = params.metadata;
 
-        const goal = await goalsService.updateGoal(params.goal_id, userId, updateData);
+        const goal = await goalsService.updateGoal(
+          params.goal_id,
+          userId,
+          updateData,
+        );
 
         return {
           action: "update",
@@ -861,9 +889,11 @@ export class ToolExecutorService {
 
       case "list": {
         const options: any = {};
-        if (params.filter_status) options.status = params.filter_status as GoalStatus;
+        if (params.filter_status)
+          options.status = params.filter_status as GoalStatus;
         if (params.filter_category) options.category = params.filter_category;
-        if (params.include_archived) options.includeArchived = params.include_archived;
+        if (params.include_archived)
+          options.includeArchived = params.include_archived;
 
         const goals = await goalsService.getUserGoals(userId, options);
 
@@ -913,7 +943,9 @@ export class ToolExecutorService {
 
       case "update_progress": {
         if (!params.goal_id || params.progress === undefined) {
-          throw new Error("Missing required parameters: 'goal_id' and 'progress'");
+          throw new Error(
+            "Missing required parameters: 'goal_id' and 'progress'",
+          );
         }
 
         const goal = await goalsService.updateGoal(params.goal_id, userId, {
@@ -930,7 +962,9 @@ export class ToolExecutorService {
 
       case "add_milestone": {
         if (!params.goal_id || !params.milestone_name) {
-          throw new Error("Missing required parameters: 'goal_id' and 'milestone_name'");
+          throw new Error(
+            "Missing required parameters: 'goal_id' and 'milestone_name'",
+          );
         }
 
         const milestone = {
@@ -939,7 +973,11 @@ export class ToolExecutorService {
           date: new Date(),
         };
 
-        const goal = await goalsService.addMilestone(params.goal_id, userId, milestone);
+        const goal = await goalsService.addMilestone(
+          params.goal_id,
+          userId,
+          milestone,
+        );
 
         return {
           action: "add_milestone",
@@ -986,19 +1024,24 @@ export class ToolExecutorService {
     switch (action) {
       case "create": {
         if (!params.title || !params.description) {
-          throw new Error("Missing required parameters: 'title' and 'description'");
+          throw new Error(
+            "Missing required parameters: 'title' and 'description'",
+          );
         }
 
-        const achievement = await achievementsService.createAchievement(userId, {
-          title: params.title,
-          description: params.description,
-          category: params.category || "personal_growth",
-          icon: params.icon,
-          significance: params.significance || "normal",
-          criteria: params.criteria || {},
-          isHidden: params.is_hidden !== false, // Default to hidden
-          metadata: params.metadata || {},
-        });
+        const achievement = await achievementsService.createAchievement(
+          userId,
+          {
+            title: params.title,
+            description: params.description,
+            category: params.category || "personal_growth",
+            icon: params.icon,
+            significance: params.significance || "normal",
+            criteria: params.criteria || {},
+            isHidden: params.is_hidden !== false, // Default to hidden
+            metadata: params.metadata || {},
+          },
+        );
 
         return {
           action: "create",
@@ -1020,10 +1063,15 @@ export class ToolExecutorService {
         if (params.icon !== undefined) updateData.icon = params.icon;
         if (params.significance) updateData.significance = params.significance;
         if (params.criteria) updateData.criteria = params.criteria;
-        if (params.is_hidden !== undefined) updateData.isHidden = params.is_hidden;
+        if (params.is_hidden !== undefined)
+          updateData.isHidden = params.is_hidden;
         if (params.metadata) updateData.metadata = params.metadata;
 
-        const achievement = await achievementsService.updateAchievement(params.achievement_id, userId, updateData);
+        const achievement = await achievementsService.updateAchievement(
+          params.achievement_id,
+          userId,
+          updateData,
+        );
 
         return {
           action: "update",
@@ -1037,9 +1085,13 @@ export class ToolExecutorService {
         const options: any = {};
         if (params.filter_category) options.category = params.filter_category;
         if (params.unlocked_only) options.unlockedOnly = params.unlocked_only;
-        if (params.include_hidden) options.includeHidden = params.include_hidden;
+        if (params.include_hidden)
+          options.includeHidden = params.include_hidden;
 
-        const achievements = await achievementsService.getUserAchievements(userId, options);
+        const achievements = await achievementsService.getUserAchievements(
+          userId,
+          options,
+        );
 
         return {
           action: "list",
@@ -1054,7 +1106,10 @@ export class ToolExecutorService {
           throw new Error("Missing required parameter: 'achievement_id'");
         }
 
-        const achievement = await achievementsService.getAchievement(params.achievement_id, userId);
+        const achievement = await achievementsService.getAchievement(
+          params.achievement_id,
+          userId,
+        );
 
         if (!achievement) {
           return {
@@ -1076,12 +1131,17 @@ export class ToolExecutorService {
           throw new Error("Missing required parameter: 'achievement_id'");
         }
 
-        const deleted = await achievementsService.deleteAchievement(params.achievement_id, userId);
+        const deleted = await achievementsService.deleteAchievement(
+          params.achievement_id,
+          userId,
+        );
 
         return {
           action: "delete",
           success: deleted,
-          message: deleted ? "Achievement deleted successfully" : "Achievement not found",
+          message: deleted
+            ? "Achievement deleted successfully"
+            : "Achievement not found",
         };
       }
 
@@ -1090,7 +1150,10 @@ export class ToolExecutorService {
           throw new Error("Missing required parameter: 'achievement_id'");
         }
 
-        const achievement = await achievementsService.unlockAchievement(params.achievement_id, userId);
+        const achievement = await achievementsService.unlockAchievement(
+          params.achievement_id,
+          userId,
+        );
 
         return {
           action: "unlock",
@@ -3072,25 +3135,27 @@ export class ToolExecutorService {
               type: "string",
               enum: [
                 "create",
-                "update", 
+                "update",
                 "list",
                 "get",
                 "delete",
                 "update_progress",
                 "add_milestone",
                 "get_stats",
-                "get_categories"
+                "get_categories",
               ],
               description:
                 "'create': new goal. 'update': modify existing goal. 'list': get all goals (with filters). 'get': get specific goal. 'delete': remove goal. 'update_progress': set progress percentage. 'add_milestone': add milestone to goal. 'get_stats': goal statistics. 'get_categories': available categories.",
             },
             goal_id: {
               type: "string",
-              description: "Goal ID (required for update, get, delete, update_progress, add_milestone)",
+              description:
+                "Goal ID (required for update, get, delete, update_progress, add_milestone)",
             },
             title: {
               type: "string",
-              description: "Goal title (required for create, optional for update)",
+              description:
+                "Goal title (required for create, optional for update)",
             },
             description: {
               type: "string",
@@ -3098,7 +3163,8 @@ export class ToolExecutorService {
             },
             category: {
               type: "string",
-              description: "Goal category (e.g., 'health', 'career', 'learning', 'personal_growth', 'finance', 'relationships')",
+              description:
+                "Goal category (e.g., 'health', 'career', 'learning', 'personal_growth', 'finance', 'relationships')",
             },
             status: {
               type: "string",
@@ -3107,11 +3173,13 @@ export class ToolExecutorService {
             },
             progress: {
               type: "number",
-              description: "Progress percentage (0-100, for update_progress or update)",
+              description:
+                "Progress percentage (0-100, for update_progress or update)",
             },
             target_date: {
               type: "string",
-              description: "Target completion date (ISO format: YYYY-MM-DD, optional)",
+              description:
+                "Target completion date (ISO format: YYYY-MM-DD, optional)",
             },
             tags: {
               type: "array",
@@ -3124,7 +3192,8 @@ export class ToolExecutorService {
             },
             milestone_completed: {
               type: "boolean",
-              description: "Whether milestone is completed (for add_milestone, default false)",
+              description:
+                "Whether milestone is completed (for add_milestone, default false)",
             },
             // Filter options for list
             filter_status: {
@@ -3160,30 +3229,35 @@ export class ToolExecutorService {
                 "delete",
                 "unlock",
                 "get_stats",
-                "get_categories"
+                "get_categories",
               ],
               description:
                 "'create': new achievement. 'update': modify existing achievement. 'list': get all achievements (with filters). 'get': get specific achievement. 'delete': remove achievement. 'unlock': unlock achievement for user. 'get_stats': achievement statistics. 'get_categories': available categories.",
             },
             achievement_id: {
               type: "string",
-              description: "Achievement ID (required for update, get, delete, unlock)",
+              description:
+                "Achievement ID (required for update, get, delete, unlock)",
             },
             title: {
               type: "string",
-              description: "Achievement title (required for create, optional for update)",
+              description:
+                "Achievement title (required for create, optional for update)",
             },
             description: {
               type: "string",
-              description: "Achievement description (required for create, optional for update)",
+              description:
+                "Achievement description (required for create, optional for update)",
             },
             category: {
               type: "string",
-              description: "Achievement category (e.g., 'consistency', 'milestone', 'personal_growth', 'skill_mastery', 'social', 'health')",
+              description:
+                "Achievement category (e.g., 'consistency', 'milestone', 'personal_growth', 'skill_mastery', 'social', 'health')",
             },
             icon: {
               type: "string",
-              description: "Achievement icon (emoji or icon identifier, optional)",
+              description:
+                "Achievement icon (emoji or icon identifier, optional)",
             },
             significance: {
               type: "string",
@@ -3192,11 +3266,13 @@ export class ToolExecutorService {
             },
             criteria: {
               type: "object",
-              description: "Achievement criteria (flexible JSON object describing unlock conditions)",
+              description:
+                "Achievement criteria (flexible JSON object describing unlock conditions)",
             },
             is_hidden: {
               type: "boolean",
-              description: "Whether achievement is hidden until unlocked (default true for create)",
+              description:
+                "Whether achievement is hidden until unlocked (default true for create)",
             },
             // Filter options for list
             filter_category: {
@@ -3205,11 +3281,13 @@ export class ToolExecutorService {
             },
             unlocked_only: {
               type: "boolean",
-              description: "Show only unlocked achievements (for list, default false)",
+              description:
+                "Show only unlocked achievements (for list, default false)",
             },
             include_hidden: {
               type: "boolean",
-              description: "Include hidden achievements (for list, default false)",
+              description:
+                "Include hidden achievements (for list, default false)",
             },
           },
           required: ["action"],

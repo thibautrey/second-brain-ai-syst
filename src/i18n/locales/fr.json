@@ -442,6 +442,22 @@
       "enabled": "Actives",
       "disabled": "Désactivées",
       "cron": "Récurrentes"
+    },
+    "item": {
+      "actionType": {
+        "runAgent": "Exécuter Agent"
+      },
+      "scheduleType": {
+        "interval": "Intervalle"
+      },
+      "nextRun": {
+        "label": "Prochain exécution :",
+        "inHours": "dans {{count}} heure",
+        "inHours_plural": "dans {{count}} heures"
+      },
+      "runCount": "{{count}} exécution",
+      "runCount_plural": "{{count}} exécutions",
+      "lastRun": "Dernière exécution : {{date}}"
     }
   },
   "tools": {
@@ -467,7 +483,17 @@
     "dismissNotification": "Fermer la notification"
   },
   "floatingChat": {
-    "thinking": "Réflexion en cours..."
+    "title": "Discussion",
+    "thinking": "Réflexion en cours...",
+    "emptyTitle": "Aucun message",
+    "emptySubtitle": "Commencez une conversation pour voir les messages ici",
+    "inputPlaceholder": "Tapez un message...",
+    "mic": {
+      "startTitle": "Enregistrer un message",
+      "stopTitle": "Arrêter l'enregistrement",
+      "startAria": "Cliquez pour enregistrer un message vocal",
+      "stopAria": "Cliquez pour arrêter l'enregistrement"
+    }
   },
   "training": {
     "passphrase": "Ma voix est mon mot de passe",

@@ -227,6 +227,28 @@ export async function injectContextIntoPrompt(
   return `${contextPrefix}\n\n${systemPrompt}`;
 }
 
+/**
+ * Determine which parameter name to use for max tokens based on the model
+ * Some newer models (e.g., gpt-5-*) use 'max_completion_tokens' instead of 'max_tokens'
+ * @returns 'max_tokens' or 'max_completion_tokens'
+ */
+export function getMaxTokensParamName(
+  modelId: string,
+): "max_tokens" | "max_completion_tokens" {
+  // Models that use max_completion_tokens instead of max_tokens
+  const maxCompletionTokensModels = ["gpt-5", "gpt-5-nano", "gpt-5-turbo"];
+
+  // Check if model matches any of the max_completion_tokens models
+  for (const model of maxCompletionTokensModels) {
+    if (modelId.includes(model)) {
+      return "max_completion_tokens";
+    }
+  }
+
+  // Default to max_tokens for all other models
+  return "max_tokens";
+}
+
 export type LLMModel =
   | "gpt-4-turbo"
   | "gpt-4o"
@@ -799,15 +821,21 @@ export class LLMRouterService {
       );
     }
 
-    const requestOptions: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
+    // Determine which parameter name to use based on the model
+    const maxTokensParam = getMaxTokensParamName(modelId);
+
+    // Build request options with the correct parameter name
+    const requestOptions: any = {
       model: modelId,
       messages,
-      max_tokens: requestedMaxTokens,
       temperature: options?.temperature ?? 0.7,
       ...(options?.responseFormat === "json" && {
         response_format: { type: "json_object" as const },
       }),
     };
+
+    // Add the max tokens parameter with the correct name
+    requestOptions[maxTokensParam] = requestedMaxTokens;
 
     try {
       const response = await client.chat.completions.create(requestOptions);
@@ -881,7 +909,7 @@ export class LLMRouterService {
         const fallbackMaxTokens = getFallbackMaxTokens(modelId);
         const fallbackOptions = {
           ...requestOptions,
-          max_tokens: Math.min(fallbackMaxTokens, 512),
+          [maxTokensParam]: Math.min(fallbackMaxTokens, 512),
         };
 
         try {
@@ -967,15 +995,23 @@ export class LLMRouterService {
     }
     messages.push({ role: "user", content: userMessage });
 
-    const stream = await client.chat.completions.create({
+    const maxTokensParam = getMaxTokensParamName(provider.modelId);
+
+    const streamRequestOptions: any = {
       model: provider.modelId,
       messages,
-      max_tokens: options?.maxTokens || 2048,
       temperature: options?.temperature ?? 0.7,
       stream: true,
-    });
+    };
 
-    for await (const chunk of stream) {
+    // Add the max tokens parameter with the correct name
+    streamRequestOptions[maxTokensParam] = options?.maxTokens || 2048;
+
+    const stream = await client.chat.completions.create(
+      streamRequestOptions as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
+    );
+
+    for await (const chunk of stream as AsyncIterable<OpenAI.Chat.ChatCompletionChunk>) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
         yield content;

@@ -508,7 +508,17 @@
     "dismissNotification": "Dismiss notification"
   },
   "floatingChat": {
-    "thinking": "Thinking..."
+    "title": "Chat",
+    "thinking": "Thinking...",
+    "emptyTitle": "No messages yet",
+    "emptySubtitle": "Start a conversation to see messages here",
+    "inputPlaceholder": "Type a message...",
+    "mic": {
+      "startTitle": "Record message",
+      "stopTitle": "Stop recording",
+      "startAria": "Click to record a voice message",
+      "stopAria": "Click to stop recording"
+    }
   },
   "training": {
     "passphrase": "My voice is my password",
