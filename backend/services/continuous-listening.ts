@@ -210,6 +210,9 @@ export class ContinuousListeningService extends EventEmitter {
   private state: ListeningState = "idle";
   private audioBuffer: CircularAudioBuffer;
   private speechBuffer: CircularAudioBuffer;
+  private preBuffer: Buffer[] = []; // Pre-buffer to capture audio before VAD triggers
+  private readonly PRE_BUFFER_CHUNKS = 5; // Keep last 5 chunks (~500ms at 100ms chunks)
+  private wasSpeaking: boolean = false; // Track if we were speaking in previous chunk
   private vad: ImprovedVAD;
   private memoryManager: MemoryManagerService;
   private intentRouter: IntentRouterService;
@@ -289,6 +292,12 @@ export class ContinuousListeningService extends EventEmitter {
    * Process incoming audio chunk
    * This is the main entry point for audio data
    * Only processes chunks containing voice to reduce API costs
+   *
+   * PRE-BUFFER SYSTEM:
+   * To avoid losing the beginning of speech (before VAD triggers), we maintain
+   * a rolling pre-buffer of the last few chunks. When speech is detected,
+   * we flush the pre-buffer to the speech buffer first, ensuring the beginning
+   * of the utterance is captured.
    */
   async processAudioChunk(chunk: AudioChunk): Promise<ProcessingResult> {
     if (this.state === "error") {
@@ -304,6 +313,21 @@ export class ContinuousListeningService extends EventEmitter {
     const vadResult = await this.vad.analyze(chunk.data);
 
     if (vadResult.isSpeech) {
+      // Speech detected!
+      // If this is the START of speech (transition from non-speech to speech),
+      // flush the pre-buffer first to capture any audio before VAD triggered
+      if (!this.wasSpeaking && this.preBuffer.length > 0) {
+        console.log(
+          `📝 [PRE-BUFFER] Flushing ${this.preBuffer.length} pre-buffer chunks (~${this.preBuffer.length * 100}ms) to capture speech start`,
+        );
+        for (const preChunk of this.preBuffer) {
+          this.speechBuffer.write(preChunk);
+        }
+        this.preBuffer = []; // Clear pre-buffer after flushing
+      }
+
+      this.wasSpeaking = true;
+
       // Accumulate speech in separate buffer
       this.speechBuffer.write(chunk.data);
 
@@ -352,6 +376,16 @@ export class ContinuousListeningService extends EventEmitter {
       return this.processAccumulatedSpeech();
     }
 
+    // No speech detected - update pre-buffer for next potential speech start
+    // Keep a rolling buffer of recent audio chunks
+    this.wasSpeaking = false;
+    this.preBuffer.push(Buffer.from(chunk.data)); // Make a copy of the chunk
+
+    // Keep only the last N chunks in pre-buffer
+    while (this.preBuffer.length > this.PRE_BUFFER_CHUNKS) {
+      this.preBuffer.shift();
+    }
+
     this.emit("vad_status", {
       isSpeech: false,
       energyLevel: vadResult.energyLevel,
@@ -392,8 +426,10 @@ export class ContinuousListeningService extends EventEmitter {
       const audioData = this.speechBuffer.read();
       const duration = this.speechBuffer.getDuration();
 
-      // Clear speech buffer for next segment
+      // Clear speech buffer and pre-buffer for next segment
       this.speechBuffer.clear();
+      this.preBuffer = [];
+      this.wasSpeaking = false;
 
       // ============================================================================
       // OPTIMIZATION: Parallel Speaker ID + Transcription
@@ -1473,6 +1509,8 @@ If the user asks whether you detected them, heard them, or similar meta-question
     this.state = "idle";
     this.audioBuffer.clear();
     this.speechBuffer.clear();
+    this.preBuffer = [];
+    this.wasSpeaking = false;
     this.vad.reset();
 
     // Clear context buffer and log stats before cleanup
