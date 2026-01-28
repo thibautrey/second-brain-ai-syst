@@ -151,6 +151,23 @@ export class SummarizationService {
       orderBy: { version: "desc" },
     });
 
+    // Cache strategy: Check if cached summary is still valid (only for WEEKLY and longer periods)
+    if (
+      existingSummary &&
+      this.shouldUseCachedSummary(
+        existingSummary as Summary & {
+          lastLlmGenerationAt: Date | null;
+          cacheValidUntil: Date | null;
+        },
+        timeScale,
+      )
+    ) {
+      console.log(
+        `[Summarization] Using cached ${timeScale} summary for user ${userId}`,
+      );
+      return existingSummary;
+    }
+
     // Generate summary using LLM
     const summaryResult = await this.callLLMForSummary(
       userId,
@@ -159,6 +176,9 @@ export class SummarizationService {
     );
 
     // Create or update summary
+    const now = new Date();
+    const cacheValidUntil = this.calculateCacheExpiry(timeScale, now);
+
     if (existingSummary) {
       // Create new version
       return await prisma.summary.create({
@@ -179,7 +199,10 @@ export class SummarizationService {
           actionItems: summaryResult.actionItems,
           version: existingSummary.version + 1,
           parentId: existingSummary.id,
-        },
+          lastLlmGenerationAt: now,
+          cacheValidUntil,
+          isCached: true,
+        } as any,
       });
     }
 
@@ -200,7 +223,10 @@ export class SummarizationService {
         topics: summaryResult.topics,
         sentiment: summaryResult.sentiment,
         actionItems: summaryResult.actionItems,
-      },
+        lastLlmGenerationAt: now,
+        cacheValidUntil,
+        isCached: true,
+      } as any,
     });
   }
 
@@ -429,6 +455,74 @@ Generate a comprehensive summary that captures the essence of this period.`;
       console.error("Failed to aggregate summaries:", error);
       return null;
     }
+  }
+
+  /**
+   * Check if a cached summary should be used instead of regenerating
+   * Cache strategy:
+   * - WEEKLY: cache for 24 hours (data changes once a day)
+   * - DAILY: cache for 2 hours (more frequent updates)
+   * - Others (BIWEEKLY, MONTHLY, etc): cache for longer periods
+   */
+  private shouldUseCachedSummary(
+    summary: Summary & {
+      lastLlmGenerationAt: Date | null;
+      cacheValidUntil: Date | null;
+    },
+    timeScale: TimeScale,
+  ): boolean {
+    if (
+      !(summary as any).isCached ||
+      !(summary as any).cacheValidUntil
+    ) {
+      return false;
+    }
+
+    const now = new Date();
+    return (summary as any).cacheValidUntil > now;
+  }
+
+  /**
+   * Calculate cache expiry time based on time scale
+   * For WEEKLY (default tab), cache for 24 hours since data typically updates once a day
+   */
+  private calculateCacheExpiry(timeScale: TimeScale, from: Date): Date {
+    const expiry = new Date(from);
+
+    switch (timeScale) {
+      case TimeScale.DAILY:
+        // Cache daily summaries for 2 hours
+        expiry.setHours(expiry.getHours() + 2);
+        break;
+      case TimeScale.THREE_DAY:
+        // Cache 3-day summaries for 6 hours
+        expiry.setHours(expiry.getHours() + 6);
+        break;
+      case TimeScale.WEEKLY:
+        // Cache weekly summaries for 24 hours (data typically updates once daily)
+        expiry.setHours(expiry.getHours() + 24);
+        break;
+      case TimeScale.BIWEEKLY:
+        // Cache biweekly for 48 hours
+        expiry.setHours(expiry.getHours() + 48);
+        break;
+      case TimeScale.MONTHLY:
+        // Cache monthly for 72 hours
+        expiry.setHours(expiry.getHours() + 72);
+        break;
+      case TimeScale.QUARTERLY:
+      case TimeScale.SIX_MONTH:
+      case TimeScale.YEARLY:
+      case TimeScale.MULTI_YEAR:
+        // Cache longer periods for 7 days
+        expiry.setDate(expiry.getDate() + 7);
+        break;
+      default:
+        // Default: cache for 24 hours
+        expiry.setHours(expiry.getHours() + 24);
+    }
+
+    return expiry;
   }
 }
 
