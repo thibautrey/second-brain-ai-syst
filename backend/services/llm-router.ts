@@ -12,7 +12,7 @@ import {
   recordModelError,
   recordModelSuccess,
   isModelBlacklisted,
-  getCompatibilityHint,
+  markModelEndpointIncompatible,
 } from "./model-compatibility-hint.js";
 
 // Error classification helper
@@ -387,8 +387,14 @@ export class LLMRouterService {
       } catch (primaryError) {
         const primaryErrorInfo = classifyLLMError(primaryError);
 
-        // Record the error for learning
-        await recordModelError(provider.id, provider.modelId, primaryErrorInfo);
+        // Record the error for learning, including endpoint hints
+        const suggestedEndpoint = (primaryError as any)?.suggestedEndpoint;
+        await recordModelError(
+          provider.id,
+          provider.modelId,
+          primaryErrorInfo,
+          suggestedEndpoint,
+        );
 
         console.warn(
           `[LLMRouter] Primary provider "${provider.name}" (${provider.modelId}) failed with ${primaryErrorInfo.type} error`,
@@ -397,6 +403,7 @@ export class LLMRouterService {
             message: primaryErrorInfo.message,
             isRetryable: primaryErrorInfo.isRetryable,
             isTransient: primaryErrorInfo.isTransient,
+            suggestedEndpoint,
           },
         );
       }
@@ -448,11 +455,13 @@ export class LLMRouterService {
         } catch (fallbackError) {
           const fallbackErrorInfo = classifyLLMError(fallbackError);
 
-          // Record the error for learning
+          // Record the error for learning with endpoint hints
+          const suggestedEndpoint = (fallbackError as any)?.suggestedEndpoint;
           await recordModelError(
             provider.fallbackProviderId,
             provider.fallbackModelId,
             fallbackErrorInfo,
+            suggestedEndpoint,
           );
 
           console.error(
@@ -501,6 +510,7 @@ export class LLMRouterService {
 
   /**
    * Attempt a single LLM call with retry logic for token errors
+   * Learns about model endpoint compatibility from errors
    * @private
    */
   private async attemptLLMCall(
@@ -569,7 +579,10 @@ export class LLMRouterService {
       model: modelId,
       messages,
       max_tokens: requestedMaxTokens,
-      temperature: 0.7,
+      temperature: options?.temperature ?? 0.7,
+      ...(options?.responseFormat === "json" && {
+        response_format: { type: "json_object" as const },
+      }),
     };
 
     try {
@@ -584,11 +597,12 @@ export class LLMRouterService {
     } catch (llmError) {
       // Handle model-incompatible errors specially to learn the right endpoint
       const errorMsg = (llmError as any)?.message || String(llmError);
-      if (
+      const isIncompatibilityError =
         errorMsg.includes("model-incompatible") ||
         errorMsg.includes("only supported in v1/responses") ||
-        (errorMsg.includes("404") && errorMsg.includes("model"))
-      ) {
+        (errorMsg.includes("404") && errorMsg.includes("model"));
+
+      if (isIncompatibilityError) {
         // This model doesn't work with chat/completions endpoint
         console.warn(
           `[LLMRouter] Model ${modelId} incompatible with /v1/chat/completions endpoint`,
@@ -596,18 +610,25 @@ export class LLMRouterService {
 
         // Try to extract the correct endpoint from error message
         let alternativeEndpoint: string | undefined;
-        if (errorMsg.includes("v1/responses")) {
+        if (
+          errorMsg.includes("v1/responses") ||
+          errorMsg.includes("responses")
+        ) {
           alternativeEndpoint = "v1/responses";
         }
 
         if (providerId && alternativeEndpoint) {
-          // Record this learning for future attempts
-          console.log(
-            `[LLMRouter] Recording that ${modelId} should use ${alternativeEndpoint}`,
+          // Mark this model as endpoint-incompatible for permanent learning
+          // This is different from blacklisting - it's a permanent API incompatibility
+          await markModelEndpointIncompatible(
+            providerId,
+            modelId,
+            alternativeEndpoint,
           );
-          // We'll record this as part of the error recording in the calling code
-          // by including endpoint info in the error
+
+          // Store endpoint suggestion on error for caller to use
           (llmError as any).suggestedEndpoint = alternativeEndpoint;
+          (llmError as any).isEndpointIncompatibility = true;
         }
       }
 
@@ -643,7 +664,7 @@ export class LLMRouterService {
         }
       }
 
-      // Not a max_tokens error, re-throw
+      // Not a max_tokens error, re-throw to propagate to caller
       throw llmError;
     }
   }

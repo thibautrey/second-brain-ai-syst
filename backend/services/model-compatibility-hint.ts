@@ -384,3 +384,110 @@ export async function unblacklistModel(
     throw error;
   }
 }
+/**
+ * Get all blacklisted models that haven't been tested recently
+ */
+export async function getBlacklistedModelsForValidation(): Promise<
+  Array<{ providerId: string; modelId: string; reason: string | null }>
+> {
+  try {
+    // Get blacklisted models that were blacklisted more than 1 hour ago
+    // This gives time for any temporary issues to resolve
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    const hints = await prisma.modelCompatibilityHint.findMany({
+      where: {
+        isBlacklisted: true,
+        OR: [
+          { lastSuccessTime: null },
+          { lastSuccessTime: { lt: oneHourAgo } },
+        ],
+      },
+      select: {
+        providerId: true,
+        modelId: true,
+        blacklistReason: true,
+        unsupportedEndpoints: true,
+      },
+    });
+
+    // Filter out models that have known endpoint incompatibilities
+    // These should NOT be automatically unblacklisted as they require code changes
+    return hints
+      .filter((h) => {
+        // Skip models with known endpoint incompatibilities (e.g., v1/responses only)
+        if (
+          h.unsupportedEndpoints.some((e) =>
+            e.includes("chat/completions") || e.includes("v1/chat"),
+          )
+        ) {
+          return false;
+        }
+        // Skip models explicitly blacklisted for endpoint issues
+        if (
+          h.blacklistReason?.includes("endpoint") ||
+          h.blacklistReason?.includes("v1/responses")
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .map((h) => ({
+        providerId: h.providerId,
+        modelId: h.modelId,
+        reason: h.blacklistReason,
+      }));
+  } catch (error) {
+    console.error(
+      "[CompatibilityHint] Failed to get blacklisted models for validation:",
+      error,
+    );
+    return [];
+  }
+}
+
+/**
+ * Mark a model as having endpoint incompatibility (permanent blacklist for chat/completions)
+ * This is different from a regular blacklist - it indicates the model needs a different API
+ */
+export async function markModelEndpointIncompatible(
+  providerId: string,
+  modelId: string,
+  requiredEndpoint: string,
+): Promise<void> {
+  try {
+    await prisma.modelCompatibilityHint.upsert({
+      where: {
+        providerId_modelId: {
+          providerId,
+          modelId,
+        },
+      },
+      update: {
+        isBlacklisted: true,
+        blacklistReason: `Model requires ${requiredEndpoint} endpoint, not compatible with chat/completions`,
+        unsupportedEndpoints: {
+          push: "v1/chat/completions",
+        },
+        preferredEndpoint: requiredEndpoint,
+      },
+      create: {
+        providerId,
+        modelId,
+        isBlacklisted: true,
+        blacklistReason: `Model requires ${requiredEndpoint} endpoint, not compatible with chat/completions`,
+        unsupportedEndpoints: ["v1/chat/completions"],
+        preferredEndpoint: requiredEndpoint,
+      },
+    });
+
+    console.warn(
+      `[CompatibilityHint] Marked ${providerId}/${modelId} as endpoint-incompatible (requires ${requiredEndpoint})`,
+    );
+  } catch (error) {
+    console.error(
+      `[CompatibilityHint] Failed to mark endpoint incompatibility for ${providerId}/${modelId}:`,
+      error,
+    );
+  }
+}

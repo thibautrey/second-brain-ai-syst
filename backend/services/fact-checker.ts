@@ -9,7 +9,6 @@
  */
 
 import { FactCheckStatus } from "@prisma/client";
-import OpenAI from "openai";
 import { curlService } from "./tools/index.js";
 import { llmRouterService } from "./llm-router.js";
 import { notificationService } from "./notification.js";
@@ -181,21 +180,13 @@ class FactCheckerService {
 
   /**
    * Extract verifiable claims from response using LLM
+   * Uses centralized LLM Router for endpoint compatibility handling
    */
   private async extractClaims(
     response: string,
     question: string,
     userId: string,
   ): Promise<string[]> {
-    const provider = await llmRouterService.getProviderForTask(
-      userId,
-      "analysis",
-    );
-    if (!provider) {
-      console.warn("[FactChecker] No provider configured for claim extraction");
-      return [];
-    }
-
     const prompt = `Extract specific, verifiable factual claims from this AI response.
 Only include claims that are testable against external sources (facts, dates, numbers, etc).
 Ignore opinion, context, or explanations.
@@ -211,20 +202,18 @@ Return a JSON object with this exact structure:
 }`;
 
     try {
-      const openai = new OpenAI({
-        apiKey: provider.apiKey,
-        baseURL: provider.baseUrl || "https://api.openai.com/v1",
-      });
+      const content = await llmRouterService.executeTask(
+        userId,
+        "analysis",
+        prompt,
+        undefined, // No system prompt needed
+        {
+          maxTokens: 1000,
+          temperature: 0.3,
+          responseFormat: "json",
+        },
+      );
 
-      const completion = await openai.chat.completions.create({
-        model: provider.modelId,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        max_tokens: 1000,
-        response_format: { type: "json_object" },
-      });
-
-      const content = completion.choices[0]?.message.content;
       if (!content) return [];
 
       try {
@@ -246,6 +235,8 @@ Return a JSON object with this exact structure:
         return [];
       }
     } catch (error) {
+      // LLM Router already handles endpoint compatibility and fallbacks
+      // Just log and return empty claims gracefully
       console.error("[FactChecker] Claim extraction failed:", error);
       return [];
     }

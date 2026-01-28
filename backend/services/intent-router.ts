@@ -2,14 +2,8 @@
 // Classifies incoming user inputs and determines system response
 // ALL classification is done via LLM - no regex/pattern matching
 
-import {
-  getFallbackMaxTokens,
-  isMaxTokensError,
-  validateMaxTokens,
-} from "../utils/token-validator.js";
-
 import OpenAI from "openai";
-import { injectDateIntoPrompt } from "./llm-router.js";
+import { injectDateIntoPrompt, llmRouterService } from "./llm-router.js";
 import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
 import prisma from "./prisma.js";
 
@@ -337,6 +331,7 @@ export class IntentRouterService {
    * UNIFIED: Analyze complete exchange AFTER response (Optimization 5)
    * Single LLM call that does classification + value assessment
    * This replaces the need for separate classifyInput + assessResponseValue calls
+   * Uses centralized LLM Router for endpoint compatibility handling
    */
   async analyzeExchangePostResponse(
     userMessage: string,
@@ -347,8 +342,6 @@ export class IntentRouterService {
     valueAssessment: ResponseValueAssessment;
   }> {
     try {
-      const { client, modelId } = await this.getOpenAIClient(userId);
-
       // Escape special characters to prevent JSON parsing errors
       const escapedUserMessage = escapeTextForJSON(userMessage);
       const escapedAiResponse = escapeTextForJSON(aiResponse);
@@ -361,161 +354,66 @@ AI RESPONSE: "${escapedAiResponse}"
 
 Provide a complete analysis including classification and storage decision.`;
 
-      // Validate max_tokens before making the request
-      const messagesStr =
-        `${UNIFIED_ANALYSIS_SYSTEM_PROMPT}${userPrompt}`.substring(0, 2000);
-      const validation = validateMaxTokens(1024, modelId, 2, messagesStr);
-
-      let maxTokensToUse = validation.maxTokens;
-
-      if (validation.warning) {
-        console.warn(
-          `[TokenValidator] ${validation.warning} in analyzeExchangePostResponse for model ${modelId}`,
-        );
-      }
-
-      try {
-        const response = await client.chat.completions.create({
-          model: modelId,
-          messages: [
-            {
-              role: "system",
-              content: injectDateIntoPrompt(UNIFIED_ANALYSIS_SYSTEM_PROMPT),
-            },
-            { role: "user", content: userPrompt },
-          ],
+      // Use centralized LLM Router which handles endpoint compatibility
+      const content = await llmRouterService.executeTask(
+        userId || "system",
+        "routing",
+        userPrompt,
+        injectDateIntoPrompt(UNIFIED_ANALYSIS_SYSTEM_PROMPT),
+        {
+          maxTokens: 1024,
           temperature: 0.1,
-          max_tokens: maxTokensToUse, // Use validated max_tokens
-          response_format: { type: "json_object" },
-        });
+          responseFormat: "json",
+        },
+      );
 
-        const content = response.choices[0]?.message?.content;
-        if (!content) {
-          throw new Error("Empty LLM response");
-        }
-
-        let result;
-        try {
-          result = parseJSONFromLLMResponse(content);
-        } catch (parseError) {
-          console.error(
-            "[IntentRouter] JSON parse error in analyzeExchangePostResponse:",
-            parseError,
-          );
-          console.error(
-            "[IntentRouter] Response content:",
-            content.substring(0, 500),
-          );
-          throw parseError;
-        }
-
-        // Build classification result
-        const classification: ClassificationResult = {
-          inputType: result.inputType || "observation",
-          confidence: result.confidence || 0.7,
-          topic: result.topic || undefined,
-          temporalReference: result.temporalReference || undefined,
-          timeBucket: result.timeBucket || "today",
-          shouldStore: result.shouldStore ?? false,
-          shouldCallTools: false, // Post-response, tools already executed if needed
-          memoryScopes: this.determineMemoryScopes(result),
-          importanceScore: result.importanceScore || 0,
-          entities: result.entities || [],
-          sentiment: result.sentiment || "neutral",
-        };
-
-        // Build value assessment result
-        const valueAssessment: ResponseValueAssessment = {
-          isValuable: result.shouldStore && result.importanceScore >= 0.3,
-          reason: result.reason || "No reason provided",
-          adjustedImportanceScore: result.importanceScore || 0,
-          shouldStore: result.shouldStore ?? false,
-          isFactualDeclaration: result.isFactualDeclaration ?? false,
-          factToStore: result.factToStore || undefined,
-        };
-
-        return { classification, valueAssessment };
-      } catch (llmError) {
-        // Handle max_tokens errors specifically
-        if (isMaxTokensError(llmError)) {
-          console.warn(
-            "[TokenFallback] Max tokens error in analyzeExchangePostResponse. Using aggressive fallback.",
-          );
-
-          // Retry with more aggressive fallback max_tokens
-          const fallbackMaxTokens = getFallbackMaxTokens(modelId);
-          try {
-            const fallbackResponse = await client.chat.completions.create({
-              model: modelId,
-              messages: [
-                {
-                  role: "system",
-                  content: injectDateIntoPrompt(UNIFIED_ANALYSIS_SYSTEM_PROMPT),
-                },
-                { role: "user", content: userPrompt },
-              ],
-              temperature: 0.1,
-              max_tokens: Math.min(fallbackMaxTokens, 256), // Very conservative for post-analysis
-              response_format: { type: "json_object" },
-            });
-
-            const content = fallbackResponse.choices[0]?.message?.content;
-            if (!content) {
-              throw llmError; // Re-throw original error if fallback also fails
-            }
-
-            let result;
-            try {
-              result = parseJSONFromLLMResponse(content);
-            } catch (parseError) {
-              console.error(
-                "[IntentRouter] JSON parse error in fallback analyzeExchangePostResponse:",
-                parseError,
-              );
-              console.error(
-                "[IntentRouter] Fallback response content:",
-                content.substring(0, 500),
-              );
-              throw parseError;
-            }
-
-            const classification: ClassificationResult = {
-              inputType: result.inputType || "observation",
-              confidence: result.confidence || 0.7,
-              topic: result.topic || undefined,
-              temporalReference: result.temporalReference || undefined,
-              timeBucket: result.timeBucket || "today",
-              shouldStore: result.shouldStore ?? false,
-              shouldCallTools: false,
-              memoryScopes: this.determineMemoryScopes(result),
-              importanceScore: result.importanceScore || 0,
-              entities: result.entities || [],
-              sentiment: result.sentiment || "neutral",
-            };
-
-            const valueAssessment: ResponseValueAssessment = {
-              isValuable: result.shouldStore && result.importanceScore >= 0.3,
-              reason: result.reason || "No reason provided",
-              adjustedImportanceScore: result.importanceScore || 0,
-              shouldStore: result.shouldStore ?? false,
-              isFactualDeclaration: result.isFactualDeclaration ?? false,
-              factToStore: result.factToStore || undefined,
-            };
-
-            return { classification, valueAssessment };
-          } catch (fallbackError) {
-            console.error(
-              "[TokenFallback] Fallback also failed in analyzeExchangePostResponse:",
-              fallbackError,
-            );
-            throw fallbackError;
-          }
-        }
-
-        // Not a max_tokens error, re-throw
-        throw llmError;
+      if (!content) {
+        throw new Error("Empty LLM response");
       }
+
+      let result;
+      try {
+        result = parseJSONFromLLMResponse(content);
+      } catch (parseError) {
+        console.error(
+          "[IntentRouter] JSON parse error in analyzeExchangePostResponse:",
+          parseError,
+        );
+        console.error(
+          "[IntentRouter] Response content:",
+          content.substring(0, 500),
+        );
+        throw parseError;
+      }
+
+      // Build classification result
+      const classification: ClassificationResult = {
+        inputType: result.inputType || "observation",
+        confidence: result.confidence || 0.7,
+        topic: result.topic || undefined,
+        temporalReference: result.temporalReference || undefined,
+        timeBucket: result.timeBucket || "today",
+        shouldStore: result.shouldStore ?? false,
+        shouldCallTools: false, // Post-response, tools already executed if needed
+        memoryScopes: this.determineMemoryScopes(result),
+        importanceScore: result.importanceScore || 0,
+        entities: result.entities || [],
+        sentiment: result.sentiment || "neutral",
+      };
+
+      // Build value assessment result
+      const valueAssessment: ResponseValueAssessment = {
+        isValuable: result.shouldStore && result.importanceScore >= 0.3,
+        reason: result.reason || "No reason provided",
+        adjustedImportanceScore: result.importanceScore || 0,
+        shouldStore: result.shouldStore ?? false,
+        isFactualDeclaration: result.isFactualDeclaration ?? false,
+        factToStore: result.factToStore || undefined,
+      };
+
+      return { classification, valueAssessment };
     } catch (error) {
+      // LLM Router already handles endpoint compatibility and fallbacks
       console.error("Unified exchange analysis failed:", error);
       // Return safe defaults
       return {
@@ -570,13 +468,12 @@ Provide a complete analysis including classification and storage decision.`;
 
   /**
    * Use LLM for classification
+   * Uses centralized LLM Router for endpoint compatibility handling
    */
   private async llmClassify(
     text: string,
     context?: ClassificationContext,
   ): Promise<ClassificationResult> {
-    const { client, modelId } = await this.getOpenAIClient(context?.userId);
-
     const contextInfo = [];
     if (context?.hasWakeWord) {
       contextInfo.push(
@@ -600,111 +497,44 @@ Provide a complete analysis including classification and storage decision.`;
 
 ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
 
-    // Validate max_tokens before making the request
-    const validation = validateMaxTokens(512, modelId, 2, userPrompt);
-    let maxTokensToUse = validation.maxTokens;
-
-    if (validation.warning) {
-      console.warn(
-        `[TokenValidator] ${validation.warning} in llmClassify for model ${modelId}`,
-      );
-    }
-
-    try {
-      const response = await client.chat.completions.create({
-        model: modelId,
-        messages: [
-          {
-            role: "system",
-            content: injectDateIntoPrompt(CLASSIFICATION_SYSTEM_PROMPT),
-          },
-          { role: "user", content: userPrompt },
-        ],
+    // Use centralized LLM Router which handles endpoint compatibility
+    const content = await llmRouterService.executeTask(
+      context?.userId || "system",
+      "routing",
+      userPrompt,
+      injectDateIntoPrompt(CLASSIFICATION_SYSTEM_PROMPT),
+      {
+        maxTokens: 512,
         temperature: 0.1,
-        max_tokens: maxTokensToUse, // Use validated max_tokens
-        response_format: { type: "json_object" },
-      });
+        responseFormat: "json",
+      },
+    );
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error("Empty LLM response");
-      }
-
-      const result = parseJSONFromLLMResponse(content);
-
-      return {
-        inputType: result.inputType || "observation",
-        confidence: result.confidence || 0.7,
-        topic: result.topic || undefined,
-        temporalReference: result.temporalReference || undefined,
-        timeBucket: result.timeBucket || "today",
-        shouldStore: result.shouldStore ?? false, // Default to NOT storing
-        shouldCallTools: result.shouldCallTools ?? false,
-        memoryScopes: this.determineMemoryScopes(result),
-        importanceScore: result.importanceScore || 0,
-        entities: result.entities || [],
-        sentiment: result.sentiment || "neutral",
-      };
-    } catch (llmError) {
-      // Handle max_tokens errors specifically
-      if (isMaxTokensError(llmError)) {
-        console.warn(
-          "[TokenFallback] Max tokens error in llmClassify. Using fallback max_tokens.",
-        );
-
-        // Retry with fallback max_tokens
-        const fallbackMaxTokens = Math.min(getFallbackMaxTokens(modelId), 256);
-        try {
-          const fallbackResponse = await client.chat.completions.create({
-            model: modelId,
-            messages: [
-              {
-                role: "system",
-                content: injectDateIntoPrompt(CLASSIFICATION_SYSTEM_PROMPT),
-              },
-              { role: "user", content: userPrompt },
-            ],
-            temperature: 0.1,
-            max_tokens: fallbackMaxTokens,
-            response_format: { type: "json_object" },
-          });
-
-          const content = fallbackResponse.choices[0]?.message?.content;
-          if (!content) {
-            throw llmError;
-          }
-
-          const result = parseJSONFromLLMResponse(content);
-          return {
-            inputType: result.inputType || "observation",
-            confidence: result.confidence || 0.7,
-            topic: result.topic || undefined,
-            temporalReference: result.temporalReference || undefined,
-            timeBucket: result.timeBucket || "today",
-            shouldStore: result.shouldStore ?? false,
-            shouldCallTools: result.shouldCallTools ?? false,
-            memoryScopes: this.determineMemoryScopes(result),
-            importanceScore: result.importanceScore || 0,
-            entities: result.entities || [],
-            sentiment: result.sentiment || "neutral",
-          };
-        } catch (fallbackError) {
-          console.error(
-            "[TokenFallback] Fallback also failed in llmClassify:",
-            fallbackError,
-          );
-          throw fallbackError;
-        }
-      }
-
-      // Not a max_tokens error, re-throw
-      throw llmError;
+    if (!content) {
+      throw new Error("Empty LLM response");
     }
+
+    const result = parseJSONFromLLMResponse(content);
+
+    return {
+      inputType: result.inputType || "observation",
+      confidence: result.confidence || 0.7,
+      topic: result.topic || undefined,
+      temporalReference: result.temporalReference || undefined,
+      timeBucket: result.timeBucket || "today",
+      shouldStore: result.shouldStore ?? false, // Default to NOT storing
+      shouldCallTools: result.shouldCallTools ?? false,
+      memoryScopes: this.determineMemoryScopes(result),
+      importanceScore: result.importanceScore || 0,
+      entities: result.entities || [],
+      sentiment: result.sentiment || "neutral",
+    };
   }
 
   /**
    * Assess if a question-response pair is valuable enough to store
    * This should be called AFTER getting the LLM response to evaluate if the exchange is worth remembering
+   * Uses centralized LLM Router for endpoint compatibility handling
    */
   async assessResponseValue(
     question: string,
@@ -713,8 +543,6 @@ ${contextInfo.length > 0 ? contextInfo.join("\n") : "No additional context."}`;
     userId?: string,
   ): Promise<ResponseValueAssessment> {
     try {
-      const { client, modelId } = await this.getOpenAIClient(userId);
-
       const userPrompt = `Evaluate if this question-response pair should be stored in memory:
 
 QUESTION: "${question}"
@@ -731,21 +559,19 @@ Should this exchange be stored in the user's memory? Consider:
 2. Is this just a "I don't know" or disclaimer response?
 3. Would recalling this later be valuable to the user?`;
 
-      const llmResponse = await client.chat.completions.create({
-        model: modelId,
-        messages: [
-          {
-            role: "system",
-            content: injectDateIntoPrompt(RESPONSE_VALUE_SYSTEM_PROMPT),
-          },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 512,
-        response_format: { type: "json_object" },
-      });
+      // Use centralized LLM Router which handles endpoint compatibility
+      const content = await llmRouterService.executeTask(
+        userId || "system",
+        "routing",
+        userPrompt,
+        injectDateIntoPrompt(RESPONSE_VALUE_SYSTEM_PROMPT),
+        {
+          maxTokens: 512,
+          temperature: 0.1,
+          responseFormat: "json",
+        },
+      );
 
-      const content = llmResponse.choices[0]?.message?.content;
       if (!content) {
         throw new Error("Empty LLM response for value assessment");
       }
@@ -761,6 +587,7 @@ Should this exchange be stored in the user's memory? Consider:
         factToStore: result.factToStore || undefined,
       };
     } catch (error) {
+      // LLM Router already handles endpoint compatibility and fallbacks
       console.error("Response value assessment failed:", error);
       // If assessment fails, default to not storing to avoid low-quality memories
       return {
