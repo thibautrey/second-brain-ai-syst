@@ -716,12 +716,18 @@ export class LLMRouterService {
 
     // No fallback configured or both are blacklisted, throw with classification info
     const error = new Error(
-      `Primary provider "${provider.name}" (${provider.modelId}) failed: ${primaryBlacklisted ? "blacklisted" : "unknown error"}`,
+      `Primary provider "${provider.name}" (${provider.modelId}) failed: ${primaryBlacklisted ? "blacklisted" : "unknown error"}. No fallback configured.`,
     );
     (error as any).errorInfo = {
       type: primaryBlacklisted ? "blacklisted" : "unknown",
       isRetryable: false,
       isTransient: false,
+    };
+    (error as any).providerDebugInfo = {
+      provider: provider.name,
+      modelId: provider.modelId,
+      baseUrl: provider.baseUrl,
+      hasFallback: !!(provider.fallbackProviderId && provider.fallbackApiKey),
     };
     throw error;
   }
@@ -815,10 +821,25 @@ export class LLMRouterService {
     } catch (llmError) {
       // Handle model-incompatible errors specially to learn the right endpoint
       const errorMsg = (llmError as any)?.message || String(llmError);
+      const errorStatus =
+        (llmError as any)?.status || (llmError as any)?.response?.status;
+      const errorCode = (llmError as any)?.code;
       const isIncompatibilityError =
         errorMsg.includes("model-incompatible") ||
         errorMsg.includes("only supported in v1/responses") ||
         (errorMsg.includes("404") && errorMsg.includes("model"));
+
+      // Log detailed error information for debugging
+      console.error(
+        `[LLMRouter] LLM call failed for ${providerId}/${modelId}:`,
+        {
+          message: errorMsg,
+          status: errorStatus,
+          code: errorCode,
+          baseURL,
+          type: (llmError as any)?.type || typeof llmError,
+        },
+      );
 
       if (isIncompatibilityError) {
         // This model doesn't work with chat/completions endpoint

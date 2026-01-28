@@ -15,8 +15,9 @@
  * - Repetitive/spam content
  */
 
-import OpenAI from "openai";
 import { injectDateIntoPrompt, llmRouterService } from "./llm-router.js";
+
+import OpenAI from "openai";
 import { parseJSONFromLLMResponse } from "../utils/json-parser.js";
 import prisma from "./prisma.js";
 
@@ -74,7 +75,7 @@ export interface NoiseFilterContext {
   // ============================================================================
   // Continuous Audio Context (NEW)
   // ============================================================================
-  
+
   /** Full context including all recent chunks */
   fullChunkContext?: string;
   /** Summary of older context that was rotated out */
@@ -433,19 +434,25 @@ export class NoiseFilterService {
       const contextInfo = this.buildContextInfo(context);
 
       // Determine if we have continuous audio context
-      const hasContinuousContext = context?.fullChunkContext || context?.chunkCount && context.chunkCount > 1;
+      const hasContinuousContext =
+        context?.fullChunkContext ||
+        (context?.chunkCount && context.chunkCount > 1);
 
       const systemPrompt = `You are a filtering system for a personal assistant that listens 24/7.
 Your task is to determine whether an audio transcription should be processed or treated as "noise".
 
-${hasContinuousContext ? `⚠️ IMPORTANT - CONTINUOUS AUDIO CONTEXT:
+${
+  hasContinuousContext
+    ? `⚠️ IMPORTANT - CONTINUOUS AUDIO CONTEXT:
 This text comes from a live audio stream split into chunks.
 Chunks arrive as the user speaks.
 An isolated chunk may seem incomplete, but it is part of a continuous speech.
 Use the context from previous chunks to understand the overall meaning.
 If the current chunk appears to continue the previous ones logically, treat it as "meaningful".
 Never label such chunks as "incomplete_fragment".
-` : ''}
+`
+    : ""
+}
 You must respond with a JSON object:
 {
   "isMeaningful": true|false,
@@ -527,15 +534,42 @@ Is this meaningful content or noise?`;
         contextualRelevance: result.contextualRelevance ?? 0,
       };
     } catch (error) {
-      // LLM Router already handles endpoint compatibility and fallbacks
+      // LLM analysis failed - fall back to quick filter with confidence degradation
       console.error("Noise filter LLM analysis failed:", error);
-      // Default to discarding on error to avoid noise pollution
+      console.warn(
+        "[NoiseFilter] Falling back to quick filter with confidence degradation",
+      );
+
+      // Try quick filter as fallback
+      const quickFilterResult = this.quickFilter(text, context);
+
+      if (quickFilterResult) {
+        // Use quick filter result but reduce confidence since LLM was unavailable
+        const degradedConfidence = Math.max(
+          0.2,
+          quickFilterResult.confidence * 0.7,
+        );
+
+        return {
+          ...quickFilterResult,
+          confidence: degradedConfidence,
+          reason: `${quickFilterResult.reason} (LLM unavailable - confidence degraded)`,
+          // If confidence is below threshold, ask user instead of auto-discarding
+          suggestedAction:
+            degradedConfidence < 0.4
+              ? "ask_user"
+              : quickFilterResult.suggestedAction,
+        };
+      }
+
+      // If quick filter also can't decide, be conservative: ask user instead of discarding
+      // This prevents loss of potentially meaningful content when LLM is down
       return {
         isMeaningful: false,
-        confidence: 0.5,
+        confidence: 0.3, // Low confidence = need user confirmation
         category: "environmental_noise",
-        reason: "Analysis failed - defaulting to discard",
-        suggestedAction: "discard",
+        reason: "LLM analysis unavailable - quick filter unable to determine",
+        suggestedAction: "ask_user", // Ask user instead of auto-discarding
         contextualRelevance: 0,
       };
     }
@@ -599,19 +633,22 @@ Is this meaningful content or noise?`;
     // ============================================================================
     // Continuous Audio Context (Priority - show first)
     // ============================================================================
-    
+
     if (context.fullChunkContext) {
       info.push(`\n📜 CONTEXTE AUDIO CONTINU:\n${context.fullChunkContext}`);
     }
 
     if (context.olderContextSummary) {
-      info.push(`\n📋 Résumé contexte antérieur: ${context.olderContextSummary}`);
+      info.push(
+        `\n📋 Résumé contexte antérieur: ${context.olderContextSummary}`,
+      );
     }
 
     if (context.isChunkContinuation !== undefined) {
-      info.push(context.isChunkContinuation 
-        ? "⚡ Ce chunk est une CONTINUATION directe du précédent"
-        : "Ce chunk commence un nouveau segment de parole"
+      info.push(
+        context.isChunkContinuation
+          ? "⚡ Ce chunk est une CONTINUATION directe du précédent"
+          : "Ce chunk commence un nouveau segment de parole",
       );
     }
 
@@ -619,19 +656,30 @@ Is this meaningful content or noise?`;
       info.push(`Nombre de chunks dans le contexte: ${context.chunkCount}`);
     }
 
-    if (context.conversationDuration !== undefined && context.conversationDuration > 0) {
-      info.push(`Durée conversation: ${context.conversationDuration.toFixed(1)}s`);
+    if (
+      context.conversationDuration !== undefined &&
+      context.conversationDuration > 0
+    ) {
+      info.push(
+        `Durée conversation: ${context.conversationDuration.toFixed(1)}s`,
+      );
     }
 
     if (context.previousChunkText) {
-      info.push(`Chunk précédent: "${context.previousChunkText.slice(0, 100)}${context.previousChunkText.length > 100 ? '...' : ''}"`);
+      info.push(
+        `Chunk précédent: "${context.previousChunkText.slice(0, 100)}${context.previousChunkText.length > 100 ? "..." : ""}"`,
+      );
     }
 
     // ============================================================================
     // Original Context Info
     // ============================================================================
 
-    if (context.recentTranscripts && context.recentTranscripts.length > 0 && !context.fullChunkContext) {
+    if (
+      context.recentTranscripts &&
+      context.recentTranscripts.length > 0 &&
+      !context.fullChunkContext
+    ) {
       // Only show recentTranscripts if we don't have fullChunkContext (avoid duplication)
       info.push(
         `Transcriptions récentes: "${context.recentTranscripts.slice(-3).join('", "')}"`,
