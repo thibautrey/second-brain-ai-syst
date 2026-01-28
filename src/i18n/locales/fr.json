@@ -466,6 +466,9 @@
     "thinking": "Réflexion en cours...",
     "dismissNotification": "Fermer la notification"
   },
+  "floatingChat": {
+    "thinking": "Réflexion en cours..."
+  },
   "training": {
     "passphrase": "Ma voix est mon mot de passe",
     "recordSamples": {

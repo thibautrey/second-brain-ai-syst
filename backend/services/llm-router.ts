@@ -836,7 +836,7 @@ export class LLMRouterService {
           message: errorMsg,
           status: errorStatus,
           code: errorCode,
-          baseURL,
+          baseUrl,
           type: (llmError as any)?.type || typeof llmError,
         },
       );

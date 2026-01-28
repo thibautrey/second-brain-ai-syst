@@ -507,6 +507,9 @@
     "thinking": "Thinking...",
     "dismissNotification": "Dismiss notification"
   },
+  "floatingChat": {
+    "thinking": "Thinking..."
+  },
   "training": {
     "passphrase": "My voice is my password",
     "page": {
