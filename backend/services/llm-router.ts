@@ -8,6 +8,12 @@ import {
   formatProfileForPrompt,
   UserProfile,
 } from "./user-profile.js";
+import {
+  recordModelError,
+  recordModelSuccess,
+  isModelBlacklisted,
+  getCompatibilityHint,
+} from "./model-compatibility-hint.js";
 
 // Error classification helper
 export interface LLMErrorInfo {
@@ -335,6 +341,7 @@ export class LLMRouterService {
   /**
    * Call LLM with provider configuration and automatic fallback on failure
    * Intelligently handles different error types and falls back accordingly
+   * Learns from errors to improve future provider/model selection
    */
   async callLLM(
     provider: ProviderConfig,
@@ -346,45 +353,79 @@ export class LLMRouterService {
     const { validateMaxTokens, isMaxTokensError, getFallbackMaxTokens } =
       await import("../utils/token-validator.js");
 
-    // Try primary provider first
-    try {
-      return await this.attemptLLMCall(
-        provider.apiKey,
-        provider.baseUrl,
-        provider.modelId,
-        systemPrompt,
-        userMessage,
-        validateMaxTokens,
-        isMaxTokensError,
-        getFallbackMaxTokens,
-        options,
-        userId,
-      );
-    } catch (primaryError) {
-      const primaryErrorInfo = classifyLLMError(primaryError);
-      
+    // Check if primary provider/model is blacklisted
+    const primaryBlacklisted = await isModelBlacklisted(
+      provider.id,
+      provider.modelId,
+    );
+    if (primaryBlacklisted) {
       console.warn(
-        `[LLMRouter] Primary provider "${provider.name}" (${provider.modelId}) failed with ${primaryErrorInfo.type} error`,
-        {
-          status: primaryErrorInfo.status,
-          message: primaryErrorInfo.message,
-          isRetryable: primaryErrorInfo.isRetryable,
-          isTransient: primaryErrorInfo.isTransient,
-        },
+        `[LLMRouter] Primary provider "${provider.name}" (${provider.modelId}) is blacklisted, skipping to fallback`,
       );
-      
-      // If primary failed and fallback is configured, try fallback
-      if (
-        provider.fallbackProviderId &&
-        provider.fallbackApiKey &&
-        provider.fallbackModelId
-      ) {
-        console.warn(
-          `[LLMRouter] Attempting fallback provider "${provider.fallbackName}" (${provider.fallbackModelId})`,
+    }
+
+    // Try primary provider first (if not blacklisted)
+    if (!primaryBlacklisted) {
+      try {
+        const result = await this.attemptLLMCall(
+          provider.apiKey,
+          provider.baseUrl,
+          provider.modelId,
+          systemPrompt,
+          userMessage,
+          validateMaxTokens,
+          isMaxTokensError,
+          getFallbackMaxTokens,
+          options,
+          userId,
+          provider.id, // Pass providerId for tracking
         );
 
+        // Record success
+        await recordModelSuccess(provider.id, provider.modelId);
+        return result;
+      } catch (primaryError) {
+        const primaryErrorInfo = classifyLLMError(primaryError);
+
+        // Record the error for learning
+        await recordModelError(provider.id, provider.modelId, primaryErrorInfo);
+
+        console.warn(
+          `[LLMRouter] Primary provider "${provider.name}" (${provider.modelId}) failed with ${primaryErrorInfo.type} error`,
+          {
+            status: primaryErrorInfo.status,
+            message: primaryErrorInfo.message,
+            isRetryable: primaryErrorInfo.isRetryable,
+            isTransient: primaryErrorInfo.isTransient,
+          },
+        );
+      }
+    }
+
+    // If primary failed and fallback is configured, try fallback
+    if (
+      provider.fallbackProviderId &&
+      provider.fallbackApiKey &&
+      provider.fallbackModelId
+    ) {
+      console.warn(
+        `[LLMRouter] Attempting fallback provider "${provider.fallbackName}" (${provider.fallbackModelId})`,
+      );
+
+      // Check if fallback is blacklisted
+      const fallbackBlacklisted = await isModelBlacklisted(
+        provider.fallbackProviderId,
+        provider.fallbackModelId,
+      );
+      if (fallbackBlacklisted) {
+        console.warn(
+          `[LLMRouter] Fallback provider "${provider.fallbackName}" (${provider.fallbackModelId}) is also blacklisted`,
+        );
+      }
+
+      if (!fallbackBlacklisted) {
         try {
-          return await this.attemptLLMCall(
+          const result = await this.attemptLLMCall(
             provider.fallbackApiKey,
             provider.fallbackBaseUrl,
             provider.fallbackModelId,
@@ -395,44 +436,67 @@ export class LLMRouterService {
             getFallbackMaxTokens,
             options,
             userId,
+            provider.fallbackProviderId, // Pass providerId for tracking
           );
+
+          // Record success
+          await recordModelSuccess(
+            provider.fallbackProviderId,
+            provider.fallbackModelId,
+          );
+          return result;
         } catch (fallbackError) {
           const fallbackErrorInfo = classifyLLMError(fallbackError);
-          
+
+          // Record the error for learning
+          await recordModelError(
+            provider.fallbackProviderId,
+            provider.fallbackModelId,
+            fallbackErrorInfo,
+          );
+
           console.error(
             `[LLMRouter] Both primary and fallback providers failed.`,
             {
               primary: {
-                type: primaryErrorInfo.type,
-                status: primaryErrorInfo.status,
-                message: primaryErrorInfo.message,
+                name: provider.name,
+                model: provider.modelId,
+                blacklisted: primaryBlacklisted,
               },
               fallback: {
+                name: provider.fallbackName,
+                model: provider.fallbackModelId,
                 type: fallbackErrorInfo.type,
                 status: fallbackErrorInfo.status,
                 message: fallbackErrorInfo.message,
               },
             },
           );
-          
+
           // Create detailed error message
-          const errorMsg = `Both primary provider "${provider.name}" (${provider.modelId}) and fallback provider "${provider.fallbackName}" (${provider.fallbackModelId}) failed. Primary: ${primaryErrorInfo.type} (${primaryErrorInfo.message}). Fallback: ${fallbackErrorInfo.type} (${fallbackErrorInfo.message})`;
-          
+          const errorMsg = `Both primary provider "${provider.name}" (${provider.modelId}) and fallback provider "${provider.fallbackName}" (${provider.fallbackModelId}) failed. Primary: ${primaryBlacklisted ? "blacklisted" : "timeout"}. Fallback: ${fallbackErrorInfo.type} (${fallbackErrorInfo.message})`;
+
           // Attach classification info to error for consumers to handle gracefully
           const error = new Error(errorMsg);
-          (error as any).primaryErrorInfo = primaryErrorInfo;
+          (error as any).primaryErrorInfo = primaryBlacklisted
+            ? { type: "blacklisted", isRetryable: false, isTransient: false }
+            : classifyLLMError(new Error("timeout"));
           (error as any).fallbackErrorInfo = fallbackErrorInfo;
           throw error;
         }
       }
-
-      // No fallback configured, throw with classification info
-      const error = new Error(
-        `Primary provider "${provider.name}" (${provider.modelId}) failed: ${primaryErrorInfo.type} (${primaryErrorInfo.message})`,
-      );
-      (error as any).errorInfo = primaryErrorInfo;
-      throw error;
     }
+
+    // No fallback configured or both are blacklisted, throw with classification info
+    const error = new Error(
+      `Primary provider "${provider.name}" (${provider.modelId}) failed: ${primaryBlacklisted ? "blacklisted" : "unknown error"}`,
+    );
+    (error as any).errorInfo = {
+      type: primaryBlacklisted ? "blacklisted" : "unknown",
+      isRetryable: false,
+      isTransient: false,
+    };
+    throw error;
   }
 
   /**
@@ -450,6 +514,7 @@ export class LLMRouterService {
     getFallbackMaxTokens: any,
     options?: TaskExecutionOptions,
     userId?: string,
+    providerId?: string,
   ): Promise<string> {
     const client = new OpenAI({
       apiKey,
@@ -517,6 +582,35 @@ export class LLMRouterService {
 
       return content;
     } catch (llmError) {
+      // Handle model-incompatible errors specially to learn the right endpoint
+      const errorMsg = (llmError as any)?.message || String(llmError);
+      if (
+        errorMsg.includes("model-incompatible") ||
+        errorMsg.includes("only supported in v1/responses") ||
+        (errorMsg.includes("404") && errorMsg.includes("model"))
+      ) {
+        // This model doesn't work with chat/completions endpoint
+        console.warn(
+          `[LLMRouter] Model ${modelId} incompatible with /v1/chat/completions endpoint`,
+        );
+
+        // Try to extract the correct endpoint from error message
+        let alternativeEndpoint: string | undefined;
+        if (errorMsg.includes("v1/responses")) {
+          alternativeEndpoint = "v1/responses";
+        }
+
+        if (providerId && alternativeEndpoint) {
+          // Record this learning for future attempts
+          console.log(
+            `[LLMRouter] Recording that ${modelId} should use ${alternativeEndpoint}`,
+          );
+          // We'll record this as part of the error recording in the calling code
+          // by including endpoint info in the error
+          (llmError as any).suggestedEndpoint = alternativeEndpoint;
+        }
+      }
+
       // Handle max_tokens errors specifically
       if (isMaxTokensError(llmError)) {
         console.warn(

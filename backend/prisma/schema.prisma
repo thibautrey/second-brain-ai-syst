@@ -776,9 +776,10 @@ model AIProvider {
   updatedAt DateTime @updatedAt
 
   // Relations
-  models              AIModel[]
-  primaryTaskConfigs  AITaskConfig[] @relation("primaryProvider")
-  fallbackTaskConfigs AITaskConfig[] @relation("fallbackProvider")
+  models                 AIModel[]
+  primaryTaskConfigs     AITaskConfig[]           @relation("primaryProvider")
+  fallbackTaskConfigs    AITaskConfig[]           @relation("fallbackProvider")
+  ModelCompatibilityHint ModelCompatibilityHint[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -832,6 +833,44 @@ model AITaskConfig {
   @@unique([userId, taskType])
   @@index([userId])
   @@map("ai_task_configs")
+}
+
+// ==================== Model Compatibility Hints ====================
+// Learns from LLM errors to improve provider/model selection in the future
+// Stores information about which endpoints/methods work for which models
+
+model ModelCompatibilityHint {
+  id String @id @default(cuid())
+
+  // Composite key: providerId + modelId (global knowledge shared across all users)
+  providerId String
+  provider   AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  modelId    String // The model ID (e.g., 'gpt-4o', 'qwen3-coder-30b')
+
+  // Compatibility information learned from errors
+  supportedEndpoints   String[] @default([]) // e.g., ["v1/chat/completions", "v1/responses"]
+  unsupportedEndpoints String[] @default([]) // e.g., ["v1/chat/completions"]
+  preferredEndpoint    String? // e.g., "v1/responses" - the best one to use
+
+  // Error tracking for learning
+  lastErrorType    String? // Last error type encountered (e.g., "model-incompatible")
+  lastErrorMessage String? // Last error message
+  errorCount       Int       @default(0) // How many times this model failed
+  successCount     Int       @default(0) // How many times this model succeeded
+  lastErrorTime    DateTime? // When the last error occurred
+  lastSuccessTime  DateTime? // When the last success occurred
+
+  // Metadata
+  isBlacklisted   Boolean @default(false) // If true, avoid this model/provider combo
+  blacklistReason String? // Why it was blacklisted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([providerId, modelId])
+  @@index([providerId])
+  @@index([isBlacklisted])
+  @@map("model_compatibility_hints")
 }
 
 // ==================== Audit Log Model ====================
