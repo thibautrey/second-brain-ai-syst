@@ -9,13 +9,13 @@
  * - Scheduled notifications processing
  */
 
+import { CronJob } from "cron";
+import { TimeScale } from "@prisma/client";
+import { embeddingSchedulerService } from "./embedding-scheduler.js";
+import { memoryManagerService } from "./memory-manager.js";
+import { notificationService } from "./tools/notification.service.js";
 import prisma from "./prisma.js";
 import { summarizationService } from "./summarization.js";
-import { memoryManagerService } from "./memory-manager.js";
-import { embeddingSchedulerService } from "./embedding-scheduler.js";
-import { notificationService } from "./tools/notification.service.js";
-import { TimeScale } from "@prisma/client";
-import { CronJob } from "cron";
 
 // Import background agents lazily to avoid circular dependencies
 let backgroundAgentService: any = null;
@@ -45,6 +45,16 @@ async function getDataCoherenceAgentService() {
     dataCoherenceAgentService = module.dataCoherenceAgentService;
   }
   return dataCoherenceAgentService;
+}
+
+// Import tool healer service lazily to avoid circular dependencies
+let toolHealerService: any = null;
+async function getToolHealerService() {
+  if (!toolHealerService) {
+    const module = await import("./tool-healer.js");
+    toolHealerService = module.toolHealerService;
+  }
+  return toolHealerService;
 }
 
 interface ScheduledTask {
@@ -256,6 +266,19 @@ export class SchedulerService {
       isEnabled: true,
       handler: async () => {
         await this.runDataCoherenceCheck();
+      },
+    });
+
+    // Tool Health & Auto-Healing Agent - runs every 4 hours
+    this.registerTask({
+      id: "tool-health-check",
+      name: "Tool Health Check & Auto-Healing",
+      cronExpression: "0 */4 * * *", // Every 4 hours
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runToolHealthCheck();
       },
     });
   }
@@ -613,14 +636,14 @@ export class SchedulerService {
     for (const user of users) {
       try {
         const result = await agentService.runMemoryCleaner(user.id);
-        
+
         if (result.metadata.skipped) {
           console.info(
             `  ℹ Memory cleaner skipped for ${user.id}: ${result.metadata.skipReason}`,
           );
           continue;
         }
-        
+
         if (
           result.metadata.memoriesDeleted > 0 ||
           result.metadata.memoriesArchived > 0
@@ -629,7 +652,9 @@ export class SchedulerService {
             `  ✓ Memory cleaner: archived ${result.metadata.memoriesArchived}, deleted ${result.metadata.memoriesDeleted} for user ${user.id}`,
           );
         } else {
-          console.info(`  ℹ Memory cleaner: no cleanup needed for user ${user.id}`);
+          console.info(
+            `  ℹ Memory cleaner: no cleanup needed for user ${user.id}`,
+          );
         }
       } catch (error) {
         console.warn(`  ⚠ Memory cleaner failed for ${user.id}:`, error);
@@ -684,9 +709,10 @@ export class SchedulerService {
    */
   private async runGoalsAchievementsAnalysis(): Promise<void> {
     const users = await prisma.user.findMany({ select: { id: true } });
-    
+
     // Lazy load the agent
-    const { goalsAchievementsAgent } = await import("./goals-achievements-agent.js");
+    const { goalsAchievementsAgent } =
+      await import("./goals-achievements-agent.js");
 
     for (const user of users) {
       try {
@@ -712,7 +738,10 @@ export class SchedulerService {
     for (const user of users) {
       try {
         const result = await coherenceAgent.runCoherenceCheck(user.id);
-        if (result.success && (result.issuesFound > 0 || result.questionsAsked > 0)) {
+        if (
+          result.success &&
+          (result.issuesFound > 0 || result.questionsAsked > 0)
+        ) {
           console.log(
             `  ✓ Coherence check: ${result.issuesFound} issues, ${result.suggestionsGenerated} suggestions, ${result.questionsAsked} questions for user ${user.id}`,
           );
@@ -720,6 +749,22 @@ export class SchedulerService {
       } catch (error) {
         console.warn(`  ⚠ Coherence check failed for ${user.id}:`, error);
       }
+    }
+  }
+
+  /**
+   * Run tool health check and proactive auto-healing
+   * Checks all generated tools for errors and attempts to fix them automatically
+   */
+  private async runToolHealthCheck(): Promise<void> {
+    console.log("🔧 Running tool health check and auto-healing...");
+
+    try {
+      const healer = await getToolHealerService();
+      await healer.runProactiveHealing();
+      console.log("✓ Tool health check completed");
+    } catch (error) {
+      console.error("✗ Tool health check failed:", error);
     }
   }
 

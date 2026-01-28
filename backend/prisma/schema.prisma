@@ -53,6 +53,9 @@ model User {
   secrets        UserSecret[]
   generatedTools GeneratedTool[]
 
+  // Tool Generation Sessions
+  toolGenerationSessions ToolGenerationSession[]
+
   // Goals and Achievements
   goals        Goal[]
   achievements Achievement[]
@@ -1561,6 +1564,11 @@ model GeneratedTool {
   // Execution config
   timeout Int @default(30000) // ms
 
+  // Relations
+  generationSessions ToolGenerationSession[]
+  healthReports      ToolHealthReport[]
+  executionLogs      ToolExecutionLog[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1569,6 +1577,190 @@ model GeneratedTool {
   @@index([category])
   @@index([enabled])
   @@map("generated_tools")
+}
+
+// ==================== Tool Generation Workflow ====================
+
+// Status of a generation session
+enum GenerationSessionStatus {
+  PENDING // Waiting to start
+  SPECIFICATION // Creating spec document
+  PLANNING // Creating implementation plan
+  IMPLEMENTING // Writing code
+  TESTING // Running tests
+  FIXING // Fixing issues
+  VALIDATING // Final validation
+  COMPLETED // Successfully completed
+  FAILED // Failed after all retries
+  CANCELLED // Cancelled by user
+}
+
+// A complete tool generation session with full workflow
+model ToolGenerationSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Optional link to existing tool (for improvements)
+  toolId String?
+  tool   GeneratedTool? @relation(fields: [toolId], references: [id], onDelete: SetNull)
+
+  // Request details
+  objective        String   @db.Text // What the user wants
+  context          String?  @db.Text // Additional context
+  suggestedSecrets String[] @default([])
+
+  // Workflow status
+  status       GenerationSessionStatus @default(PENDING)
+  currentPhase String? // Current phase name
+  progress     Int                     @default(0) // 0-100
+
+  // Generated artifacts
+  specDocument       String? @db.Text // Specification document (JSON)
+  implementationPlan String? @db.Text // Step-by-step plan (JSON)
+  generatedCode      String? @db.Text // The Python code
+  testCode           String? @db.Text // Test code
+  testResults        Json? // Test execution results
+  schemaJson         Json? // Generated tool schema
+
+  // Iteration tracking
+  currentIteration Int @default(0)
+  maxIterations    Int @default(5)
+
+  // Error tracking
+  lastError    String? @db.Text
+  errorHistory Json    @default("[]") // Array of all errors
+
+  // Timing
+  startedAt       DateTime?
+  completedAt     DateTime?
+  totalDurationMs Int?
+
+  // Logs relation
+  logs ToolGenerationLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([toolId])
+  @@map("tool_generation_sessions")
+}
+
+// Detailed log entry for each phase of generation
+model ToolGenerationLog {
+  id        String                @id @default(cuid())
+  sessionId String
+  session   ToolGenerationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Log details
+  phase   String // 'specification', 'planning', 'implementation', 'testing', 'fixing', 'validation'
+  step    String? // Specific step within phase
+  level   String  @default("info") // 'debug', 'info', 'warn', 'error'
+  message String  @db.Text
+
+  // LLM interaction (if applicable)
+  promptSent       String? @db.Text // Prompt sent to LLM
+  responseReceived String? @db.Text // Response from LLM
+  modelUsed        String? // Which model was used
+  tokensUsed       Int? // Token count
+
+  // Code execution (if applicable)
+  codeExecuted    String? @db.Text
+  executionResult Json?
+  executionTimeMs Int?
+
+  // Metadata
+  metadata   Json?
+  durationMs Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([phase])
+  @@index([level])
+  @@map("tool_generation_logs")
+}
+
+// ==================== Tool Health & Self-Healing ====================
+
+// Health report status
+enum HealthReportStatus {
+  HEALTHY // Tool is working fine
+  DEGRADED // Some issues detected
+  FAILING // Tool is failing
+  HEALING // Auto-repair in progress
+  HEALED // Successfully repaired
+  REQUIRES_ATTENTION // Needs manual intervention
+}
+
+// Health report for a tool
+model ToolHealthReport {
+  id     String        @id @default(cuid())
+  toolId String
+  tool   GeneratedTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  // Health assessment
+  status         HealthReportStatus @default(HEALTHY)
+  healthScore    Int                @default(100) // 0-100
+  issuesDetected Json               @default("[]") // Array of detected issues
+
+  // Error analysis
+  errorPatterns     Json? // Patterns identified in errors
+  suggestedFixes    Json? // Suggested fixes from AI
+  rootCauseAnalysis String? @db.Text // AI analysis of root cause
+
+  // Healing attempt
+  healingAttempted Boolean  @default(false)
+  healingSuccess   Boolean?
+  healedCode       String?  @db.Text // Code after healing
+  healingLog       Json? // Log of healing process
+
+  // Metrics
+  recentSuccessRate Float? // Success rate in last 24h
+  recentErrorCount  Int    @default(0)
+  recentUsageCount  Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([toolId])
+  @@index([status])
+  @@index([healthScore])
+  @@map("tool_health_reports")
+}
+
+// Execution log for tracking tool usage and errors over time
+model ToolExecutionLog {
+  id     String        @id @default(cuid())
+  toolId String
+  tool   GeneratedTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  userId String
+
+  // Execution details
+  inputParams Json?
+  success     Boolean
+  result      Json?
+  error       String? @db.Text
+  errorType   String? // 'runtime', 'timeout', 'network', 'validation', 'unknown'
+
+  // Timing
+  executionTimeMs Int?
+  startedAt       DateTime
+  completedAt     DateTime?
+
+  // Context
+  triggeredBy String? // 'user_chat', 'scheduled', 'auto_heal_test', etc.
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([toolId])
+  @@index([userId])
+  @@index([success])
+  @@index([createdAt])
+  @@map("tool_execution_logs")
 }
 
 // ==================== Goals and Achievements ====================

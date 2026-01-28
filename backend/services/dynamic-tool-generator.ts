@@ -1,11 +1,18 @@
 // Dynamic Tool Generator Service
 // AI-powered autonomous tool creation system
 // Generates, tests, and saves custom tools based on user needs
+//
+// NOTE: For complex tool generation with full developer workflow,
+// use ToolGenerationWorkflowService from tool-generation-workflow.ts
+// This service maintains backward compatibility for simple generation.
 
-import { PrismaClient, GeneratedTool } from "@prisma/client";
+import { GeneratedTool, PrismaClient } from "@prisma/client";
+
 import { codeExecutorService } from "./code-executor-wrapper.js";
-import { secretsService } from "./secrets.js";
 import { llmRouterService } from "./llm-router.js";
+import { secretsService } from "./secrets.js";
+import { toolGenerationWorkflowService } from "./tool-generation-workflow.js";
+import { toolHealerService } from "./tool-healer.js";
 import { wsBroadcastService } from "./websocket-broadcast.js";
 
 const prisma = new PrismaClient();
@@ -16,6 +23,7 @@ export interface ToolGenerationRequest {
   context?: string; // Additional context from conversation
   suggestedSecrets?: string[]; // Secrets the AI thinks might be needed
   existingToolId?: string; // If improving an existing tool
+  useWorkflow?: boolean; // Use the new structured workflow (default: true)
 }
 
 export interface ToolGenerationResult {
@@ -25,6 +33,7 @@ export interface ToolGenerationResult {
   error?: string;
   iterations?: number;
   logs?: string[];
+  sessionId?: string; // Session ID for workflow tracking
 }
 
 export interface GeneratedToolInput {
@@ -140,11 +149,76 @@ export class DynamicToolGeneratorService {
 
   /**
    * Generate a new tool from an objective
+   * Uses the new structured workflow by default for better reliability.
+   *
    * @param userId User ID
    * @param request Tool generation request
    * @param onStep Optional callback for each generation step (for SSE streaming)
    */
   async generateTool(
+    userId: string,
+    request: ToolGenerationRequest,
+    onStep?: (step: any) => void,
+  ): Promise<ToolGenerationResult> {
+    // Use new structured workflow by default
+    const useWorkflow = request.useWorkflow !== false;
+
+    if (useWorkflow) {
+      return this.generateToolWithWorkflow(userId, request, onStep);
+    }
+
+    // Legacy generation (kept for backward compatibility)
+    return this.generateToolLegacy(userId, request, onStep);
+  }
+
+  /**
+   * Generate tool using the new structured workflow
+   * This provides better reliability through:
+   * - Specification document
+   * - Implementation plan
+   * - Comprehensive testing
+   * - Full logging and traceability
+   */
+  private async generateToolWithWorkflow(
+    userId: string,
+    request: ToolGenerationRequest,
+    onStep?: (step: any) => void,
+  ): Promise<ToolGenerationResult> {
+    try {
+      const result = await toolGenerationWorkflowService.startWorkflow(
+        userId,
+        {
+          objective: request.objective,
+          context: request.context,
+          suggestedSecrets: request.suggestedSecrets,
+          existingToolId: request.existingToolId,
+        },
+        onStep,
+      );
+
+      return {
+        success: result.success,
+        tool: result.tool,
+        executionResult: result.phases.find((p) => p.phase === "testing")
+          ?.artifacts?.executionResult,
+        error: result.error,
+        iterations: result.phases.filter((p) => p.phase === "fixing").length,
+        logs: result.phases.map((p) => `${p.phase}: ${p.status}`),
+        sessionId: result.sessionId,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+        logs: [`Error: ${error.message}`],
+      };
+    }
+  }
+
+  /**
+   * Legacy generation method (kept for backward compatibility)
+   */
+  private async generateToolLegacy(
     userId: string,
     request: ToolGenerationRequest,
     onStep?: (step: any) => void,
@@ -628,12 +702,16 @@ Generate Python code that accomplishes this objective.`;
 
   /**
    * Execute an existing generated tool
+   * Now includes execution logging for health tracking and self-healing
    */
   async executeTool(
     userId: string,
     toolId: string,
     params: Record<string, any>,
+    triggeredBy = "user_chat",
   ): Promise<{ success: boolean; result?: any; error?: string }> {
+    const startTime = Date.now();
+
     const tool = await prisma.generatedTool.findFirst({
       where: { id: toolId, userId, enabled: true },
     });
@@ -667,6 +745,8 @@ ${tool.code}
         3, // Retry up to 3 times on network failures
       );
 
+      const executionTimeMs = Date.now() - startTime;
+
       // Update usage stats
       await prisma.generatedTool.update({
         where: { id: toolId },
@@ -679,12 +759,38 @@ ${tool.code}
         },
       });
 
+      // Log execution for health tracking
+      await toolHealerService.logExecution(
+        toolId,
+        userId,
+        result.success,
+        result.result,
+        result.error || undefined,
+        executionTimeMs,
+        triggeredBy,
+        params,
+      );
+
       if (result.success) {
         return { success: true, result: result.result };
       }
 
       return { success: false, error: result.error || "Execution failed" };
     } catch (error: any) {
+      const executionTimeMs = Date.now() - startTime;
+
+      // Log the error
+      await toolHealerService.logExecution(
+        toolId,
+        userId,
+        false,
+        null,
+        error.message,
+        executionTimeMs,
+        triggeredBy,
+        params,
+      );
+
       return { success: false, error: error.message };
     }
   }
