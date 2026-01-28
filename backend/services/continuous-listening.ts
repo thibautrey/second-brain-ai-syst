@@ -41,6 +41,7 @@ import { MemoryManagerService } from "./memory-manager.js";
 import OpenAI from "openai";
 import { flowTracker } from "./flow-tracker.js";
 import { getEmbeddingService } from "./embedding-wrapper.js";
+import { injectContextIntoPrompt } from "./llm-router.js";
 import { memorySearchService } from "./memory-search.js";
 import { notificationService } from "./notification.js";
 import prisma from "./prisma.js";
@@ -1197,14 +1198,23 @@ export class ContinuousListeningService extends EventEmitter {
       // Get available tools for LLM function calling
       const tools = toolExecutorService.getToolSchemas();
 
+      // Build base system prompt
+      const baseSystemPrompt = `You are a helpful AI assistant integrated into a "Second Brain" system.
+You help the user with questions and tasks based on their voice commands.
+Respond concisely and helpfully. If you need to use tools to answer the question, use them.
+The current time is ${new Date().toLocaleString()}.${memoryContext}`;
+
+      // Inject user context (profile with location, API keys, etc.) like the chat does
+      const systemPromptWithContext = await injectContextIntoPrompt(
+        baseSystemPrompt,
+        this.config.userId,
+      );
+
       // Make LLM call with tools
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         {
           role: "system",
-          content: `You are a helpful AI assistant integrated into a "Second Brain" system.
-You help the user with questions and tasks based on their voice commands.
-Respond concisely and helpfully. If you need to use tools to answer the question, use them.
-The current time is ${new Date().toLocaleString()}.${memoryContext}`,
+          content: systemPromptWithContext,
         },
         {
           role: "user",
