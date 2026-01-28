@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import * as trainingAPI from "../../services/training-api";
+import { PCMAudioRecorder } from "../../utils/pcm-audio-recorder";
 
 interface ProfileSelectionStepProps {
   onProfileSelected: (profileId: string) => void;
@@ -55,9 +56,7 @@ export function ProfileSelectionStep({
   const [isDeletingProfile, setIsDeletingProfile] = useState(false);
 
   // Recording refs
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recorderRef = useRef<PCMAudioRecorder | null>(null);
 
   // Load existing profiles on mount
   useEffect(() => {
@@ -153,39 +152,12 @@ export function ProfileSelectionStep({
     setLocalError(null);
 
     try {
-      // Use same audio parameters as continuous listening for consistency
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 16000,
-          channelCount: 1,
-        },
-      });
-      streamRef.current = stream;
-      chunksRef.current = [];
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : "audio/webm",
+      // Use PCMAudioRecorder for consistency with continuous listening
+      recorderRef.current = new PCMAudioRecorder({
+        sampleRate: 16000,
       });
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, {
-          type: mediaRecorder.mimeType,
-        });
-        await handleVerification(audioBlob, profileId);
-      };
-
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
+      await recorderRef.current.start();
       setIsRecordingVerification(true);
     } catch (err) {
       setLocalError(t("training.profileSelection.errors.microphoneAccess"));
@@ -194,23 +166,22 @@ export function ProfileSelectionStep({
   };
 
   // Stop verification recording
-  const stopVerificationRecording = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === "recording"
-    ) {
-      mediaRecorderRef.current.stop();
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+  const stopVerificationRecording = async () => {
+    if (recorderRef.current) {
+      const result = recorderRef.current.stop();
+      await handleVerification(result.wavBlob, verifyingProfileId!);
+      recorderRef.current = null;
     }
     setIsRecordingVerification(false);
   };
 
   // Cancel verification
   const cancelVerification = () => {
-    stopVerificationRecording();
+    if (recorderRef.current) {
+      recorderRef.current.cancel();
+      recorderRef.current = null;
+    }
+    setIsRecordingVerification(false);
     setVerifyingProfileId(null);
     setVerificationResult(null);
   };
@@ -221,20 +192,12 @@ export function ProfileSelectionStep({
     setLocalError(null);
 
     try {
-      const mimeType = audioBlob.type || "audio/webm";
-      const extensionMap: Record<string, string> = {
-        "audio/webm": "webm",
-        "audio/webm;codecs=opus": "webm",
-        "audio/ogg": "ogg",
-        "audio/wav": "wav",
-      };
-      const extension = extensionMap[mimeType] || "webm";
-
+      // WAV file from PCMAudioRecorder
       const audioFile = new File(
         [audioBlob],
-        `verification-${Date.now()}.${extension}`,
+        `verification-${Date.now()}.wav`,
         {
-          type: mimeType,
+          type: "audio/wav",
         },
       );
 
@@ -595,9 +558,11 @@ export function ProfileSelectionStep({
           {t("training.profileSelection.tipsTitle")}
         </h4>
         <ul className="text-sm text-blue-800 space-y-1">
-          {t<string[]>("training.profileSelection.tips", {
-            returnObjects: true,
-          }).map((tip) => (
+          {(
+            t("training.profileSelection.tips", {
+              returnObjects: true,
+            }) as string[]
+          ).map((tip) => (
             <li key={tip}>• {tip}</li>
           ))}
         </ul>

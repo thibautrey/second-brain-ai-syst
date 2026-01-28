@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Mic, Square, Play, Trash2, Volume2 } from "lucide-react";
+import { Mic, Square, Volume2 } from "lucide-react";
 import { Button } from "../ui/button";
-import { VoiceActivityDetector } from "../../utils/voice-activity-detection";
+import { PCMAudioRecorder } from "../../utils/pcm-audio-recorder";
 
 interface RecordingControlProps {
   phrase: string;
@@ -28,33 +28,8 @@ export function RecordingControl({
   const { t } = useTranslation();
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const recorderRef = useRef<PCMAudioRecorder | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const vadRef = useRef<VoiceActivityDetector | null>(null);
-
-  // Monitor audio level
-  useEffect(() => {
-    if (!isRecording || !analyserRef.current) return;
-
-    const updateLevel = () => {
-      if (!analyserRef.current) return;
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-      analyserRef.current.getByteFrequencyData(dataArray);
-      const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-      setAudioLevel((average / 255) * 100);
-      rafRef.current = requestAnimationFrame(updateLevel);
-    };
-
-    rafRef.current = requestAnimationFrame(updateLevel);
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [isRecording]);
 
   // Recording timer
   useEffect(() => {
@@ -71,90 +46,18 @@ export function RecordingControl({
 
   const handleStart = async () => {
     try {
-      // Use same audio parameters as continuous listening for consistency
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 16000,
-          channelCount: 1,
-        },
+      // Create PCM recorder with same format as continuous listening
+      recorderRef.current = new PCMAudioRecorder({
+        sampleRate: 16000,
+        onAudioLevel: (level) => setAudioLevel(level),
+        onSilenceDetected: autoStopOnSilence ? handleStop : undefined,
+        silenceThreshold: 0.01,
+        silenceDurationMs: 1500,
       });
-      streamRef.current = stream;
 
-      audioContextRef.current = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )({ sampleRate: 16000 });
-
-      // Setup audio level monitoring
-      const analyser = audioContextRef.current.createAnalyser();
-      analyserRef.current = analyser;
-
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      source.connect(analyser);
-
-      // Initialize Voice Activity Detection if enabled
-      if (autoStopOnSilence && audioContextRef.current) {
-        vadRef.current = new VoiceActivityDetector(
-          audioContextRef.current,
-          stream,
-        );
-      }
-
-      // Determine the best supported MIME type
-      const supportedMimeTypes = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/ogg;codecs=opus",
-        "audio/ogg",
-        "audio/mp4",
-      ];
-
-      let mimeType = "";
-      for (const type of supportedMimeTypes) {
-        if (MediaRecorder.isTypeSupported(type)) {
-          mimeType = type;
-          break;
-        }
-      }
-
-      const mediaRecorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-
-      // Store the actual MIME type being used
-      const actualMimeType = mediaRecorder.mimeType || mimeType || "audio/webm";
-
-      mediaRecorderRef.current = mediaRecorder;
-
-      const audioChunks: BlobPart[] = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        // Use the actual MIME type from MediaRecorder, not a hardcoded value
-        const audioBlob = new Blob(audioChunks, { type: actualMimeType });
-        onStop(audioBlob, recordingTime);
-        setRecordingTime(0);
-        setAudioLevel(0);
-      };
-
-      mediaRecorder.start();
+      await recorderRef.current.start();
       setRecordingTime(0);
       setAudioLevel(0);
-
-      // Start VAD monitoring if enabled
-      if (vadRef.current && autoStopOnSilence) {
-        vadRef.current.start(() => {
-          // Auto-stop when silence is detected
-          if (mediaRecorderRef.current && isRecording) {
-            handleStop();
-          }
-        });
-      }
-
       onStart();
     } catch (error) {
       console.error("Error accessing microphone:", error);
@@ -163,23 +66,38 @@ export function RecordingControl({
   };
 
   const handleStop = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      // Stop VAD monitoring
-      if (vadRef.current) {
-        vadRef.current.stop();
-        vadRef.current = null;
+    if (recorderRef.current && isRecording) {
+      try {
+        const result = recorderRef.current.stop();
+        // Use WAV blob which contains PCM16 data
+        onStop(result.wavBlob, result.duration);
+      } catch (error) {
+        console.error("Error stopping recording:", error);
       }
-
-      mediaRecorderRef.current.stop();
-      streamRef.current?.getTracks().forEach((track) => track.stop());
 
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
+
+      setRecordingTime(0);
+      setAudioLevel(0);
+      recorderRef.current = null;
     }
+  };
+
+  const handleCancel = () => {
+    if (recorderRef.current) {
+      recorderRef.current.cancel();
+      recorderRef.current = null;
+    }
+
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
+
+    setRecordingTime(0);
+    setAudioLevel(0);
+    onCancel();
   };
 
   const formatTime = (seconds: number) => {
@@ -276,7 +194,7 @@ export function RecordingControl({
               {t("training.recordingControl.stopRecording")}
             </Button>
             <Button
-              onClick={onCancel}
+              onClick={handleCancel}
               variant="outline"
               className="px-4 py-3 font-medium"
             >
@@ -292,9 +210,11 @@ export function RecordingControl({
           {t("training.recordingControl.tipsTitle")}
         </p>
         <ul className="list-disc list-inside space-y-0.5">
-          {t<string[]>("training.recordingControl.tips", {
-            returnObjects: true,
-          }).map((tip) => (
+          {(
+            t("training.recordingControl.tips", {
+              returnObjects: true,
+            }) as string[]
+          ).map((tip) => (
             <li key={tip}>{tip}</li>
           ))}
         </ul>
