@@ -166,7 +166,7 @@ export function RecentRecordingsSection({
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Volume2 className="h-5 w-5 text-blue-600" />
+              <Volume2 className="w-5 h-5 text-blue-600" />
               Recent Audio Classifications
             </CardTitle>
             <CardDescription>
@@ -195,7 +195,7 @@ export function RecentRecordingsSection({
                 disabled={isClearingAll}
                 className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="w-4 h-4" />
                 Clear All Others
               </Button>
             )}
@@ -205,9 +205,9 @@ export function RecentRecordingsSection({
       <CardContent>
         {/* Stats Summary */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+          <div className="flex items-center gap-3 p-3 border rounded-lg bg-emerald-50 border-emerald-200">
             <div className="p-2 rounded-full bg-emerald-100">
-              <User className="h-4 w-4 text-emerald-600" />
+              <User className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
               <p className="text-sm font-medium text-emerald-900">Your Voice</p>
@@ -216,9 +216,9 @@ export function RecentRecordingsSection({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="flex items-center gap-3 p-3 border rounded-lg bg-slate-50 border-slate-200">
             <div className="p-2 rounded-full bg-slate-100">
-              <Users className="h-4 w-4 text-slate-600" />
+              <Users className="w-4 h-4 text-slate-600" />
             </div>
             <div>
               <p className="text-sm font-medium text-slate-700">Others</p>
@@ -230,10 +230,10 @@ export function RecentRecordingsSection({
         </div>
 
         {/* Info Banner */}
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+        <div className="flex items-start gap-3 p-3 mb-4 border border-blue-200 rounded-lg bg-blue-50">
           <HelpCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
           <div className="text-sm text-blue-800">
-            <p className="font-medium mb-1">Why review these?</p>
+            <p className="mb-1 font-medium">Why review these?</p>
             <p className="text-blue-700">
               If the system incorrectly classified your voice as "someone else",
               it will avoid matching similar audio in the future. Correcting
@@ -244,8 +244,8 @@ export function RecentRecordingsSection({
 
         {/* Error Display */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-            <AlertCircle className="h-5 w-5" />
+          <div className="flex items-center gap-2 p-3 mb-4 text-red-700 border border-red-200 rounded-lg bg-red-50">
+            <AlertCircle className="w-5 h-5" />
             <span className="text-sm">{error}</span>
           </div>
         )}
@@ -253,18 +253,18 @@ export function RecentRecordingsSection({
         {/* Recordings List */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
+            <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
           </div>
         ) : recordings.length === 0 ? (
-          <div className="text-center py-12">
-            <Volume2 className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+          <div className="py-12 text-center">
+            <Volume2 className="w-12 h-12 mx-auto mb-4 text-slate-300" />
             <p className="text-slate-500">No recent audio classifications</p>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="mt-1 text-sm text-slate-400">
               Audio from continuous listening will appear here
             </p>
           </div>
         ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+          <div className="pr-2 space-y-2 overflow-y-auto max-h-96">
             {recordings.map((recording) => (
               <RecordingItem
                 key={recording.id}
@@ -318,17 +318,20 @@ function RecordingItem({
     try {
       setIsLoadingAudio(true);
 
+      const API_BASE_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:3000";
+
       // Try to get audio from source session
       let audioUrl = "";
       if (recording.sourceSessionId) {
         // For now, we'll try to fetch from the session
         // The actual endpoint may need to be adjusted based on backend implementation
-        audioUrl = `/api/audio/sessions/${recording.sourceSessionId}/download`;
+        audioUrl = `${API_BASE_URL}/api/audio/sessions/${recording.sourceSessionId}/download`;
       }
 
       if (!audioUrl) {
         // If no source session, try recording ID directly
-        audioUrl = `/api/adaptive-learning/recordings/${recording.id}/audio`;
+        audioUrl = `${API_BASE_URL}/api/adaptive-learning/recordings/${recording.id}/audio`;
       }
 
       const audio = new Audio(audioUrl);
@@ -356,7 +359,7 @@ function RecordingItem({
           : "bg-emerald-50 border-emerald-200 hover:bg-emerald-100",
       )}
     >
-      <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="flex items-center flex-1 min-w-0 gap-3">
         {/* Icon */}
         <div
           className={cn(
@@ -365,14 +368,14 @@ function RecordingItem({
           )}
         >
           {isNegative ? (
-            <Users className="h-4 w-4 text-slate-600" />
+            <Users className="w-4 h-4 text-slate-600" />
           ) : (
-            <User className="h-4 w-4 text-emerald-600" />
+            <User className="w-4 h-4 text-emerald-600" />
           )}
         </div>
 
         {/* Details */}
-        <div className="min-w-0 flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <Badge
               variant={isNegative ? "secondary" : "default"}
@@ -402,7 +405,7 @@ function RecordingItem({
             </TooltipProvider>
           </div>
           <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-            <Clock className="h-3 w-3" />
+            <Clock className="w-3 h-3" />
             <span>{formatTimeAgo(recording.capturedAt)}</span>
             {recording.duration && (
               <>
@@ -415,7 +418,7 @@ function RecordingItem({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-2 shrink-0 ml-3">
+      <div className="flex items-center gap-2 ml-3 shrink-0">
         {/* Play Button */}
         <TooltipProvider>
           <Tooltip>
@@ -430,7 +433,7 @@ function RecordingItem({
                 {isLoadingAudio ? (
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                 ) : isPlaying ? (
-                  <div className="flex gap-1 items-center">
+                  <div className="flex items-center gap-1">
                     <div className="w-1 h-3 bg-blue-600 rounded"></div>
                     <div className="w-1 h-4 bg-blue-600 rounded"></div>
                     <div className="w-1 h-3 bg-blue-600 rounded"></div>
