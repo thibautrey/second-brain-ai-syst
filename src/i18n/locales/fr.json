@@ -551,6 +551,8 @@
       "creating": "Création...",
       "createAction": "Créer un nouveau profil",
       "continue": "Continuer avec le profil sélectionné",
+      "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce profil ? Tous les échantillons vocaux et données d'entraînement seront définitivement supprimés.",
+      "deleting": "Suppression...",
       "tipsTitle": "💡 Astuces",
       "tips": [
         "Vous pouvez ajouter des échantillons à un profil à tout moment pour améliorer la précision",
@@ -561,6 +563,7 @@
         "loadProfiles": "Échec du chargement des profils",
         "profileNameRequired": "Le nom du profil est requis",
         "createProfile": "Échec de la création du profil",
+        "deleteProfile": "Échec de la suppression du profil",
         "microphoneAccess": "Impossible d'accéder au microphone. Veuillez autoriser l'accès.",
         "verificationFailed": "Échec de la vérification"
       }

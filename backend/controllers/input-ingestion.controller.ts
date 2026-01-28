@@ -18,6 +18,7 @@ import {
 
 import { InputIngestionService } from "../services/input-ingestion.js";
 import { audioUploadService } from "../services/audio-upload.js";
+import { audioStorage } from "../services/audio-storage.js";
 import prisma from "../services/prisma.js";
 
 export class InputIngestionController {
@@ -603,6 +604,62 @@ export class VoiceTrainingController {
       res.status(200).json({
         success: true,
         profile,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/speaker-profiles/:profileId
+   * Delete a speaker profile and all associated data
+   */
+  async deleteSpeakerProfile(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { profileId } = req.params;
+
+      // Verify profile belongs to user
+      const profile = await prisma.speakerProfile.findUnique({
+        where: { id: profileId },
+        include: {
+          voiceSamples: true,
+        },
+      });
+
+      if (!profile || profile.userId !== req.userId) {
+        res.status(404).json({ error: "Speaker profile not found" });
+        return;
+      }
+
+      // Delete associated voice sample files from storage
+      for (const sample of profile.voiceSamples) {
+        try {
+          await audioStorage.deleteFile(sample.storagePath);
+        } catch (err) {
+          console.warn(
+            `Failed to delete voice sample file: ${sample.storagePath}`,
+            err,
+          );
+        }
+      }
+
+      // Delete profile (cascade will delete related records)
+      await prisma.speakerProfile.delete({
+        where: { id: profileId },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Speaker profile deleted successfully",
       });
     } catch (error) {
       next(error);

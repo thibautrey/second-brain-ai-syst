@@ -613,6 +613,8 @@
       "creating": "Creating...",
       "createAction": "Create New Profile",
       "continue": "Continue with Selected Profile",
+      "confirmDelete": "Are you sure you want to delete this profile? All voice samples and training data will be permanently removed.",
+      "deleting": "Deleting...",
       "tipsTitle": "💡 Tips",
       "tips": [
         "You can add more samples to a profile at any time to improve accuracy",
@@ -623,6 +625,7 @@
         "loadProfiles": "Failed to load profiles",
         "profileNameRequired": "Profile name is required",
         "createProfile": "Failed to create profile",
+        "deleteProfile": "Failed to delete profile",
         "microphoneAccess": "Failed to access microphone. Please grant permission.",
         "verificationFailed": "Verification failed"
       }

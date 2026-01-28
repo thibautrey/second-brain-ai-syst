@@ -503,6 +503,26 @@ export async function getSpeakerProfile(profileId: string): Promise<any> {
   return data.profile;
 }
 
+/**
+ * Delete a speaker profile and all associated data
+ */
+export async function deleteSpeakerProfile(profileId: string): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/speaker-profiles/${profileId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to delete speaker profile");
+  }
+}
+
 export interface VerificationResult {
   recognized: boolean;
   confidence: number;

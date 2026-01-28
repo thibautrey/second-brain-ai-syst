@@ -71,12 +71,20 @@ export function RecordingControl({
 
   const handleStart = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Use same audio parameters as continuous listening for consistency
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 16000,
+          channelCount: 1,
+        },
+      });
       streamRef.current = stream;
 
       audioContextRef.current = new (
         window.AudioContext || (window as any).webkitAudioContext
-      )();
+      )({ sampleRate: 16000 });
 
       // Setup audio level monitoring
       const analyser = audioContextRef.current.createAnalyser();

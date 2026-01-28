@@ -366,6 +366,18 @@ app.get(
 );
 
 /**
+ * DELETE /api/speaker-profiles/:profileId
+ * Delete a speaker profile and all associated data
+ */
+app.delete(
+  "/api/speaker-profiles/:profileId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await voiceTrainingController.deleteSpeakerProfile(req, res, next);
+  },
+);
+
+/**
  * GET /api/training/samples
  * List voice samples for a speaker profile
  */

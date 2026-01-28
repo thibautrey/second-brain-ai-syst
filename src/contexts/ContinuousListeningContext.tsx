@@ -180,11 +180,13 @@ class AudioProcessor {
   private mediaStream: MediaStream | null = null;
   private processor: ScriptProcessorNode | null = null;
   private onAudioData: ((data: ArrayBuffer) => void) | null = null;
+  private isRunning = false;
 
   async start(onAudioData: (data: ArrayBuffer) => void): Promise<void> {
     this.onAudioData = onAudioData;
 
     try {
+      console.log("[AudioProcessor] Starting audio capture");
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -193,6 +195,11 @@ class AudioProcessor {
           channelCount: 1,
         },
       });
+
+      console.log(
+        "[AudioProcessor] Got media stream with tracks:",
+        this.mediaStream.getTracks().length,
+      );
 
       this.audioContext = new AudioContext({ sampleRate: 16000 });
       const source = this.audioContext.createMediaStreamSource(
@@ -220,29 +227,55 @@ class AudioProcessor {
 
       source.connect(this.processor);
       this.processor.connect(this.audioContext.destination);
+      this.isRunning = true;
+      console.log("[AudioProcessor] Audio capture started successfully");
     } catch (error) {
-      console.error("Failed to start audio capture:", error);
+      console.error("[AudioProcessor] Failed to start audio capture:", error);
       throw error;
     }
   }
 
   stop(): void {
+    console.log("[AudioProcessor] Stopping audio capture");
+
+    // Stop processing first
     if (this.processor) {
+      console.log("[AudioProcessor] Disconnecting processor");
       this.processor.disconnect();
       this.processor = null;
     }
 
+    // Close audio context
     if (this.audioContext) {
-      this.audioContext.close();
+      console.log(
+        "[AudioProcessor] Closing audio context. State:",
+        this.audioContext.state,
+      );
+      // Stop the audio graph before closing
+      if (this.audioContext.state !== "closed") {
+        this.audioContext.close();
+      }
       this.audioContext = null;
     }
 
+    // Stop all media stream tracks - this is critical for releasing the microphone
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((track) => track.stop());
+      console.log("[AudioProcessor] Stopping media stream tracks");
+      const tracks = this.mediaStream.getTracks();
+      console.log("[AudioProcessor] Found", tracks.length, "tracks");
+      tracks.forEach((track) => {
+        console.log(
+          `[AudioProcessor] Stopping track: ${track.kind} (${track.id})`,
+        );
+        track.stop(); // This releases the microphone permission
+        console.log(`[AudioProcessor] Track stopped: ${track.kind}`);
+      });
       this.mediaStream = null;
     }
 
     this.onAudioData = null;
+    this.isRunning = false;
+    console.log("[AudioProcessor] Audio capture stopped completely");
   }
 }
 
@@ -345,16 +378,47 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
   }, []);
 
   const startListening = useCallback(async () => {
+    console.log("[ContinuousListening] Starting listening");
+
     // Check if already connected
     const existingManager = connectionManagerRef.current;
-    if (existingManager && ["connected", "fallback"].includes(existingManager.getState())) {
-      console.log("Already connected");
+    if (
+      existingManager &&
+      ["connected", "fallback"].includes(existingManager.getState())
+    ) {
+      console.log("[ContinuousListening] Already connected, skipping");
       return;
     }
 
-    // Clean up any existing manager before creating new one
+    // Clean up any existing resources before creating new ones
+    // This is critical to release the microphone
+    if (audioProcessorRef.current) {
+      console.log("[ContinuousListening] Cleaning up existing audio processor");
+      try {
+        audioProcessorRef.current.stop();
+      } catch (error) {
+        console.error(
+          "[ContinuousListening] Error stopping existing audio processor:",
+          error,
+        );
+      }
+      audioProcessorRef.current = null;
+    }
+
     if (existingManager) {
-      cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+      console.log(
+        "[ContinuousListening] Cleaning up existing connection manager",
+      );
+      cleanupFunctionsRef.current.forEach((cleanup) => {
+        try {
+          cleanup();
+        } catch (error) {
+          console.error(
+            "[ContinuousListening] Error running cleanup function:",
+            error,
+          );
+        }
+      });
       cleanupFunctionsRef.current = [];
       resetAudioConnectionManager();
       connectionManagerRef.current = null;
@@ -369,6 +433,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
       }
 
       // Create fresh connection manager with fallback enabled
+      console.log("[ContinuousListening] Creating new connection manager");
       const connectionManager = getAudioConnectionManager({
         deviceType: "BROWSER",
         enableFallback: true,
@@ -382,28 +447,41 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
       cleanupFunctionsRef.current.push(unsubscribeEvents);
 
       // Subscribe to state changes - handle transparently
-      const unsubscribeState = connectionManager.onStateChange((connectionState) => {
-        dispatch({ type: "SET_CONNECTION_STATE", payload: connectionState });
-        
-        // If the connection manager automatically reconnects after session invalidation,
-        // we need to restart the audio processor
-        if (connectionState === "connected" && !audioProcessorRef.current) {
-          const restartAudio = async () => {
-            try {
-              audioProcessorRef.current = new AudioProcessor();
-              await audioProcessorRef.current.start((audioData) => {
-                connectionManager.sendAudioChunk(audioData);
-              });
-            } catch (err) {
-              console.error("Failed to restart audio processor:", err);
-            }
-          };
-          restartAudio();
-        }
-      });
+      const unsubscribeState = connectionManager.onStateChange(
+        (connectionState) => {
+          console.log(
+            "[ContinuousListening] Connection state changed:",
+            connectionState,
+          );
+          dispatch({ type: "SET_CONNECTION_STATE", payload: connectionState });
+
+          // If the connection manager automatically reconnects after session invalidation,
+          // we need to restart the audio processor
+          if (connectionState === "connected" && !audioProcessorRef.current) {
+            const restartAudio = async () => {
+              try {
+                console.log(
+                  "[ContinuousListening] Restarting audio processor after reconnection",
+                );
+                audioProcessorRef.current = new AudioProcessor();
+                await audioProcessorRef.current.start((audioData) => {
+                  connectionManager.sendAudioChunk(audioData);
+                });
+              } catch (err) {
+                console.error(
+                  "[ContinuousListening] Failed to restart audio processor:",
+                  err,
+                );
+              }
+            };
+            restartAudio();
+          }
+        },
+      );
       cleanupFunctionsRef.current.push(unsubscribeState);
 
       // Connect (handles all fallback logic internally)
+      console.log("[ContinuousListening] Connecting to server");
       const connected = await connectionManager.connect();
 
       if (!connected) {
@@ -411,21 +489,23 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
       }
 
       // Start audio capture
+      console.log("[ContinuousListening] Starting audio processor");
       audioProcessorRef.current = new AudioProcessor();
       await audioProcessorRef.current.start((audioData) => {
         connectionManager.sendAudioChunk(audioData);
       });
 
       dispatch({ type: "SET_CONNECTED", payload: true });
+      console.log("[ContinuousListening] Listening started successfully");
     } catch (error) {
-      console.error("Failed to start listening:", error);
-      
+      console.error("[ContinuousListening] Failed to start listening:", error);
+
       // Reset state on failure
       dispatch({ type: "SET_STATE", payload: "idle" });
       dispatch({ type: "SET_CONNECTED", payload: false });
-      
+
       // Cleanup any partial initialization
-      cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+      cleanupFunctionsRef.current.forEach((cleanup) => cleanup());
       cleanupFunctionsRef.current = [];
       if (audioProcessorRef.current) {
         audioProcessorRef.current.stop();
@@ -433,7 +513,7 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
       }
       resetAudioConnectionManager();
       connectionManagerRef.current = null;
-      
+
       // Only show error if it's a critical failure (like no microphone)
       if (error instanceof Error && error.message.includes("microphone")) {
         dispatch({
@@ -446,22 +526,55 @@ export function ContinuousListeningProvider({ children }: ProviderProps) {
   }, [handleSessionEvent]);
 
   const stopListening = useCallback(() => {
-    // Cleanup event subscriptions
-    cleanupFunctionsRef.current.forEach(cleanup => cleanup());
-    cleanupFunctionsRef.current = [];
+    console.log("[ContinuousListening] Stopping listening");
 
-    // Stop audio processor
+    // Step 1: Stop audio processor first (which releases media stream)
     if (audioProcessorRef.current) {
-      audioProcessorRef.current.stop();
+      console.log("[ContinuousListening] Stopping audio processor");
+      try {
+        audioProcessorRef.current.stop();
+      } catch (error) {
+        console.error(
+          "[ContinuousListening] Error stopping audio processor:",
+          error,
+        );
+      }
       audioProcessorRef.current = null;
     }
 
-    // Disconnect and reset connection manager
-    resetAudioConnectionManager();
-    connectionManagerRef.current = null;
+    // Step 2: Disconnect and reset connection manager
+    if (connectionManagerRef.current) {
+      console.log("[ContinuousListening] Disconnecting from server");
+      try {
+        resetAudioConnectionManager();
+      } catch (error) {
+        console.error(
+          "[ContinuousListening] Error resetting audio connection manager:",
+          error,
+        );
+      }
+      connectionManagerRef.current = null;
+    }
 
+    // Step 3: Cleanup event subscriptions
+    console.log("[ContinuousListening] Running cleanup functions");
+    cleanupFunctionsRef.current.forEach((cleanup) => {
+      try {
+        cleanup();
+      } catch (error) {
+        console.error(
+          "[ContinuousListening] Error running cleanup function:",
+          error,
+        );
+      }
+    });
+    cleanupFunctionsRef.current = [];
+
+    // Step 4: Update state
     dispatch({ type: "SET_STATE", payload: "idle" });
     dispatch({ type: "SET_CONNECTED", payload: false });
+
+    console.log("[ContinuousListening] Listening stopped successfully");
   }, []);
 
   const updateSettings = useCallback(

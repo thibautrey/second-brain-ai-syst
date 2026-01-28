@@ -9,6 +9,7 @@ import {
   Square,
   Shield,
   X,
+  Trash2,
 } from "lucide-react";
 import * as trainingAPI from "../../services/training-api";
 
@@ -46,6 +47,12 @@ export function ProfileSelectionStep({
     confidence: number;
     profileName: string;
   } | null>(null);
+
+  // Delete state
+  const [confirmDeleteProfileId, setConfirmDeleteProfileId] = useState<
+    string | null
+  >(null);
+  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
 
   // Recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -112,6 +119,33 @@ export function ProfileSelectionStep({
     onProfileSelected(profileId);
   };
 
+  // Handle delete profile
+  const handleDeleteProfile = async (profileId: string) => {
+    try {
+      setIsDeletingProfile(true);
+      setLocalError(null);
+      await trainingAPI.deleteSpeakerProfile(profileId);
+
+      // Remove from local state
+      setProfiles(profiles.filter((p) => p.id !== profileId));
+
+      // Clear selection if deleted profile was selected
+      if (selectedProfileId === profileId) {
+        setSelectedProfileId(null);
+      }
+
+      setConfirmDeleteProfileId(null);
+    } catch (err) {
+      setLocalError(
+        err instanceof Error
+          ? err.message
+          : t("training.profileSelection.errors.deleteProfile"),
+      );
+    } finally {
+      setIsDeletingProfile(false);
+    }
+  };
+
   // Start verification recording
   const startVerificationRecording = async (profileId: string) => {
     setVerifyingProfileId(profileId);
@@ -119,7 +153,15 @@ export function ProfileSelectionStep({
     setLocalError(null);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Use same audio parameters as continuous listening for consistency
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 16000,
+          channelCount: 1,
+        },
+      });
       streamRef.current = stream;
       chunksRef.current = [];
 
@@ -238,9 +280,7 @@ export function ProfileSelectionStep({
         <div className="mb-6 flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
           <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-red-900">
-              {t("common.error")}
-            </p>
+            <p className="font-medium text-red-900">{t("common.error")}</p>
             <p className="text-sm text-red-800 mt-1">{error || localError}</p>
           </div>
         </div>
@@ -282,7 +322,9 @@ export function ProfileSelectionStep({
                         })}{" "}
                         •{" "}
                         {t("training.profileSelection.createdOn", {
-                          date: new Date(profile.createdAt).toLocaleDateString(),
+                          date: new Date(
+                            profile.createdAt,
+                          ).toLocaleDateString(),
                         })}
                       </p>
 
@@ -292,7 +334,63 @@ export function ProfileSelectionStep({
                         </div>
                       )}
                     </div>
+                    {/* Delete button */}
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDeleteProfileId(profile.id);
+                      }}
+                      size="sm"
+                      variant="ghost"
+                      className="text-slate-400 hover:text-red-600 hover:bg-red-50"
+                      disabled={isDeletingProfile}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
+
+                  {/* Delete confirmation */}
+                  {confirmDeleteProfileId === profile.id && (
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-900 mb-3">
+                        {t("training.profileSelection.confirmDelete")}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProfile(profile.id);
+                          }}
+                          size="sm"
+                          className="bg-red-600 hover:bg-red-700 text-white gap-1"
+                          disabled={isDeletingProfile}
+                        >
+                          {isDeletingProfile ? (
+                            <span className="flex items-center gap-2">
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              {t("training.profileSelection.deleting")}
+                            </span>
+                          ) : (
+                            <>
+                              <Trash2 className="w-4 h-4" />
+                              {t("common.delete")}
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteProfileId(null);
+                          }}
+                          size="sm"
+                          variant="outline"
+                          disabled={isDeletingProfile}
+                        >
+                          {t("common.cancel")}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Verify Voice Button - only for enrolled profiles */}
                   {profile.isEnrolled && (
@@ -348,14 +446,18 @@ export function ProfileSelectionStep({
                                   <>
                                     <CheckCircle2 className="w-5 h-5 text-green-600" />
                                     <span className="font-medium text-green-900">
-                                      {t("training.profileSelection.voiceRecognized")}
+                                      {t(
+                                        "training.profileSelection.voiceRecognized",
+                                      )}
                                     </span>
                                   </>
                                 ) : (
                                   <>
                                     <AlertCircle className="w-5 h-5 text-amber-600" />
                                     <span className="font-medium text-amber-900">
-                                      {t("training.profileSelection.voiceNotRecognized")}
+                                      {t(
+                                        "training.profileSelection.voiceNotRecognized",
+                                      )}
                                     </span>
                                   </>
                                 )}
@@ -456,7 +558,9 @@ export function ProfileSelectionStep({
                 type="text"
                 value={newProfileName}
                 onChange={(e) => setNewProfileName(e.target.value)}
-                placeholder={t("training.profileSelection.profileNamePlaceholder")}
+                placeholder={t(
+                  "training.profileSelection.profileNamePlaceholder",
+                )}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isCreatingProfile || isLoading}
               />
@@ -476,13 +580,13 @@ export function ProfileSelectionStep({
         </div>
 
         {/* Continue Button */}
-      <Button
-        onClick={onContinue}
-        disabled={isLoading || !selectedProfileId}
-        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 font-medium text-lg"
-      >
-        {t("training.profileSelection.continue")}
-      </Button>
+        <Button
+          onClick={onContinue}
+          disabled={isLoading || !selectedProfileId}
+          className="w-full bg-green-600 hover:bg-green-700 text-white py-3 font-medium text-lg"
+        >
+          {t("training.profileSelection.continue")}
+        </Button>
       </div>
 
       {/* Info Section */}
