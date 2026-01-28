@@ -1,23 +1,30 @@
 // LLM Router Service
 // Routes requests to appropriate language model based on task and user configuration
 
-import prisma from "./prisma.js";
-import OpenAI from "openai";
 import {
-  getUserProfile,
-  formatProfileForPrompt,
   UserProfile,
+  formatProfileForPrompt,
+  getUserProfile,
 } from "./user-profile.js";
 import {
-  recordModelError,
-  recordModelSuccess,
   isModelBlacklisted,
   markModelEndpointIncompatible,
+  recordModelError,
+  recordModelSuccess,
 } from "./model-compatibility-hint.js";
+
+import OpenAI from "openai";
+import prisma from "./prisma.js";
 
 // Error classification helper
 export interface LLMErrorInfo {
-  type: "timeout" | "model-incompatible" | "auth" | "rate-limit" | "network" | "unknown";
+  type:
+    | "timeout"
+    | "model-incompatible"
+    | "auth"
+    | "rate-limit"
+    | "network"
+    | "unknown";
   status?: number;
   message: string;
   isRetryable: boolean;
@@ -27,7 +34,7 @@ export interface LLMErrorInfo {
 export function classifyLLMError(error: any): LLMErrorInfo {
   const message = error?.message || String(error);
   const status = error?.status;
-  
+
   // Model incompatibility errors
   if (status === 404 && message.includes("model")) {
     return {
@@ -38,9 +45,13 @@ export function classifyLLMError(error: any): LLMErrorInfo {
       isTransient: false,
     };
   }
-  
+
   // Timeout/network errors
-  if (message.includes("timeout") || message.includes("ECONNRESET") || message.includes("ETIMEDOUT")) {
+  if (
+    message.includes("timeout") ||
+    message.includes("ECONNRESET") ||
+    message.includes("ETIMEDOUT")
+  ) {
     return {
       type: "timeout",
       status,
@@ -49,9 +60,9 @@ export function classifyLLMError(error: any): LLMErrorInfo {
       isTransient: true,
     };
   }
-  
+
   // Authentication errors
-  if (status === 401 || status === 403 && message.includes("permission")) {
+  if (status === 401 || (status === 403 && message.includes("permission"))) {
     return {
       type: "auth",
       status,
@@ -60,7 +71,7 @@ export function classifyLLMError(error: any): LLMErrorInfo {
       isTransient: false,
     };
   }
-  
+
   // Rate limiting
   if (status === 429 || message.includes("rate")) {
     return {
@@ -71,7 +82,7 @@ export function classifyLLMError(error: any): LLMErrorInfo {
       isTransient: true,
     };
   }
-  
+
   // 503 Service unavailable or similar
   if (status === 503 || status === 502 || message.includes("upstream")) {
     return {
@@ -82,7 +93,7 @@ export function classifyLLMError(error: any): LLMErrorInfo {
       isTransient: true,
     };
   }
-  
+
   return {
     type: "unknown",
     status,
@@ -136,17 +147,23 @@ export function injectProfileIntoPrompt(
  * Only includes key names and display names (NOT the actual secret values)
  * Safe to include in LLM prompts
  */
-async function formatAvailableAPIKeysForPrompt(userId: string): Promise<string> {
+async function formatAvailableAPIKeysForPrompt(
+  userId: string,
+): Promise<string> {
   try {
     const { secretsService } = await import("./secrets.js");
-    const availableKeys = await secretsService.getAvailableKeysForContext(userId);
-    
+    const availableKeys =
+      await secretsService.getAvailableKeysForContext(userId);
+
     if (!availableKeys || availableKeys.length === 0) {
       return "";
     }
 
     // Group by category
-    const categorized = new Map<string, Array<{ key: string; displayName: string }>>();
+    const categorized = new Map<
+      string,
+      Array<{ key: string; displayName: string }>
+    >();
     for (const secret of availableKeys) {
       const category = secret.category || "general";
       if (!categorized.has(category)) {
@@ -160,7 +177,9 @@ async function formatAvailableAPIKeysForPrompt(userId: string): Promise<string> 
 
     const parts: string[] = [];
     for (const [category, keys] of categorized.entries()) {
-      const keyList = keys.map((k) => `  - ${k.key} (${k.displayName})`).join("\n");
+      const keyList = keys
+        .map((k) => `  - ${k.key} (${k.displayName})`)
+        .join("\n");
       parts.push(`${category}:\n${keyList}`);
     }
 
@@ -320,6 +339,7 @@ export class LLMRouterService {
 
   /**
    * Get configured provider for a specific task type
+   * Falls back to finding any compatible provider if no task-specific config exists
    */
   async getProviderForTask(
     userId: string,
@@ -340,26 +360,175 @@ export class LLMRouterService {
       },
     });
 
-    if (!taskConfig?.provider) {
-      // No task config found - this is required
-      console.error(
-        `[LLMRouter] No task configuration found for taskType: ${configTaskType} for user: ${userId}. This is a required configuration. User must set up task config in AI Settings.`,
-      );
-      return null;
+    if (taskConfig?.provider) {
+      // Task-specific configuration found
+      return {
+        id: taskConfig.provider.id,
+        name: taskConfig.provider.name,
+        apiKey: taskConfig.provider.apiKey,
+        baseUrl: taskConfig.provider.baseUrl,
+        modelId: taskConfig.model?.modelId || "gpt-3.5-turbo",
+        fallbackProviderId: taskConfig.fallbackProvider?.id,
+        fallbackName: taskConfig.fallbackProvider?.name,
+        fallbackApiKey: taskConfig.fallbackProvider?.apiKey,
+        fallbackBaseUrl: taskConfig.fallbackProvider?.baseUrl,
+        fallbackModelId: taskConfig.fallbackModel?.modelId,
+      };
     }
 
-    return {
-      id: taskConfig.provider.id,
-      name: taskConfig.provider.name,
-      apiKey: taskConfig.provider.apiKey,
-      baseUrl: taskConfig.provider.baseUrl,
-      modelId: taskConfig.model?.modelId || "gpt-3.5-turbo",
-      fallbackProviderId: taskConfig.fallbackProvider?.id,
-      fallbackName: taskConfig.fallbackProvider?.name,
-      fallbackApiKey: taskConfig.fallbackProvider?.apiKey,
-      fallbackBaseUrl: taskConfig.fallbackProvider?.baseUrl,
-      fallbackModelId: taskConfig.fallbackModel?.modelId,
-    };
+    // No task-specific config found - try to find a fallback provider
+    console.warn(
+      `[LLMRouter] No task configuration found for taskType: ${configTaskType} for user: ${userId}. Attempting to find a fallback provider.`,
+    );
+
+    // Try to get a fallback provider with a compatible model
+    const fallbackProvider = await this.getFallbackProvider(
+      userId,
+      configTaskType,
+    );
+    if (fallbackProvider) {
+      console.info(
+        `[LLMRouter] Using fallback provider "${fallbackProvider.name}" (${fallbackProvider.modelId}) for task: ${configTaskType}`,
+      );
+      return fallbackProvider;
+    }
+
+    console.error(
+      `[LLMRouter] No AI provider available for task: ${configTaskType} for user: ${userId}. User must set up at least one provider with compatible models in AI Settings.`,
+    );
+    return null;
+  }
+
+  /**
+   * Find a fallback provider when no task-specific configuration exists
+   * Searches for any enabled provider with a model that has the required capability
+   * If userId is "system", searches across all users to find any available provider
+   */
+  private async getFallbackProvider(
+    userId: string,
+    capability: string,
+  ): Promise<ProviderConfig | null> {
+    // For "system" user, we need to search across all users
+    const whereClause =
+      userId === "system" ? { isEnabled: true } : { userId, isEnabled: true };
+
+    // First, try to find a provider with a model that explicitly has this capability
+    const providerWithCapability = await prisma.aIProvider.findFirst({
+      where: {
+        ...whereClause,
+        models: {
+          some: {
+            capabilities: {
+              has: capability as any,
+            },
+          },
+        },
+      },
+      include: {
+        models: {
+          where: {
+            capabilities: {
+              has: capability as any,
+            },
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (providerWithCapability && providerWithCapability.models.length > 0) {
+      if (userId === "system") {
+        console.info(
+          `[LLMRouter] Using global fallback provider "${providerWithCapability.name}" for system-level task`,
+        );
+      }
+      return {
+        id: providerWithCapability.id,
+        name: providerWithCapability.name,
+        apiKey: providerWithCapability.apiKey,
+        baseUrl: providerWithCapability.baseUrl,
+        modelId: providerWithCapability.models[0].modelId,
+      };
+    }
+
+    // If no provider with explicit capability, try to use any enabled provider
+    // For general LLM tasks (CHAT, ROUTING, REFLECTION, SUMMARIZATION, ANALYSIS)
+    // any chat-capable model should work
+    const llmCapabilities = [
+      "CHAT",
+      "ROUTING",
+      "REFLECTION",
+      "SUMMARIZATION",
+      "ANALYSIS",
+    ];
+    if (llmCapabilities.includes(capability)) {
+      // Find any provider with a CHAT capable model as a last resort
+      const anyLLMProvider = await prisma.aIProvider.findFirst({
+        where: {
+          ...whereClause,
+          models: {
+            some: {
+              capabilities: {
+                has: "CHAT" as any,
+              },
+            },
+          },
+        },
+        include: {
+          models: {
+            where: {
+              capabilities: {
+                has: "CHAT" as any,
+              },
+            },
+            take: 1,
+          },
+        },
+      });
+
+      if (anyLLMProvider && anyLLMProvider.models.length > 0) {
+        console.info(
+          `[LLMRouter] Using CHAT-capable model "${anyLLMProvider.models[0].modelId}" as fallback for ${capability}`,
+        );
+        return {
+          id: anyLLMProvider.id,
+          name: anyLLMProvider.name,
+          apiKey: anyLLMProvider.apiKey,
+          baseUrl: anyLLMProvider.baseUrl,
+          modelId: anyLLMProvider.models[0].modelId,
+        };
+      }
+
+      // Last resort: find any enabled provider with any model
+      const anyProvider = await prisma.aIProvider.findFirst({
+        where: {
+          ...whereClause,
+          models: {
+            some: {},
+          },
+        },
+        include: {
+          models: {
+            take: 1,
+          },
+        },
+      });
+
+      if (anyProvider && anyProvider.models.length > 0) {
+        console.warn(
+          `[LLMRouter] Using any available model "${anyProvider.models[0].modelId}" as last resort fallback for ${capability}`,
+        );
+        return {
+          id: anyProvider.id,
+          name: anyProvider.name,
+          apiKey: anyProvider.apiKey,
+          baseUrl: anyProvider.baseUrl,
+          modelId: anyProvider.models[0].modelId,
+        };
+      }
+    }
+
+    return null;
   }
 
   /**

@@ -16,35 +16,36 @@
  * - Reduces API costs by ~80-90% while maintaining quality
  */
 
-import { EventEmitter } from "events";
-import prisma from "./prisma.js";
-import { getEmbeddingService } from "./embedding-wrapper.js";
-import { MemoryManagerService } from "./memory-manager.js";
-import { IntentRouterService, ClassificationResult } from "./intent-router.js";
+import {
+  ChunkAnalysisContext,
+  TranscriptionChunk,
+  TranscriptionContextBuffer,
+} from "./transcription-context-buffer.js";
+import { ClassificationResult, IntentRouterService } from "./intent-router.js";
+import {
+  DEFAULT_ADAPTIVE_CONFIG,
+  adaptiveSpeakerLearningService,
+} from "./adaptive-speaker-learning.js";
 import {
   VoiceActivityDetector as ImprovedVAD,
   getVoiceActivityDetector,
 } from "./voice-activity-detector.js";
 import {
-  noiseFilterService,
   NoiseFilterContext,
   NoiseFilterResult,
+  noiseFilterService,
 } from "./noise-filter.js";
+
+import { EventEmitter } from "events";
+import { MemoryManagerService } from "./memory-manager.js";
 import OpenAI from "openai";
 import { flowTracker } from "./flow-tracker.js";
-import { randomBytes } from "crypto";
-import { 
-  TranscriptionContextBuffer, 
-  TranscriptionChunk,
-  ChunkAnalysisContext,
-} from "./transcription-context-buffer.js";
-import { notificationService } from "./notification.js";
+import { getEmbeddingService } from "./embedding-wrapper.js";
 import { memorySearchService } from "./memory-search.js";
+import { notificationService } from "./notification.js";
+import prisma from "./prisma.js";
+import { randomBytes } from "crypto";
 import { toolExecutorService } from "./tool-executor.js";
-import { 
-  adaptiveSpeakerLearningService,
-  DEFAULT_ADAPTIVE_CONFIG,
-} from "./adaptive-speaker-learning.js";
 
 // ==================== Types ====================
 
@@ -244,7 +245,9 @@ export class ContinuousListeningService extends EventEmitter {
 
     // Log context buffer initialization
     if (config.sessionId) {
-      console.log(`📝 [ContinuousListening] Context buffer initialized for session ${config.sessionId.slice(0, 8)}...`);
+      console.log(
+        `📝 [ContinuousListening] Context buffer initialized for session ${config.sessionId.slice(0, 8)}...`,
+      );
     }
   }
 
@@ -303,7 +306,9 @@ export class ContinuousListeningService extends EventEmitter {
       // Accumulate speech in separate buffer
       this.speechBuffer.write(chunk.data);
 
-      console.log(`🟢 [VAD] Voice detected! Energy: ${vadResult.energyLevel?.toFixed(3) || 'N/A'}, Score: ${vadResult.vadScore?.toFixed(3) || 'N/A'}, Confidence: ${(vadResult.confidence * 100).toFixed(1)}%`);
+      console.log(
+        `🟢 [VAD] Voice detected! Energy: ${vadResult.energyLevel?.toFixed(3) || "N/A"}, Score: ${vadResult.vadScore?.toFixed(3) || "N/A"}, Confidence: ${(vadResult.confidence * 100).toFixed(1)}%`,
+      );
 
       this.emit("vad_status", {
         isSpeech: true,
@@ -322,18 +327,27 @@ export class ContinuousListeningService extends EventEmitter {
     // IMPORTANT: Use 1.5s minimum for reliable speaker identification (ECAPA-TDNN needs more audio)
     // Short clips (< 1.5s) have significantly lower accuracy for speaker recognition
     const MIN_DURATION_FOR_PROCESSING = 1.5; // seconds - increased from 0.5 for better speaker ID
-    if (this.vad.hasSpeechEnded() && this.speechBuffer.hasMinDuration(MIN_DURATION_FOR_PROCESSING)) {
-      console.log(`\n🟡 [VAD] Speech segment ended - accumulated ${this.speechBuffer.getDuration().toFixed(2)}s of audio`);
+    if (
+      this.vad.hasSpeechEnded() &&
+      this.speechBuffer.hasMinDuration(MIN_DURATION_FOR_PROCESSING)
+    ) {
+      console.log(
+        `\n🟡 [VAD] Speech segment ended - accumulated ${this.speechBuffer.getDuration().toFixed(2)}s of audio`,
+      );
       console.log(`🔄 [PROCESSING] Starting speech processing pipeline...`);
       // Process the accumulated speech
       return this.processAccumulatedSpeech();
     }
-    
+
     // For very short speech segments (0.5-1.5s), still process but log warning about speaker ID reliability
     if (this.vad.hasSpeechEnded() && this.speechBuffer.hasMinDuration(0.5)) {
       const duration = this.speechBuffer.getDuration();
-      console.log(`\n🟡 [VAD] Short speech segment ended - ${duration.toFixed(2)}s (below ${MIN_DURATION_FOR_PROCESSING}s threshold)`);
-      console.log(`⚠️ [WARNING] Speaker identification may be less accurate for short segments`);
+      console.log(
+        `\n🟡 [VAD] Short speech segment ended - ${duration.toFixed(2)}s (below ${MIN_DURATION_FOR_PROCESSING}s threshold)`,
+      );
+      console.log(
+        `⚠️ [WARNING] Speaker identification may be less accurate for short segments`,
+      );
       return this.processAccumulatedSpeech();
     }
 
@@ -359,9 +373,9 @@ export class ContinuousListeningService extends EventEmitter {
     const flowId = randomBytes(8).toString("hex");
     const startTime = Date.now();
 
-    console.log(`\n${'─'.repeat(50)}`);
+    console.log(`\n${"─".repeat(50)}`);
     console.log(`🎯 [PIPELINE] Processing speech segment (flow: ${flowId})`);
-    console.log(`${'─'.repeat(50)}`);
+    console.log(`${"─".repeat(50)}`);
 
     // Start flow tracking for audio processing
     flowTracker.startFlow(flowId, "audio_stream");
@@ -386,8 +400,12 @@ export class ContinuousListeningService extends EventEmitter {
       const speakerStart = Date.now();
       const speakerResult = await this.identifySpeaker(audioData, duration);
 
-      console.log(`   → Speaker: ${speakerResult.isTargetUser ? '✅ Target user' : '❌ Other/Unknown'}`);
-      console.log(`   → Confidence: ${(speakerResult.confidence * 100).toFixed(1)}%`);
+      console.log(
+        `   → Speaker: ${speakerResult.isTargetUser ? "✅ Target user" : "❌ Other/Unknown"}`,
+      );
+      console.log(
+        `   → Confidence: ${(speakerResult.confidence * 100).toFixed(1)}%`,
+      );
       console.log(`   → Speaker ID: ${speakerResult.speakerId}`);
       console.log(`   → Duration: ${Date.now() - speakerStart}ms`);
 
@@ -404,16 +422,16 @@ export class ContinuousListeningService extends EventEmitter {
             this.config.speakerProfileId,
             speakerResult.embedding,
             speakerResult.confidence,
-            audioData
+            audioData,
           )
           .then((result) => {
             if (result.action === "admitted") {
               console.log(
-                `   🧠 [ADAPTIVE] Sample accepted for learning (similarity: ${(speakerResult.confidence * 100).toFixed(1)}%)`
+                `   🧠 [ADAPTIVE] Sample accepted for learning (similarity: ${(speakerResult.confidence * 100).toFixed(1)}%)`,
               );
             } else if (result.action === "negative_stored") {
               console.log(
-                `   🧠 [ADAPTIVE] Collected as negative example (other speaker)`
+                `   🧠 [ADAPTIVE] Collected as negative example (other speaker)`,
               );
             }
             // Log rejection reasons at debug level only
@@ -423,7 +441,9 @@ export class ContinuousListeningService extends EventEmitter {
           })
           .catch((err) => {
             // Silent failure - adaptive learning should never break the main flow
-            console.debug(`   🧠 [ADAPTIVE] Error (non-critical): ${err.message}`);
+            console.debug(
+              `   🧠 [ADAPTIVE] Error (non-critical): ${err.message}`,
+            );
           });
       }
 
@@ -464,9 +484,13 @@ export class ContinuousListeningService extends EventEmitter {
       const transcriptionStart = Date.now();
       const transcription = await this.transcribeAudio(audioData, duration);
 
-      console.log(`   → Text: "${transcription.text.slice(0, 100)}${transcription.text.length > 100 ? '...' : ''}"`);
+      console.log(
+        `   → Text: "${transcription.text.slice(0, 100)}${transcription.text.length > 100 ? "..." : ""}"`,
+      );
       console.log(`   → Language: ${transcription.language}`);
-      console.log(`   → Confidence: ${(transcription.confidence * 100).toFixed(1)}%`);
+      console.log(
+        `   → Confidence: ${(transcription.confidence * 100).toFixed(1)}%`,
+      );
       console.log(`   → Duration: ${Date.now() - transcriptionStart}ms`);
 
       flowTracker.trackEvent({
@@ -503,7 +527,7 @@ export class ContinuousListeningService extends EventEmitter {
       // Add transcription to context buffer for continuous conversation tracking
       // ============================================================================
       console.log(`\n📚 [STEP 2.25] Adding to context buffer...`);
-      
+
       const transcriptionChunk: TranscriptionChunk = {
         text: transcription.text,
         timestamp: Date.now(),
@@ -514,15 +538,23 @@ export class ContinuousListeningService extends EventEmitter {
 
       const chunkAnalysis = this.contextBuffer.addChunk(transcriptionChunk);
       const contextStats = this.contextBuffer.getStats();
-      
+
       console.log(`   → Chunk added to context buffer`);
-      console.log(`   → Is continuation: ${chunkAnalysis.isContinuation ? '✅ Yes' : '❌ No'}`);
-      console.log(`   → Time since last chunk: ${chunkAnalysis.timeSinceLastChunk.toFixed(1)}s`);
+      console.log(
+        `   → Is continuation: ${chunkAnalysis.isContinuation ? "✅ Yes" : "❌ No"}`,
+      );
+      console.log(
+        `   → Time since last chunk: ${chunkAnalysis.timeSinceLastChunk.toFixed(1)}s`,
+      );
       console.log(`   → Total chunks in context: ${contextStats.chunkCount}`);
       console.log(`   → Context tokens: ~${contextStats.tokenCount}`);
-      console.log(`   → Conversation duration: ${contextStats.conversationDurationSeconds.toFixed(1)}s`);
+      console.log(
+        `   → Conversation duration: ${contextStats.conversationDurationSeconds.toFixed(1)}s`,
+      );
       if (chunkAnalysis.previousChunkText) {
-        console.log(`   → Previous chunk: "${chunkAnalysis.previousChunkText.slice(0, 50)}..."`);
+        console.log(
+          `   → Previous chunk: "${chunkAnalysis.previousChunkText.slice(0, 50)}..."`,
+        );
       }
 
       flowTracker.trackEvent({
@@ -537,7 +569,7 @@ export class ContinuousListeningService extends EventEmitter {
           tokenCount: contextStats.tokenCount,
           conversationDuration: contextStats.conversationDurationSeconds,
         },
-        decision: chunkAnalysis.isContinuation 
+        decision: chunkAnalysis.isContinuation
           ? "Chunk is continuation of previous speech"
           : "New speech segment",
       });
@@ -546,7 +578,9 @@ export class ContinuousListeningService extends EventEmitter {
       // Step 2.5: NOISE FILTERING with CONTINUOUS CONTEXT (UPDATED)
       // Now includes full context from context buffer
       // ============================================================================
-      console.log(`\n🚫 [STEP 2.5] Noise filtering (with continuous context)...`);
+      console.log(
+        `\n🚫 [STEP 2.5] Noise filtering (with continuous context)...`,
+      );
       const noiseFilterStart = Date.now();
 
       // Load user preferences for noise filtering
@@ -568,7 +602,7 @@ export class ContinuousListeningService extends EventEmitter {
         userId: this.config.userId,
         // Determine time of day
         timeOfDay: this.getTimeOfDay(),
-        
+
         // ============================================================================
         // NEW: Continuous Audio Context from buffer
         // ============================================================================
@@ -579,7 +613,7 @@ export class ContinuousListeningService extends EventEmitter {
         conversationDuration: bufferContext.conversationDuration,
         previousChunkText: chunkAnalysis.previousChunkText,
         recentTranscripts: bufferContext.recentTranscripts,
-        
+
         // User preferences for noise filtering (use defaults if new fields don't exist yet)
         userPreferences: userSettings
           ? {
@@ -601,13 +635,21 @@ export class ContinuousListeningService extends EventEmitter {
         noiseFilterContext,
       );
 
-      console.log(`   → Is meaningful: ${noiseFilterResult.isMeaningful ? '✅ Yes' : '❌ No'}`);
+      console.log(
+        `   → Is meaningful: ${noiseFilterResult.isMeaningful ? "✅ Yes" : "❌ No"}`,
+      );
       console.log(`   → Category: ${noiseFilterResult.category}`);
-      console.log(`   → Confidence: ${(noiseFilterResult.confidence * 100).toFixed(1)}%`);
-      console.log(`   → Suggested action: ${noiseFilterResult.suggestedAction}`);
+      console.log(
+        `   → Confidence: ${(noiseFilterResult.confidence * 100).toFixed(1)}%`,
+      );
+      console.log(
+        `   → Suggested action: ${noiseFilterResult.suggestedAction}`,
+      );
       console.log(`   → Reason: ${noiseFilterResult.reason}`);
       console.log(`   → Duration: ${Date.now() - noiseFilterStart}ms`);
-      console.log(`   → Context used: ${bufferContext.chunkCount} chunks, ${bufferContext.conversationDuration.toFixed(1)}s`);
+      console.log(
+        `   → Context used: ${bufferContext.chunkCount} chunks, ${bufferContext.conversationDuration.toFixed(1)}s`,
+      );
 
       flowTracker.trackEvent({
         flowId,
@@ -636,9 +678,11 @@ export class ContinuousListeningService extends EventEmitter {
         !noiseFilterResult.isMeaningful &&
         noiseFilterResult.suggestedAction === "discard"
       ) {
-        console.log(`\n🗑️ [RESULT] Content filtered as noise - skipping further processing`);
-        console.log(`${'─'.repeat(50)}\n`);
-        
+        console.log(
+          `\n🗑️ [RESULT] Content filtered as noise - skipping further processing`,
+        );
+        console.log(`${"─".repeat(50)}\n`);
+
         flowTracker.completeFlow(flowId, "completed");
         this.state = "listening";
         this.isProcessing = false;
@@ -659,13 +703,19 @@ export class ContinuousListeningService extends EventEmitter {
       const hasWakeWord = this.detectWakeWord(transcription.text);
       const classification = await this.intentRouter.classifyInput(
         transcription.text,
-        { hasWakeWord, duration },
+        { hasWakeWord, duration, userId: this.config.userId },
       );
 
-      console.log(`   → Wake word detected: ${hasWakeWord ? '✅ Yes' : '❌ No'}`);
+      console.log(
+        `   → Wake word detected: ${hasWakeWord ? "✅ Yes" : "❌ No"}`,
+      );
       console.log(`   → Input type: ${classification.inputType}`);
-      console.log(`   → Confidence: ${(classification.confidence * 100).toFixed(1)}%`);
-      console.log(`   → Should store: ${classification.shouldStore ? '✅ Yes' : '❌ No'}`);
+      console.log(
+        `   → Confidence: ${(classification.confidence * 100).toFixed(1)}%`,
+      );
+      console.log(
+        `   → Should store: ${classification.shouldStore ? "✅ Yes" : "❌ No"}`,
+      );
       console.log(`   → Duration: ${Date.now() - classificationStart}ms`);
 
       flowTracker.trackEvent({
@@ -686,9 +736,11 @@ export class ContinuousListeningService extends EventEmitter {
         // Command mode - active response needed
         const commandText = this.removeWakeWord(transcription.text);
 
-        console.log(`\n💡 [RESULT] Wake word detected! Activating command mode`);
+        console.log(
+          `\n💡 [RESULT] Wake word detected! Activating command mode`,
+        );
         console.log(`   → Command: "${commandText}"`);
-        console.log(`${'─'.repeat(50)}\n`);
+        console.log(`${"─".repeat(50)}\n`);
 
         flowTracker.trackEvent({
           flowId,
@@ -724,9 +776,13 @@ export class ContinuousListeningService extends EventEmitter {
         classification.inputType === "question" &&
         classification.confidence >= 0.7
       ) {
-        console.log(`\n❓ [AUTO-RESPOND] Question detected - processing without wake word`);
+        console.log(
+          `\n❓ [AUTO-RESPOND] Question detected - processing without wake word`,
+        );
         console.log(`   → Question: "${transcription.text}"`);
-        console.log(`   → Confidence: ${(classification.confidence * 100).toFixed(1)}%`);
+        console.log(
+          `   → Confidence: ${(classification.confidence * 100).toFixed(1)}%`,
+        );
 
         flowTracker.trackEvent({
           flowId,
@@ -737,7 +793,11 @@ export class ContinuousListeningService extends EventEmitter {
         });
 
         // Process the question through AI and send notification
-        await this.processQuestionAndRespond(transcription.text, flowId, startTime);
+        await this.processQuestionAndRespond(
+          transcription.text,
+          flowId,
+          startTime,
+        );
 
         // Also store to memory
         const memoryStart = Date.now();
@@ -752,7 +812,9 @@ export class ContinuousListeningService extends EventEmitter {
         );
 
         console.log(`   → Memory ID: ${memory.id}`);
-        console.log(`   → Memory storage duration: ${Date.now() - memoryStart}ms`);
+        console.log(
+          `   → Memory storage duration: ${Date.now() - memoryStart}ms`,
+        );
 
         flowTracker.completeFlow(flowId, "completed");
 
@@ -767,7 +829,11 @@ export class ContinuousListeningService extends EventEmitter {
         return {
           type: "command", // Treat as command since we responded
           timestamp: Date.now(),
-          data: { text: transcription.text, classification, memoryId: memory.id },
+          data: {
+            text: transcription.text,
+            classification,
+            memoryId: memory.id,
+          },
         };
       }
 
@@ -792,7 +858,7 @@ export class ContinuousListeningService extends EventEmitter {
         console.log(`   → Duration: ${Date.now() - memoryStart}ms`);
         console.log(`\n✅ [RESULT] Memory stored successfully!`);
         console.log(`   → Total processing time: ${Date.now() - startTime}ms`);
-        console.log(`${'─'.repeat(50)}\n`);
+        console.log(`${"─".repeat(50)}\n`);
 
         flowTracker.trackEvent({
           flowId,
@@ -820,11 +886,15 @@ export class ContinuousListeningService extends EventEmitter {
       }
 
       // Not relevant enough to store
-      console.log(`\n⚠️ [RESULT] Content below importance threshold - not storing`);
-      console.log(`   → Confidence: ${(classification.confidence * 100).toFixed(1)}% < ${(this.config.minImportanceThreshold * 100).toFixed(1)}% threshold`);
+      console.log(
+        `\n⚠️ [RESULT] Content below importance threshold - not storing`,
+      );
+      console.log(
+        `   → Confidence: ${(classification.confidence * 100).toFixed(1)}% < ${(this.config.minImportanceThreshold * 100).toFixed(1)}% threshold`,
+      );
       console.log(`   → Should store: ${classification.shouldStore}`);
-      console.log(`${'─'.repeat(50)}\n`);
-      
+      console.log(`${"─".repeat(50)}\n`);
+
       flowTracker.trackEvent({
         flowId,
         stage: "memory_storage",
@@ -843,7 +913,7 @@ export class ContinuousListeningService extends EventEmitter {
       };
     } catch (error) {
       console.error(`\n❌ [ERROR] Error processing speech:`, error);
-      console.log(`${'─'.repeat(50)}\n`);
+      console.log(`${"─".repeat(50)}\n`);
 
       flowTracker.trackEvent({
         flowId,
@@ -865,11 +935,11 @@ export class ContinuousListeningService extends EventEmitter {
 
   /**
    * Identify speaker from audio
-   * 
+   *
    * IMPORTANT: Speaker identification accuracy depends heavily on audio duration.
    * ECAPA-TDNN models work best with 3+ seconds of speech. Shorter clips will have
    * adjusted thresholds to account for lower reliability.
-   * 
+   *
    * @param audioData - PCM audio buffer
    * @param audioDuration - Duration in seconds (used to adjust confidence thresholds)
    */
@@ -916,26 +986,39 @@ export class ContinuousListeningService extends EventEmitter {
       // This helps bridge the gap between training (long samples) and real-time (short segments)
       let adjustedThreshold = this.config.speakerConfidenceThreshold;
       let confidenceNote = "";
-      
+
       if (audioDuration !== undefined) {
         if (audioDuration < 1.0) {
           // Very short clip: lower threshold significantly (embeddings are unreliable)
-          adjustedThreshold = Math.max(0.35, this.config.speakerConfidenceThreshold - 0.25);
+          adjustedThreshold = Math.max(
+            0.35,
+            this.config.speakerConfidenceThreshold - 0.25,
+          );
           confidenceNote = " (very short audio - threshold lowered)";
         } else if (audioDuration < 1.5) {
           // Short clip: lower threshold moderately
-          adjustedThreshold = Math.max(0.40, this.config.speakerConfidenceThreshold - 0.20);
+          adjustedThreshold = Math.max(
+            0.4,
+            this.config.speakerConfidenceThreshold - 0.2,
+          );
           confidenceNote = " (short audio - threshold lowered)";
         } else if (audioDuration < 2.5) {
           // Medium clip: lower threshold slightly
-          adjustedThreshold = Math.max(0.50, this.config.speakerConfidenceThreshold - 0.10);
+          adjustedThreshold = Math.max(
+            0.5,
+            this.config.speakerConfidenceThreshold - 0.1,
+          );
           confidenceNote = " (medium audio - threshold slightly lowered)";
         }
         // For clips >= 2.5s, use the configured threshold as-is
-        
+
         if (confidenceNote) {
-          console.log(`   → Audio duration: ${audioDuration.toFixed(2)}s${confidenceNote}`);
-          console.log(`   → Adjusted threshold: ${(adjustedThreshold * 100).toFixed(1)}% (original: ${(this.config.speakerConfidenceThreshold * 100).toFixed(1)}%)`);
+          console.log(
+            `   → Audio duration: ${audioDuration.toFixed(2)}s${confidenceNote}`,
+          );
+          console.log(
+            `   → Adjusted threshold: ${(adjustedThreshold * 100).toFixed(1)}% (original: ${(this.config.speakerConfidenceThreshold * 100).toFixed(1)}%)`,
+          );
         }
       }
 
@@ -1100,9 +1183,10 @@ export class ContinuousListeningService extends EventEmitter {
       }
 
       // Build context
-      const memoryContext = relevantMemories.length > 0
-        ? `\n\nRelevant memories:\n${relevantMemories.map((m, i) => `${i + 1}. ${m}`).join('\n')}`
-        : '';
+      const memoryContext =
+        relevantMemories.length > 0
+          ? `\n\nRelevant memories:\n${relevantMemories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`
+          : "";
 
       // Create OpenAI client
       const openai = new OpenAI({
@@ -1117,7 +1201,7 @@ export class ContinuousListeningService extends EventEmitter {
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         {
           role: "system",
-          content: `You are a helpful AI assistant integrated into a "Second Brain" system. 
+          content: `You are a helpful AI assistant integrated into a "Second Brain" system.
 You help the user with questions and tasks based on their voice commands.
 Respond concisely and helpfully. If you need to use tools to answer the question, use them.
 The current time is ${new Date().toLocaleString()}.${memoryContext}`,
@@ -1129,9 +1213,13 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
       ];
 
       // Format tools for OpenAI API (must be wrapped in {type: "function", function: schema})
-      const formattedTools = tools.length > 0 
-        ? tools.map((schema) => ({ type: "function" as const, function: schema }))
-        : undefined;
+      const formattedTools =
+        tools.length > 0
+          ? tools.map((schema) => ({
+              type: "function" as const,
+              function: schema,
+            }))
+          : undefined;
 
       let response = await openai.chat.completions.create({
         model: taskConfig.model?.modelId || "gpt-4",
@@ -1150,7 +1238,9 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
 
       while (assistantMessage.tool_calls && toolCallCount < maxToolCalls) {
         toolCallCount++;
-        console.log(`   🔧 Tool call ${toolCallCount}: ${assistantMessage.tool_calls.map(tc => tc.function.name).join(', ')}`);
+        console.log(
+          `   🔧 Tool call ${toolCallCount}: ${assistantMessage.tool_calls.map((tc) => tc.function.name).join(", ")}`,
+        );
 
         // Add assistant message with tool calls
         messages.push(assistantMessage);
@@ -1163,7 +1253,7 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
               this.config.userId,
               {
                 toolId: toolCall.function.name,
-                action: toolParams.action || 'default',
+                action: toolParams.action || "default",
                 params: toolParams,
               },
             );
@@ -1171,7 +1261,10 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
             messages.push({
               role: "tool",
               tool_call_id: toolCall.id,
-              content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+              content:
+                typeof toolResult === "string"
+                  ? toolResult
+                  : JSON.stringify(toolResult),
             });
           } catch (toolError) {
             console.log(`   ⚠️ Tool error: ${toolError}`);
@@ -1199,12 +1292,14 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
       }
 
       console.log(`   → AI response generated in ${Date.now() - aiStart}ms`);
-      console.log(`   → Response: "${finalResponse.substring(0, 100)}${finalResponse.length > 100 ? '...' : ''}"`);
+      console.log(
+        `   → Response: "${finalResponse.substring(0, 100)}${finalResponse.length > 100 ? "..." : ""}"`,
+      );
 
       // Send notification with the response
       if (finalResponse) {
         const notificationStart = Date.now();
-        
+
         await notificationService.createNotification({
           userId: this.config.userId,
           title: "🎤 Voice Question Answer",
@@ -1221,7 +1316,9 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
           skipSpamCheck: true, // Voice questions should always get through
         });
 
-        console.log(`   → Notification sent in ${Date.now() - notificationStart}ms`);
+        console.log(
+          `   → Notification sent in ${Date.now() - notificationStart}ms`,
+        );
 
         flowTracker.trackEvent({
           flowId,
@@ -1359,17 +1456,21 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`,
     this.audioBuffer.clear();
     this.speechBuffer.clear();
     this.vad.reset();
-    
+
     // Clear context buffer and log stats before cleanup
     const contextStats = this.contextBuffer.getStats();
     if (contextStats.chunkCount > 0 || contextStats.rotatedChunksCount > 0) {
       console.log(`📊 [ContinuousListening] Context buffer stats on stop:`);
-      console.log(`   → Total chunks processed: ${contextStats.chunkCount + contextStats.rotatedChunksCount}`);
+      console.log(
+        `   → Total chunks processed: ${contextStats.chunkCount + contextStats.rotatedChunksCount}`,
+      );
       console.log(`   → Final tokens: ${contextStats.tokenCount}`);
-      console.log(`   → Conversation duration: ${contextStats.conversationDurationSeconds.toFixed(1)}s`);
+      console.log(
+        `   → Conversation duration: ${contextStats.conversationDurationSeconds.toFixed(1)}s`,
+      );
     }
     this.contextBuffer.clear();
-    
+
     this.removeAllListeners();
   }
 
@@ -1445,16 +1546,18 @@ export class ContinuousListeningManager {
     const service = new ContinuousListeningService(config);
     this.sessions.set(userId, service);
 
-    console.log(`\n${'='.repeat(60)}`);
+    console.log(`\n${"=".repeat(60)}`);
     console.log(`✅ [SESSION] Started continuous listening session`);
-    console.log(`${'='.repeat(60)}`);
+    console.log(`${"=".repeat(60)}`);
     console.log(`👤 User ID: ${userId}`);
     console.log(`🗣️ Wake word: "${config.wakeWord}"`);
     console.log(`🎤 VAD sensitivity: ${config.vadSensitivity}`);
     console.log(`📊 Min importance: ${config.minImportanceThreshold}`);
-    console.log(`👤 Speaker profile: ${config.speakerProfileId || 'none'}`);
-    console.log(`❓ Auto-respond to questions: ${config.autoRespondToQuestions ? '✅ Yes' : '❌ No'}`);
-    console.log(`${'='.repeat(60)}\n`);
+    console.log(`👤 Speaker profile: ${config.speakerProfileId || "none"}`);
+    console.log(
+      `❓ Auto-respond to questions: ${config.autoRespondToQuestions ? "✅ Yes" : "❌ No"}`,
+    );
+    console.log(`${"=".repeat(60)}\n`);
 
     return service;
   }
@@ -1474,9 +1577,11 @@ export class ContinuousListeningManager {
     if (session) {
       session.stop();
       this.sessions.delete(userId);
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`🛑 [SESSION] Stopped continuous listening session for user ${userId}`);
-      console.log(`${'='.repeat(60)}\n`);
+      console.log(`\n${"=".repeat(60)}`);
+      console.log(
+        `🛑 [SESSION] Stopped continuous listening session for user ${userId}`,
+      );
+      console.log(`${"=".repeat(60)}\n`);
     }
   }
 
