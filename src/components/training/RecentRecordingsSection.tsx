@@ -5,6 +5,7 @@ import {
   CheckCircle,
   Clock,
   HelpCircle,
+  Play,
   RefreshCw,
   Trash2,
   User,
@@ -24,7 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -293,8 +294,58 @@ function RecordingItem({
   isProcessing,
   formatTimeAgo,
 }: RecordingItemProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const isNegative = recording.type === "negative_example";
   const confidencePercent = Math.round(recording.confidence * 100);
+
+  const handlePlayAudio = async () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        setIsPlaying(false);
+      } else {
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+      return;
+    }
+
+    // If audio element doesn't exist yet, create it
+    try {
+      setIsLoadingAudio(true);
+
+      // Try to get audio from source session
+      let audioUrl = "";
+      if (recording.sourceSessionId) {
+        // For now, we'll try to fetch from the session
+        // The actual endpoint may need to be adjusted based on backend implementation
+        audioUrl = `/api/audio/sessions/${recording.sourceSessionId}/download`;
+      }
+
+      if (!audioUrl) {
+        // If no source session, try recording ID directly
+        audioUrl = `/api/adaptive-learning/recordings/${recording.id}/audio`;
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.addEventListener("ended", () => {
+        setIsPlaying(false);
+      });
+
+      audio.play();
+      setIsPlaying(true);
+    } catch (error) {
+      console.error("Failed to play audio:", error);
+    } finally {
+      setIsLoadingAudio(false);
+    }
+  };
 
   return (
     <div
@@ -365,6 +416,39 @@ function RecordingItem({
 
       {/* Action Buttons */}
       <div className="flex items-center gap-2 shrink-0 ml-3">
+        {/* Play Button */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePlayAudio}
+                disabled={isProcessing || isLoadingAudio}
+                className="gap-1.5 bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+              >
+                {isLoadingAudio ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : isPlaying ? (
+                  <div className="flex gap-1 items-center">
+                    <div className="w-1 h-3 bg-blue-600 rounded"></div>
+                    <div className="w-1 h-4 bg-blue-600 rounded"></div>
+                    <div className="w-1 h-3 bg-blue-600 rounded"></div>
+                  </div>
+                ) : (
+                  <Play className="h-3.5 w-3.5 fill-current" />
+                )}
+                <span className="hidden sm:inline">
+                  {isPlaying ? "Stop" : "Play"}
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isPlaying ? "Stop playback" : "Play audio"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         {isNegative ? (
           <TooltipProvider>
             <Tooltip>
