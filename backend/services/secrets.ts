@@ -364,10 +364,7 @@ class SecretsService {
       where: {
         userId,
         // Exclude expired secrets
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } },
-        ],
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
       select: {
         key: true,
@@ -383,7 +380,6 @@ class SecretsService {
       displayName: s.displayName,
       category: s.category || "general",
     }));
-  }
   }
 }
 
