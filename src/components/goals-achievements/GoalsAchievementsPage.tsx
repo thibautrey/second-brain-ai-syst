@@ -517,6 +517,7 @@ function AchievementsTabContent({
   refresh,
   unlockAchievement,
 }: ReturnType<typeof useAchievements>) {
+  const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<"all" | "unlocked" | "locked">("all");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
