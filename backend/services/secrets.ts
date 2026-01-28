@@ -377,7 +377,13 @@ class SecretsService {
       orderBy: { category: "asc" },
     });
 
-    return secrets;
+    // Map to ensure category is never null
+    return secrets.map((s) => ({
+      key: s.key,
+      displayName: s.displayName,
+      category: s.category || "general",
+    }));
+  }
   }
 }
 
