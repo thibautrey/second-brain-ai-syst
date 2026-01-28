@@ -492,7 +492,7 @@ export class AdaptiveProfileUpdater {
     embedding: number[],
     audioBuffer: Buffer,
     similarity: number,
-    sourceInfo: { type: string; sessionId?: string },
+    sourceInfo: { type: string; sessionId?: string; mimeType?: string },
   ): Promise<AdmissionResult> {
     // 1. Get profile and check if adaptive learning is enabled
     const profile = await prisma.speakerProfile.findUnique({
