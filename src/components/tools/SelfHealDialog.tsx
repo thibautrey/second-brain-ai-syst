@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Zap,
 } from "lucide-react";
+import { apiPost } from "../../services/api";
 
 interface Task {
   task: string;
@@ -40,35 +41,6 @@ interface SelfHealDialogProps {
   toolName: string;
 }
 
-async function fetchWithAuth(
-  url: string,
-  options: RequestInit = {},
-): Promise<any> {
-  const token = localStorage.getItem("token");
-
-  const response = await fetch(`/api${url}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`API Error ${response.status}: ${response.statusText}`);
-  }
-
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    throw new Error(
-      "Server returned non-JSON response. API endpoints may not be implemented.",
-    );
-  }
-
-  return response.json();
-}
-
 export function SelfHealDialog({
   open,
   onOpenChange,
@@ -87,14 +59,9 @@ export function SelfHealDialog({
     setHealed(false);
 
     try {
-      const response = await fetchWithAuth(
+      const data = await apiPost<SelfHealResponse>(
         `/generated-tools/${toolId}/self-heal`,
-        {
-          method: "POST",
-        },
       );
-
-      const data: SelfHealResponse = response;
 
       setTasks(data.tasks);
       setHealed(!data.hasErrors);

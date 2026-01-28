@@ -540,3 +540,118 @@ export async function verifyVoice(
   const data = await response.json();
   return data.verification;
 }
+
+// ==================== Recent Recordings Management ====================
+
+export interface RecentRecording {
+  id: string;
+  type: "negative_example" | "adaptive_sample" | "unclassified";
+  capturedAt: string;
+  confidence: number;
+  sourceSessionId?: string;
+  similarity?: number;
+  duration?: number;
+  hasAudio?: boolean;
+}
+
+export interface RecentRecordingsResponse {
+  success: boolean;
+  recordings: RecentRecording[];
+  stats: {
+    totalNegatives: number;
+    totalPositives: number;
+  };
+}
+
+/**
+ * Get recent recordings from continuous listening with classification status
+ * Returns both negative examples and adaptive samples for user review
+ */
+export async function getRecentRecordings(
+  profileId?: string,
+  limit: number = 50,
+): Promise<RecentRecordingsResponse> {
+  const params = new URLSearchParams();
+  if (profileId) params.append("profileId", profileId);
+  params.append("limit", limit.toString());
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/adaptive-learning/recent-recordings?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to get recent recordings");
+  }
+
+  return response.json();
+}
+
+export interface ReclassifyResult {
+  success: boolean;
+  message: string;
+  action: "removed_negative" | "converted_to_negative";
+}
+
+/**
+ * Reclassify a recording - mark as user's voice or someone else's
+ * @param recordingId The ID of the recording to reclassify
+ * @param newClassification 'user' if it's the user's voice, 'other' if it's not
+ * @param profileId Required when reclassifying adaptive samples
+ */
+export async function reclassifyRecording(
+  recordingId: string,
+  newClassification: "user" | "other",
+  profileId?: string,
+): Promise<ReclassifyResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/adaptive-learning/reclassify/${recordingId}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({ newClassification, profileId }),
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to reclassify recording");
+  }
+
+  return response.json();
+}
+
+/**
+ * Clear all negative examples to reset voice detection
+ * Use when the system has accumulated too many wrong classifications
+ */
+export async function clearAllNegatives(): Promise<{
+  success: boolean;
+  deletedCount: number;
+}> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/adaptive-learning/recent-recordings/clear-negatives`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to clear negative examples");
+  }
+
+  return response.json();
+}

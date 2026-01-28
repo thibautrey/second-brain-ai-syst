@@ -1,12 +1,41 @@
 import { useState, useRef, useEffect } from "react";
-import { AlertCircle, ChevronLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import {
+  AlertCircle,
+  Mic,
+  BookOpen,
+  Sparkles,
+  CheckCircle,
+  Volume2,
+  ArrowRight,
+  User,
+  Shield,
+} from "lucide-react";
 import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { ProfileSelectionStep } from "../components/training/ProfileSelectionStep";
 import { RecordSamplesStep } from "../components/training/RecordSamplesStep";
-import { ReadParagraphStep, TRAINING_PARAGRAPHS_BY_LANGUAGE } from "../components/training/ReadParagraphStep";
+import {
+  ReadParagraphStep,
+  TRAINING_PARAGRAPHS_BY_LANGUAGE,
+} from "../components/training/ReadParagraphStep";
 import { VerificationResults } from "../components/training/VerificationResults";
+import { RecentRecordingsSection } from "../components/training/RecentRecordingsSection";
 import * as trainingAPI from "../services/training-api";
 import { useAuth } from "../contexts/AuthContext";
+import { cn } from "../lib/utils";
 
 interface Recording {
   id: string;
@@ -30,10 +59,19 @@ interface ParagraphRecording {
   uploadStatus: "pending" | "uploading" | "completed" | "failed";
 }
 
-type Step = "profile-selection" | "recording" | "paragraph-reading" | "training" | "verification";
+type Step =
+  | "profile-selection"
+  | "recording"
+  | "paragraph-reading"
+  | "training"
+  | "verification";
 
 export function TrainingPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
+
+  // Main view: 'train' for training flow, 'review' for recent recordings
+  const [activeTab, setActiveTab] = useState<"train" | "review">("train");
 
   // Step management
   const [currentStep, setCurrentStep] = useState<Step>("profile-selection");
@@ -46,7 +84,9 @@ export function TrainingPage() {
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
 
   // Paragraph recording state
-  const [paragraphRecordings, setParagraphRecordings] = useState<ParagraphRecording[]>([]);
+  const [paragraphRecordings, setParagraphRecordings] = useState<
+    ParagraphRecording[]
+  >([]);
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0);
 
   // Training state
@@ -367,7 +407,7 @@ export function TrainingPage() {
     audioBlob: Blob,
     duration: number,
     language: string = "en",
-    paragraphIndex: number
+    paragraphIndex: number,
   ) => {
     setIsLoading(true);
     setError(null);
@@ -399,7 +439,7 @@ export function TrainingPage() {
         `paragraph-recording-${Date.now()}.${extension}`,
         {
           type: actualMimeType,
-        }
+        },
       );
 
       const paragraph = paragraphs[paragraphIndex];
@@ -433,12 +473,14 @@ export function TrainingPage() {
                 uploadedSampleId: uploaded.id,
                 uploadStatus: "completed" as const,
               }
-            : r
-        )
+            : r,
+        ),
       );
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "Failed to upload paragraph recording";
+        err instanceof Error
+          ? err.message
+          : "Failed to upload paragraph recording";
       setError(msg);
 
       // Mark the last recording as failed
@@ -446,8 +488,8 @@ export function TrainingPage() {
         prev.map((r, idx) =>
           idx === prev.length - 1 && r.uploadStatus === "uploading"
             ? { ...r, uploadStatus: "failed" as const }
-            : r
-        )
+            : r,
+        ),
       );
     } finally {
       setIsLoading(false);
@@ -490,8 +532,9 @@ export function TrainingPage() {
     const uploadedParagraphRecordings = paragraphRecordings.filter(
       (r) => r.uploadStatus === "completed",
     );
-    const totalUploadedRecordings = uploadedPhraseRecordings.length + uploadedParagraphRecordings.length;
-    
+    const totalUploadedRecordings =
+      uploadedPhraseRecordings.length + uploadedParagraphRecordings.length;
+
     if (totalUploadedRecordings === 0) {
       setError("No successfully uploaded samples");
       return;
@@ -570,218 +613,373 @@ export function TrainingPage() {
   const steps: Array<{
     key: Step;
     label: string;
+    icon: React.ReactNode;
     completed: boolean;
   }> = [
     {
       key: "profile-selection",
       label: "Profile",
+      icon: <User className="h-4 w-4" />,
       completed: speakerProfileId !== null,
     },
-    { key: "recording", label: "Phrases", completed: recordings.length >= 1 },
-    { key: "paragraph-reading", label: "Paragraphs", completed: paragraphRecordings.length >= 1 },
-    { key: "training", label: "Train", completed: trainingResult !== null },
+    {
+      key: "recording",
+      label: "Phrases",
+      icon: <Mic className="h-4 w-4" />,
+      completed: recordings.length >= 1,
+    },
+    {
+      key: "paragraph-reading",
+      label: "Paragraphs",
+      icon: <BookOpen className="h-4 w-4" />,
+      completed: paragraphRecordings.length >= 1,
+    },
+    {
+      key: "training",
+      label: "Train",
+      icon: <Sparkles className="h-4 w-4" />,
+      completed: trainingResult !== null,
+    },
     {
       key: "verification",
       label: "Verify",
+      icon: <Shield className="h-4 w-4" />,
       completed: verificationResult !== null,
     },
   ];
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 py-6 px-4">
-      {/* Header with back button */}
-      <div className="max-w-4xl mx-auto mb-4">
-        <Button
-          onClick={() => window.history.back()}
-          variant="ghost"
-          className="gap-2 text-slate-600 hover:text-slate-900 mb-3"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back
-        </Button>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-2">
+        <h2 className="text-3xl font-bold text-slate-900">Voice Training</h2>
+        <p className="text-slate-600">
+          Train your voice profile for personalized recognition and speaker
+          identification
+        </p>
       </div>
 
-      {/* Step Progress Indicator */}
-      <div className="max-w-4xl mx-auto mb-6">
-        <div className="flex items-center justify-between">
-          {steps.map((step, idx) => (
-            <div key={step.key} className="flex items-center flex-1">
-              {/* Step Circle */}
-              <div
-                className={`shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-semibold transition-all ${
-                  step.key === currentStep
-                    ? "bg-blue-600 text-white ring-2 ring-blue-200"
-                    : step.completed
-                      ? "bg-green-600 text-white"
-                      : "bg-slate-300 text-slate-600"
-                }`}
-              >
-                {step.completed && step.key !== currentStep ? (
-                  "✓"
-                ) : (
-                  <span>{idx + 1}</span>
-                )}
+      {/* Tabs for Train / Review */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "train" | "review")}
+      >
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="train" className="gap-2">
+            <Mic className="h-4 w-4" />
+            Train Voice
+          </TabsTrigger>
+          <TabsTrigger value="review" className="gap-2">
+            <Volume2 className="h-4 w-4" />
+            Review Audio
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Training Tab */}
+        <TabsContent value="train" className="mt-6 space-y-6">
+          {/* Step Progress Indicator */}
+          <Card className="border-slate-200">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                {steps.map((step, idx) => (
+                  <div key={step.key} className="flex items-center flex-1">
+                    {/* Step Circle */}
+                    <button
+                      onClick={() => {
+                        // Allow navigating to completed or current steps
+                        if (step.completed || step.key === currentStep) {
+                          // Only navigate if conditions are met
+                          if (step.key === "profile-selection") {
+                            setCurrentStep("profile-selection");
+                          } else if (
+                            step.key === "recording" &&
+                            speakerProfileId
+                          ) {
+                            setCurrentStep("recording");
+                          } else if (
+                            step.key === "paragraph-reading" &&
+                            speakerProfileId
+                          ) {
+                            setCurrentStep("paragraph-reading");
+                          }
+                        }
+                      }}
+                      className={cn(
+                        "shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all",
+                        step.key === currentStep
+                          ? "bg-blue-600 text-white ring-4 ring-blue-100 shadow-lg shadow-blue-500/25"
+                          : step.completed
+                            ? "bg-emerald-500 text-white"
+                            : "bg-slate-100 text-slate-400 border-2 border-slate-200",
+                      )}
+                    >
+                      {step.completed && step.key !== currentStep ? (
+                        <CheckCircle className="h-5 w-5" />
+                      ) : (
+                        step.icon
+                      )}
+                    </button>
+
+                    {/* Step Label */}
+                    <p
+                      className={cn(
+                        "ml-2 sm:ml-3 text-sm font-medium hidden sm:block",
+                        step.key === currentStep
+                          ? "text-blue-600"
+                          : step.completed
+                            ? "text-emerald-600"
+                            : "text-slate-400",
+                      )}
+                    >
+                      {step.label}
+                    </p>
+
+                    {/* Connector Line */}
+                    {idx < steps.length - 1 && (
+                      <div
+                        className={cn(
+                          "flex-1 h-0.5 mx-2 sm:mx-4 rounded-full transition-all",
+                          step.completed ? "bg-emerald-400" : "bg-slate-200",
+                        )}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Step Label */}
-              <p
-                className={`ml-2 sm:ml-3 text-xs sm:text-base font-medium ${
-                  step.key === currentStep
-                    ? "text-blue-600"
-                    : step.completed
-                      ? "text-green-600"
-                      : "text-slate-500"
-                }`}
-              >
-                {step.label}
-              </p>
+          {/* Global Error Banner */}
+          {error && currentStep !== "verification" && (
+            <div className="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-red-900">Error</p>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
+              </div>
+            </div>
+          )}
 
-              {/* Connector Line */}
-              {idx < steps.length - 1 && (
-                <div
-                  className={`flex-1 h-1 mx-1 sm:mx-3 rounded-full transition-all ${
-                    step.completed ? "bg-green-600" : "bg-slate-300"
-                  }`}
+          {/* Step Content */}
+          <Card className="border-slate-200 shadow-sm overflow-hidden">
+            <CardContent className="p-6 sm:p-8">
+              {currentStep === "profile-selection" && (
+                <ProfileSelectionStep
+                  onProfileSelected={handleProfileSelected}
+                  onContinue={handleProfileSelectionContinue}
+                  isLoading={isLoading}
+                  error={error || undefined}
                 />
               )}
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto">
-        {/* Global Error Banner */}
-        {error && currentStep !== "verification" && (
-          <div className="mb-4 flex gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-red-900">Error</p>
-              <p className="text-sm text-red-800 mt-1">{error || ""}</p>
-            </div>
-          </div>
-        )}
-        {/* Step Content */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          {currentStep === "profile-selection" && (
-            <ProfileSelectionStep
-              onProfileSelected={handleProfileSelected}
-              onContinue={handleProfileSelectionContinue}
-              isLoading={isLoading}
-              error={error || undefined}
-            />
-          )}
+              {currentStep === "recording" && speakerProfileId && (
+                <RecordSamplesStep
+                  recordings={recordings}
+                  currentPhraseIndex={currentPhraseIndex}
+                  speakerProfileId={speakerProfileId}
+                  onRecordingComplete={handleRecordingComplete}
+                  onDeleteRecording={handleDeleteRecording}
+                  onPhraseChange={setCurrentPhraseIndex}
+                  onContinue={handleProceedToParagraphs}
+                  isLoading={isLoading}
+                  error={error || undefined}
+                />
+              )}
 
-          {currentStep === "recording" && speakerProfileId && (
-            <RecordSamplesStep
-              recordings={recordings}
-              currentPhraseIndex={currentPhraseIndex}
-              speakerProfileId={speakerProfileId}
-              onRecordingComplete={handleRecordingComplete}
-              onDeleteRecording={handleDeleteRecording}
-              onPhraseChange={setCurrentPhraseIndex}
-              onContinue={handleProceedToParagraphs}
-              isLoading={isLoading}
-              error={error || undefined}
-            />
-          )}
+              {currentStep === "paragraph-reading" && speakerProfileId && (
+                <ReadParagraphStep
+                  recordings={paragraphRecordings}
+                  currentParagraphIndex={currentParagraphIndex}
+                  speakerProfileId={speakerProfileId}
+                  onRecordingComplete={handleParagraphRecordingComplete}
+                  onDeleteRecording={handleDeleteParagraphRecording}
+                  onParagraphChange={setCurrentParagraphIndex}
+                  onContinue={handleStartTraining}
+                  onBack={handleBackToPhrases}
+                  isLoading={isLoading}
+                  error={error || undefined}
+                />
+              )}
 
-          {currentStep === "paragraph-reading" && speakerProfileId && (
-            <ReadParagraphStep
-              recordings={paragraphRecordings}
-              currentParagraphIndex={currentParagraphIndex}
-              speakerProfileId={speakerProfileId}
-              onRecordingComplete={handleParagraphRecordingComplete}
-              onDeleteRecording={handleDeleteParagraphRecording}
-              onParagraphChange={setCurrentParagraphIndex}
-              onContinue={handleStartTraining}
-              onBack={handleBackToPhrases}
-              isLoading={isLoading}
-              error={error || undefined}
-            />
-          )}
-
-          {currentStep === "training" && isTraining && (
-            <div className="max-w-2xl mx-auto text-center space-y-4">
-              <h2 className="text-2xl font-bold text-slate-900">
-                Training Your Voice Profile
-              </h2>
-              <p className="text-slate-600">
-                Processing your recordings to create your unique voice
-                profile...
-              </p>
-
-              {/* Training Progress */}
-              <div className="space-y-3">
-                <div className="relative h-32 flex items-center justify-center">
-                  <svg className="absolute w-32 h-32" viewBox="0 0 120 120">
-                    {/* Background circle */}
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="54"
-                      fill="none"
-                      stroke="#e2e8f0"
-                      strokeWidth="3"
-                    />
-                    {/* Progress circle */}
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="54"
-                      fill="none"
-                      stroke="url(#gradient)"
-                      strokeWidth="3"
-                      strokeDasharray={`${(trainingProgress / 100) * 339.3} 339.3`}
-                      strokeLinecap="round"
-                      style={{ transition: "stroke-dasharray 0.5s ease" }}
-                    />
-                    <defs>
-                      <linearGradient
-                        id="gradient"
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="100%" stopColor="#8b5cf6" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-
-                  <div className="text-center z-10">
-                    <p className="text-4xl font-bold text-blue-600">
-                      {Math.round(trainingProgress)}%
+              {currentStep === "training" && isTraining && (
+                <div className="max-w-lg mx-auto text-center space-y-6 py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-linear-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/30">
+                    <Sparkles className="w-8 h-8 animate-pulse" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                      Training Your Voice Profile
+                    </h2>
+                    <p className="text-slate-600">
+                      Processing your recordings to create your unique voice
+                      signature
                     </p>
-                    <p className="text-xs text-slate-600 mt-1">Training</p>
+                  </div>
+
+                  {/* Training Progress */}
+                  <div className="space-y-4">
+                    <div className="relative h-40 flex items-center justify-center">
+                      <svg className="absolute w-40 h-40" viewBox="0 0 120 120">
+                        {/* Background circle */}
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          fill="none"
+                          stroke="#e2e8f0"
+                          strokeWidth="4"
+                        />
+                        {/* Progress circle */}
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          fill="none"
+                          stroke="url(#trainingGradient)"
+                          strokeWidth="4"
+                          strokeDasharray={`${(trainingProgress / 100) * 339.3} 339.3`}
+                          strokeLinecap="round"
+                          style={{
+                            transition: "stroke-dasharray 0.5s ease",
+                            transform: "rotate(-90deg)",
+                            transformOrigin: "center",
+                          }}
+                        />
+                        <defs>
+                          <linearGradient
+                            id="trainingGradient"
+                            x1="0%"
+                            y1="0%"
+                            x2="100%"
+                            y2="100%"
+                          >
+                            <stop offset="0%" stopColor="#3b82f6" />
+                            <stop offset="100%" stopColor="#8b5cf6" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+
+                      <div className="text-center z-10">
+                        <p className="text-5xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                          {Math.round(trainingProgress)}%
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-sm text-slate-500">
+                      <p>
+                        Processing{" "}
+                        {recordings.length + paragraphRecordings.length} voice
+                        samples
+                      </p>
+                      <p className="text-xs">
+                        {recordings.length} phrases •{" "}
+                        {paragraphRecordings.length} paragraphs
+                      </p>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div className="space-y-2 text-sm text-slate-600">
-                  <p>Processing {recordings.length + paragraphRecordings.length} voice samples...</p>
-                  <p>({recordings.length} phrases, {paragraphRecordings.length} paragraphs)</p>
-                  <p>Building your unique voice profile...</p>
-                </div>
-              </div>
-            </div>
-          )}
+              {currentStep === "verification" && trainingResult && (
+                <VerificationResults
+                  speakerProfileId={speakerProfileId || ""}
+                  confidenceScore={trainingResult.confidenceScore}
+                  sampleCount={recordings.length + paragraphRecordings.length}
+                  trainingDuration={trainingResult.trainingDuration}
+                  onVerifyVoice={handleVerifyVoice}
+                  onComplete={handleComplete}
+                  isVerifying={isVerifying}
+                  verificationResult={verificationResult}
+                  verificationError={error || undefined}
+                />
+              )}
+            </CardContent>
+          </Card>
 
-          {currentStep === "verification" && trainingResult && (
-            <VerificationResults
-              speakerProfileId={speakerProfileId || ""}
-              confidenceScore={trainingResult.confidenceScore}
-              sampleCount={recordings.length + paragraphRecordings.length}
-              trainingDuration={trainingResult.trainingDuration}
-              onVerifyVoice={handleVerifyVoice}
-              onComplete={handleComplete}
-              isVerifying={isVerifying}
-              verificationResult={verificationResult}
-              verificationError={error || undefined}
-            />
+          {/* Quick Tips Card */}
+          {currentStep === "profile-selection" && (
+            <Card className="border-blue-200 bg-linear-to-br from-blue-50 to-indigo-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base text-blue-900 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Getting Started
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <ul className="text-sm text-blue-800 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Select or create a voice profile to begin training
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Record short phrases and longer paragraphs for best
+                      results
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Train in multiple languages for better multilingual
+                      recognition
+                    </span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
           )}
-        </div>
-      </div>
+        </TabsContent>
+
+        {/* Review Audio Tab */}
+        <TabsContent value="review" className="mt-6 space-y-6">
+          <RecentRecordingsSection
+            speakerProfileId={speakerProfileId || undefined}
+            onRefreshProfile={() => {
+              // Optionally refresh profile data
+            }}
+          />
+
+          {/* Explanation Card */}
+          <Card className="border-amber-200 bg-linear-to-br from-amber-50 to-orange-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-amber-900 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Why Review Audio?
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-sm text-amber-800 mb-3">
+                The system learns from audio it hears during continuous
+                listening. Sometimes it might:
+              </p>
+              <ul className="text-sm text-amber-800 space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="font-bold">•</span>
+                  <span>Mistakenly classify your voice as someone else's</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-bold">•</span>
+                  <span>
+                    Add negative associations that make future recognition
+                    harder
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-bold">•</span>
+                  <span>
+                    Correcting these helps the system learn and improve over
+                    time
+                  </span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

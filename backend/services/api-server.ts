@@ -693,6 +693,42 @@ app.get(
   },
 );
 
+/**
+ * GET /api/adaptive-learning/recent-recordings
+ * Get recent recordings with classification status for user review
+ */
+app.get(
+  "/api/adaptive-learning/recent-recordings",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.getRecentRecordings(req, res, next);
+  },
+);
+
+/**
+ * POST /api/adaptive-learning/reclassify/:recordingId
+ * Reclassify a recording (user says it's them or not them)
+ */
+app.post(
+  "/api/adaptive-learning/reclassify/:recordingId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.reclassifyRecording(req, res, next);
+  },
+);
+
+/**
+ * DELETE /api/adaptive-learning/recent-recordings/clear-negatives
+ * Clear all negative examples to reset voice detection
+ */
+app.delete(
+  "/api/adaptive-learning/recent-recordings/clear-negatives",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    await adaptiveLearningController.clearAllNegatives(req, res, next);
+  },
+);
+
 // ==================== Scheduler Routes ====================
 
 /**
@@ -1131,27 +1167,34 @@ app.get(
 
       // Handle OAuth errors from OpenAI
       if (oauthError) {
-        console.error("OAuth error from OpenAI:", oauthError, error_description);
+        console.error(
+          "OAuth error from OpenAI:",
+          oauthError,
+          error_description,
+        );
         // Redirect to frontend with error
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-        return res.redirect(`${frontendUrl}/settings?chatgpt_oauth=error&message=${encodeURIComponent(error_description as string || oauthError as string)}`);
+        return res.redirect(
+          `${frontendUrl}/settings?chatgpt_oauth=error&message=${encodeURIComponent((error_description as string) || (oauthError as string))}`,
+        );
       }
 
       if (!code || !state) {
-        return res.status(400).json({ error: "Missing code or state parameter" });
+        return res
+          .status(400)
+          .json({ error: "Missing code or state parameter" });
       }
 
-      const result = await handleOAuthCallback(
-        state as string,
-        code as string,
-      );
+      const result = await handleOAuthCallback(state as string, code as string);
 
       // Redirect to frontend with result
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       if (result.success) {
         res.redirect(`${frontendUrl}/settings?chatgpt_oauth=success`);
       } else {
-        res.redirect(`${frontendUrl}/settings?chatgpt_oauth=error&message=${encodeURIComponent(result.error || "Unknown error")}`);
+        res.redirect(
+          `${frontendUrl}/settings?chatgpt_oauth=error&message=${encodeURIComponent(result.error || "Unknown error")}`,
+        );
       }
     } catch (error) {
       next(error);
