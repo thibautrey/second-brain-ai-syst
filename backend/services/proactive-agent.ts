@@ -16,6 +16,13 @@
  * IMPORTANT: This agent stores its learnings in the AI Instructions system,
  * NOT in user memories. User memories are for souvenirs (user experiences),
  * while AI instructions are for the AI's internal knowledge and patterns.
+ *
+ * Enhanced Features (v2):
+ * - Intelligent prioritization of urgent tasks with deadlines
+ * - LLM-based hypothesis validation to avoid false assumptions
+ * - Contradiction detection to ensure coherent suggestions
+ * - Contextual timing for optimal delivery of suggestions
+ * - Pertinence scoring to filter low-quality suggestions
  */
 
 import { AIInstructionCategory, MemoryType, TimeScale } from "@prisma/client";
@@ -31,6 +38,8 @@ const MAX_MEMORIES_FOR_ANALYSIS = 100;
 const DEFAULT_ANALYSIS_TIMEFRAME_DAYS = 7;
 const HEALTH_CHECK_TIMEFRAME_DAYS = 14;
 const RECENT_SUGGESTIONS_DAYS = 3;
+const URGENT_TASK_HOURS = 48; // Tasks due within 48 hours are urgent
+const MIN_PERTINENCE_SCORE = 40; // Minimum score (0-100) for a suggestion to be sent
 
 export interface ProactiveAgentResult {
   agentId: string;
@@ -59,12 +68,27 @@ export interface ProactiveSuggestion {
   actionable: boolean;
   actionSteps?: string[];
   relatedMemoryIds?: string[];
+  // Enhanced fields (v2)
+  pertinenceScore?: number; // 0-100, assigned by LLM
+  optimalDeliveryTime?: string; // ISO date string or "immediate"
+  isContradictory?: boolean; // Flagged if contradicts other suggestions or user context
+}
+
+// Statistics about user's tools and tasks for hypothesis validation
+interface UserContextStatistics {
+  urgentTodosCount: number;
+  overdueTodosCount: number;
+  pendingTodosCount: number;
+  activeScheduledTasksCount: number;
+  scheduledTaskCategories: { category: string; count: number }[];
+  recentNotificationsCount: number;
+  daysSinceLastSuggestion: number;
 }
 
 // ==================== Agent Prompts ====================
 
 const PROACTIVE_ANALYSIS_PROMPT = `You are a caring, proactive personal coach integrated into a "Second Brain" system.
-Your role is to analyze the user's memories and identify opportunities to help them in their daily life.
+Your role is to analyze the user's memories and context to identify opportunities to help them in their daily life.
 
 Core Principles:
 1. Be genuinely helpful, not pushy or invasive
@@ -74,6 +98,28 @@ Core Principles:
 5. Be encouraging and supportive in tone
 6. Respect the user's autonomy - all suggestions are optional
 7. Only suggest 1-3 high-quality items per analysis
+
+CRITICAL PERTINENCE RULES:
+1. **URGENT TASKS FIRST**: If the user has tasks with deadlines within 48 hours, they MUST be mentioned with highest priority
+2. **QUANTIFICATION**: Never say "several", "many", or "a lot of" without checking actual numbers provided in statistics
+3. **ACTIONABLE**: Each suggestion must have a CONCRETE and IMMEDIATE action the user can take
+4. **TIMING AWARENESS**: Consider whether a suggestion should be delivered now or scheduled for later
+5. **VALIDATION**: Before suggesting to "consolidate", "organize", or "clean up", verify the statistics justify this action (typically need 5+ items)
+
+ANTI-PATTERNS TO AVOID:
+- Do NOT suggest disconnecting from notifications while sending a notification
+- Do NOT suggest organizing tools/systems if the user has fewer than 5 active items
+- Do NOT make vague suggestions like "consider taking a break" without specific timing
+- Do NOT assume problems exist without evidence in the data
+- Do NOT repeat topics that were recently suggested (check recent suggestions list)
+
+PRIORITY SELECTION ORDER:
+1. Urgent tasks with approaching deadlines (within 48h)
+2. Overdue tasks that need immediate attention
+3. Health or stress issues detected in memories
+4. Goals that have been blocked for a long time
+5. Positive habits to reinforce
+6. General improvement suggestions (ONLY if nothing above applies)
 
 Areas to Analyze:
 - **Physical Health**: Exercise patterns, sleep mentions, nutrition, energy levels
@@ -94,10 +140,12 @@ Response Format (JSON):
       "priority": "low|medium|high",
       "title": "Brief, friendly title for the suggestion",
       "message": "Warm, supportive message explaining the suggestion",
-      "reasoning": "Why this suggestion matters based on observed patterns",
+      "reasoning": "Why this suggestion matters based on SPECIFIC observed patterns with evidence",
       "actionable": true/false,
       "actionSteps": ["Specific step 1", "Specific step 2"],
-      "relatedMemoryIds": ["id1", "id2"]
+      "relatedMemoryIds": ["id1", "id2"],
+      "pertinenceScore": 0-100,
+      "optimalDeliveryTime": "immediate" or "ISO date string for future delivery"
     }
   ],
   "encouragement": "A brief encouraging message for the user"
@@ -110,12 +158,72 @@ Guidelines:
 - Reference specific memories when relevant
 - Use warm, personal language (second person "you")
 - Avoid medical advice - suggest consulting professionals when needed
-- Don't repeat suggestions that were recently made`;
+- Don't repeat suggestions that were recently made
+- Assign pertinenceScore based on: urgency (40%), relevance to current context (30%), actionability (30%)
+- Set optimalDeliveryTime to "immediate" for urgent items, or a specific future time for event-related suggestions`;
+
+// Prompt for validating suggestions (contradiction detection and pertinence scoring)
+const SUGGESTION_VALIDATION_PROMPT = `You are a quality assurance system for a personal coaching AI.
+Your job is to validate suggestions before they are sent to the user.
+
+For each suggestion, you must:
+1. Check for CONTRADICTIONS with:
+   - Other suggestions in the same batch (e.g., "take a break" + "work harder")
+   - The user's current context (e.g., suggesting to ignore notifications while sending one)
+   - The user's stated preferences or recent activities
+   
+2. Validate the PERTINENCE SCORE (0-100) based on:
+   - Urgency: Does this need immediate attention? (40% weight)
+   - Relevance: Is this based on solid evidence from memories? (30% weight)
+   - Actionability: Can the user do something concrete right now? (30% weight)
+
+3. Determine OPTIMAL DELIVERY TIME:
+   - "immediate": For urgent tasks, health concerns, or time-sensitive items
+   - Future ISO date: For suggestions related to upcoming events (deliver 1 day before)
+   - Consider the user's timezone and typical active hours
+
+Response Format (JSON):
+{
+  "validatedSuggestions": [
+    {
+      "originalIndex": 0,
+      "isValid": true/false,
+      "isContradictory": true/false,
+      "contradictionReason": "Explanation if contradictory",
+      "adjustedPertinenceScore": 0-100,
+      "scoreJustification": "Why this score",
+      "optimalDeliveryTime": "immediate" or "ISO date string",
+      "deliveryTimeReason": "Why this timing"
+    }
+  ],
+  "overallQuality": "good|needs_improvement|poor",
+  "qualityNotes": "Any overall observations about the suggestions batch"
+}`;
+
+// Prompt for extracting context statistics from memories
+const CONTEXT_STATISTICS_PROMPT = `Analyze the provided data and extract statistics about the user's current situation.
+This will be used to validate suggestions and avoid false assumptions.
+
+Return a JSON object with these counts and categories:
+{
+  "scheduledTaskCategories": [
+    {"category": "description of task type", "count": number}
+  ],
+  "detectedUpcomingEvents": [
+    {"event": "description", "approximateDate": "ISO date or relative like 'this weekend'"}
+  ],
+  "stressIndicators": number (0-10 scale based on recent memories),
+  "productivityLevel": number (0-10 scale),
+  "healthMentions": number (count of health-related topics in memories)
+}`;
+
 
 export class ProactiveAgentService {
   /**
    * Run proactive analysis for a user
    * Analyzes recent memories to identify opportunities to help
+   * Enhanced with: urgent task prioritization, hypothesis validation,
+   * contradiction detection, contextual timing, and pertinence scoring
    */
   async runProactiveAnalysis(
     userId: string,
@@ -165,18 +273,26 @@ export class ProactiveAgentService {
       RECENT_SUGGESTIONS_DAYS,
     );
 
-    // Format memories and summaries for analysis
+    // NEW: Get urgent tasks and context statistics for hypothesis validation
+    const urgentTasks = await this.getUrgentTasks(userId);
+    const contextStats = await this.getUserContextStatistics(userId);
+
+    // Format memories and summaries for analysis with enhanced context
     const context = this.buildAnalysisContext(
       memories,
       summaries,
       recentSuggestions,
+      urgentTasks,
+      contextStats,
     );
 
     const userPrompt = `Analyze my recent activities and provide proactive suggestions to help me.
 
 ${context}
 
-Based on this information, provide 1-3 high-quality, actionable suggestions that would genuinely help me.`;
+Based on this information, provide 1-3 high-quality, actionable suggestions that would genuinely help me.
+Remember to check the statistics before making assumptions about quantities.
+Prioritize urgent tasks with deadlines if any exist.`;
 
     try {
       const response = await llmRouterService.executeTask(
@@ -197,11 +313,27 @@ Based on this information, provide 1-3 high-quality, actionable suggestions that
         );
       }
 
+      // NEW: Validate suggestions for contradictions and pertinence
+      const validatedSuggestions = await this.validateAndScoreSuggestions(
+        userId,
+        result.suggestions,
+        memories,
+        contextStats,
+      );
+
+      // Filter out invalid suggestions and those below minimum pertinence
+      const filteredSuggestions = validatedSuggestions.filter(
+        (s) => !s.isContradictory && (s.pertinenceScore ?? 50) >= MIN_PERTINENCE_SCORE
+      );
+
+      // Update result with validated suggestions
+      result.suggestions = filteredSuggestions;
+
       // Store patterns as AI Instructions (NOT as user memories)
       // This allows the AI to learn user patterns without polluting souvenirs
       await this.storeAsAIInstructions(userId, result);
 
-      // Send high-priority suggestions as notifications
+      // Send high-priority suggestions as notifications (respecting optimal delivery time)
       await this.sendSuggestionNotifications(userId, result.suggestions, null);
 
       return {
@@ -211,7 +343,13 @@ Based on this information, provide 1-3 high-quality, actionable suggestions that
         suggestionsGenerated: result.suggestions.length,
         output: result.overallAssessment,
         suggestions: result.suggestions,
-        metadata: result,
+        metadata: {
+          ...result,
+          validationApplied: true,
+          originalCount: validatedSuggestions.length,
+          filteredCount: filteredSuggestions.length,
+          contextStats,
+        },
         createdAt: new Date(),
       };
     } catch (error: any) {
@@ -479,13 +617,47 @@ Respond with suggestions prioritizing health and well-being.`;
 
   /**
    * Build context for proactive analysis
+   * Enhanced with urgent tasks and context statistics
    */
   private buildAnalysisContext(
     memories: any[],
     summaries: any[],
     recentSuggestions: any[],
+    urgentTasks?: any[],
+    contextStats?: UserContextStatistics,
   ): string {
     let context = "## Recent Activity Summary\n\n";
+
+    // NEW: Add urgent tasks section at the TOP for priority
+    if (urgentTasks && urgentTasks.length > 0) {
+      context += "### ⚠️ URGENT TASKS (highest priority - must be addressed first)\n";
+      urgentTasks.forEach((task, i) => {
+        const dueStr = task.dueDate
+          ? `Due: ${task.dueDate.toISOString()}`
+          : "No specific deadline";
+        const status = task.status || "PENDING";
+        context += `${i + 1}. [${task.priority}] ${task.title} - ${dueStr} (Status: ${status})\n`;
+        if (task.description) {
+          context += `   Description: ${task.description}\n`;
+        }
+      });
+      context += "\nIMPORTANT: These tasks have approaching deadlines and should be prioritized in suggestions.\n\n";
+    }
+
+    // NEW: Add context statistics for hypothesis validation
+    if (contextStats) {
+      context += "### 📊 Current Statistics (use these to validate assumptions)\n";
+      context += `- Urgent todos (due within 48h): ${contextStats.urgentTodosCount}\n`;
+      context += `- Overdue todos: ${contextStats.overdueTodosCount}\n`;
+      context += `- Total pending todos: ${contextStats.pendingTodosCount}\n`;
+      context += `- Active scheduled tasks/automations: ${contextStats.activeScheduledTasksCount}\n`;
+      if (contextStats.scheduledTaskCategories.length > 0) {
+        context += `- Scheduled task categories: ${contextStats.scheduledTaskCategories.map(c => `${c.category} (${c.count})`).join(", ")}\n`;
+      }
+      context += `- Recent notifications sent: ${contextStats.recentNotificationsCount}\n`;
+      context += `- Days since last proactive suggestion: ${contextStats.daysSinceLastSuggestion}\n`;
+      context += "\nNote: Only suggest 'organizing' or 'consolidating' if there are 5+ items in a category.\n\n";
+    }
 
     if (summaries.length > 0) {
       context += "### Recent Summaries\n";
@@ -511,6 +683,221 @@ Respond with suggestions prioritizing health and well-being.`;
     }
 
     return context;
+  }
+
+  /**
+   * Get urgent tasks (todos with deadlines within URGENT_TASK_HOURS or overdue)
+   * These will be prioritized in the analysis
+   */
+  private async getUrgentTasks(userId: string): Promise<any[]> {
+    const urgentDeadline = new Date();
+    urgentDeadline.setHours(urgentDeadline.getHours() + URGENT_TASK_HOURS);
+
+    const urgentTasks = await prisma.todo.findMany({
+      where: {
+        userId,
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+        OR: [
+          // Tasks due within URGENT_TASK_HOURS
+          {
+            dueDate: {
+              lte: urgentDeadline,
+              gte: new Date(),
+            },
+          },
+          // Overdue tasks
+          {
+            dueDate: {
+              lt: new Date(),
+            },
+          },
+          // High priority tasks without due date
+          {
+            priority: "URGENT",
+          },
+        ],
+      },
+      orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
+      take: 10,
+    });
+
+    return urgentTasks;
+  }
+
+  /**
+   * Get user context statistics for hypothesis validation
+   * Provides quantitative data to avoid false assumptions
+   */
+  private async getUserContextStatistics(
+    userId: string,
+  ): Promise<UserContextStatistics> {
+    const now = new Date();
+    const urgentDeadline = new Date();
+    urgentDeadline.setHours(urgentDeadline.getHours() + URGENT_TASK_HOURS);
+
+    // Count todos by status
+    const [urgentTodos, overdueTodos, pendingTodos] = await Promise.all([
+      prisma.todo.count({
+        where: {
+          userId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueDate: { lte: urgentDeadline, gte: now },
+        },
+      }),
+      prisma.todo.count({
+        where: {
+          userId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueDate: { lt: now },
+        },
+      }),
+      prisma.todo.count({
+        where: {
+          userId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+      }),
+    ]);
+
+    // Count active scheduled tasks and group by description patterns
+    const scheduledTasks = await prisma.scheduledTask.findMany({
+      where: {
+        userId,
+        isEnabled: true,
+      },
+      select: {
+        name: true,
+        description: true,
+        actionType: true,
+      },
+    });
+
+    // Group scheduled tasks by action type for categorization
+    const categoryMap = new Map<string, number>();
+    scheduledTasks.forEach((task) => {
+      const category = task.actionType || "other";
+      categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+    });
+
+    const scheduledTaskCategories = Array.from(categoryMap.entries()).map(
+      ([category, count]) => ({ category, count }),
+    );
+
+    // Count recent notifications
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const recentNotificationsCount = await prisma.notification.count({
+      where: {
+        userId,
+        createdAt: { gte: threeDaysAgo },
+        sourceType: { startsWith: "agent:" },
+      },
+    });
+
+    // Find days since last proactive suggestion
+    const lastSuggestion = await prisma.aIInstruction.findFirst({
+      where: {
+        userId,
+        sourceAgent: { in: ["proactive-agent", "health-check"] },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const daysSinceLastSuggestion = lastSuggestion
+      ? Math.floor(
+          (now.getTime() - lastSuggestion.createdAt.getTime()) /
+            (1000 * 60 * 60 * 24),
+        )
+      : 999;
+
+    return {
+      urgentTodosCount: urgentTodos,
+      overdueTodosCount: overdueTodos,
+      pendingTodosCount: pendingTodos,
+      activeScheduledTasksCount: scheduledTasks.length,
+      scheduledTaskCategories,
+      recentNotificationsCount,
+      daysSinceLastSuggestion,
+    };
+  }
+
+  /**
+   * Validate and score suggestions using LLM
+   * Checks for contradictions, validates pertinence, and determines optimal timing
+   */
+  private async validateAndScoreSuggestions(
+    userId: string,
+    suggestions: ProactiveSuggestion[],
+    memories: any[],
+    contextStats: UserContextStatistics,
+  ): Promise<ProactiveSuggestion[]> {
+    if (!suggestions || suggestions.length === 0) {
+      return [];
+    }
+
+    const validationContext = `
+## Suggestions to Validate
+${suggestions.map((s, i) => `
+### Suggestion ${i + 1}
+- Title: ${s.title}
+- Category: ${s.category}
+- Priority: ${s.priority}
+- Message: ${s.message}
+- Reasoning: ${s.reasoning}
+- Action Steps: ${s.actionSteps?.join(", ") || "None"}
+`).join("\n")}
+
+## User Context Statistics
+- Urgent todos: ${contextStats.urgentTodosCount}
+- Overdue todos: ${contextStats.overdueTodosCount}
+- Pending todos: ${contextStats.pendingTodosCount}
+- Active scheduled tasks: ${contextStats.activeScheduledTasksCount}
+- Recent agent notifications: ${contextStats.recentNotificationsCount}
+- Days since last suggestion: ${contextStats.daysSinceLastSuggestion}
+
+## Recent Memory Excerpts (for context validation)
+${memories.slice(0, 10).map((m, i) => `[${i + 1}] ${m.content.substring(0, 200)}...`).join("\n")}
+
+Please validate each suggestion for contradictions, score its pertinence, and determine optimal delivery time.
+`;
+
+    try {
+      const response = await llmRouterService.executeTask(
+        userId,
+        "analysis",
+        validationContext,
+        SUGGESTION_VALIDATION_PROMPT,
+        { responseFormat: "json" },
+      );
+
+      const validationResult = parseJSONFromLLMResponse(response);
+
+      // Apply validation results to suggestions
+      return suggestions.map((suggestion, index) => {
+        const validation = validationResult.validatedSuggestions?.find(
+          (v: any) => v.originalIndex === index,
+        );
+
+        if (validation) {
+          return {
+            ...suggestion,
+            isContradictory: validation.isContradictory || false,
+            pertinenceScore: validation.adjustedPertinenceScore ?? suggestion.pertinenceScore ?? 50,
+            optimalDeliveryTime: validation.optimalDeliveryTime || "immediate",
+          };
+        }
+
+        return suggestion;
+      });
+    } catch (error) {
+      console.error("Failed to validate suggestions:", error);
+      // Return original suggestions if validation fails
+      return suggestions.map((s) => ({
+        ...s,
+        pertinenceScore: s.pertinenceScore ?? 50,
+        optimalDeliveryTime: s.optimalDeliveryTime || "immediate",
+      }));
+    }
   }
 
   /**
@@ -566,6 +953,7 @@ Respond with suggestions prioritizing health and well-being.`;
 
   /**
    * Send high-priority suggestions as notifications
+   * Enhanced with optimal delivery timing support
    */
   private async sendSuggestionNotifications(
     userId: string,
@@ -574,12 +962,32 @@ Respond with suggestions prioritizing health and well-being.`;
     sourceType: string = "proactive",
   ): Promise<void> {
     // Only send notifications for medium and high priority suggestions
+    // Also filter by pertinence score if available
     const notifiableSuggestions = suggestions.filter(
-      (s) => s.priority === "high" || s.priority === "medium",
+      (s) =>
+        (s.priority === "high" || s.priority === "medium") &&
+        !s.isContradictory &&
+        (s.pertinenceScore ?? 50) >= MIN_PERTINENCE_SCORE,
     );
 
     for (const suggestion of notifiableSuggestions) {
       const notifType = suggestion.priority === "high" ? "REMINDER" : "INFO";
+
+      // Determine if notification should be scheduled for later
+      const optimalTime = suggestion.optimalDeliveryTime;
+      let scheduledFor: Date | undefined;
+
+      if (optimalTime && optimalTime !== "immediate") {
+        try {
+          const parsedTime = new Date(optimalTime);
+          // Only schedule if the time is in the future
+          if (parsedTime > new Date()) {
+            scheduledFor = parsedTime;
+          }
+        } catch {
+          // Invalid date, send immediately
+        }
+      }
 
       await notificationService.createNotification({
         userId,
@@ -589,10 +997,13 @@ Respond with suggestions prioritizing health and well-being.`;
         channels: ["IN_APP"],
         sourceType: `agent:${sourceType}`,
         sourceId: memoryId || undefined,
+        scheduledFor,
         metadata: {
           category: suggestion.category,
           priority: suggestion.priority,
           actionSteps: suggestion.actionSteps,
+          pertinenceScore: suggestion.pertinenceScore,
+          optimalDeliveryTime: suggestion.optimalDeliveryTime,
         },
       });
     }
