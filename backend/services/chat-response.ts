@@ -22,11 +22,12 @@ import {
   executeTextToolCalls,
   extractAllTextToolCalls,
 } from "./chat-tools.js";
-import { CHAT_CONFIG } from "../config/chat-config.js";
 
+import { CHAT_CONFIG } from "../config/chat-config.js";
 import OpenAI from "openai";
 import { flowTracker } from "./flow-tracker.js";
 import { getChatProvider } from "./chat-provider.js";
+import { getTemperatureForModel } from "./llm-router.js";
 import { randomBytes } from "crypto";
 import { toolExecutorService } from "./tool-executor.js";
 
@@ -190,10 +191,10 @@ export async function getChatResponse(
       iterationCount++;
 
       try {
-        const response = await openai.chat.completions.create({
+        const chatTemp = getTemperatureForModel(modelId, 0.7);
+        const chatPayload: any = {
           model: modelId,
           messages: messages as any,
-          temperature: 0.7,
           max_tokens: maxTokens,
           tools:
             toolSchemas.length > 0
@@ -203,7 +204,14 @@ export async function getChatResponse(
                 }))
               : undefined,
           tool_choice: toolSchemas.length > 0 ? "auto" : undefined,
-        });
+        };
+
+        // Only add temperature if the model supports it
+        if (chatTemp !== undefined) {
+          chatPayload.temperature = chatTemp;
+        }
+
+        const response = await openai.chat.completions.create(chatPayload);
 
         const assistantMessage = response.choices[0]?.message;
         if (!assistantMessage) break;
@@ -332,13 +340,20 @@ export async function getChatResponse(
               baseURL: fallbackProvider.baseUrl || "https://api.openai.com/v1",
             });
 
+            const fallbackTemp = getTemperatureForModel(fallbackModelId, 0.7);
+            const fallbackPayload: any = {
+              model: fallbackModelId,
+              messages: messages as any,
+              max_tokens: maxTokens,
+            };
+
+            // Only add temperature if the model supports it
+            if (fallbackTemp !== undefined) {
+              fallbackPayload.temperature = fallbackTemp;
+            }
+
             const fallbackResponse =
-              await fallbackOpenAI.chat.completions.create({
-                model: fallbackModelId,
-                messages: messages as any,
-                temperature: 0.7,
-                max_tokens: maxTokens,
-              });
+              await fallbackOpenAI.chat.completions.create(fallbackPayload);
 
             fullResponse = fallbackResponse.choices[0]?.message?.content || "";
             break;

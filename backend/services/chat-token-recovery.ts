@@ -16,6 +16,7 @@ import {
 } from "../utils/token-validator.js";
 
 import OpenAI from "openai";
+import { getTemperatureForModel } from "./llm-router.js";
 import { notificationService } from "./notification.js";
 
 export interface TokenRecoveryResult {
@@ -92,10 +93,10 @@ export async function recoverFromMaxTokensError(
       );
 
       try {
-        const recoveryResponse = await openai.chat.completions.create({
+        const recoveryTemp = getTemperatureForModel(modelId, 0.7);
+        const recoveryPayload: any = {
           model: modelId,
           messages: messages as any,
-          temperature: 0.7,
           max_tokens: safeMaxTokens,
           tools: toolSchemas.map((schema) => ({
             type: "function",
@@ -103,7 +104,15 @@ export async function recoverFromMaxTokensError(
           })) as any[],
           tool_choice: "auto",
           stream: false,
-        });
+        };
+
+        // Only add temperature if the model supports it
+        if (recoveryTemp !== undefined) {
+          recoveryPayload.temperature = recoveryTemp;
+        }
+
+        const recoveryResponse =
+          await openai.chat.completions.create(recoveryPayload);
 
         const recoveryMessage = recoveryResponse.choices[0]?.message;
         if (recoveryMessage) {
@@ -199,10 +208,10 @@ export async function recoverFromMaxTokensError(
     });
 
     try {
-      const fallbackResponse = await fallbackOpenAI.chat.completions.create({
+      const fallbackTemp = getTemperatureForModel(fallbackModelId, 0.7);
+      const fallbackPayload: any = {
         model: fallbackModelId,
         messages: messages as any,
-        temperature: 0.7,
         max_tokens: Math.min(
           getFallbackMaxTokens(fallbackModelId),
           overflowInfo?.suggestedMaxTokens || 2000,
@@ -213,7 +222,15 @@ export async function recoverFromMaxTokensError(
         })) as any[],
         tool_choice: "auto",
         stream: false,
-      });
+      };
+
+      // Only add temperature if the model supports it
+      if (fallbackTemp !== undefined) {
+        fallbackPayload.temperature = fallbackTemp;
+      }
+
+      const fallbackResponse =
+        await fallbackOpenAI.chat.completions.create(fallbackPayload);
 
       const fallbackMessage = fallbackResponse.choices[0]?.message;
       if (fallbackMessage) {

@@ -12,6 +12,11 @@
  */
 
 import {
+  CHAT_CONFIG,
+  LlmTool,
+  ToolFunctionDefinition,
+} from "../config/chat-config.js";
+import {
   CHAT_SYSTEM_PROMPT,
   analyzeTaskIntent,
   buildMemoryContext,
@@ -19,12 +24,6 @@ import {
   getUserContextData,
   prepareSystemPrompt,
 } from "../services/chat-context.js";
-import {
-  CHAT_CONFIG,
-  LlmTool,
-  ToolFunctionDefinition,
-} from "../config/chat-config.js";
-import { ChatMessageParam } from "../services/chat-response.js";
 import { NextFunction, Response } from "express";
 import {
   createToolMetadata,
@@ -42,12 +41,14 @@ import {
 } from "../services/chat-token-recovery.js";
 
 import { AuthRequest } from "../middlewares/auth.middleware.js";
+import { ChatMessageParam } from "../services/chat-response.js";
 import { IntentRouterService } from "../services/intent-router.js";
 import OpenAI from "openai";
 import { flowTracker } from "../services/flow-tracker.js";
 // New refactored services
 import { getChatProvider } from "../services/chat-provider.js";
 import { getDefaultMaxTokens } from "./ai-settings.controller.js";
+import { getTemperatureForModel } from "../services/llm-router.js";
 import { notificationService } from "../services/notification.js";
 import prisma from "../services/prisma.js";
 import { processTelegramMessage } from "../services/telegram-chat.js";
@@ -309,10 +310,10 @@ export async function chatStream(
       }
 
       try {
-        const response = await openai.chat.completions.create({
+        const chatTemp = getTemperatureForModel(modelId, 0.7);
+        const chatPayload: any = {
           model: modelId,
           messages: messages as any,
-          temperature: 0.7,
           max_tokens: maxTokensToUse,
           tools: toolSchemas.map((schema) => ({
             type: "function",
@@ -320,7 +321,14 @@ export async function chatStream(
           })) as LlmTool[],
           tool_choice: "auto",
           stream: false,
-        });
+        };
+
+        // Only add temperature if the model supports it
+        if (chatTemp !== undefined) {
+          chatPayload.temperature = chatTemp;
+        }
+
+        const response = await openai.chat.completions.create(chatPayload);
 
         const assistantMessage = response.choices[0]?.message;
         if (!assistantMessage) break;

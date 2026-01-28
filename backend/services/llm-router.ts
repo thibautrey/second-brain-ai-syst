@@ -249,6 +249,30 @@ export function getMaxTokensParamName(
   return "max_tokens";
 }
 
+/**
+ * Get the appropriate temperature for a model
+ * Some models (e.g., gpt-5-nano) only support default temperature (1)
+ * @returns temperature value or undefined to use model default
+ */
+export function getTemperatureForModel(
+  modelId: string,
+  requestedTemperature?: number,
+): number | undefined {
+  // Models that only support default temperature (1)
+  const defaultTemperatureOnlyModels = ["gpt-5-nano"];
+
+  // Check if model requires default temperature
+  for (const model of defaultTemperatureOnlyModels) {
+    if (modelId.includes(model)) {
+      // Return undefined to let API use its default, or return 1 explicitly
+      return undefined;
+    }
+  }
+
+  // For other models, return the requested temperature or undefined
+  return requestedTemperature;
+}
+
 export type LLMModel =
   | "gpt-4-turbo"
   | "gpt-4o"
@@ -828,11 +852,19 @@ export class LLMRouterService {
     const requestOptions: any = {
       model: modelId,
       messages,
-      temperature: options?.temperature ?? 0.7,
       ...(options?.responseFormat === "json" && {
         response_format: { type: "json_object" as const },
       }),
     };
+
+    // Add temperature only if the model supports it
+    const temperature = getTemperatureForModel(
+      modelId,
+      options?.temperature ?? 0.7,
+    );
+    if (temperature !== undefined) {
+      requestOptions.temperature = temperature;
+    }
 
     // Add the max tokens parameter with the correct name
     requestOptions[maxTokensParam] = requestedMaxTokens;
@@ -1000,9 +1032,17 @@ export class LLMRouterService {
     const streamRequestOptions: any = {
       model: provider.modelId,
       messages,
-      temperature: options?.temperature ?? 0.7,
       stream: true,
     };
+
+    // Add temperature only if the model supports it
+    const streamTemp = getTemperatureForModel(
+      provider.modelId,
+      options?.temperature ?? 0.7,
+    );
+    if (streamTemp !== undefined) {
+      streamRequestOptions.temperature = streamTemp;
+    }
 
     // Add the max tokens parameter with the correct name
     streamRequestOptions[maxTokensParam] = options?.maxTokens || 2048;
