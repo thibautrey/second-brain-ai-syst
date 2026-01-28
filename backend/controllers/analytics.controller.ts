@@ -211,7 +211,8 @@ router.get(
         try {
           insights = await generateAIInsights(req.userId, recentMemories);
         } catch (error) {
-          console.error("Failed to generate AI insights:", error);
+          const errorMessage = error instanceof Error && error.message ? error.message : String(error);
+          console.error("Failed to generate AI insights:", errorMessage);
           insights = generateFallbackInsights(recentMemories);
         }
       } else if (recentMemories.length > 0) {
