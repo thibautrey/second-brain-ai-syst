@@ -296,12 +296,16 @@ function RecordingItem({
 }: RecordingItemProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isNegative = recording.type === "negative_example";
   const confidencePercent = Math.round(recording.confidence * 100);
 
   const handlePlayAudio = async () => {
+    // Clear any previous errors
+    setAudioError(null);
+
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
@@ -324,27 +328,64 @@ function RecordingItem({
       // Try to get audio from source session
       let audioUrl = "";
       if (recording.sourceSessionId) {
-        // For now, we'll try to fetch from the session
-        // The actual endpoint may need to be adjusted based on backend implementation
-        audioUrl = `${API_BASE_URL}/api/audio/sessions/${recording.sourceSessionId}/download`;
+        // Fetch audio from the session
+        audioUrl = `${API_BASE_URL}/api/conversations/sessions/${recording.sourceSessionId}/audio`;
       }
 
       if (!audioUrl) {
-        // If no source session, try recording ID directly
-        audioUrl = `${API_BASE_URL}/api/adaptive-learning/recordings/${recording.id}/audio`;
+        setAudioError(
+          "Audio source not available for this recording. Original session data may have been archived.",
+        );
+        setIsLoadingAudio(false);
+        return;
       }
 
-      const audio = new Audio(audioUrl);
+      // First check if the URL returns valid audio data
+      const response = await fetch(audioUrl, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load audio: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const blob = await response.blob();
+
+      // Check if blob is valid audio
+      if (!blob.type.startsWith("audio/")) {
+        throw new Error(
+          "Received data is not audio format. The audio file may have been deleted or corrupted.",
+        );
+      }
+
+      const audioUrl_blob = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl_blob);
       audioRef.current = audio;
 
       audio.addEventListener("ended", () => {
         setIsPlaying(false);
+        // Clean up blob URL when done
+        URL.revokeObjectURL(audioUrl_blob);
+      });
+
+      audio.addEventListener("error", () => {
+        setAudioError("Failed to play audio. The file may be corrupted.");
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl_blob);
       });
 
       audio.play();
       setIsPlaying(true);
     } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to load audio";
+      setAudioError(errorMsg);
       console.error("Failed to play audio:", error);
+      setIsPlaying(false);
     } finally {
       setIsLoadingAudio(false);
     }
@@ -427,11 +468,18 @@ function RecordingItem({
                 variant="outline"
                 size="sm"
                 onClick={handlePlayAudio}
-                disabled={isProcessing || isLoadingAudio}
-                className="gap-1.5 bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+                disabled={isProcessing || isLoadingAudio || !!audioError}
+                className={cn(
+                  "gap-1.5 bg-white",
+                  audioError
+                    ? "hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                    : "hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300",
+                )}
               >
                 {isLoadingAudio ? (
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : audioError ? (
+                  <AlertCircle className="h-3.5 w-3.5 text-red-600" />
                 ) : isPlaying ? (
                   <div className="flex items-center gap-1">
                     <div className="w-1 h-3 bg-blue-600 rounded"></div>
@@ -442,12 +490,18 @@ function RecordingItem({
                   <Play className="h-3.5 w-3.5 fill-current" />
                 )}
                 <span className="hidden sm:inline">
-                  {isPlaying ? "Stop" : "Play"}
+                  {audioError ? "No audio" : isPlaying ? "Stop" : "Play"}
                 </span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{isPlaying ? "Stop playback" : "Play audio"}</p>
+              <p>
+                {audioError
+                  ? audioError
+                  : isPlaying
+                    ? "Stop playback"
+                    : "Play audio"}
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
