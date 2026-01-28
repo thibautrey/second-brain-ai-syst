@@ -16,6 +16,7 @@ import {
   Globe,
   Cog,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
@@ -39,12 +40,6 @@ const scheduleTypeIcons: Record<ScheduleType, React.ReactNode> = {
   INTERVAL: <Timer className="w-4 h-4" />,
 };
 
-const scheduleTypeLabels: Record<ScheduleType, string> = {
-  ONE_TIME: "Unique",
-  CRON: "Récurrent (Cron)",
-  INTERVAL: "Intervalle",
-};
-
 const actionTypeIcons: Record<TaskActionType, React.ReactNode> = {
   SEND_NOTIFICATION: <Bell className="w-4 h-4" />,
   CREATE_TODO: <CheckSquare className="w-4 h-4" />,
@@ -54,56 +49,6 @@ const actionTypeIcons: Record<TaskActionType, React.ReactNode> = {
   CUSTOM: <Cog className="w-4 h-4" />,
 };
 
-const actionTypeLabels: Record<TaskActionType, string> = {
-  SEND_NOTIFICATION: "Notification",
-  CREATE_TODO: "Créer tâche",
-  GENERATE_SUMMARY: "Générer résumé",
-  RUN_AGENT: "Exécuter agent",
-  WEBHOOK: "Webhook",
-  CUSTOM: "Personnalisé",
-};
-
-function formatNextRun(dateString?: string): string {
-  if (!dateString) return "Non planifié";
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMs < 0) return "Passé";
-  if (diffMins < 60) return `Dans ${diffMins} min`;
-  if (diffHours < 24) return `Dans ${diffHours}h`;
-  if (diffDays === 1) return "Demain";
-  if (diffDays <= 7) return `Dans ${diffDays} jours`;
-  return date.toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatSchedule(task: ScheduledTask): string {
-  switch (task.scheduleType) {
-    case "ONE_TIME":
-      return task.executeAt
-        ? new Date(task.executeAt).toLocaleString("fr-FR")
-        : "Date non définie";
-    case "CRON":
-      return task.cronExpression || "Expression cron non définie";
-    case "INTERVAL":
-      if (!task.interval) return "Intervalle non défini";
-      if (task.interval < 60) return `Toutes les ${task.interval} minutes`;
-      if (task.interval < 1440)
-        return `Toutes les ${Math.floor(task.interval / 60)} heures`;
-      return `Tous les ${Math.floor(task.interval / 1440)} jours`;
-    default:
-      return "Planification inconnue";
-  }
-}
-
 export function ScheduleItem({
   task,
   onToggle,
@@ -111,6 +56,73 @@ export function ScheduleItem({
   onEdit,
   onDelete,
 }: ScheduleItemProps) {
+  const { t, i18n } = useTranslation();
+  const scheduleTypeLabels: Record<ScheduleType, string> = {
+    ONE_TIME: t("schedule.item.scheduleType.oneTime"),
+    CRON: t("schedule.item.scheduleType.cron"),
+    INTERVAL: t("schedule.item.scheduleType.interval"),
+  };
+
+  const actionTypeLabels: Record<TaskActionType, string> = {
+    SEND_NOTIFICATION: t("schedule.item.actionType.notification"),
+    CREATE_TODO: t("schedule.item.actionType.createTodo"),
+    GENERATE_SUMMARY: t("schedule.item.actionType.generateSummary"),
+    RUN_AGENT: t("schedule.item.actionType.runAgent"),
+    WEBHOOK: t("schedule.item.actionType.webhook"),
+    CUSTOM: t("schedule.item.actionType.custom"),
+  };
+
+  const formatNextRun = (dateString?: string): string => {
+    if (!dateString) return t("schedule.item.nextRun.unscheduled");
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMs < 0) return t("schedule.item.nextRun.past");
+    if (diffMins < 60)
+      return t("schedule.item.nextRun.inMinutes", { count: diffMins });
+    if (diffHours < 24)
+      return t("schedule.item.nextRun.inHours", { count: diffHours });
+    if (diffDays === 1) return t("schedule.item.nextRun.tomorrow");
+    if (diffDays <= 7)
+      return t("schedule.item.nextRun.inDays", { count: diffDays });
+    return date.toLocaleDateString(i18n.language, {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatSchedule = (item: ScheduledTask): string => {
+    switch (item.scheduleType) {
+      case "ONE_TIME":
+        return item.executeAt
+          ? new Date(item.executeAt).toLocaleString(i18n.language)
+          : t("schedule.item.schedule.missingDate");
+      case "CRON":
+        return item.cronExpression || t("schedule.item.schedule.missingCron");
+      case "INTERVAL":
+        if (!item.interval)
+          return t("schedule.item.schedule.missingInterval");
+        if (item.interval < 60)
+          return t("schedule.item.schedule.everyMinutes", {
+            count: item.interval,
+          });
+        if (item.interval < 1440)
+          return t("schedule.item.schedule.everyHours", {
+            count: Math.floor(item.interval / 60),
+          });
+        return t("schedule.item.schedule.everyDays", {
+          count: Math.floor(item.interval / 1440),
+        });
+      default:
+        return t("schedule.item.schedule.unknown");
+    }
+  };
   return (
     <div
       className={`group flex flex-col sm:flex-row sm:items-start gap-4 p-3 sm:p-4 rounded-lg border transition-all hover:shadow-sm ${
@@ -121,7 +133,9 @@ export function ScheduleItem({
     >
       {/* Toggle */}
       <div className="shrink-0 pt-0 sm:pt-1 flex items-center justify-between sm:block">
-        <span className="sm:hidden text-sm font-medium text-slate-600">Actif</span>
+        <span className="sm:hidden text-sm font-medium text-slate-600">
+          {t("schedule.item.activeLabel")}
+        </span>
         <Switch
           checked={task.isEnabled}
           onCheckedChange={(checked) => onToggle(task.id, checked)}
@@ -167,7 +181,9 @@ export function ScheduleItem({
           {task.isEnabled && task.nextRunAt && (
             <span className="flex items-center gap-1 text-blue-600 flex-shrink-0">
               <Calendar className="w-3 h-3" />
-              <span className="hidden sm:inline">Prochaine:</span>
+              <span className="hidden sm:inline">
+                {t("schedule.item.nextRun.label")}
+              </span>
               {formatNextRun(task.nextRunAt)}
             </span>
           )}
@@ -175,7 +191,7 @@ export function ScheduleItem({
           {/* Run count */}
           {task.runCount > 0 && (
             <span className="text-slate-400 flex-shrink-0">
-              Ex: {task.runCount}
+              {t("schedule.item.runCount", { count: task.runCount })}
               {task.maxRuns && `/${task.maxRuns}`}
             </span>
           )}
@@ -183,7 +199,9 @@ export function ScheduleItem({
           {/* Last run */}
           {task.lastRunAt && (
             <span className="text-slate-400 flex-shrink-0 hidden sm:inline">
-              Derni\u00e8re: {new Date(task.lastRunAt).toLocaleString("fr-FR")}
+              {t("schedule.item.lastRun", {
+                date: new Date(task.lastRunAt).toLocaleString(i18n.language),
+              })}
             </span>
           )}
         </div>
@@ -196,7 +214,7 @@ export function ScheduleItem({
           size="icon"
           className="h-8 w-8"
           onClick={() => onExecute(task.id)}
-          title="Exécuter maintenant"
+          title={t("schedule.item.actions.executeNow")}
         >
           <Play className="w-4 h-4 text-green-600" />
         </Button>

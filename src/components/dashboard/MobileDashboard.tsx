@@ -206,7 +206,7 @@ export function MobileDashboard({
         </h3>
         <MobileActionButton
           icon="🎤"
-          iconLabel="Microphone"
+          iconLabel={t("dashboard.icons.microphone")}
           title={t("dashboard.recordThought")}
           description={t("dashboard.recordThoughtDescription")}
           onClick={() => {
@@ -217,14 +217,14 @@ export function MobileDashboard({
         />
         <MobileActionButton
           icon="🧠"
-          iconLabel="Brain"
+          iconLabel={t("dashboard.icons.brain")}
           title={t("dashboard.viewMemories")}
           description={t("dashboard.viewMemoriesDescription")}
           onClick={() => navigate("/dashboard/memories")}
         />
         <MobileActionButton
           icon="📊"
-          iconLabel="Chart"
+          iconLabel={t("dashboard.icons.chart")}
           title={t("dashboard.todaysSummary")}
           description={t("dashboard.todaysSummaryDescription")}
           onClick={() => navigate("/dashboard/analytics")}
@@ -234,7 +234,7 @@ export function MobileDashboard({
       {/* Recent Activity - Always show container */}
       <div className="bg-white rounded-xl p-5 border border-slate-200">
         <h3 className="text-sm font-semibold text-slate-700 mb-3">
-          Recent Activity
+          {t("dashboard.recentActivity")}
         </h3>
         {activityError && (
           <div className="p-2 text-xs text-orange-700 bg-orange-50 rounded border border-orange-200 mb-3">
@@ -258,7 +258,7 @@ export function MobileDashboard({
                 title={item.title}
                 time={formatTimeAgo(item.timestamp)}
                 icon={item.icon}
-                iconLabel={`${item.type} activity`}
+                iconLabel={t("dashboard.icons.activity", { type: item.type })}
               />
             ))}
           </div>

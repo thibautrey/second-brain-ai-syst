@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "./ui/button";
+import { useTranslation } from "react-i18next";
 
 export interface Tip {
   id: string;
@@ -50,6 +51,7 @@ const getIconEmoji = (icon?: string): string => {
 };
 
 export function TipsCarousel({ tips, onDismiss, onView }: TipsCarouselProps) {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoRotate, setAutoRotate] = useState(true);
 
@@ -115,8 +117,8 @@ export function TipsCarousel({ tips, onDismiss, onView }: TipsCarouselProps) {
           <button
             onClick={handleDismiss}
             className="flex-shrink-0 p-1 hover:bg-slate-600 rounded transition-colors"
-            aria-label="Dismiss tip"
-            title="Dismiss this tip"
+            aria-label={t("tips.dismiss")}
+            title={t("tips.dismissTitle")}
           >
             <X className="w-4 h-4 text-slate-400 hover:text-white" />
           </button>
@@ -156,7 +158,7 @@ export function TipsCarousel({ tips, onDismiss, onView }: TipsCarouselProps) {
               className={`h-2 rounded-full transition-all ${
                 index === currentIndex ? "bg-blue-500 w-6" : "bg-slate-600 w-2"
               }`}
-              aria-label={`Go to tip ${index + 1}`}
+              aria-label={t("tips.goToTip", { index: index + 1 })}
             />
           ))}
         </div>

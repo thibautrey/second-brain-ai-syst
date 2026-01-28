@@ -18,6 +18,7 @@ import {
 import { Button } from "./ui/button";
 import { useContinuousListening } from "../contexts/ContinuousListeningContext";
 import { cn } from "../lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface ContinuousListeningButtonProps {
   className?: string;
@@ -31,6 +32,7 @@ export function ContinuousListeningButton({
   size = "md",
 }: ContinuousListeningButtonProps) {
   const { state, actions } = useContinuousListening();
+  const { t } = useTranslation();
 
   const handleClick = () => {
     if (state.isConnected) {
@@ -84,8 +86,8 @@ export function ContinuousListeningButton({
         )}
         aria-label={
           state.isConnected
-            ? "Arrêter l'écoute continue"
-            : "Démarrer l'écoute continue"
+            ? t("continuousListening.aria.stopListening")
+            : t("continuousListening.aria.startListening")
         }
       >
         {getIcon()}
@@ -163,7 +165,11 @@ export function ContinuousListeningToggle({
         state.state === "connecting" && "opacity-50 cursor-wait",
         className,
       )}
-      aria-label={state.isConnected ? "Arrêter l'écoute" : "Démarrer l'écoute"}
+      aria-label={
+        state.isConnected
+          ? t("continuousListening.aria.stopListeningShort")
+          : t("continuousListening.aria.startListeningShort")
+      }
     >
       {state.isConnected ? (
         <>
@@ -183,12 +189,12 @@ export function ContinuousListeningToggle({
               )}
             />
           </span>
-          <span>Écoute active</span>
+          <span>{t("continuousListening.toggle.active")}</span>
         </>
       ) : (
         <>
           <MicOff className="w-4 h-4" />
-          <span>Écoute inactive</span>
+          <span>{t("continuousListening.toggle.inactive")}</span>
         </>
       )}
     </button>

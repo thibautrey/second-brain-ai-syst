@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -9,8 +10,9 @@ import { createNotification } from "../services/notificationService";
 import { Send, CheckCircle, AlertCircle, Info, MessageCircle } from "lucide-react";
 
 export function NotificationTestPage() {
-  const [title, setTitle] = useState("Test Notification");
-  const [message, setMessage] = useState("Ceci est une notification de test");
+  const { t } = useTranslation();
+  const [title, setTitle] = useState(() => t("notificationTest.defaultTitle"));
+  const [message, setMessage] = useState(() => t("notificationTest.defaultMessage"));
   const [type, setType] = useState<
     "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "REMINDER"
   >("INFO");
@@ -45,9 +47,11 @@ export function NotificationTestPage() {
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-4xl font-bold">Notifications</h1>
+          <h1 className="text-4xl font-bold">
+            {t("notificationTest.title")}
+          </h1>
           <p className="text-muted-foreground mt-2 text-lg">
-            Configure your notification channels and preferences. The system can reach you across multiple platforms.
+            {t("notificationTest.subtitle")}
           </p>
         </div>
 
@@ -62,9 +66,11 @@ export function NotificationTestPage() {
                 <AlertCircle className="h-5 w-5 text-blue-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold">In-App</h3>
+                <h3 className="font-semibold">
+                  {t("notificationTest.channels.inApp.title")}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Notifications within the application
+                  {t("notificationTest.channels.inApp.description")}
                 </p>
               </div>
             </div>
@@ -79,9 +85,11 @@ export function NotificationTestPage() {
                 <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold">Browser</h3>
+                <h3 className="font-semibold">
+                  {t("notificationTest.channels.browser.title")}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Web notifications from your browser
+                  {t("notificationTest.channels.browser.description")}
                 </p>
               </div>
             </div>
@@ -96,9 +104,11 @@ export function NotificationTestPage() {
                 <Send className="h-5 w-5 text-orange-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold">Pushover</h3>
+                <h3 className="font-semibold">
+                  {t("notificationTest.channels.pushover.title")}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Mobile push notifications
+                  {t("notificationTest.channels.pushover.description")}
                 </p>
               </div>
             </div>
@@ -113,9 +123,11 @@ export function NotificationTestPage() {
                 <MessageCircle className="h-5 w-5 text-sky-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold">Telegram</h3>
+                <h3 className="font-semibold">
+                  {t("notificationTest.channels.telegram.title")}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Chat and notifications via Telegram
+                  {t("notificationTest.channels.telegram.description")}
                 </p>
               </div>
             </div>
@@ -127,49 +139,66 @@ export function NotificationTestPage() {
 
         {/* Test Form */}
         <Card className="p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Send Test Notification</h2>
+          <h2 className="text-xl font-semibold">
+            {t("notificationTest.testForm.title")}
+          </h2>
           <p className="text-sm text-muted-foreground">
-            {selectedChannel 
-              ? `Send a test message via ${selectedChannel === "browser" ? "Browser Notifications" : selectedChannel === "pushover" ? "Pushover" : selectedChannel === "telegram" ? "Telegram" : "the selected channel"}`
-              : "Select a channel above to send a test notification"
-            }
+            {selectedChannel
+              ? t("notificationTest.testForm.selectedChannel", {
+                  channel: t(
+                    `notificationTest.channels.${selectedChannel}.title`,
+                  ),
+                })
+              : t("notificationTest.testForm.selectChannel")}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">{t("notificationTest.form.title")}</Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Notification title"
+                placeholder={t("notificationTest.form.titlePlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="type">Type</Label>
+              <Label htmlFor="type">{t("notificationTest.form.type")}</Label>
               <select
                 id="type"
                 value={type}
                 onChange={(e) => setType(e.target.value as any)}
                 className="w-full px-3 py-2 border rounded-md"
               >
-                <option value="INFO">Info</option>
-                <option value="SUCCESS">Success</option>
-                <option value="WARNING">Warning</option>
-                <option value="ERROR">Error</option>
-                <option value="REMINDER">Reminder</option>
+                <option value="INFO">
+                  {t("notificationTest.form.types.info")}
+                </option>
+                <option value="SUCCESS">
+                  {t("notificationTest.form.types.success")}
+                </option>
+                <option value="WARNING">
+                  {t("notificationTest.form.types.warning")}
+                </option>
+                <option value="ERROR">
+                  {t("notificationTest.form.types.error")}
+                </option>
+                <option value="REMINDER">
+                  {t("notificationTest.form.types.reminder")}
+                </option>
               </select>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="message">Message</Label>
+            <Label htmlFor="message">
+              {t("notificationTest.form.message")}
+            </Label>
             <Textarea
               id="message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Notification content"
+              placeholder={t("notificationTest.form.messagePlaceholder")}
               rows={3}
             />
           </div>
@@ -183,12 +212,12 @@ export function NotificationTestPage() {
             {isLoading ? (
               <>
                 <span className="animate-spin mr-2">⏳</span>
-                Sending...
+                {t("notificationTest.form.sending")}
               </>
             ) : (
               <>
                 <Send className="h-4 w-4 mr-2" />
-                Send Test Notification
+                {t("notificationTest.form.send")}
               </>
             )}
           </Button>

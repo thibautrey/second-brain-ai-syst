@@ -3,6 +3,7 @@
  */
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -24,73 +25,8 @@ interface ScheduleFormProps {
   onClose: () => void;
 }
 
-const scheduleTypes: {
-  value: ScheduleType;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: "ONE_TIME",
-    label: "Exécution unique",
-    description: "Exécuté une seule fois à la date spécifiée",
-  },
-  {
-    value: "CRON",
-    label: "Expression Cron",
-    description: "Exécuté selon une expression cron (ex: 0 9 * * *)",
-  },
-  {
-    value: "INTERVAL",
-    label: "Intervalle",
-    description: "Exécuté périodiquement selon un intervalle en minutes",
-  },
-];
-
-const actionTypes: {
-  value: TaskActionType;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: "SEND_NOTIFICATION",
-    label: "Envoyer notification",
-    description: "Envoie une notification push",
-  },
-  {
-    value: "CREATE_TODO",
-    label: "Créer une tâche",
-    description: "Crée automatiquement une nouvelle tâche",
-  },
-  {
-    value: "GENERATE_SUMMARY",
-    label: "Générer un résumé",
-    description: "Génère un résumé des mémoires",
-  },
-  {
-    value: "RUN_AGENT",
-    label: "Exécuter un agent",
-    description: "Lance un agent autonome",
-  },
-  {
-    value: "WEBHOOK",
-    label: "Appeler un webhook",
-    description: "Envoie une requête HTTP",
-  },
-  {
-    value: "CUSTOM",
-    label: "Action personnalisée",
-    description: "Action personnalisée avec payload libre",
-  },
-];
-
-const cronExamples = [
-  { label: "Chaque jour à 9h", value: "0 9 * * *" },
-  { label: "Chaque lundi à 8h", value: "0 8 * * 1" },
-  { label: "Toutes les heures", value: "0 * * * *" },
-  { label: "Le 1er du mois à minuit", value: "0 0 1 * *" },
-];
-
 export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: task?.name || "",
@@ -110,6 +46,83 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
   });
 
   const isEditing = !!task;
+  const scheduleTypes: {
+    value: ScheduleType;
+    label: string;
+    description: string;
+  }[] = [
+    {
+      value: "ONE_TIME",
+      label: t("schedule.form.scheduleTypes.oneTime.label"),
+      description: t("schedule.form.scheduleTypes.oneTime.description"),
+    },
+    {
+      value: "CRON",
+      label: t("schedule.form.scheduleTypes.cron.label"),
+      description: t("schedule.form.scheduleTypes.cron.description"),
+    },
+    {
+      value: "INTERVAL",
+      label: t("schedule.form.scheduleTypes.interval.label"),
+      description: t("schedule.form.scheduleTypes.interval.description"),
+    },
+  ];
+
+  const actionTypes: {
+    value: TaskActionType;
+    label: string;
+    description: string;
+  }[] = [
+    {
+      value: "SEND_NOTIFICATION",
+      label: t("schedule.form.actionTypes.sendNotification.label"),
+      description: t("schedule.form.actionTypes.sendNotification.description"),
+    },
+    {
+      value: "CREATE_TODO",
+      label: t("schedule.form.actionTypes.createTodo.label"),
+      description: t("schedule.form.actionTypes.createTodo.description"),
+    },
+    {
+      value: "GENERATE_SUMMARY",
+      label: t("schedule.form.actionTypes.generateSummary.label"),
+      description: t("schedule.form.actionTypes.generateSummary.description"),
+    },
+    {
+      value: "RUN_AGENT",
+      label: t("schedule.form.actionTypes.runAgent.label"),
+      description: t("schedule.form.actionTypes.runAgent.description"),
+    },
+    {
+      value: "WEBHOOK",
+      label: t("schedule.form.actionTypes.webhook.label"),
+      description: t("schedule.form.actionTypes.webhook.description"),
+    },
+    {
+      value: "CUSTOM",
+      label: t("schedule.form.actionTypes.custom.label"),
+      description: t("schedule.form.actionTypes.custom.description"),
+    },
+  ];
+
+  const cronExamples = [
+    {
+      label: t("schedule.form.cronExamples.dailyAtNine"),
+      value: "0 9 * * *",
+    },
+    {
+      label: t("schedule.form.cronExamples.mondayAtEight"),
+      value: "0 8 * * 1",
+    },
+    {
+      label: t("schedule.form.cronExamples.hourly"),
+      value: "0 * * * *",
+    },
+    {
+      label: t("schedule.form.cronExamples.firstOfMonth"),
+      value: "0 0 1 * *",
+    },
+  ];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -121,7 +134,7 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
       try {
         actionPayload = JSON.parse(formData.actionPayload || "{}");
       } catch {
-        alert("Le payload doit être un JSON valide");
+        alert(t("schedule.form.errors.invalidJson"));
         setLoading(false);
         return;
       }
@@ -164,13 +177,19 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
     switch (actionType) {
       case "SEND_NOTIFICATION":
         return JSON.stringify(
-          { title: "Rappel", message: "Votre notification" },
+          {
+            title: t("schedule.form.defaultPayload.notificationTitle"),
+            message: t("schedule.form.defaultPayload.notificationMessage"),
+          },
           null,
           2,
         );
       case "CREATE_TODO":
         return JSON.stringify(
-          { title: "Nouvelle tâche", priority: "MEDIUM" },
+          {
+            title: t("schedule.form.defaultPayload.todoTitle"),
+            priority: "MEDIUM",
+          },
           null,
           2,
         );
@@ -199,8 +218,8 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
         <div className="flex items-center justify-between p-3 sm:p-4 border-b bg-slate-50 sm:bg-white rounded-t-lg sm:rounded-t-none">
           <h3 className="text-base sm:text-lg font-semibold">
             {isEditing
-              ? "Modifier la tâche planifiée"
-              : "Nouvelle tâche planifiée"}
+              ? t("schedule.form.editTitle")
+              : t("schedule.form.newTitle")}
           </h3>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-4 h-4" />
@@ -213,35 +232,37 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
         >
           {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="name">Nom *</Label>
+            <Label htmlFor="name">{t("schedule.form.nameLabel")}</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              placeholder="ex: Rappel quotidien"
+              placeholder={t("schedule.form.namePlaceholder")}
               required
             />
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">
+              {t("schedule.form.descriptionLabel")}
+            </Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              placeholder="Description de la tâche..."
+              placeholder={t("schedule.form.descriptionPlaceholder")}
               rows={2}
             />
           </div>
 
           {/* Schedule Type */}
           <div className="space-y-2">
-            <Label>Type de planification *</Label>
+            <Label>{t("schedule.form.scheduleTypeLabel")}</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {scheduleTypes.map((type) => (
                 <label
@@ -279,7 +300,9 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
           {/* Schedule Details based on type */}
           {formData.scheduleType === "ONE_TIME" && (
             <div className="space-y-2">
-              <Label htmlFor="executeAt">Date et heure d'exécution *</Label>
+              <Label htmlFor="executeAt">
+                {t("schedule.form.executeAtLabel")}
+              </Label>
               <Input
                 id="executeAt"
                 type="datetime-local"
@@ -294,14 +317,16 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
 
           {formData.scheduleType === "CRON" && (
             <div className="space-y-2">
-              <Label htmlFor="cronExpression">Expression Cron *</Label>
+              <Label htmlFor="cronExpression">
+                {t("schedule.form.cronExpressionLabel")}
+              </Label>
               <Input
                 id="cronExpression"
                 value={formData.cronExpression}
                 onChange={(e) =>
                   setFormData({ ...formData, cronExpression: e.target.value })
                 }
-                placeholder="0 9 * * *"
+                placeholder={t("schedule.form.cronExpressionPlaceholder")}
                 required
               />
               <div className="flex flex-wrap gap-1 sm:gap-2 mt-2">
@@ -323,7 +348,9 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
 
           {formData.scheduleType === "INTERVAL" && (
             <div className="space-y-2">
-              <Label htmlFor="interval">Intervalle (minutes) *</Label>
+              <Label htmlFor="interval">
+                {t("schedule.form.intervalLabel")}
+              </Label>
               <Input
                 id="interval"
                 type="number"
@@ -335,14 +362,14 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
                 required
               />
               <p className="text-xs text-slate-500">
-                60 = 1 heure, 1440 = 1 jour
+                {t("schedule.form.intervalHint")}
               </p>
             </div>
           )}
 
           {/* Action Type */}
           <div className="space-y-2">
-            <Label>Action à exécuter *</Label>
+            <Label>{t("schedule.form.actionTypeLabel")}</Label>
             <select
               value={formData.actionType}
               onChange={(e) => {
@@ -371,14 +398,16 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
 
           {/* Action Payload */}
           <div className="space-y-2">
-            <Label htmlFor="actionPayload">Payload (JSON)</Label>
+            <Label htmlFor="actionPayload">
+              {t("schedule.form.actionPayloadLabel")}
+            </Label>
             <Textarea
               id="actionPayload"
               value={formData.actionPayload}
               onChange={(e) =>
                 setFormData({ ...formData, actionPayload: e.target.value })
               }
-              placeholder="{}"
+              placeholder={t("schedule.form.actionPayloadPlaceholder")}
               rows={4}
               className="font-mono text-sm"
             />
@@ -387,7 +416,9 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
           {/* Optional limits */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="maxRuns">Nombre max d'exécutions</Label>
+              <Label htmlFor="maxRuns">
+                {t("schedule.form.maxRunsLabel")}
+              </Label>
               <Input
                 id="maxRuns"
                 type="number"
@@ -396,11 +427,13 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
                 onChange={(e) =>
                   setFormData({ ...formData, maxRuns: e.target.value })
                 }
-                placeholder="Illimité"
+                placeholder={t("schedule.form.maxRunsPlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expiresAt">Date d'expiration</Label>
+              <Label htmlFor="expiresAt">
+                {t("schedule.form.expiresAtLabel")}
+              </Label>
               <Input
                 id="expiresAt"
                 type="date"
@@ -414,14 +447,14 @@ export function ScheduleForm({ task, onSubmit, onClose }: ScheduleFormProps) {
 
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t bg-slate-50 sm:bg-white p-3 sm:p-4 -m-3 sm:-m-4 mt-auto">
             <Button type="button" variant="outline" onClick={onClose}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={loading || !formData.name.trim()} className="w-full sm:w-auto">
               {loading
-                ? "Enregistrement..."
+                ? t("common.saving")
                 : isEditing
-                  ? "Mettre à jour"
-                  : "Créer"}
+                  ? t("common.update")
+                  : t("common.create")}
             </Button>
           </div>
         </form>

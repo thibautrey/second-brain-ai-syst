@@ -117,7 +117,7 @@ export function TrainingPage() {
 
   const handleProfileSelectionContinue = async () => {
     if (!speakerProfileId) {
-      setError("Please select or create a profile");
+      setError(t("training.page.errors.selectProfile"));
       return;
     }
     setCurrentStep("recording");
@@ -134,7 +134,7 @@ export function TrainingPage() {
 
     try {
       if (!speakerProfileId) {
-        throw new Error("No speaker profile selected");
+        throw new Error(t("training.page.errors.noProfileSelected"));
       }
 
       // Training phrases by language - matches RecordSamplesStep
@@ -364,7 +364,9 @@ export function TrainingPage() {
       );
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "Failed to upload sample";
+        err instanceof Error
+          ? err.message
+          : t("training.page.errors.uploadSampleFailed");
       setError(msg);
 
       // Mark the last recording as failed
@@ -388,7 +390,10 @@ export function TrainingPage() {
       try {
         await trainingAPI.deleteSample(recording.uploadedSampleId);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to delete";
+        const msg =
+          err instanceof Error
+            ? err.message
+            : t("training.page.errors.deleteFailed");
         setError(msg);
         return;
       }
@@ -414,7 +419,7 @@ export function TrainingPage() {
 
     try {
       if (!speakerProfileId) {
-        throw new Error("No speaker profile selected");
+        throw new Error(t("training.page.errors.noProfileSelected"));
       }
 
       const paragraphs =
@@ -480,7 +485,7 @@ export function TrainingPage() {
       const msg =
         err instanceof Error
           ? err.message
-          : "Failed to upload paragraph recording";
+          : t("training.page.errors.uploadParagraphFailed");
       setError(msg);
 
       // Mark the last recording as failed
@@ -505,7 +510,10 @@ export function TrainingPage() {
       try {
         await trainingAPI.deleteSample(recording.uploadedSampleId);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to delete";
+        const msg =
+          err instanceof Error
+            ? err.message
+            : t("training.page.errors.deleteFailed");
         setError(msg);
         return;
       }
@@ -522,7 +530,7 @@ export function TrainingPage() {
   // Step 3: Training
   const handleStartTraining = async () => {
     if (!speakerProfileId) {
-      setError("No speaker profile found");
+      setError(t("training.page.errors.noProfileFound"));
       return;
     }
 
@@ -536,7 +544,7 @@ export function TrainingPage() {
       uploadedPhraseRecordings.length + uploadedParagraphRecordings.length;
 
     if (totalUploadedRecordings === 0) {
-      setError("No successfully uploaded samples");
+      setError(t("training.page.errors.noUploadedSamples"));
       return;
     }
 
@@ -573,7 +581,10 @@ export function TrainingPage() {
       setTrainingProgress(100);
       setCurrentStep("verification");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Training failed";
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("training.page.errors.trainingFailed");
       setError(msg);
       setIsTraining(false);
       setCurrentStep("recording");
@@ -587,7 +598,7 @@ export function TrainingPage() {
 
     try {
       if (!speakerProfileId) {
-        throw new Error("No speaker profile");
+        throw new Error(t("training.page.errors.noProfile"));
       }
 
       // Simulate verification
@@ -598,7 +609,10 @@ export function TrainingPage() {
         confidence: trainingResult?.confidenceScore || 0.92,
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Verification failed";
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("training.page.errors.verificationFailed");
       setError(msg);
     } finally {
       setIsVerifying(false);
@@ -618,31 +632,31 @@ export function TrainingPage() {
   }> = [
     {
       key: "profile-selection",
-      label: "Profile",
+      label: t("training.page.steps.profile"),
       icon: <User className="h-4 w-4" />,
       completed: speakerProfileId !== null,
     },
     {
       key: "recording",
-      label: "Phrases",
+      label: t("training.page.steps.phrases"),
       icon: <Mic className="h-4 w-4" />,
       completed: recordings.length >= 1,
     },
     {
       key: "paragraph-reading",
-      label: "Paragraphs",
+      label: t("training.page.steps.paragraphs"),
       icon: <BookOpen className="h-4 w-4" />,
       completed: paragraphRecordings.length >= 1,
     },
     {
       key: "training",
-      label: "Train",
+      label: t("training.page.steps.train"),
       icon: <Sparkles className="h-4 w-4" />,
       completed: trainingResult !== null,
     },
     {
       key: "verification",
-      label: "Verify",
+      label: t("training.page.steps.verify"),
       icon: <Shield className="h-4 w-4" />,
       completed: verificationResult !== null,
     },
@@ -652,11 +666,10 @@ export function TrainingPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-2">
-        <h2 className="text-3xl font-bold text-slate-900">Voice Training</h2>
-        <p className="text-slate-600">
-          Train your voice profile for personalized recognition and speaker
-          identification
-        </p>
+        <h2 className="text-3xl font-bold text-slate-900">
+          {t("training.page.title")}
+        </h2>
+        <p className="text-slate-600">{t("training.page.subtitle")}</p>
       </div>
 
       {/* Tabs for Train / Review */}
@@ -667,11 +680,11 @@ export function TrainingPage() {
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="train" className="gap-2">
             <Mic className="h-4 w-4" />
-            Train Voice
+            {t("training.page.tabs.train")}
           </TabsTrigger>
           <TabsTrigger value="review" className="gap-2">
             <Volume2 className="h-4 w-4" />
-            Review Audio
+            {t("training.page.tabs.review")}
           </TabsTrigger>
         </TabsList>
 
@@ -754,7 +767,9 @@ export function TrainingPage() {
             <div className="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-red-900">Error</p>
+                <p className="font-medium text-red-900">
+                  {t("common.error")}
+                </p>
                 <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
             </div>
@@ -808,11 +823,10 @@ export function TrainingPage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                      Training Your Voice Profile
+                      {t("training.page.training.title")}
                     </h2>
                     <p className="text-slate-600">
-                      Processing your recordings to create your unique voice
-                      signature
+                      {t("training.page.training.subtitle")}
                     </p>
                   </div>
 
@@ -868,13 +882,16 @@ export function TrainingPage() {
 
                     <div className="space-y-2 text-sm text-slate-500">
                       <p>
-                        Processing{" "}
-                        {recordings.length + paragraphRecordings.length} voice
-                        samples
+                        {t("training.page.training.processingSamples", {
+                          count:
+                            recordings.length + paragraphRecordings.length,
+                        })}
                       </p>
                       <p className="text-xs">
-                        {recordings.length} phrases •{" "}
-                        {paragraphRecordings.length} paragraphs
+                        {t("training.page.training.samplesBreakdown", {
+                          phrases: recordings.length,
+                          paragraphs: paragraphRecordings.length,
+                        })}
                       </p>
                     </div>
                   </div>
@@ -903,30 +920,22 @@ export function TrainingPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-blue-900 flex items-center gap-2">
                   <Sparkles className="h-4 w-4" />
-                  Getting Started
+                  {t("training.page.gettingStarted.title")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <ul className="text-sm text-blue-800 space-y-2">
                   <li className="flex items-start gap-2">
                     <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>
-                      Select or create a voice profile to begin training
-                    </span>
+                    <span>{t("training.page.gettingStarted.tip1")}</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>
-                      Record short phrases and longer paragraphs for best
-                      results
-                    </span>
+                    <span>{t("training.page.gettingStarted.tip2")}</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>
-                      Train in multiple languages for better multilingual
-                      recognition
-                    </span>
+                    <span>{t("training.page.gettingStarted.tip3")}</span>
                   </li>
                 </ul>
               </CardContent>
@@ -948,32 +957,25 @@ export function TrainingPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-amber-900 flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
-                Why Review Audio?
+                {t("training.page.review.title")}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-amber-800 mb-3">
-                The system learns from audio it hears during continuous
-                listening. Sometimes it might:
+                {t("training.page.review.subtitle")}
               </p>
               <ul className="text-sm text-amber-800 space-y-2">
                 <li className="flex items-start gap-2">
                   <span className="font-bold">•</span>
-                  <span>Mistakenly classify your voice as someone else's</span>
+                  <span>{t("training.page.review.bullets.0")}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-bold">•</span>
-                  <span>
-                    Add negative associations that make future recognition
-                    harder
-                  </span>
+                  <span>{t("training.page.review.bullets.1")}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-bold">•</span>
-                  <span>
-                    Correcting these helps the system learn and improve over
-                    time
-                  </span>
+                  <span>{t("training.page.review.bullets.2")}</span>
                 </li>
               </ul>
             </CardContent>

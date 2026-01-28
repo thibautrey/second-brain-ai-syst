@@ -23,6 +23,7 @@ import { Button } from "./ui/button";
 import { useChatMessages } from "../hooks/useChatMessages";
 import { useContinuousListening } from "../contexts/ContinuousListeningContext";
 import { cn } from "../lib/utils";
+import { useTranslation } from "react-i18next";
 
 // Size constraints for the chat window
 const MIN_WIDTH = 380;
@@ -31,6 +32,7 @@ const MIN_HEIGHT = 400;
 const MAX_HEIGHT = 700;
 
 export function FloatingActionButtons() {
+  const { t } = useTranslation();
   const { messages, isLoading, error, sendMessage, clearMessages } =
     useChatMessages();
   const { state, actions } = useContinuousListening();
@@ -194,7 +196,7 @@ export function FloatingActionButtons() {
                 >
                   <Bot className="w-5 h-5" />
                 </motion.div>
-                <h3 className="font-semibold">Second Brain</h3>
+                <h3 className="font-semibold">{t("floatingChat.title")}</h3>
               </div>
               <div className="flex items-center gap-1">
                 {messages.length > 0 && (
@@ -242,10 +244,9 @@ export function FloatingActionButtons() {
                   >
                     <Bot className="w-12 h-12 mb-3 opacity-50" />
                   </motion.div>
-                  <p className="text-sm">Commencez une conversation...</p>
+                  <p className="text-sm">{t("floatingChat.emptyTitle")}</p>
                   <p className="text-xs mt-1 text-center px-4">
-                    Je peux accéder à vos mémoires pour des réponses
-                    personnalisées
+                    {t("floatingChat.emptySubtitle")}
                   </p>
                 </motion.div>
               ) : (
@@ -332,7 +333,9 @@ export function FloatingActionButtons() {
                   >
                     <Loader2 className="w-4 h-4" />
                   </motion.div>
-                  <span className="text-sm">Réflexion en cours...</span>
+                  <span className="text-sm">
+                    {t("floatingChat.thinking")}
+                  </span>
                 </motion.div>
               )}
 
@@ -364,7 +367,7 @@ export function FloatingActionButtons() {
                   value={input}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
-                  placeholder="Écrivez votre message..."
+                  placeholder={t("floatingChat.inputPlaceholder")}
                   disabled={isLoading}
                   rows={1}
                   className={cn(
@@ -419,12 +422,14 @@ export function FloatingActionButtons() {
                 state.state === "connecting" && "cursor-wait opacity-60",
               )}
               aria-label={
-                state.isConnected ? "Arrêter l'écoute" : "Démarrer l'écoute"
+                state.isConnected
+                  ? t("floatingChat.mic.stopAria")
+                  : t("floatingChat.mic.startAria")
               }
               title={
                 state.isConnected
-                  ? "Écoute active - Cliquez pour arrêter"
-                  : "Cliquez pour activer l'écoute"
+                  ? t("floatingChat.mic.stopTitle")
+                  : t("floatingChat.mic.startTitle")
               }
             >
               <AnimatePresence mode="wait">

@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Send, Trash2, Loader2, Bot, User } from "lucide-react";
 import { Button } from "./ui/button";
 import { useChatMessages } from "../hooks/useChatMessages";
@@ -14,6 +15,7 @@ import { ToolActivityDisplay } from "./Chat/ToolActivityDisplay";
 import { MessageToolHistory } from "./Chat/MessageToolHistory";
 
 export function ChatPanel() {
+  const { t } = useTranslation();
   const {
     messages,
     isLoading,
@@ -56,7 +58,7 @@ export function ChatPanel() {
         <div className="flex items-center gap-2">
           <Bot className="w-5 h-5 text-blue-600" />
           <h3 className="font-semibold text-slate-900">
-            Chat avec Second Brain
+            {t("chat.panelTitle")}
           </h3>
         </div>
         {messages.length > 0 && (
@@ -67,7 +69,7 @@ export function ChatPanel() {
             className="text-slate-500 hover:text-slate-700"
           >
             <Trash2 className="w-4 h-4 mr-1" />
-            Effacer
+            {t("common.clear")}
           </Button>
         )}
       </div>
@@ -77,9 +79,9 @@ export function ChatPanel() {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400">
             <Bot className="w-12 h-12 mb-3 opacity-50" />
-            <p className="text-sm">Commencez une conversation...</p>
+            <p className="text-sm">{t("chat.emptyTitle")}</p>
             <p className="mt-1 text-xs">
-              Je peux accéder à vos mémoires pour des réponses personnalisées
+              {t("chat.accessMemories")}
             </p>
           </div>
         ) : (
@@ -169,7 +171,7 @@ export function ChatPanel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Écrivez votre message..."
+            placeholder={t("chat.inputPlaceholder")}
             disabled={isLoading}
             rows={1}
             className={cn(

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import * as trainingAPI from "../../services/training-api";
+import { useTranslation } from "react-i18next";
 
 interface ActiveTraining {
   id: string;
@@ -9,6 +10,7 @@ interface ActiveTraining {
 }
 
 export function TrainingProgressWidget() {
+  const { t } = useTranslation();
   const [activeTraining, setActiveTraining] = useState<ActiveTraining | null>(
     null,
   );
@@ -101,13 +103,13 @@ export function TrainingProgressWidget() {
     if (!step) return `${progress}%`;
 
     const stepMap: Record<string, string> = {
-      initializing: "Initializing...",
-      "loading-samples": "Loading samples...",
-      "extracting-embeddings": "Extracting embeddings...",
-      "computing-centroid": "Computing centroid...",
-      "computing-statistics": "Computing statistics...",
-      "saving-results": "Saving results...",
-      completed: "Completed!",
+      initializing: t("training.widget.steps.initializing"),
+      "loading-samples": t("training.widget.steps.loadingSamples"),
+      "extracting-embeddings": t("training.widget.steps.extractingEmbeddings"),
+      "computing-centroid": t("training.widget.steps.computingCentroid"),
+      "computing-statistics": t("training.widget.steps.computingStatistics"),
+      "saving-results": t("training.widget.steps.savingResults"),
+      completed: t("training.widget.steps.completed"),
     };
 
     return stepMap[step] || `${progress}%`;
@@ -161,12 +163,14 @@ export function TrainingProgressWidget() {
       {/* Tooltip */}
       {tooltipVisible && (
         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-slate-900 text-white px-3 py-2 rounded-md text-xs whitespace-nowrap shadow-lg z-50">
-          <div className="font-semibold">Training Session</div>
+          <div className="font-semibold">{t("training.widget.title")}</div>
           <div className="text-slate-300">
             {getStepLabel(activeTraining.currentStep, activeTraining.progress)}
           </div>
           <div className="text-slate-400">
-            Progress: {activeTraining.progress}%
+            {t("training.widget.progress", {
+              progress: activeTraining.progress,
+            })}
           </div>
           {/* Tooltip arrow */}
           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-900" />

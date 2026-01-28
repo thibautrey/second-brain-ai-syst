@@ -43,7 +43,7 @@ export function MemoryTimeline({
       <div className="flex flex-col items-center justify-center py-12 text-slate-500">
         <Brain className="w-12 h-12 mb-4 text-slate-300" />
         <p className="text-lg font-medium">{t("memory.noMemoriesFound")}</p>
-        <p className="text-sm mt-1">Vos souvenirs apparaîtront ici</p>
+        <p className="text-sm mt-1">{t("memory.emptyHint")}</p>
       </div>
     );
   }
@@ -66,8 +66,7 @@ export function MemoryTimeline({
                 {group.label}
               </h3>
               <span className="text-xs text-slate-400 bg-slate-50 px-2">
-                {group.memories.length} souvenir
-                {group.memories.length > 1 ? "s" : ""}
+                {t("memory.timeline.count", { count: group.memories.length })}
               </span>
             </div>
 
@@ -107,10 +106,10 @@ export function MemoryTimeline({
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Chargement...
+                {t("common.loading")}
               </>
             ) : (
-              "Charger plus de souvenirs"
+              t("memory.timeline.loadMore")
             )}
           </button>
         </div>

@@ -14,6 +14,7 @@ import {
   Check,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface MemoryDetailPanelProps {
   memory: Memory | null;
@@ -32,18 +33,22 @@ export function MemoryDetailPanel({
   onArchive,
   onDelete,
 }: MemoryDetailPanelProps) {
+  const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   if (!memory) return null;
 
-  const formattedDate = new Date(memory.createdAt).toLocaleDateString("fr-FR", {
+  const formattedDate = new Date(memory.createdAt).toLocaleDateString(
+    i18n.language,
+    {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
+    },
+  );
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(memory.content);
@@ -83,7 +88,7 @@ export function MemoryDetailPanel({
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-blue-600" />
             <h2 className="text-lg font-semibold text-slate-900">
-              Détail du souvenir
+              {t("memory.detail.title")}
             </h2>
           </div>
           <Button
@@ -108,7 +113,9 @@ export function MemoryDetailPanel({
                   : "bg-blue-100 text-blue-700",
               )}
             >
-              {memory.type === "LONG_TERM" ? "Long terme" : "Court terme"}
+              {memory.type === "LONG_TERM"
+                ? t("memory.detail.type.longTerm")
+                : t("memory.detail.type.shortTerm")}
             </span>
             <span
               className={cn(
@@ -116,18 +123,20 @@ export function MemoryDetailPanel({
                 importanceColor,
               )}
             >
-              Importance: {Math.round(memory.importanceScore * 100)}%
+              {t("memory.detail.importance", {
+                score: Math.round(memory.importanceScore * 100),
+              })}
             </span>
             {memory.isPinned && (
               <span className="px-3 py-1 text-sm font-medium rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
                 <Pin className="w-3 h-3 fill-current" />
-                Épinglé
+                {t("memory.detail.pinnedBadge")}
               </span>
             )}
             {memory.isArchived && (
               <span className="px-3 py-1 text-sm font-medium rounded-full bg-slate-100 text-slate-600 flex items-center gap-1">
                 <Archive className="w-3 h-3" />
-                Archivé
+                {t("memory.detail.archivedBadge")}
               </span>
             )}
           </div>
@@ -164,7 +173,7 @@ export function MemoryDetailPanel({
             <div>
               <div className="flex items-center gap-2 mb-2 text-sm font-medium text-slate-700">
                 <Tag className="w-4 h-4" />
-                Tags
+                {t("memory.detail.tags")}
               </div>
               <div className="flex flex-wrap gap-2">
                 {memory.tags.map((tag) => (
@@ -184,7 +193,7 @@ export function MemoryDetailPanel({
             <div>
               <div className="flex items-center gap-2 mb-2 text-sm font-medium text-slate-700">
                 <ExternalLink className="w-4 h-4" />
-                Entités détectées
+                {t("memory.detail.entities")}
               </div>
               <div className="flex flex-wrap gap-2">
                 {memory.entities.map((entity) => (
@@ -203,7 +212,7 @@ export function MemoryDetailPanel({
           {Object.keys(memory.metadata).length > 0 && (
             <div>
               <div className="text-sm font-medium text-slate-700 mb-2">
-                Métadonnées
+                {t("memory.detail.metadata")}
               </div>
               <pre className="p-3 bg-slate-100 rounded-lg text-xs text-slate-600 overflow-x-auto">
                 {JSON.stringify(memory.metadata, null, 2)}
@@ -214,7 +223,10 @@ export function MemoryDetailPanel({
           {/* Source info */}
           {(memory.sourceType || memory.sourceId) && (
             <div className="text-sm text-slate-500">
-              <span className="font-medium">Source:</span> {memory.sourceType}
+              <span className="font-medium">
+                {t("memory.detail.sourceLabel")}
+              </span>{" "}
+              {memory.sourceType}
               {memory.sourceId && ` (${memory.sourceId})`}
             </div>
           )}
@@ -231,7 +243,9 @@ export function MemoryDetailPanel({
             <Pin
               className={cn("w-4 h-4 mr-2", memory.isPinned && "fill-current")}
             />
-            {memory.isPinned ? "Désépingler" : "Épingler"}
+            {memory.isPinned
+              ? t("memory.detail.unpin")
+              : t("memory.detail.pin")}
           </Button>
           <Button
             variant="outline"
@@ -240,7 +254,9 @@ export function MemoryDetailPanel({
             onClick={() => onArchive(memory.id, memory.isArchived)}
           >
             <Archive className="w-4 h-4 mr-2" />
-            {memory.isArchived ? "Désarchiver" : "Archiver"}
+            {memory.isArchived
+              ? t("memory.detail.unarchive")
+              : t("memory.detail.archive")}
           </Button>
           <Button
             variant="outline"

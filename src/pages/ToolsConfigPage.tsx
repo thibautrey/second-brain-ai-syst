@@ -42,6 +42,7 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -51,6 +52,7 @@ import { SelfHealDialog } from "../components/tools/SelfHealDialog";
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../contexts/AuthContext";
+import i18n from "../i18n/config";
 
 // ==================== Types ====================
 
@@ -145,7 +147,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = localStorage.getItem("authToken");
 
   if (!token) {
-    throw new Error("Authentication required. Please log in first.");
+    throw new Error(i18n.t("toolsConfig.errors.authRequired"));
   }
 
   const response = await fetch(`${API_BASE}${url}`, {
@@ -159,7 +161,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const contentType = response.headers.get("content-type");
-    let error = "Request failed";
+    let error = i18n.t("toolsConfig.errors.requestFailed");
 
     if (contentType?.includes("application/json")) {
       try {
@@ -177,9 +179,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 
   const contentType = response.headers.get("content-type");
   if (!contentType?.includes("application/json")) {
-    throw new Error(
-      "Server returned non-JSON response. API endpoints may not be implemented.",
-    );
+    throw new Error(i18n.t("toolsConfig.errors.nonJsonResponse"));
   }
 
   return response.json();
@@ -189,6 +189,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 
 export function ToolsConfigPage() {
   const { user } = useAuth();
+  const { t, i18n: i18nContext } = useTranslation();
   const [activeTab, setActiveTab] = useState("builtin");
 
   // State for built-in tools
@@ -319,7 +320,7 @@ export function ToolsConfigPage() {
   }
 
   async function deleteMCPServer(id: string) {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce serveur MCP ?")) return;
+    if (!confirm(t("toolsConfig.confirm.deleteMcpServer"))) return;
 
     try {
       await fetchWithAuth(`/tools/mcp/${id}`, { method: "DELETE" });
@@ -395,7 +396,7 @@ export function ToolsConfigPage() {
   }
 
   async function uninstallTool(slug: string) {
-    if (!confirm("Êtes-vous sûr de vouloir désinstaller cet outil ?")) return;
+    if (!confirm(t("toolsConfig.confirm.uninstallTool"))) return;
 
     try {
       await fetchWithAuth(`/tools/marketplace/${slug}`, { method: "DELETE" });
@@ -424,7 +425,7 @@ export function ToolsConfigPage() {
   }
 
   async function deleteGeneratedTool(toolId: string) {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cet outil généré ?"))
+    if (!confirm(t("toolsConfig.confirm.deleteGeneratedTool")))
       return;
 
     try {
@@ -463,10 +464,10 @@ export function ToolsConfigPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold text-slate-900">
-              Configuration des Outils
+              {t("toolsConfig.title")}
             </h2>
             <p className="mt-1 text-slate-600">
-              Gérez les outils intégrés, serveurs MCP et outils du marketplace
+              {t("toolsConfig.subtitle")}
             </p>
           </div>
         </div>
@@ -474,11 +475,10 @@ export function ToolsConfigPage() {
         <div className="p-6 text-center bg-white border rounded-lg shadow border-slate-200">
           <div className="mb-4 text-5xl">⚙️</div>
           <h3 className="mb-2 text-lg font-semibold text-slate-900">
-            Service Tools Indisponible
+            {t("toolsConfig.placeholder.title")}
           </h3>
           <p className="mb-4 text-slate-600">
-            Les endpoints de configuration des outils ne sont pas encore
-            disponibles.
+            {t("toolsConfig.placeholder.subtitle")}
           </p>
           <div className="inline-block p-4 text-sm text-left rounded text-slate-500 bg-slate-50">
             <p className="font-mono text-red-600">{error}</p>
@@ -490,7 +490,7 @@ export function ToolsConfigPage() {
             className="mt-4"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
-            Réessayer
+            {t("common.retry")}
           </Button>
         </div>
       </div>
@@ -502,10 +502,10 @@ export function ToolsConfigPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-slate-900">
-            Configuration des Outils
+            {t("toolsConfig.title")}
           </h2>
           <p className="mt-1 text-slate-600">
-            Gérez les outils intégrés, serveurs MCP et outils du marketplace
+            {t("toolsConfig.subtitle")}
           </p>
         </div>
         <Button
@@ -515,20 +515,19 @@ export function ToolsConfigPage() {
           className="hidden md:inline-flex"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
-          Actualiser
+          {t("common.refresh")}
         </Button>
       </div>
 
       {error && (
         <div className="px-4 py-3 text-red-700 border border-red-200 rounded-lg bg-red-50">
-          <div className="mb-2 font-semibold">⚠️ Erreur</div>
+          <div className="mb-2 font-semibold">
+            {t("toolsConfig.errors.bannerTitle")}
+          </div>
           <p className="mb-2 text-sm">{error}</p>
           {error.includes("non-JSON") && (
             <p className="mt-2 text-xs text-red-600">
-              💡 <strong>Conseil:</strong> Les endpoints API pour les outils ne
-              sont pas encore implémentés dans le backend. Vérifiez que le
-              serveur backend est en cours d'exécution et que les routes sont
-              définies dans{" "}
+              {t("toolsConfig.errors.nonJsonHint")}{" "}
               <code className="px-1 bg-red-100 rounded">
                 backend/controllers/tools.controller.ts
               </code>
@@ -538,7 +537,7 @@ export function ToolsConfigPage() {
             onClick={() => setError(null)}
             className="mt-2 ml-4 text-sm underline"
           >
-            Fermer
+            {t("common.close")}
           </button>
         </div>
       )}
@@ -551,7 +550,7 @@ export function ToolsConfigPage() {
               className="flex items-center gap-2 whitespace-nowrap"
             >
               <Wrench className="w-4 h-4" />
-              <span>Outils Intégrés</span>
+              <span>{t("toolsConfig.tabs.builtin")}</span>
             </TabsTrigger>
 
             <TabsTrigger
@@ -559,7 +558,7 @@ export function ToolsConfigPage() {
               className="flex items-center gap-2 whitespace-nowrap"
             >
               <Star className="w-4 h-4" />
-              <span>Outils Générés</span>
+              <span>{t("toolsConfig.tabs.generated")}</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -619,10 +618,10 @@ export function ToolsConfigPage() {
                 <CardContent className="py-12 text-center">
                   <Star className="w-12 h-12 mx-auto mb-4 text-slate-300" />
                   <p className="text-slate-500">
-                    Aucun outil généré pour le moment
+                    {t("toolsConfig.generated.emptyTitle")}
                   </p>
                   <p className="mt-2 text-sm text-slate-400">
-                    Les outils générés par l'IA apparaîtront ici une fois créés
+                    {t("toolsConfig.generated.emptySubtitle")}
                   </p>
                 </CardContent>
               </Card>
@@ -680,7 +679,7 @@ export function ToolsConfigPage() {
                       {tool.actions && tool.actions.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           <span className="text-xs font-medium text-slate-600">
-                            Actions:
+                            {t("toolsConfig.generated.actionsLabel")}
                           </span>
                           {tool.actions.slice(0, 2).map((action) => (
                             <Badge
@@ -715,24 +714,33 @@ export function ToolsConfigPage() {
 
                       <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
                         <div>
-                          <span className="font-medium">Version:</span> v
+                          <span className="font-medium">
+                            {t("toolsConfig.generated.versionLabel")}
+                          </span>{" "}
+                          v
                           {tool.version}
                         </div>
                         <div>
-                          <span className="font-medium">Utilisations:</span>{" "}
+                          <span className="font-medium">
+                            {t("toolsConfig.generated.usageLabel")}
+                          </span>{" "}
                           {tool.usageCount}
                         </div>
                         <div className="col-span-2">
-                          <span className="font-medium">Créé le:</span>{" "}
-                          {new Date(tool.createdAt).toLocaleDateString("fr-FR")}
+                          <span className="font-medium">
+                            {t("toolsConfig.generated.createdAtLabel")}
+                          </span>{" "}
+                          {new Date(tool.createdAt).toLocaleDateString(
+                            i18nContext.language,
+                          )}
                         </div>
                         {tool.lastUsedAt && (
                           <div className="col-span-2">
                             <span className="font-medium">
-                              Dernière utilisation:
+                              {t("toolsConfig.generated.lastUsedLabel")}
                             </span>{" "}
                             {new Date(tool.lastUsedAt).toLocaleDateString(
-                              "fr-FR",
+                              i18nContext.language,
                             )}
                           </div>
                         )}
@@ -741,7 +749,7 @@ export function ToolsConfigPage() {
                       {tool.requiredSecrets.length > 0 && (
                         <div className="pt-2 border-t">
                           <p className="mb-1 text-xs font-medium text-slate-700">
-                            Secrets requis:
+                            {t("toolsConfig.generated.requiredSecretsLabel")}
                           </p>
                           <div className="flex flex-wrap gap-1">
                             {tool.requiredSecrets.map((secret) => (
@@ -768,7 +776,7 @@ export function ToolsConfigPage() {
                           }}
                         >
                           <Check className="w-3 h-3 mr-1" />
-                          Copier ID
+                          {t("toolsConfig.generated.copyId")}
                         </Button>
                         <Button
                           variant="outline"
@@ -779,7 +787,7 @@ export function ToolsConfigPage() {
                           }
                         >
                           <Zap className="w-3 h-3 mr-1" />
-                          Auto-réparation
+                          {t("toolsConfig.generated.selfHeal")}
                         </Button>
                         <Button
                           variant="outline"
@@ -788,7 +796,7 @@ export function ToolsConfigPage() {
                           onClick={() => deleteGeneratedTool(tool.id)}
                         >
                           <Trash2 className="w-3 h-3 mr-1" />
-                          Supprimer
+                          {t("common.delete")}
                         </Button>
                       </div>
                     </CardContent>
@@ -822,6 +830,7 @@ interface MCPServerFormProps {
 }
 
 function MCPServerForm({ server, onSubmit, onCancel }: MCPServerFormProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(server?.name || "");
   const [description, setDescription] = useState(server?.description || "");
   const [transportType, setTransportType] = useState<"STDIO" | "HTTP" | "SSE">(
@@ -865,37 +874,41 @@ function MCPServerForm({ server, onSubmit, onCancel }: MCPServerFormProps) {
     <form onSubmit={handleSubmit}>
       <DialogHeader>
         <DialogTitle>
-          {server ? "Modifier le serveur MCP" : "Ajouter un serveur MCP"}
+          {server
+            ? t("toolsConfig.mcp.editTitle")
+            : t("toolsConfig.mcp.addTitle")}
         </DialogTitle>
         <DialogDescription>
-          Configurez les paramètres de connexion au serveur MCP
+          {t("toolsConfig.mcp.description")}
         </DialogDescription>
       </DialogHeader>
 
       <div className="py-4 space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="name">Nom *</Label>
+          <Label htmlFor="name">{t("toolsConfig.mcp.fields.name")}</Label>
           <Input
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="ex: GitHub MCP"
+            placeholder={t("toolsConfig.mcp.fields.namePlaceholder")}
             required
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
+          <Label htmlFor="description">
+            {t("toolsConfig.mcp.fields.description")}
+          </Label>
           <Input
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description du serveur"
+            placeholder={t("toolsConfig.mcp.fields.descriptionPlaceholder")}
           />
         </div>
 
         <div className="space-y-2">
-          <Label>Type de transport</Label>
+          <Label>{t("toolsConfig.mcp.fields.transportType")}</Label>
           <div className="flex gap-2">
             {(["STDIO", "HTTP", "SSE"] as const).map((type) => (
               <Button
@@ -914,23 +927,25 @@ function MCPServerForm({ server, onSubmit, onCancel }: MCPServerFormProps) {
         {transportType === "STDIO" && (
           <>
             <div className="space-y-2">
-              <Label htmlFor="command">Commande *</Label>
+              <Label htmlFor="command">
+                {t("toolsConfig.mcp.fields.command")}
+              </Label>
               <Input
                 id="command"
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
-                placeholder="ex: npx"
+                placeholder={t("toolsConfig.mcp.fields.commandPlaceholder")}
                 required={transportType === "STDIO"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="args">Arguments</Label>
+              <Label htmlFor="args">{t("toolsConfig.mcp.fields.args")}</Label>
               <Input
                 id="args"
                 value={args}
                 onChange={(e) => setArgs(e.target.value)}
-                placeholder="ex: -y @modelcontextprotocol/server-github"
+                placeholder={t("toolsConfig.mcp.fields.argsPlaceholder")}
               />
             </div>
           </>
@@ -938,38 +953,40 @@ function MCPServerForm({ server, onSubmit, onCancel }: MCPServerFormProps) {
 
         {(transportType === "HTTP" || transportType === "SSE") && (
           <div className="space-y-2">
-            <Label htmlFor="url">URL *</Label>
+            <Label htmlFor="url">{t("toolsConfig.mcp.fields.url")}</Label>
             <Input
               id="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="ex: http://localhost:3001"
+              placeholder={t("toolsConfig.mcp.fields.urlPlaceholder")}
               required
             />
           </div>
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="env">Variables d'environnement</Label>
+          <Label htmlFor="env">{t("toolsConfig.mcp.fields.env")}</Label>
           <Textarea
             id="env"
             value={envText}
             onChange={(e) => setEnvText(e.target.value)}
-            placeholder="KEY=value&#10;ANOTHER_KEY=another_value"
+            placeholder={t("toolsConfig.mcp.fields.envPlaceholder")}
             className="font-mono text-sm"
             rows={4}
           />
           <p className="text-xs text-slate-500">
-            Une variable par ligne au format KEY=value
+            {t("toolsConfig.mcp.fields.envHint")}
           </p>
         </div>
       </div>
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
-          Annuler
+          {t("common.cancel")}
         </Button>
-        <Button type="submit">{server ? "Enregistrer" : "Ajouter"}</Button>
+        <Button type="submit">
+          {server ? t("common.save") : t("common.add")}
+        </Button>
       </DialogFooter>
     </form>
   );

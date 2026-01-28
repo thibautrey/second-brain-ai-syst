@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   CheckCircle,
@@ -46,6 +47,7 @@ export function ChatNotificationMessage({
   onDismiss,
   playSound = true,
 }: ChatNotificationHandlerProps) {
+  const { t } = useTranslation();
   const dismissTimeoutRef = useRef<number | null>(null);
   const hasPlayedSoundRef = useRef(false);
 
@@ -149,7 +151,7 @@ export function ChatNotificationMessage({
       <button
         onClick={() => onDismiss?.(notification.id)}
         className="flex-shrink-0 text-lg leading-none opacity-50 hover:opacity-75 transition-opacity"
-        aria-label="Dismiss notification"
+        aria-label={t("chat.dismissNotification")}
       >
         ✕
       </button>

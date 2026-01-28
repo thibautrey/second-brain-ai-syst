@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import {
   AlertCircle,
@@ -171,6 +172,7 @@ export function ReadParagraphStep({
   isLoading,
   error,
 }: ReadParagraphStepProps) {
+  const { t, i18n } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
@@ -215,7 +217,10 @@ export function ReadParagraphStep({
         currentParagraphIndex
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Recording failed";
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("training.readParagraph.errors.recordingFailed");
       setRecordingError(msg);
     }
   };
@@ -246,12 +251,10 @@ export function ReadParagraphStep({
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-2 flex items-center gap-3">
           <BookOpen className="w-7 h-7 text-indigo-600" />
-          Read Longer Texts
+          {t("training.readParagraph.title")}
         </h2>
         <p className="text-slate-600">
-          Read the paragraph below naturally. Longer recordings help the system
-          better understand your voice patterns, intonation, and speaking
-          rhythm.
+          {t("training.readParagraph.subtitle")}
         </p>
       </div>
 
@@ -260,11 +263,13 @@ export function ReadParagraphStep({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Globe className="w-5 h-5 text-indigo-600" />
-            <span className="font-medium text-slate-900">Reading Language</span>
+            <span className="font-medium text-slate-900">
+              {t("training.readParagraph.languageLabel")}
+            </span>
           </div>
           {languagesUsed.length > 0 && (
             <div className="flex items-center gap-1.5 text-xs text-slate-600">
-              <span>Recorded:</span>
+              <span>{t("training.readParagraph.recordedLabel")}</span>
               {languagesUsed.map(([code, count]) => {
                 const lang = SUPPORTED_LANGUAGES.find((l) => l.code === code);
                 return (
@@ -328,7 +333,9 @@ export function ReadParagraphStep({
                     </span>
                     {count > 0 && (
                       <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">
-                        {count} recording{count > 1 ? "s" : ""}
+                        {t("training.readParagraph.recordingsCount", {
+                          count,
+                        })}
                       </span>
                     )}
                   </button>
@@ -344,13 +351,17 @@ export function ReadParagraphStep({
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-blue-600">{totalRecordings}</p>
-            <p className="text-xs text-slate-600 mt-1">Paragraph Recordings</p>
+            <p className="text-xs text-slate-600 mt-1">
+              {t("training.readParagraph.stats.recordings")}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-indigo-600">
               {currentParagraphIndex + 1}/{currentParagraphs.length}
             </p>
-            <p className="text-xs text-slate-600 mt-1">Current Text</p>
+            <p className="text-xs text-slate-600 mt-1">
+              {t("training.readParagraph.stats.currentText")}
+            </p>
           </div>
           <div className="text-center">
             <p
@@ -361,7 +372,9 @@ export function ReadParagraphStep({
               {canContinue ? "✓" : "•"}
             </p>
             <p className="text-xs text-slate-600 mt-1">
-              {canContinue ? "Ready" : "Record at least 1"}
+              {canContinue
+                ? t("training.readParagraph.stats.ready")
+                : t("training.readParagraph.stats.recordAtLeastOne")}
             </p>
           </div>
         </div>
@@ -383,7 +396,9 @@ export function ReadParagraphStep({
                 {currentParagraph.title}
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Estimated reading time: {currentParagraph.estimatedTime}
+                {t("training.readParagraph.estimatedTime", {
+                  time: currentParagraph.estimatedTime,
+                })}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -422,7 +437,9 @@ export function ReadParagraphStep({
       <div className="mb-8">
         <RecordingControl
           phrase={currentParagraph.text}
-          category={`Paragraph - ${currentParagraph.title}`}
+          category={t("training.readParagraph.recordingCategory", {
+            title: currentParagraph.title,
+          })}
           isRecording={isRecording}
           onStart={() => setIsRecording(true)}
           onStop={handleRecordingComplete}
@@ -441,7 +458,7 @@ export function ReadParagraphStep({
       {/* Paragraph Selector */}
       <div className="mb-8">
         <h3 className="font-semibold text-slate-900 mb-4">
-          Select Text to Read
+          {t("training.readParagraph.selectText")}
           <span className="ml-2 text-sm font-normal text-slate-500">
             ({currentLanguageInfo.flag} {currentLanguageInfo.name})
           </span>
@@ -486,7 +503,7 @@ export function ReadParagraphStep({
       {recordings.length > 0 && (
         <div className="mb-8">
           <h3 className="font-semibold text-slate-900 mb-4">
-            Your Paragraph Recordings
+            {t("training.readParagraph.recordingsTitle")}
           </h3>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {recordings.map((recording) => {
@@ -519,7 +536,9 @@ export function ReadParagraphStep({
                       <span>{durationStr}</span>
                       <span>•</span>
                       <span>
-                        {new Date(recording.timestamp).toLocaleTimeString()}
+                        {new Date(recording.timestamp).toLocaleTimeString(
+                          i18n.language,
+                        )}
                       </span>
                     </div>
                   </div>
@@ -531,14 +550,14 @@ export function ReadParagraphStep({
                         audio.play();
                       }}
                       className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
-                      title="Play recording"
+                      title={t("training.readParagraph.actions.play")}
                     >
                       <Play className="w-4 h-4 text-slate-600" />
                     </button>
                     <button
                       onClick={() => onDeleteRecording(recording.id)}
                       className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                      title="Delete recording"
+                      title={t("training.readParagraph.actions.delete")}
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
                     </button>
@@ -568,7 +587,7 @@ export function ReadParagraphStep({
             className="px-6 py-3 font-medium"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
-            Back to Phrases
+            {t("training.readParagraph.backToPhrases")}
           </Button>
           <Button
             onClick={onContinue}
@@ -580,15 +599,15 @@ export function ReadParagraphStep({
             }`}
           >
             {isLoading
-              ? "Processing..."
+              ? t("training.readParagraph.processing")
               : canContinue
-                ? "Continue to Training"
-                : "Skip & Continue to Training"}
+                ? t("training.readParagraph.continueToTraining")
+                : t("training.readParagraph.skipAndContinue")}
           </Button>
         </div>
         {!canContinue && (
           <p className="text-xs text-center text-slate-500">
-            💡 Recording at least one paragraph is recommended for better voice recognition, but you can skip this step.
+            {t("training.readParagraph.skipHint")}
           </p>
         )}
       </div>
@@ -596,15 +615,13 @@ export function ReadParagraphStep({
       {/* Info Section */}
       <div className="mt-8 p-4 rounded-lg bg-indigo-50 border border-indigo-200">
         <h4 className="font-semibold text-indigo-900 mb-2">
-          Why Read Longer Texts?
+          {t("training.readParagraph.whyTitle")}
         </h4>
         <ul className="text-sm text-indigo-800 space-y-1">
-          <li>
-            • Longer recordings capture more voice characteristics and patterns
-          </li>
-          <li>• Helps the system learn your natural speaking rhythm</li>
-          <li>• Improves recognition of your voice in continuous speech</li>
-          <li>• Better handles variations in tone and emphasis</li>
+          <li>{t("training.readParagraph.whyBullets.0")}</li>
+          <li>{t("training.readParagraph.whyBullets.1")}</li>
+          <li>{t("training.readParagraph.whyBullets.2")}</li>
+          <li>{t("training.readParagraph.whyBullets.3")}</li>
         </ul>
       </div>
     </div>

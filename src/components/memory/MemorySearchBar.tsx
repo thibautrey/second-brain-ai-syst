@@ -132,14 +132,16 @@ export function MemorySearchBar({
             onClick={() => setUseSemanticSearch(!useSemanticSearch)}
             title={
               useSemanticSearch
-                ? "Recherche sémantique activée"
-                : "Recherche textuelle"
+                ? t("memory.search.semanticEnabled")
+                : t("memory.search.textSearch")
             }
           >
             <Sparkles
               className={cn("w-3 h-3", useSemanticSearch && "text-purple-500")}
             />
-            {useSemanticSearch ? "IA" : "Texte"}
+            {useSemanticSearch
+              ? t("memory.search.semanticShort")
+              : t("memory.search.textShort")}
           </Button>
         </div>
       </div>
@@ -156,7 +158,9 @@ export function MemorySearchBar({
           }
         >
           <Pin className={cn("w-4 h-4", filters.isPinned && "fill-current")} />
-          <span className="ml-1 hidden sm:inline">Épinglés</span>
+          <span className="ml-1 hidden sm:inline">
+            {t("memory.filters.pinned")}
+          </span>
         </Button>
 
         <Button
@@ -168,7 +172,9 @@ export function MemorySearchBar({
           }
         >
           <Archive className="w-4 h-4" />
-          <span className="ml-1 hidden sm:inline">Archives</span>
+          <span className="ml-1 hidden sm:inline">
+            {t("memory.filters.archived")}
+          </span>
         </Button>
 
         {/* Advanced Filters */}
@@ -176,7 +182,9 @@ export function MemorySearchBar({
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-9 relative">
               <SlidersHorizontal className="w-4 h-4" />
-              <span className="ml-1 hidden sm:inline">Filtres</span>
+              <span className="ml-1 hidden sm:inline">
+                {t("memory.filters.title")}
+              </span>
               {activeFiltersCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
                   {activeFiltersCount}
@@ -192,7 +200,7 @@ export function MemorySearchBar({
                 onFiltersChange({ type: checked ? "SHORT_TERM" : undefined })
               }
             >
-              Court terme
+              {t("memory.filters.shortTerm")}
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={filters.type === "LONG_TERM"}
@@ -200,19 +208,19 @@ export function MemorySearchBar({
                 onFiltersChange({ type: checked ? "LONG_TERM" : undefined })
               }
             >
-              Long terme
+              {t("memory.filters.longTerm")}
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuLabel>Importance minimum</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("memory.filters.minImportance")}</DropdownMenuLabel>
             <DropdownMenuCheckboxItem
               checked={filters.minImportance === 0.8}
               onCheckedChange={(checked) =>
                 onFiltersChange({ minImportance: checked ? 0.8 : undefined })
               }
             >
-              Haute (≥80%)
+              {t("memory.filters.importance.high")}
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={filters.minImportance === 0.5}
@@ -220,7 +228,7 @@ export function MemorySearchBar({
                 onFiltersChange({ minImportance: checked ? 0.5 : undefined })
               }
             >
-              Moyenne (≥50%)
+              {t("memory.filters.importance.medium")}
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSeparator />
@@ -236,7 +244,7 @@ export function MemorySearchBar({
               }
             >
               <X className="w-4 h-4 mr-2" />
-              Réinitialiser les filtres
+              {t("memory.filters.reset")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

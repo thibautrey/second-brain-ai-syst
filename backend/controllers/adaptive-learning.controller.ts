@@ -18,6 +18,7 @@ import {
 import { NextFunction, Request, Response } from "express";
 
 import { AuthRequest } from "../middlewares/auth.middleware.js";
+import { audioStorage } from "../services/audio-storage.js";
 import prisma from "../services/prisma.js";
 
 // Types for recent recordings
@@ -680,7 +681,9 @@ export class AdaptiveLearningController {
   /**
    * POST /api/adaptive-learning/reclassify/:recordingId
    * Reclassify a recording - convert negative to positive or positive to negative
-   * This helps users correct misclassified audio
+   * This helps users correct misclassified audio.
+   * When a negative is reclassified as "user", it's converted to a voice sample
+   * and automatic retraining is triggered.
    */
   async reclassifyRecording(
     req: AuthRequest,
@@ -715,17 +718,111 @@ export class AdaptiveLearningController {
       });
 
       if (negativeExample && newClassification === "user") {
-        // User says this IS them - remove from negatives
-        // Note: We can't automatically add to adaptive samples since we don't have the audio
-        // We just remove the negative association
+        // User says this IS them - convert to voice sample and trigger retraining
+        let voiceSampleCreated = false;
+        let retrainingTriggered = false;
+        let targetProfileId = profileId;
+
+        // If we have audio data, convert to a voice sample
+        if (negativeExample.audioData && negativeExample.audioMimeType) {
+          // Find or get the speaker profile
+          if (!targetProfileId) {
+            // Get the default profile for this user
+            const defaultProfile = await prisma.speakerProfile.findFirst({
+              where: { userId: req.userId },
+              orderBy: { createdAt: "asc" },
+            });
+            targetProfileId = defaultProfile?.id;
+          }
+
+          if (targetProfileId) {
+            try {
+              // Store the audio data as a file
+              const audioBuffer = Buffer.from(negativeExample.audioData);
+              const base64Data = audioBuffer.toString("base64");
+              const originalName = `reclassified_${recordingId}.wav`;
+
+              const audioMetadata = await audioStorage.storeFromBase64(
+                base64Data,
+                req.userId,
+                originalName,
+                negativeExample.audioMimeType,
+              );
+
+              // Create a voice sample from the negative example
+              await prisma.voiceSample.create({
+                data: {
+                  speakerProfileId: targetProfileId,
+                  storagePath: audioMetadata.storagePath,
+                  originalName: audioMetadata.originalName,
+                  mimeType: audioMetadata.mimeType,
+                  fileSizeBytes: audioMetadata.fileSizeBytes,
+                  durationSeconds: negativeExample.durationSeconds || audioMetadata.durationSeconds || 0,
+                  phraseText: "Reclassified from review",
+                  phraseCategory: "reclassified",
+                  status: "pending",
+                },
+              });
+
+              voiceSampleCreated = true;
+
+              // Trigger automatic retraining
+              const existingSession = await prisma.trainingSession.findFirst({
+                where: {
+                  speakerProfileId: targetProfileId,
+                  status: { in: ["pending", "in-progress"] },
+                },
+              });
+
+              if (!existingSession) {
+                // Get the speaker profile with voice samples count
+                const profile = await prisma.speakerProfile.findUnique({
+                  where: { id: targetProfileId },
+                  include: { voiceSamples: true },
+                });
+
+                if (profile && profile.voiceSamples.length > 0) {
+                  // Create a new training session
+                  await prisma.trainingSession.create({
+                    data: {
+                      speakerProfileId: targetProfileId,
+                      modelType: "ecapa-tdnn",
+                      sampleCount: profile.voiceSamples.length,
+                      totalDuration: profile.voiceSamples.reduce(
+                        (sum, sample) => sum + sample.durationSeconds,
+                        0,
+                      ),
+                      status: "pending",
+                      progress: 0,
+                    },
+                  });
+                  retrainingTriggered = true;
+                }
+              }
+            } catch (err) {
+              console.error("Failed to create voice sample from negative example:", err);
+              // Continue - we'll still delete the negative example
+            }
+          }
+        }
+
+        // Delete the negative example
         await prisma.negativeExample.delete({
           where: { id: recordingId },
         });
 
+        const message = voiceSampleCreated
+          ? retrainingTriggered
+            ? "Recording reclassified as user. Voice sample created and retraining started."
+            : "Recording reclassified as user. Voice sample created."
+          : "Recording reclassified as user. Negative example removed.";
+
         res.status(200).json({
           success: true,
-          message: "Recording reclassified as user. Negative example removed.",
+          message,
           action: "removed_negative",
+          voiceSampleCreated,
+          retrainingTriggered,
         });
         return;
       }
@@ -765,11 +862,46 @@ export class AdaptiveLearningController {
             });
           }
 
+          // Trigger automatic retraining after removing a positive sample
+          let retrainingTriggered = false;
+          const existingSession = await prisma.trainingSession.findFirst({
+            where: {
+              speakerProfileId: profileId,
+              status: { in: ["pending", "in-progress"] },
+            },
+          });
+
+          if (!existingSession) {
+            const profileWithSamples = await prisma.speakerProfile.findUnique({
+              where: { id: profileId },
+              include: { voiceSamples: true },
+            });
+
+            if (profileWithSamples && profileWithSamples.voiceSamples.length > 0) {
+              await prisma.trainingSession.create({
+                data: {
+                  speakerProfileId: profileId,
+                  modelType: "ecapa-tdnn",
+                  sampleCount: profileWithSamples.voiceSamples.length,
+                  totalDuration: profileWithSamples.voiceSamples.reduce(
+                    (sum, sample) => sum + sample.durationSeconds,
+                    0,
+                  ),
+                  status: "pending",
+                  progress: 0,
+                },
+              });
+              retrainingTriggered = true;
+            }
+          }
+
           res.status(200).json({
             success: true,
-            message:
-              "Recording reclassified as other. Sample deactivated and added to negatives.",
+            message: retrainingTriggered
+              ? "Recording reclassified as other. Sample deactivated and retraining started."
+              : "Recording reclassified as other. Sample deactivated and added to negatives.",
             action: "converted_to_negative",
+            retrainingTriggered,
           });
           return;
         }

@@ -11,6 +11,7 @@ import {
   User,
   Users,
   Volume2,
+  Zap,
 } from "lucide-react";
 import {
   Card,
@@ -53,6 +54,7 @@ export function RecentRecordingsSection({
   const [error, setError] = useState<string | null>(null);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [isClearingAll, setIsClearingAll] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const loadRecordings = useCallback(async () => {
     try {
@@ -66,7 +68,9 @@ export function RecentRecordingsSection({
       setStats(response.stats);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to load recordings",
+        err instanceof Error
+          ? err.message
+          : t("training.recentRecordings.errors.load"),
       );
     } finally {
       setIsLoading(false);
@@ -83,30 +87,58 @@ export function RecentRecordingsSection({
   ) => {
     try {
       setProcessingIds((prev) => new Set(prev).add(recordingId));
-      await trainingAPI.reclassifyRecording(
+      setSuccessMessage(null);
+
+      const result = await trainingAPI.reclassifyRecording(
         recordingId,
         newClassification,
         speakerProfileId,
       );
+
       // Remove from local state
       setRecordings((prev) => prev.filter((r) => r.id !== recordingId));
+
       // Update stats
       if (newClassification === "user") {
         setStats((prev) => ({
           ...prev,
           totalNegatives: Math.max(0, prev.totalNegatives - 1),
+          // Increment positives if a voice sample was created
+          totalPositives: result.voiceSampleCreated
+            ? prev.totalPositives + 1
+            : prev.totalPositives,
         }));
+
+        // Show success message if retraining was triggered
+        if (result.retrainingTriggered) {
+          setSuccessMessage(t("training.recentRecordings.retrainingTriggered"));
+        } else if (result.voiceSampleCreated) {
+          setSuccessMessage(t("training.recentRecordings.sampleAdded"));
+        }
       } else {
         setStats((prev) => ({
           ...prev,
           totalPositives: Math.max(0, prev.totalPositives - 1),
           totalNegatives: prev.totalNegatives + 1,
         }));
+
+        // Show message if retraining was triggered for "other" classification
+        if (result.retrainingTriggered) {
+          setSuccessMessage(t("training.recentRecordings.retrainingTriggered"));
+        }
       }
+
       onRefreshProfile?.();
+
+      // Clear success message after 5 seconds
+      if (result.retrainingTriggered || result.voiceSampleCreated) {
+        setTimeout(() => setSuccessMessage(null), 5000);
+      }
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to reclassify recording",
+        err instanceof Error
+          ? err.message
+          : t("training.recentRecordings.errors.reclassify"),
       );
     } finally {
       setProcessingIds((prev) => {
@@ -118,11 +150,7 @@ export function RecentRecordingsSection({
   };
 
   const handleClearAll = async () => {
-    if (
-      !window.confirm(
-        "Are you sure you want to clear all negative examples? This will reset the system's learning about other speakers.",
-      )
-    ) {
+    if (!window.confirm(t("training.recentRecordings.confirmClearAll"))) {
       return;
     }
 
@@ -138,7 +166,7 @@ export function RecentRecordingsSection({
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to clear negative examples",
+          : t("training.recentRecordings.errors.clearAll"),
       );
     } finally {
       setIsClearingAll(false);
@@ -153,10 +181,10 @@ export function RecentRecordingsSection({
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t("timeAgo.justNow");
+    if (diffMins < 60) return t("timeAgo.minutesAgo", { count: diffMins });
+    if (diffHours < 24) return t("timeAgo.hoursAgo", { count: diffHours });
+    if (diffDays < 7) return t("timeAgo.daysAgo", { count: diffDays });
     return date.toLocaleDateString();
   };
 
@@ -167,11 +195,10 @@ export function RecentRecordingsSection({
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Volume2 className="w-5 h-5 text-blue-600" />
-              Recent Audio Classifications
+              {t("training.recentRecordings.title")}
             </CardTitle>
             <CardDescription>
-              Review and correct speaker classifications from continuous
-              listening
+              {t("training.recentRecordings.subtitle")}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -185,7 +212,7 @@ export function RecentRecordingsSection({
               <RefreshCw
                 className={cn("h-4 w-4", isLoading && "animate-spin")}
               />
-              Refresh
+              {t("common.refresh")}
             </Button>
             {stats.totalNegatives > 0 && (
               <Button
@@ -196,7 +223,7 @@ export function RecentRecordingsSection({
                 className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 <Trash2 className="w-4 h-4" />
-                Clear All Others
+                {t("training.recentRecordings.clearAllOthers")}
               </Button>
             )}
           </div>
@@ -210,7 +237,9 @@ export function RecentRecordingsSection({
               <User className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-emerald-900">Your Voice</p>
+              <p className="text-sm font-medium text-emerald-900">
+                {t("training.recentRecordings.stats.yourVoice")}
+              </p>
               <p className="text-2xl font-bold text-emerald-600">
                 {stats.totalPositives}
               </p>
@@ -221,7 +250,9 @@ export function RecentRecordingsSection({
               <Users className="w-4 h-4 text-slate-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-700">Others</p>
+              <p className="text-sm font-medium text-slate-700">
+                {t("training.recentRecordings.stats.others")}
+              </p>
               <p className="text-2xl font-bold text-slate-600">
                 {stats.totalNegatives}
               </p>
@@ -233,14 +264,22 @@ export function RecentRecordingsSection({
         <div className="flex items-start gap-3 p-3 mb-4 border border-blue-200 rounded-lg bg-blue-50">
           <HelpCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
           <div className="text-sm text-blue-800">
-            <p className="mb-1 font-medium">Why review these?</p>
+            <p className="mb-1 font-medium">
+              {t("training.recentRecordings.whyReviewTitle")}
+            </p>
             <p className="text-blue-700">
-              If the system incorrectly classified your voice as "someone else",
-              it will avoid matching similar audio in the future. Correcting
-              these helps improve accuracy.
+              {t("training.recentRecordings.whyReviewDescription")}
             </p>
           </div>
         </div>
+
+        {/* Success Message Display */}
+        {successMessage && (
+          <div className="flex items-center gap-2 p-3 mb-4 duration-300 border rounded-lg text-emerald-700 border-emerald-200 bg-emerald-50 animate-in slide-in-from-top-2">
+            <Zap className="w-5 h-5" />
+            <span className="text-sm font-medium">{successMessage}</span>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (
@@ -258,9 +297,11 @@ export function RecentRecordingsSection({
         ) : recordings.length === 0 ? (
           <div className="py-12 text-center">
             <Volume2 className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-            <p className="text-slate-500">No recent audio classifications</p>
+            <p className="text-slate-500">
+              {t("training.recentRecordings.emptyTitle")}
+            </p>
             <p className="mt-1 text-sm text-slate-400">
-              Audio from continuous listening will appear here
+              {t("training.recentRecordings.emptyDescription")}
             </p>
           </div>
         ) : (
@@ -294,6 +335,7 @@ function RecordingItem({
   isProcessing,
   formatTimeAgo,
 }: RecordingItemProps) {
+  const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
@@ -334,7 +376,7 @@ function RecordingItem({
       }
 
       if (!audioUrl) {
-        setAudioError("Audio source not available for this recording type.");
+        setAudioError(t("training.recentRecordings.audio.sourceUnavailable"));
         setIsLoadingAudio(false);
         return;
       }
@@ -348,7 +390,10 @@ function RecordingItem({
 
       if (!response.ok) {
         throw new Error(
-          `Failed to load audio: ${response.status} ${response.statusText}`,
+          t("training.recentRecordings.audio.loadFailedWithStatus", {
+            status: response.status,
+            statusText: response.statusText,
+          }),
         );
       }
 
@@ -356,9 +401,7 @@ function RecordingItem({
 
       // Check if blob is valid audio
       if (!blob.type.startsWith("audio/")) {
-        throw new Error(
-          "Received data is not audio format. The audio file may have been deleted or corrupted.",
-        );
+        throw new Error(t("training.recentRecordings.audio.invalidFormat"));
       }
 
       const audioUrl_blob = URL.createObjectURL(blob);
@@ -372,7 +415,7 @@ function RecordingItem({
       });
 
       audio.addEventListener("error", () => {
-        setAudioError("Failed to play audio. The file may be corrupted.");
+        setAudioError(t("training.recentRecordings.audio.playFailed"));
         setIsPlaying(false);
         URL.revokeObjectURL(audioUrl_blob);
       });
@@ -381,7 +424,9 @@ function RecordingItem({
       setIsPlaying(true);
     } catch (error) {
       const errorMsg =
-        error instanceof Error ? error.message : "Failed to load audio";
+        error instanceof Error
+          ? error.message
+          : t("training.recentRecordings.audio.loadFailed");
       setAudioError(errorMsg);
       console.error("Failed to play audio:", error);
       setIsPlaying(false);
@@ -426,19 +471,24 @@ function RecordingItem({
                   : "bg-emerald-200 text-emerald-700 hover:bg-emerald-200",
               )}
             >
-              {isNegative ? "Classified as Other" : "Your Voice"}
+              {isNegative
+                ? t("training.recentRecordings.badge.other")
+                : t("training.recentRecordings.badge.yourVoice")}
             </Badge>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
                   <span className="text-xs text-slate-500">
-                    {confidencePercent}% confidence
+                    {t("training.recentRecordings.confidenceLabel", {
+                      percent: confidencePercent,
+                    })}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>
-                    The system is {confidencePercent}% confident this
-                    classification is correct
+                    {t("training.recentRecordings.confidenceHint", {
+                      percent: confidencePercent,
+                    })}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -489,7 +539,11 @@ function RecordingItem({
                   <Play className="h-3.5 w-3.5 fill-current" />
                 )}
                 <span className="hidden sm:inline">
-                  {audioError ? "No audio" : isPlaying ? "Stop" : "Play"}
+                  {audioError
+                    ? t("training.recentRecordings.audio.noAudio")
+                    : isPlaying
+                      ? t("training.recentRecordings.audio.stop")
+                      : t("training.recentRecordings.audio.play")}
                 </span>
               </Button>
             </TooltipTrigger>
@@ -498,8 +552,8 @@ function RecordingItem({
                 {audioError
                   ? audioError
                   : isPlaying
-                    ? "Stop playback"
-                    : "Play audio"}
+                    ? t("training.recentRecordings.audio.stopPlayback")
+                    : t("training.recentRecordings.audio.playAudio")}
               </p>
             </TooltipContent>
           </Tooltip>
@@ -521,11 +575,13 @@ function RecordingItem({
                   ) : (
                     <CheckCircle className="h-3.5 w-3.5" />
                   )}
-                  <span className="hidden sm:inline">That's me</span>
+                  <span className="hidden sm:inline">
+                    {t("training.recentRecordings.actions.thatsMe")}
+                  </span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Mark this as your voice</p>
+                <p>{t("training.recentRecordings.actions.markAsUser")}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -545,11 +601,13 @@ function RecordingItem({
                   ) : (
                     <Users className="h-3.5 w-3.5" />
                   )}
-                  <span className="hidden sm:inline">Not me</span>
+                  <span className="hidden sm:inline">
+                    {t("training.recentRecordings.actions.notMe")}
+                  </span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Mark this as someone else's voice</p>
+                <p>{t("training.recentRecordings.actions.markAsOther")}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

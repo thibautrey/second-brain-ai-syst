@@ -29,6 +29,7 @@ import {
 import { Button } from "./ui/button";
 import { useContinuousListening } from "../contexts/ContinuousListeningContext";
 import { cn } from "../lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface ContinuousListeningPanelProps {
   className?: string;
@@ -40,6 +41,7 @@ export function ContinuousListeningPanel({
   onOpenSettings,
 }: ContinuousListeningPanelProps) {
   const { state, settings, actions } = useContinuousListening();
+  const { t } = useTranslation();
   const [showHistory, setShowHistory] = useState(false);
 
   const handleToggle = () => {
@@ -57,12 +59,12 @@ export function ContinuousListeningPanel({
           <div>
             <CardTitle className="flex items-center gap-2">
               <Mic className="w-5 h-5" />
-              Écoute Continue
+              {t("continuousListening.panel.title")}
             </CardTitle>
             <CardDescription>
               {state.isConnected
-                ? "Le système écoute votre environnement"
-                : "Activez l'écoute pour capturer vos pensées"}
+                ? t("continuousListening.panel.connectedDescription")
+                : t("continuousListening.panel.disconnectedDescription")}
             </CardDescription>
           </div>
           {onOpenSettings && (
@@ -102,16 +104,22 @@ export function ContinuousListeningPanel({
             {/* Status Text */}
             <div>
               <p className="font-medium text-slate-900">
-                {state.state === "connecting" && "Connexion..."}
-                {state.state === "listening" && "En écoute"}
-                {state.state === "processing" && "Traitement..."}
-                {state.state === "idle" && "Inactif"}
-                {state.state === "error" && "Erreur"}
+                {state.state === "connecting" &&
+                  t("continuousListening.state.connecting")}
+                {state.state === "listening" &&
+                  t("continuousListening.state.listening")}
+                {state.state === "processing" &&
+                  t("continuousListening.state.processing")}
+                {state.state === "idle" && t("continuousListening.state.idle")}
+                {state.state === "error" &&
+                  t("continuousListening.state.error")}
               </p>
               <p className="text-sm text-slate-500">
                 {state.isConnected
-                  ? `Wake word: "${settings?.wakeWord || "Hey Brain"}"`
-                  : "Cliquez pour activer"}
+                  ? t("continuousListening.wakeWordLabel", {
+                      word: settings?.wakeWord || "Hey Brain",
+                    })
+                  : t("continuousListening.clickToActivate")}
               </p>
             </div>
           </div>
@@ -132,7 +140,9 @@ export function ContinuousListeningPanel({
                 </div>
               </div>
               <span className="text-xs text-slate-400">
-                {state.isSpeechDetected ? "Parole détectée" : "Silence"}
+                {state.isSpeechDetected
+                  ? t("continuousListening.audio.speechDetected")
+                  : t("continuousListening.audio.silence")}
               </span>
             </div>
           )}
@@ -153,7 +163,7 @@ export function ContinuousListeningPanel({
               <MessageSquare className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
               <div>
                 <p className="text-xs font-medium text-blue-700 mb-1">
-                  Transcription en cours
+                  {t("continuousListening.transcriptTitle")}
                 </p>
                 <p className="text-sm text-blue-900">
                   {state.currentTranscript}
@@ -177,15 +187,16 @@ export function ContinuousListeningPanel({
               <>
                 <User className="w-4 h-4 text-green-600" />
                 <span className="text-sm text-green-700">
-                  Vous êtes identifié (
-                  {(state.speakerConfidence * 100).toFixed(0)}%)
+                  {t("continuousListening.speaker.user", {
+                    percent: (state.speakerConfidence * 100).toFixed(0),
+                  })}
                 </span>
               </>
             ) : (
               <>
                 <Users className="w-4 h-4 text-orange-600" />
                 <span className="text-sm text-orange-700">
-                  Autre personne détectée
+                  {t("continuousListening.speaker.other")}
                 </span>
               </>
             )}
@@ -196,14 +207,16 @@ export function ContinuousListeningPanel({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-slate-700">
-              Activité récente
+              {t("continuousListening.recentActivity.title")}
             </h4>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowHistory(!showHistory)}
             >
-              {showHistory ? "Masquer" : "Voir plus"}
+              {showHistory
+                ? t("continuousListening.recentActivity.hide")
+                : t("continuousListening.recentActivity.showMore")}
             </Button>
           </div>
 
@@ -213,7 +226,7 @@ export function ContinuousListeningPanel({
               <Brain className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-purple-700">
-                  Commande détectée
+                  {t("continuousListening.recentActivity.commandDetected")}
                 </p>
                 <p className="text-sm text-purple-900 truncate">
                   {state.lastCommand.text}
@@ -229,7 +242,7 @@ export function ContinuousListeningPanel({
               <MessageSquare className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-emerald-700">
-                  Mémoire enregistrée
+                  {t("continuousListening.recentActivity.memoryRecorded")}
                 </p>
                 <p className="text-sm text-emerald-900 truncate">
                   {state.lastMemory.text}
@@ -243,7 +256,9 @@ export function ContinuousListeningPanel({
           {!state.lastCommand && !state.lastMemory && (
             <div className="flex items-center justify-center p-4 text-slate-400">
               <Clock className="w-4 h-4 mr-2" />
-              <span className="text-sm">Aucune activité récente</span>
+              <span className="text-sm">
+                {t("continuousListening.recentActivity.none")}
+              </span>
             </div>
           )}
         </div>
@@ -254,21 +269,27 @@ export function ContinuousListeningPanel({
             <p className="text-2xl font-bold text-slate-900">
               {state.sessionsCount}
             </p>
-            <p className="text-xs text-slate-500">Sessions</p>
+            <p className="text-xs text-slate-500">
+              {t("continuousListening.stats.sessions")}
+            </p>
           </div>
           <div className="w-px h-8 bg-slate-200" />
           <div className="text-center">
             <p className="text-2xl font-bold text-emerald-600">
               {state.memoriesStoredCount}
             </p>
-            <p className="text-xs text-slate-500">Mémoires</p>
+            <p className="text-xs text-slate-500">
+              {t("continuousListening.stats.memories")}
+            </p>
           </div>
           <div className="w-px h-8 bg-slate-200" />
           <div className="text-center">
             <p className="text-2xl font-bold text-purple-600">
               {state.commandsDetectedCount}
             </p>
-            <p className="text-xs text-slate-500">Commandes</p>
+            <p className="text-xs text-slate-500">
+              {t("continuousListening.stats.commands")}
+            </p>
           </div>
         </div>
       </CardContent>

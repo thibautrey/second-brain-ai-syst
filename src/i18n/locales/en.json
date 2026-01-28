@@ -14,7 +14,12 @@
     "name": "Name",
     "email": "Email",
     "password": "Password",
-    "none": "None"
+    "none": "None",
+    "clear": "Clear",
+    "required": "Required",
+    "optional": "Optional",
+    "refresh": "Refresh",
+    "errorSaving": "Error while saving"
   },
   "timeAgo": {
     "justNow": "Just now",
@@ -66,12 +71,17 @@
     "noRecentActivity": "No recent activity yet. Start by capturing your thoughts or creating tasks!",
     "recordThought": "Record Thought",
     "viewMemories": "View Memories",
-    "todaysSummary": "Today's Summary"
-    ,
+    "todaysSummary": "Today's Summary",
     "quickActions": "Quick Actions",
     "recordThoughtDescription": "Capture your ideas now",
     "viewMemoriesDescription": "Browse your knowledge",
-    "todaysSummaryDescription": "See your highlights"
+    "todaysSummaryDescription": "See your highlights",
+    "icons": {
+      "microphone": "Microphone",
+      "brain": "Brain",
+      "chart": "Chart",
+      "activity": "{{type}} activity"
+    }
   },
   "navigation": {
     "appName": "Second Brain AI",
@@ -105,25 +115,212 @@
       "noProvidersConfigured": "No providers configured.",
       "editProvider": "Edit Provider",
       "newProvider": "New Provider",
-      "providerName": "Provider Name"
+      "providerName": "Provider Name",
+      "orUseApiKey": "Or use API keys",
+      "description": "Configure your API keys and endpoints for different AI services.",
+      "emptyState": {
+        "title": "No providers configured.",
+        "subtitle": "Add a provider to get started."
+      },
+      "editProviderDescription": "Edit provider information",
+      "newProviderDescription": "Configure a new AI provider",
+      "providerNamePlaceholder": "e.g., OpenAI Production",
+      "providerTypeLabel": "Provider Type",
+      "providerType": {
+        "openai": "OpenAI",
+        "openaiCompatible": "OpenAI Compatible (custom URL)",
+        "openaiCompatibleShort": "OpenAI Compatible"
+      },
+      "apiKeyLabel": "API Key",
+      "apiKeyPlaceholder": "sk-...",
+      "baseUrlLabel": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "baseUrlHelp": "The base URL of an OpenAI-compatible API (e.g., https://api.together.xyz/v1)",
+      "activeLabel": "Active provider",
+      "modelsLabel": "Models:",
+      "modelCount": "{{count}} model available",
+      "modelCount_plural": "{{count}} models available",
+      "moreModels": "+{{count}} more",
+      "syncModels": "Sync models",
+      "validation": {
+        "nameRequired": "Name is required",
+        "apiKeyRequired": "API key is required",
+        "baseUrlRequired": "Base URL is required for OpenAI-compatible providers"
+      }
     },
     "models": {
       "primaryProvider": "Primary Provider",
       "fallbackModel": "Used automatically in case of primary provider failure",
       "noSuggestedProvider": "No suggested provider for this task, but you can use",
-      "noActiveProvider": "No active provider available"
+      "noActiveProvider": "No active provider available",
+      "title": "Model Configuration",
+      "description": "Choose a mode: fast (single shared LLM) or advanced (per-task configuration).",
+      "mode": {
+        "simple": "Simple mode",
+        "advanced": "Advanced mode"
+      },
+      "noProviders": {
+        "title": "You must configure at least one provider",
+        "subtitle": "in the \"AI Providers\" tab."
+      },
+      "simpleCards": {
+        "llm": {
+          "title": "Global LLM model",
+          "description": "Used for Chat, Routing, Reflection, Summaries, and Analysis. Select one model for all."
+        },
+        "embeddings": {
+          "title": "Embeddings (required)",
+          "description": "Vectorization for semantic search (Weaviate and summaries)."
+        },
+        "speech": {
+          "title": "Speech to Text",
+          "description": "Audio transcription to text (Whisper or equivalent)."
+        },
+        "images": {
+          "title": "Image Generation",
+          "description": "Create images from text (DALL·E, etc.)."
+        }
+      },
+      "optionGroups": {
+        "suggested": "✓ Suggested",
+        "suggestedCompatible": "✓ Suggested (compatible models)",
+        "suggestedForTask": "✓ Suggested for this task",
+        "otherProviders": "Other providers",
+        "availableModels": "Available models",
+        "otherModels": "Other models"
+      },
+      "status": {
+        "mixed": "Mixed configurations",
+        "configured": "Configured",
+        "needsConfig": "Needs configuration",
+        "optional": "Optional"
+      },
+      "coverage": "Covers: {{coverage}}",
+      "warnings": {
+        "mixed": "Some tasks in this group use different models. Choose a provider to harmonize.",
+        "required": "This group is required: select at least one provider and one model."
+      },
+      "providerLabel": "Provider",
+      "providerPlaceholder": "Select a provider",
+      "modelLabel": "Model",
+      "modelPlaceholder": "Select a model",
+      "noRecommendedProvider": "No recommended provider, but you can choose one and select a model manually.",
+      "noSuggestedProviderForTask": "No suggested provider for this task, but you can choose any.",
+      "noSuggestedModel": "No suggested model, but you can use any model.",
+      "noSuggestedModelForProvider": "No suggested model for this provider; choose any available model.",
+      "selectProviderFirst": "Choose a provider before selecting a model.",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "primary": {
+        "title": "Primary Configuration"
+      },
+      "fallback": {
+        "title": "⚡ Fallback Configuration",
+        "description": "Used automatically if the primary provider fails",
+        "providerLabel": "Fallback Provider",
+        "modelLabel": "Fallback Model",
+        "configured": "✓ Fallback configured",
+        "optionalHint": "Optional: configure a fallback for resilience"
+      }
     },
     "secrets": {
-      "addApiKey": "Add your API keys to use generated tools and"
+      "addApiKey": "Add your API keys to use generated tools and",
+      "title": "Secrets & API Keys",
+      "subtitle": "Store your API keys and secrets securely with AES-256-GCM encryption.",
+      "addSecret": "Add Secret",
+      "emptyState": {
+        "title": "No secrets configured.",
+        "subtitle": "Add your API keys to use generated tools and MCP integration."
+      },
+      "newTitle": "New Secret",
+      "editTitle": "Edit Secret",
+      "newDescription": "Create a new secure secret",
+      "editDescription": "Edit your API key or secret",
+      "keyLabel": "Key (unique identifier)",
+      "keyPlaceholder": "openai_api_key",
+      "keyHelp": "Format: lowercase letters, numbers, underscores only",
+      "displayNameLabel": "Display name",
+      "displayNamePlaceholder": "OpenAI API Key",
+      "valueLabel": "Value",
+      "valuePlaceholder": "sk-... or your secret value",
+      "categoryLabel": "Category",
+      "categories": {
+        "general": "General",
+        "aiProvider": "AI Provider",
+        "mcp": "MCP Server",
+        "integration": "Integration",
+        "generatedTool": "Generated Tool"
+      },
+      "expiresAtLabel": "Expiration (optional)",
+      "expiresAtHelp": "Leave empty for no expiration",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "e.g., Key to access GPT-4 API",
+      "copyKey": "Copy key",
+      "expiresOn": "Expires on",
+      "lastUsed": "Last used",
+      "toggleValue": "Show/Hide value",
+      "valueWarning": "⚠️ Do not share this value. It is encrypted in the database.",
+      "validation": {
+        "keyRequired": "Key is required",
+        "keyFormat": "Key must start with a lowercase letter and contain only lowercase letters, numbers, and underscores",
+        "valueRequired": "Value is required",
+        "displayNameRequired": "Display name is required"
+      }
     },
     "listening": {
       "title": "Voice detection and silence settings",
       "voiceRecognition": "Settings to recognize your voice among others",
       "confidenceThreshold": "Confidence level required to confirm it's you speaking",
       "passiveMemory": "Controls what is recorded in passive memory",
-      "notifications": "Visual and sound notification settings",
+      "notifications": {
+        "title": "Notifications",
+        "description": "Visual and sound alert settings",
+        "memoryStored": "Memory stored",
+        "memoryStoredHint": "Notify when speech is saved to memory",
+        "commandDetected": "Command detected",
+        "commandDetectedHint": "Notify when the wake word is recognized"
+      },
       "memoryRecorded": "Memory Recorded",
-      "notifyWhenSaved": "Notify when speech is saved to memory"
+      "notifyWhenSaved": "Notify when speech is saved to memory",
+      "headerTitle": "Continuous Listening",
+      "headerDescription": "Configure continuous listening to automatically capture your thoughts and commands.",
+      "wakeWord": {
+        "title": "Wake Word",
+        "description": "The word or phrase that triggers command mode",
+        "label": "Wake word",
+        "placeholder": "Hey Brain",
+        "help": "Say this word before a command so the system responds actively",
+        "sensitivity": "Sensitivity ({{percent}}%)",
+        "sensitivityHint": "Increase to detect more variations of the wake word",
+        "testTitle": "Test the wake word",
+        "testPlaceholder": "e.g., {{word}} what time is it?",
+        "testAction": "Test",
+        "detected": "Wake word detected!",
+        "notDetected": "Wake word not detected",
+        "commandExtracted": "Command extracted: \"{{command}}\"",
+        "emptyCommand": "(empty)",
+        "passiveNote": "This text will be treated as a passive observation"
+      },
+      "audioProcessing": {
+        "title": "Audio Processing",
+        "description": "Voice activity and silence detection settings",
+        "vadSensitivity": "VAD sensitivity ({{percent}}%)",
+        "vadHint": "Voice activity detection: higher sensitivity detects quieter voices",
+        "silenceDelay": "Silence delay ({{ms}}ms)",
+        "silenceHint": "Silence duration before considering a phrase complete"
+      },
+      "speaker": {
+        "title": "Speaker Identification",
+        "description": "Settings to recognize your voice among others",
+        "confidenceThreshold": "Confidence threshold ({{percent}}%)",
+        "confidenceHint": "Minimum confidence to confirm it is you speaking. Lower values accept more variations of your voice."
+      },
+      "memory": {
+        "title": "Relevance Threshold",
+        "description": "Controls what is stored in passive memory",
+        "minImportance": "Minimum importance ({{percent}}%)",
+        "minImportanceHint": "Only speech above this relevance threshold is stored. Lower captures more; higher is more selective."
+      }
     },
     "appearance": {
       "title": "Appearance",
@@ -143,6 +340,29 @@
       "current": "Currently using: {{theme}}",
       "saving": "Saving preference...",
       "loading": "Loading saved preference..."
+    },
+    "chatgptOAuth": {
+      "title": "ChatGPT Account",
+      "description": "Use your ChatGPT subscription quota for API access",
+      "notConnected": {
+        "title": "Not Connected",
+        "description": "Connect your ChatGPT account to use your subscription quota instead of providing an API key. This is useful if you have a ChatGPT Plus or Team subscription."
+      },
+      "benefits": {
+        "useSubscription": "Use your existing ChatGPT subscription",
+        "noApiKey": "No need to manage separate API keys",
+        "secure": "Secure OAuth 2.0 authentication"
+      },
+      "connecting": "Connecting...",
+      "connect": "Connect ChatGPT Account",
+      "connected": "Connected",
+      "accountId": "Account",
+      "useOAuth": "Use ChatGPT OAuth",
+      "useOAuthDescription": "When enabled, uses your ChatGPT account for API requests",
+      "testConnection": "Test Connection",
+      "disconnect": "Disconnect",
+      "note": "Note",
+      "noteDescription": "ChatGPT OAuth provides an alternative to API keys. You can still configure regular API providers above, and choose which method to use per task."
     }
   },
   "memory": {
@@ -159,7 +379,45 @@
   "todos": {
     "createTodo": "Create Task",
     "noTodosFound": "No tasks found",
-    "deleteConfirm": "Are you sure you want to delete this task?"
+    "deleteConfirm": "Are you sure you want to delete this task?",
+    "title": "Tasks",
+    "subtitle": "Manage your tasks and track your progress",
+    "newTodo": "New task",
+    "filters": {
+      "all": "All",
+      "pending": "To do",
+      "inProgress": "In progress",
+      "completed": "Completed",
+      "overdue": "Overdue"
+    },
+    "stats": {
+      "pending": "To do",
+      "inProgress": "In progress",
+      "completed": "Completed",
+      "overdue": "Overdue"
+    },
+    "form": {
+      "newTitle": "New task",
+      "editTitle": "Edit task",
+      "titleLabel": "Title *",
+      "titlePlaceholder": "What do you need to do?",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Additional details...",
+      "priorityLabel": "Priority",
+      "priorities": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "urgent": "Urgent"
+      },
+      "categoryLabel": "Category",
+      "categoryPlaceholder": "e.g., Work",
+      "tagsLabel": "Tags (comma-separated)",
+      "tagsPlaceholder": "e.g., urgent, project-x, meeting",
+      "dueDateLabel": "Due date",
+      "reminderLabel": "Reminder",
+      "update": "Update"
+    }
   },
   "schedule": {
     "createSchedule": "Create Schedule",
@@ -170,7 +428,21 @@
     "maxRuns": "Maximum Executions",
     "createAction": "Create Task",
     "generateSummary": "Generate a summary of memories",
-    "launchAgent": "Launch an autonomous agent"
+    "launchAgent": "Launch an autonomous agent",
+    "filters": {
+      "all": "All",
+      "enabled": "Active",
+      "disabled": "Disabled",
+      "oneTime": "One-time",
+      "cron": "Recurring",
+      "interval": "Intervals"
+    },
+    "stats": {
+      "total": "Total",
+      "enabled": "Active",
+      "disabled": "Disabled",
+      "cron": "Recurring"
+    }
   },
   "tools": {
     "title": "Tools Configuration",
@@ -186,10 +458,187 @@
   "chat": {
     "accessMemories": "I can access your memories for personalized answers",
     "connecting": "Connecting...",
-    "connected": "Connected"
+    "connected": "Connected",
+    "panelTitle": "Chat with Second Brain",
+    "emptyTitle": "Start a conversation...",
+    "inputPlaceholder": "Write your message...",
+    "widgetTitle": "Second Brain",
+    "thinking": "Thinking...",
+    "dismissNotification": "Dismiss notification"
   },
   "training": {
-    "passphrase": "My voice is my password"
+    "passphrase": "My voice is my password",
+    "recordSamples": {
+      "title": "Record Voice Samples",
+      "subtitle": "Record natural readings of the phrases below. Train with multiple languages for better accuracy.",
+      "languageTitle": "Training Language",
+      "recordedLabel": "Recorded:",
+      "samplesCount": "{{count}} sample",
+      "samplesCount_plural": "{{count}} samples",
+      "languageTip": "💡 Tip: Recording samples in multiple languages improves recognition when you switch languages",
+      "stats": {
+        "totalSamples": "Total Samples",
+        "uniquePhrases": "Unique Phrases",
+        "ready": "Ready",
+        "keepRecording": "Keep Recording"
+      },
+      "minimumSamples": "Record at least 1 sample to continue.",
+      "errors": {
+        "recordingFailed": "Recording failed"
+      },
+      "selectPhrase": "Select Phrase",
+      "yourSamples": "Your Samples",
+      "playRecording": "Play recording",
+      "deleteRecording": "Delete recording",
+      "processing": "Processing...",
+      "continueToParagraphs": "Continue to Paragraph Reading",
+      "tipsTitle": "Recording Tips",
+      "tips": [
+        "Record in a quiet environment for best results",
+        "Speak naturally without over-pronunciation",
+        "Train with multiple languages for better multilingual recognition",
+        "Multiple recordings of the same phrase strengthen the model",
+        "Next: You'll read longer paragraphs for even better voice modeling"
+      ],
+      "categories": {
+        "passphrase": "Passphrase",
+        "sentence": "Sentence",
+        "numeric": "Numeric"
+      }
+    },
+    "recordingControl": {
+      "readPhrase": "Read this phrase:",
+      "categoryLabel": "Category:",
+      "audioLevel": "Audio Level",
+      "lowVolumeWarning": "⚠️ Volume is low - speak louder or move closer to microphone",
+      "recordingTime": "Recording Time",
+      "recordingInProgress": "Recording in progress...",
+      "startRecording": "Start Recording",
+      "stopRecording": "Stop Recording",
+      "tipsTitle": "Recording tips:",
+      "tips": [
+        "Speak naturally and clearly",
+        "Maintain steady volume",
+        "Avoid background noise if possible",
+        "Record 3-5 samples per phrase"
+      ],
+      "errors": {
+        "microphoneAccess": "Unable to access microphone. Please check permissions."
+      }
+    },
+    "profileSelection": {
+      "loading": "Loading your profiles...",
+      "title": "Select or Create a Voice Profile",
+      "subtitle": "You can create multiple profiles for different voices and train them independently. You can always add more samples to improve accuracy.",
+      "yourProfiles": "Your Profiles",
+      "sampleCount": "{{count}} sample",
+      "sampleCount_plural": "{{count}} samples",
+      "createdOn": "Created {{date}}",
+      "enrolled": "✓ Enrolled",
+      "recording": "Recording...",
+      "stop": "Stop",
+      "verifying": "Verifying voice...",
+      "voiceRecognized": "Voice Recognized!",
+      "voiceNotRecognized": "Voice Not Recognized",
+      "confidence": "Confidence: {{percent}}%",
+      "tryAgain": "Try Again",
+      "close": "Close",
+      "startRecording": "Start Recording",
+      "verifyVoice": "Verify Voice",
+      "createTitle": "Create New Profile",
+      "profileNameLabel": "Profile Name",
+      "profileNamePlaceholder": "e.g., Work Voice, Personal, Second Language",
+      "creating": "Creating...",
+      "createAction": "Create New Profile",
+      "continue": "Continue with Selected Profile",
+      "tipsTitle": "💡 Tips",
+      "tips": [
+        "You can add more samples to a profile at any time to improve accuracy",
+        "Re-training with more samples will refine the voice model",
+        "Keep profiles organized by naming them descriptively"
+      ],
+      "errors": {
+        "loadProfiles": "Failed to load profiles",
+        "profileNameRequired": "Profile name is required",
+        "createProfile": "Failed to create profile",
+        "microphoneAccess": "Failed to access microphone. Please grant permission.",
+        "verificationFailed": "Verification failed"
+      }
+    },
+    "profileSetup": {
+      "title": "Create Your Speaker Profile",
+      "subtitle": "Set up your profile to get started. This will be your unique voice identity in the system.",
+      "profileNameLabel": "Profile Name",
+      "profileNamePlaceholder": "e.g., My Work Voice, Personal",
+      "profileNameHint": "Give your profile a memorable name",
+      "emailLabel": "Email Address",
+      "emailHint": "Your account email (linked to your voice profile)",
+      "creating": "Creating Profile...",
+      "continueToRecording": "Continue to Recording",
+      "nextStepsTitle": "What happens next",
+      "nextSteps": [
+        "Record 5-10 voice samples",
+        "Read provided phrases naturally",
+        "Train the AI model",
+        "Verify your voice profile"
+      ],
+      "timeEstimateTitle": "Time estimate",
+      "timeEstimates": [
+        "Setup: 2 minutes",
+        "Recording: 5-10 minutes",
+        "Training: 2-5 minutes",
+        "Total: ~15 minutes"
+      ],
+      "errors": {
+        "profileNameRequired": "Profile name is required",
+        "generic": "An error occurred"
+      }
+    },
+    "recentRecordings": {
+      "title": "Recent Audio Classifications",
+      "subtitle": "Review and correct speaker classifications from continuous listening",
+      "stats": {
+        "yourVoice": "Your Voice",
+        "others": "Others"
+      },
+      "whyReviewTitle": "Why review these?",
+      "whyReviewDescription": "If the system incorrectly classified your voice as \"someone else\", it will avoid matching similar audio in the future. Correcting these helps improve accuracy.",
+      "clearAllOthers": "Clear All Others",
+      "confirmClearAll": "Are you sure you want to clear all negative examples? This will reset the system's learning about other speakers.",
+      "emptyTitle": "No recent audio classifications",
+      "emptyDescription": "Audio from continuous listening will appear here",
+      "retrainingTriggered": "✓ Voice sample added and retraining started automatically!",
+      "sampleAdded": "✓ Voice sample added to your profile",
+      "badge": {
+        "other": "Classified as Other",
+        "yourVoice": "Your Voice"
+      },
+      "confidenceLabel": "{{percent}}% confidence",
+      "confidenceHint": "The system is {{percent}}% confident this classification is correct",
+      "actions": {
+        "thatsMe": "That's me",
+        "notMe": "Not me",
+        "markAsUser": "Mark this as your voice",
+        "markAsOther": "Mark this as someone else's voice"
+      },
+      "audio": {
+        "play": "Play",
+        "stop": "Stop",
+        "noAudio": "No audio",
+        "playAudio": "Play audio",
+        "stopPlayback": "Stop playback",
+        "sourceUnavailable": "Audio source not available for this recording type.",
+        "loadFailed": "Failed to load audio",
+        "loadFailedWithStatus": "Failed to load audio: {{status}} {{statusText}}",
+        "invalidFormat": "Received data is not audio format. The audio file may have been deleted or corrupted.",
+        "playFailed": "Failed to play audio. The file may be corrupted."
+      },
+      "errors": {
+        "load": "Failed to load recordings",
+        "reclassify": "Failed to reclassify recording",
+        "clearAll": "Failed to clear negative examples"
+      }
+    }
   },
   "notifications": {
     "errorSaving": "Error saving"
@@ -228,7 +677,58 @@
     "openBotFather": "Open BotFather",
     "waitingTitle": "Waiting for connection",
     "waitingBody": "Open your bot in Telegram and send /start to complete the setup.",
-    "confirmDisconnect": "Are you sure you want to disconnect Telegram? You will stop receiving notifications."
+    "confirmDisconnect": "Are you sure you want to disconnect Telegram? You will stop receiving notifications.",
+    "alertError": "Error: {{message}}",
+    "connection": {
+      "connected": "Connected",
+      "offline": "Offline"
+    },
+    "browser": {
+      "unsupported": "Browser notifications are not supported in your browser",
+      "title": "Browser Notifications",
+      "description": "Receive notifications directly in your browser",
+      "permission": {
+        "enabled": "Enabled",
+        "enabledDescription": "You will receive browser notifications",
+        "blocked": "Blocked",
+        "blockedDescription": "Please enable notifications in browser settings",
+        "notConfigured": "Not configured",
+        "notConfiguredDescription": "Click below to enable",
+        "requesting": "Requesting...",
+        "enable": "Enable"
+      }
+    },
+    "pushover": {
+      "title": "Pushover",
+      "description": "Receive push notifications on your mobile devices",
+      "configured": "Configured",
+      "userKeyLabel": "User Key",
+      "userKeyPlaceholder": "Your 30-character Pushover user key",
+      "userKeyHelp": "Get your User Key from",
+      "apiTokenLabel": "API Token (Optional)",
+      "apiTokenPlaceholder": "Custom API token (leave blank to use default)",
+      "apiTokenHelp": "Optional: Use a custom application token for branded notifications",
+      "setupTitle": "How to set up Pushover",
+      "setupSteps": [
+        "Create a free account on pushover.net",
+        "Install the Pushover app on your phone",
+        "Copy your User Key from your Pushover dashboard",
+        "Paste it above and click Save",
+        "Click Test to verify everything works"
+      ],
+      "testSuccess": "Test notification sent!",
+      "testFailure": "Failed to send test notification"
+    },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Receive notifications and chat with AI via Telegram",
+      "configured": "✓ Configured",
+      "chatId": "Chat ID",
+      "waitingForStart": "⚠ Waiting for /start",
+      "botTokenPlaceholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+      "testSuccess": "Test notification sent!",
+      "testFailure": "Failed to send test notification"
+    }
   },
   "analytics": {
     "title": "Your Insights",
@@ -282,9 +782,10 @@
     "memoryTooltip": "{{hour}}:00 - {{count}} {{memory}}",
     "memory": "memory",
     "memory_plural": "memories",
-    "mentions": "{{count}} mentions"
-  }
-  ,
+    "mentions": "{{count}} mentions",
+    "clickToExpand": "Click to expand",
+    "clickToCollapse": "Click to collapse"
+  },
   "goals": {
     "pageTitle": "Goals & Achievements",
     "pageDescription": "Track your progress and celebrate your accomplishments",
@@ -356,9 +857,9 @@
         "milestones": "Milestone badges",
         "growth": "Growth recognition"
       }
-    }
-  }
-  ,
+    },
+    "deleteConfirm": "Are you sure you want to delete this goal?"
+  },
   "onboarding": {
     "progress": "Step {{current}} of {{total}}",
     "buttons": {
@@ -508,7 +1009,129 @@
         "Explore the Settings to customize your experience",
         "All your data is stored locally and privately"
       ],
-      "enterButton": "Enter Second Brain AI"
+      "enterButton": "Enter Second Brain AI",
+      "suggestedTitle": "Suggested Next Steps",
+      "summaryBullets": [
+        "Your conversations and interactions will be automatically captured",
+        "AI will generate daily and weekly summaries of your activity",
+        "Proactive insights will help you stay on track with goals and habits",
+        "You can search through your entire memory history at any time"
+      ]
+    }
+  },
+  "errorFallback": {
+    "title": "This spark has encountered a runtime error",
+    "description": "Something unexpected happened while running the application. The error details are shown below. Contact the spark author and let them know about this issue.",
+    "detailsTitle": "Error Details:",
+    "tryAgain": "Try Again"
+  },
+  "continuousListening": {
+    "panel": {
+      "title": "Continuous Listening",
+      "connectedDescription": "The system is listening to your environment",
+      "disconnectedDescription": "Enable listening to capture your thoughts"
+    },
+    "state": {
+      "connecting": "Connecting...",
+      "listening": "Listening",
+      "processing": "Processing...",
+      "idle": "Idle",
+      "error": "Error"
+    },
+    "wakeWordLabel": "Wake word: \"{{word}}\"",
+    "clickToActivate": "Click to activate",
+    "audio": {
+      "speechDetected": "Speech detected",
+      "silence": "Silence"
+    },
+    "transcriptTitle": "Live transcription",
+    "speaker": {
+      "user": "You are identified ({{percent}}%)",
+      "other": "Other person detected"
+    },
+    "recentActivity": {
+      "title": "Recent activity",
+      "hide": "Hide",
+      "showMore": "Show more",
+      "commandDetected": "Command detected",
+      "memoryRecorded": "Memory recorded",
+      "none": "No recent activity"
+    },
+    "stats": {
+      "sessions": "Sessions",
+      "memories": "Memories",
+      "commands": "Commands"
+    },
+    "toggle": {
+      "active": "Listening active",
+      "inactive": "Listening inactive"
+    },
+    "aria": {
+      "startListening": "Start continuous listening",
+      "stopListening": "Stop continuous listening",
+      "startListeningShort": "Start listening",
+      "stopListeningShort": "Stop listening"
+    }
+  },
+  "notificationTest": {
+    "title": "Notifications",
+    "subtitle": "Configure your notification channels and preferences. The system can reach you across multiple platforms.",
+    "defaultTitle": "Test Notification",
+    "defaultMessage": "This is a test notification",
+    "channels": {
+      "inApp": {
+        "title": "In-App",
+        "description": "Notifications within the application"
+      },
+      "browser": {
+        "title": "Browser",
+        "description": "Web notifications from your browser"
+      },
+      "pushover": {
+        "title": "Pushover",
+        "description": "Mobile push notifications"
+      },
+      "telegram": {
+        "title": "Telegram",
+        "description": "Chat and notifications via Telegram"
+      }
+    },
+    "testForm": {
+      "title": "Send Test Notification",
+      "selectChannel": "Select a channel above to send a test notification",
+      "selectedChannel": "Send a test message via {{channel}}"
+    },
+    "form": {
+      "title": "Title",
+      "titlePlaceholder": "Notification title",
+      "type": "Type",
+      "types": {
+        "info": "Info",
+        "success": "Success",
+        "warning": "Warning",
+        "error": "Error",
+        "reminder": "Reminder"
+      },
+      "message": "Message",
+      "messagePlaceholder": "Notification content",
+      "sending": "Sending...",
+      "send": "Send Test Notification"
+    }
+  },
+  "tasksScheduling": {
+    "title": "Tasks & Scheduling",
+    "subtitle": "Manage your manual and automated tasks in one place",
+    "tabs": {
+      "todos": "Manual Tasks",
+      "schedule": "Automated Scheduling"
+    },
+    "actions": {
+      "newTodo": "New task",
+      "newSchedule": "New schedule"
+    },
+    "errors": {
+      "todoLoad": "Error loading tasks: {{error}}",
+      "scheduleLoad": "Error loading schedules: {{error}}"
     }
   }
 }

@@ -3,6 +3,7 @@
  */
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -21,14 +22,8 @@ interface TodoFormProps {
   onClose: () => void;
 }
 
-const priorities: { value: TodoPriority; label: string }[] = [
-  { value: "LOW", label: "Basse" },
-  { value: "MEDIUM", label: "Moyenne" },
-  { value: "HIGH", label: "Haute" },
-  { value: "URGENT", label: "Urgente" },
-];
-
 export function TodoForm({ todo, onSubmit, onClose }: TodoFormProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: todo?.title || "",
@@ -45,6 +40,12 @@ export function TodoForm({ todo, onSubmit, onClose }: TodoFormProps) {
   });
 
   const isEditing = !!todo;
+  const priorities: { value: TodoPriority; label: string }[] = [
+    { value: "LOW", label: t("todos.form.priorities.low") },
+    { value: "MEDIUM", label: t("todos.form.priorities.medium") },
+    { value: "HIGH", label: t("todos.form.priorities.high") },
+    { value: "URGENT", label: t("todos.form.priorities.urgent") },
+  ];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,7 +85,7 @@ export function TodoForm({ todo, onSubmit, onClose }: TodoFormProps) {
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="text-lg font-semibold">
-            {isEditing ? "Modifier la tâche" : "Nouvelle tâche"}
+            {isEditing ? t("todos.form.editTitle") : t("todos.form.newTitle")}
           </h3>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-4 h-4" />
@@ -93,34 +94,34 @@ export function TodoForm({ todo, onSubmit, onClose }: TodoFormProps) {
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Titre *</Label>
+            <Label htmlFor="title">{t("todos.form.titleLabel")}</Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) =>
                 setFormData({ ...formData, title: e.target.value })
               }
-              placeholder="Que devez-vous faire ?"
+              placeholder={t("todos.form.titlePlaceholder")}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t("todos.form.descriptionLabel")}</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              placeholder="Détails supplémentaires..."
+              placeholder={t("todos.form.descriptionPlaceholder")}
               rows={3}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="priority">Priorité</Label>
+              <Label htmlFor="priority">{t("todos.form.priorityLabel")}</Label>
               <select
                 id="priority"
                 value={formData.priority}
@@ -141,33 +142,33 @@ export function TodoForm({ todo, onSubmit, onClose }: TodoFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Catégorie</Label>
+              <Label htmlFor="category">{t("todos.form.categoryLabel")}</Label>
               <Input
                 id="category"
                 value={formData.category}
                 onChange={(e) =>
                   setFormData({ ...formData, category: e.target.value })
                 }
-                placeholder="ex: Travail"
+                placeholder={t("todos.form.categoryPlaceholder")}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tags">Tags (séparés par des virgules)</Label>
+            <Label htmlFor="tags">{t("todos.form.tagsLabel")}</Label>
             <Input
               id="tags"
               value={formData.tags}
               onChange={(e) =>
                 setFormData({ ...formData, tags: e.target.value })
               }
-              placeholder="ex: urgent, projet-x, réunion"
+              placeholder={t("todos.form.tagsPlaceholder")}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="dueDate">Date d'échéance</Label>
+              <Label htmlFor="dueDate">{t("todos.form.dueDateLabel")}</Label>
               <Input
                 id="dueDate"
                 type="date"
@@ -179,7 +180,7 @@ export function TodoForm({ todo, onSubmit, onClose }: TodoFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reminderAt">Rappel</Label>
+              <Label htmlFor="reminderAt">{t("todos.form.reminderLabel")}</Label>
               <Input
                 id="reminderAt"
                 type="datetime-local"
@@ -193,14 +194,14 @@ export function TodoForm({ todo, onSubmit, onClose }: TodoFormProps) {
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={loading || !formData.title.trim()}>
               {loading
-                ? "Enregistrement..."
+                ? t("common.saving")
                 : isEditing
-                  ? "Mettre à jour"
-                  : "Créer"}
+                  ? t("todos.form.update")
+                  : t("common.create")}
             </Button>
           </div>
         </form>

@@ -109,7 +109,7 @@ export function ScheduleList() {
     try {
       await executeTask(id);
     } catch (error) {
-      console.error("Failed to execute task:", error);
+      console.error(t("schedule.errors.executeFailed"), error);
     }
   };
 
@@ -137,37 +137,37 @@ export function ScheduleList() {
   }[] = [
     {
       key: "all",
-      label: "Toutes",
+      label: t("schedule.filters.all"),
       icon: <History className="w-4 h-4" />,
       count: stats.total,
     },
     {
       key: "enabled",
-      label: "Actives",
+      label: t("schedule.filters.enabled"),
       icon: <PlayCircle className="w-4 h-4" />,
       count: stats.enabled,
     },
     {
       key: "disabled",
-      label: "Désactivées",
+      label: t("schedule.filters.disabled"),
       icon: <PauseCircle className="w-4 h-4" />,
       count: stats.disabled,
     },
     {
       key: "one_time",
-      label: "Uniques",
+      label: t("schedule.filters.oneTime"),
       icon: <Calendar className="w-4 h-4" />,
       count: stats.oneTime,
     },
     {
       key: "cron",
-      label: "Cron",
+      label: t("schedule.filters.cron"),
       icon: <Clock className="w-4 h-4" />,
       count: stats.cron,
     },
     {
       key: "interval",
-      label: "Intervalles",
+      label: t("schedule.filters.interval"),
       icon: <Timer className="w-4 h-4" />,
       count: stats.interval,
     },
@@ -179,15 +179,15 @@ export function ScheduleList() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-            Tâches planifiées
+            {t("schedule.title")}
           </h2>
           <p className="mt-1 text-sm sm:text-base text-slate-600">
-            Automatisez vos actions avec des tâches programmées
+            {t("schedule.subtitle")}
           </p>
         </div>
         <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
-          Nouvelle planification
+          {t("schedule.newSchedule")}
         </Button>
       </div>
 
@@ -199,7 +199,7 @@ export function ScheduleList() {
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-slate-600" />
                 <span className="text-sm font-medium text-slate-700">
-                  Statistiques
+                  {t("schedule.stats.title")}
                 </span>
               </div>
             </AccordionTrigger>
@@ -210,7 +210,9 @@ export function ScheduleList() {
                     <div className="text-xl font-bold text-slate-900">
                       {stats.total}
                     </div>
-                    <p className="text-xs text-slate-500">Total</p>
+                    <p className="text-xs text-slate-500">
+                      {t("schedule.stats.total")}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -218,7 +220,9 @@ export function ScheduleList() {
                     <div className="text-xl font-bold text-green-600">
                       {stats.enabled}
                     </div>
-                    <p className="text-xs text-slate-500">Actives</p>
+                    <p className="text-xs text-slate-500">
+                      {t("schedule.stats.enabled")}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -226,7 +230,9 @@ export function ScheduleList() {
                     <div className="text-xl font-bold text-blue-600">
                       {stats.cron}
                     </div>
-                    <p className="text-xs text-slate-500">Récurrentes</p>
+                    <p className="text-xs text-slate-500">
+                      {t("schedule.stats.cron")}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -234,7 +240,9 @@ export function ScheduleList() {
                     <div className="text-xl font-bold text-purple-600">
                       {stats.oneTime}
                     </div>
-                    <p className="text-xs text-slate-500">Uniques</p>
+                    <p className="text-xs text-slate-500">
+                      {t("schedule.stats.oneTime")}
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -248,7 +256,9 @@ export function ScheduleList() {
               <div className="text-2xl font-bold text-slate-900">
                 {stats.total}
               </div>
-              <p className="text-sm text-slate-500">Total</p>
+              <p className="text-sm text-slate-500">
+                {t("schedule.stats.total")}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -256,13 +266,17 @@ export function ScheduleList() {
               <div className="text-2xl font-bold text-green-600">
                 {stats.enabled}
               </div>
-              <p className="text-sm text-slate-500">Actives</p>
+              <p className="text-sm text-slate-500">
+                {t("schedule.stats.enabled")}
+              </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-blue-600">{stats.cron}</div>
-              <p className="text-sm text-slate-500">Récurrentes</p>
+              <p className="text-sm text-slate-500">
+                {t("schedule.stats.cron")}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -270,7 +284,9 @@ export function ScheduleList() {
               <div className="text-2xl font-bold text-purple-600">
                 {stats.oneTime}
               </div>
-              <p className="text-sm text-slate-500">Uniques</p>
+              <p className="text-sm text-slate-500">
+                {t("schedule.stats.oneTime")}
+              </p>
             </CardContent>
           </Card>
         </div>

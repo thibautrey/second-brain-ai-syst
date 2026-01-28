@@ -110,7 +110,14 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 {React.createElement(notificationChannels.find(c => c.id === selectedChannel)?.icon!, { className: "w-5 h-5" })}
-                <span>{notificationChannels.find(c => c.id === selectedChannel)?.title} Setup</span>
+                <span>
+                  {t("onboarding.notificationsStep.setupCopy", {
+                    channel: t(
+                      notificationChannels.find((c) => c.id === selectedChannel)
+                        ?.titleKey || "",
+                    ),
+                  })}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>

@@ -105,7 +105,7 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
       });
       setSettings(data);
     } catch (error: any) {
-      alert(`Error: ${error.message}`);
+      alert(t("notificationSettings.alertError", { message: error.message }));
     } finally {
       setIsSaving(false);
     }
@@ -118,12 +118,12 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
       const data = await apiPost<{ success: boolean; message: string }>("/settings/notifications/test-pushover");
       setTestResult({
         success: true,
-        message: data.message || "Test notification sent!",
+        message: data.message || t("notificationSettings.pushover.testSuccess"),
       });
     } catch (error: any) {
       setTestResult({
         success: false,
-        message: error.message,
+        message: error.message || t("notificationSettings.pushover.testFailure"),
       });
     } finally {
       setIsTesting(false);
@@ -159,12 +159,13 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
       const data = await apiPost<{ success: boolean; message: string }>("/settings/telegram/test");
       setTelegramTestResult({
         success: true,
-        message: data.message || "Test notification sent!",
+        message: data.message || t("notificationSettings.telegram.testSuccess"),
       });
     } catch (error: any) {
       setTelegramTestResult({
         success: false,
-        message: error.message || "Failed to send test notification",
+        message:
+          error.message || t("notificationSettings.telegram.testFailure"),
       });
     } finally {
       setIsTestingTelegram(false);
@@ -185,7 +186,7 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
       });
       setTelegramTestResult(null);
     } catch (error: any) {
-      alert(`Error: ${error.message}`);
+      alert(t("notificationSettings.alertError", { message: error.message }));
     } finally {
       setIsDisconnectingTelegram(false);
     }
@@ -211,7 +212,7 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
       <Card className="p-6 bg-yellow-50 border-yellow-200">
         <div className="flex items-center gap-3 text-yellow-800">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <p>Browser notifications are not supported in your browser</p>
+          <p>{t("notificationSettings.browser.unsupported")}</p>
         </div>
       </Card>
     );
@@ -224,21 +225,27 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
         <Card className="p-6 space-y-4 border-2 animate-in fade-in">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-xl font-semibold">Browser Notifications</h2>
+              <h2 className="text-xl font-semibold">
+                {t("notificationSettings.browser.title")}
+              </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Receive notifications directly in your browser
+                {t("notificationSettings.browser.description")}
               </p>
             </div>
             <div className="flex-shrink-0">
               {isConnected ? (
                 <div className="flex items-center gap-2 text-green-600">
                   <CheckCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">Connected</span>
+                  <span className="text-sm font-medium">
+                    {t("notificationSettings.connection.connected")}
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-gray-500">
                   <XCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">Offline</span>
+                  <span className="text-sm font-medium">
+                    {t("notificationSettings.connection.offline")}
+                  </span>
                 </div>
               )}
             </div>
@@ -250,24 +257,44 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 <div className="flex items-center gap-3">
                   <Bell className="h-5 w-5 text-green-500" />
                   <div>
-                    <p className="font-medium text-sm">Enabled</p>
-                    <p className="text-xs text-muted-foreground">You will receive browser notifications</p>
+                    <p className="font-medium text-sm">
+                      {t("notificationSettings.browser.permission.enabled")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t(
+                        "notificationSettings.browser.permission.enabledDescription",
+                      )}
+                    </p>
                   </div>
                 </div>
               ) : permission === "denied" ? (
                 <div className="flex items-center gap-3">
                   <BellOff className="h-5 w-5 text-red-500" />
                   <div>
-                    <p className="font-medium text-sm">Blocked</p>
-                    <p className="text-xs text-muted-foreground">Please enable notifications in browser settings</p>
+                    <p className="font-medium text-sm">
+                      {t("notificationSettings.browser.permission.blocked")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t(
+                        "notificationSettings.browser.permission.blockedDescription",
+                      )}
+                    </p>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
                   <BellOff className="h-5 w-5 text-gray-400" />
                   <div>
-                    <p className="font-medium text-sm">Not configured</p>
-                    <p className="text-xs text-muted-foreground">Click below to enable</p>
+                    <p className="font-medium text-sm">
+                      {t(
+                        "notificationSettings.browser.permission.notConfigured",
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t(
+                        "notificationSettings.browser.permission.notConfiguredDescription",
+                      )}
+                    </p>
                   </div>
                 </div>
               )}
@@ -282,10 +309,10 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 {isRequesting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Requesting...
+                    {t("notificationSettings.browser.permission.requesting")}
                   </>
                 ) : (
-                  "Enable"
+                  t("notificationSettings.browser.permission.enable")
                 )}
               </Button>
             )}
@@ -298,32 +325,38 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
         <Card className="p-6 space-y-4 border-2 animate-in fade-in">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-xl font-semibold">Pushover</h2>
+              <h2 className="text-xl font-semibold">
+                {t("notificationSettings.pushover.title")}
+              </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Receive push notifications on your mobile devices
+                {t("notificationSettings.pushover.description")}
               </p>
             </div>
             {settings?.pushoverUserKey && (
               <div className="flex items-center gap-2 text-green-600">
                 <CheckCircle className="h-5 w-5" />
-                <span className="text-sm font-medium">Configured</span>
+                <span className="text-sm font-medium">
+                  {t("notificationSettings.pushover.configured")}
+                </span>
               </div>
             )}
           </div>
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="pushoverUserKey">User Key</Label>
+              <Label htmlFor="pushoverUserKey">
+                {t("notificationSettings.pushover.userKeyLabel")}
+              </Label>
               <Input
                 id="pushoverUserKey"
                 type="password"
-                placeholder="Your 30-character Pushover user key"
+                placeholder={t("notificationSettings.pushover.userKeyPlaceholder")}
                 value={pushoverUserKey}
                 onChange={(e) => setPushoverUserKey(e.target.value)}
                 className="mt-2"
               />
               <p className="text-xs text-muted-foreground mt-2">
-                Get your User Key from{" "}
+                {t("notificationSettings.pushover.userKeyHelp")}{" "}
                 <a
                   href="https://pushover.net"
                   target="_blank"
@@ -336,17 +369,19 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
             </div>
 
             <div>
-              <Label htmlFor="pushoverApiToken">API Token (Optional)</Label>
+              <Label htmlFor="pushoverApiToken">
+                {t("notificationSettings.pushover.apiTokenLabel")}
+              </Label>
               <Input
                 id="pushoverApiToken"
                 type="password"
-                placeholder="Custom API token (leave blank to use default)"
+                placeholder={t("notificationSettings.pushover.apiTokenPlaceholder")}
                 value={pushoverApiToken}
                 onChange={(e) => setPushoverApiToken(e.target.value)}
                 className="mt-2"
               />
               <p className="text-xs text-muted-foreground mt-2">
-                Optional: Use a custom application token for branded notifications
+                {t("notificationSettings.pushover.apiTokenHelp")}
               </p>
             </div>
 
@@ -359,10 +394,10 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
+                    {t("common.saving")}
                   </>
                 ) : (
-                  "Save"
+                  t("common.save")
                 )}
               </Button>
             </div>
@@ -386,13 +421,15 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
           </div>
 
           <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-            <h4 className="font-medium text-sm text-blue-900 mb-2">How to set up Pushover</h4>
+            <h4 className="font-medium text-sm text-blue-900 mb-2">
+              {t("notificationSettings.pushover.setupTitle")}
+            </h4>
             <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
-              <li>Create a free account on pushover.net</li>
-              <li>Install the Pushover app on your phone</li>
-              <li>Copy your User Key from your Pushover dashboard</li>
-              <li>Paste it above and click Save</li>
-              <li>Click Test to verify everything works</li>
+              {t<string[]>("notificationSettings.pushover.setupSteps", {
+                returnObjects: true,
+              }).map((step) => (
+                <li key={step}>{step}</li>
+              ))}
             </ol>
           </div>
         </Card>
@@ -405,16 +442,18 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
             <div>
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <MessageCircle className="h-5 w-5" />
-                Telegram
+                {t("notificationSettings.telegram.title")}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Receive notifications and chat with AI via Telegram
+                {t("notificationSettings.telegram.description")}
               </p>
             </div>
             {telegramSettings?.hasBotToken && telegramSettings?.telegramChatId && (
               <div className="flex items-center gap-2 text-green-600">
                 <CheckCircle className="h-5 w-5" />
-                <span className="text-sm font-medium">Connected</span>
+                <span className="text-sm font-medium">
+                  {t("notificationSettings.connection.connected")}
+                </span>
               </div>
             )}
           </div>
@@ -423,11 +462,17 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
           {telegramSettings?.hasBotToken && (
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Bot Token</span>
-                <span className="text-green-600 text-sm">✓ Configured</span>
+                <span className="text-sm font-medium">
+                  {t("notificationSettings.botToken")}
+                </span>
+                <span className="text-green-600 text-sm">
+                  {t("notificationSettings.telegram.configured")}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Chat ID</span>
+                <span className="text-sm font-medium">
+                  {t("notificationSettings.telegram.chatId")}
+                </span>
                 {telegramSettings.telegramChatId ? (
                   <div className="flex items-center gap-2">
                     <code className="text-xs bg-gray-200 px-2 py-1 rounded">
@@ -443,7 +488,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                     </Button>
                   </div>
                 ) : (
-                  <span className="text-yellow-600 text-sm">⚠ Waiting for /start</span>
+                  <span className="text-yellow-600 text-sm">
+                    {t("notificationSettings.telegram.waitingForStart")}
+                  </span>
                 )}
               </div>
               <div className="flex items-center justify-between">
@@ -475,7 +522,7 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 <Input
                   id="telegramBotToken"
                   type={showBotToken ? "text" : "password"}
-                  placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                  placeholder={t("notificationSettings.telegram.botTokenPlaceholder")}
                   value={telegramBotToken}
                   onChange={(e) => setTelegramBotToken(e.target.value)}
                   className="mt-2 font-mono text-sm"
@@ -488,26 +535,29 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                     onChange={(e) => setShowBotToken(e.target.checked)}
                     className="rounded"
                   />
-                <label htmlFor="showToken" className="text-xs text-muted-foreground">
-                  {t("notificationSettings.showToken")}
-                </label>
+                  <label
+                    htmlFor="showToken"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {t("notificationSettings.showToken")}
+                  </label>
                 </div>
               </div>
 
-                <Button
-                  onClick={handleSaveTelegram}
-                  disabled={isSavingTelegram || !telegramBotToken}
-                  size="sm"
-                >
-                  {isSavingTelegram ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {t("notificationSettings.validating")}
-                    </>
-                  ) : (
-                    t("notificationSettings.connectBot")
-                  )}
-                </Button>
+              <Button
+                onClick={handleSaveTelegram}
+                disabled={isSavingTelegram || !telegramBotToken}
+                size="sm"
+              >
+                {isSavingTelegram ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {t("notificationSettings.validating")}
+                  </>
+                ) : (
+                  t("notificationSettings.connectBot")
+                )}
+              </Button>
             </div>
           )}
 
@@ -574,7 +624,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
 
           {/* Setup Instructions */}
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 space-y-3">
-            <h4 className="font-medium text-sm text-blue-900">How to set up Telegram</h4>
+            <h4 className="font-medium text-sm text-blue-900">
+              {t("notificationSettings.setupTitle")}
+            </h4>
             
             <div className="space-y-2">
               <p className="text-xs text-blue-800 font-medium">

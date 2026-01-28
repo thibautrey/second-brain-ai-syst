@@ -228,31 +228,31 @@ export function TasksSchedulingPage() {
   }[] = [
     {
       key: "all",
-      label: "Toutes",
+      label: t("todos.filters.all"),
       icon: <ListTodo className="w-4 h-4" />,
       count: todoStats?.total,
     },
     {
       key: "pending",
-      label: "À faire",
+      label: t("todos.filters.pending"),
       icon: <Circle className="w-4 h-4" />,
       count: todoStats?.pending,
     },
     {
       key: "in_progress",
-      label: "En cours",
+      label: t("todos.filters.inProgress"),
       icon: <Clock className="w-4 h-4" />,
       count: todoStats?.inProgress,
     },
     {
       key: "completed",
-      label: "Terminées",
+      label: t("todos.filters.completed"),
       icon: <CheckCircle2 className="w-4 h-4" />,
       count: todoStats?.completed,
     },
     {
       key: "overdue",
-      label: "En retard",
+      label: t("todos.filters.overdue"),
       icon: <AlertCircle className="w-4 h-4" />,
       count: todoStats?.overdue,
     },
@@ -266,37 +266,37 @@ export function TasksSchedulingPage() {
   }[] = [
     {
       key: "all",
-      label: "Toutes",
+      label: t("schedule.filters.all"),
       icon: <History className="w-4 h-4" />,
       count: scheduleStats.total,
     },
     {
       key: "enabled",
-      label: "Actives",
+      label: t("schedule.filters.enabled"),
       icon: <PlayCircle className="w-4 h-4" />,
       count: scheduleStats.enabled,
     },
     {
       key: "disabled",
-      label: "Désactivées",
+      label: t("schedule.filters.disabled"),
       icon: <PauseCircle className="w-4 h-4" />,
       count: scheduleStats.disabled,
     },
     {
       key: "one_time",
-      label: "Une fois",
+      label: t("schedule.filters.oneTime"),
       icon: <Timer className="w-4 h-4" />,
       count: scheduleStats.oneTime,
     },
     {
       key: "cron",
-      label: "Récurrentes",
+      label: t("schedule.filters.cron"),
       icon: <Calendar className="w-4 h-4" />,
       count: scheduleStats.cron,
     },
     {
       key: "interval",
-      label: "Intervalles",
+      label: t("schedule.filters.interval"),
       icon: <Clock className="w-4 h-4" />,
       count: scheduleStats.interval,
     },
@@ -307,9 +307,11 @@ export function TasksSchedulingPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">Tâches & Planifications</h2>
+          <h2 className="text-3xl font-bold text-slate-900">
+            {t("tasksScheduling.title")}
+          </h2>
           <p className="text-slate-600 mt-1">
-            Gérez vos tâches manuelles et automatisées dans un seul endroit
+            {t("tasksScheduling.subtitle")}
           </p>
         </div>
       </div>
@@ -318,11 +320,11 @@ export function TasksSchedulingPage() {
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="todos" className="flex items-center gap-2">
             <CheckSquare className="w-4 h-4" />
-            Tâches manuelles
+            {t("tasksScheduling.tabs.todos")}
           </TabsTrigger>
           <TabsTrigger value="schedule" className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
-            Planifications automatiques
+            {t("tasksScheduling.tabs.schedule")}
           </TabsTrigger>
         </TabsList>
 
@@ -331,7 +333,7 @@ export function TasksSchedulingPage() {
           <div className="flex justify-end">
             <Button onClick={() => setShowTodoForm(true)} className="w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
-              Nouvelle tâche
+              {t("tasksScheduling.actions.newTodo")}
             </Button>
           </div>
 
@@ -343,7 +345,9 @@ export function TasksSchedulingPage() {
                   <div className="text-2xl font-bold text-slate-900">
                     {todoStats.pending}
                   </div>
-                  <p className="text-sm text-slate-500">À faire</p>
+                  <p className="text-sm text-slate-500">
+                    {t("todos.stats.pending")}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -351,7 +355,9 @@ export function TasksSchedulingPage() {
                   <div className="text-2xl font-bold text-blue-600">
                     {todoStats.inProgress}
                   </div>
-                  <p className="text-sm text-slate-500">En cours</p>
+                  <p className="text-sm text-slate-500">
+                    {t("todos.stats.inProgress")}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -359,7 +365,9 @@ export function TasksSchedulingPage() {
                   <div className="text-2xl font-bold text-green-600">
                     {todoStats.completed}
                   </div>
-                  <p className="text-sm text-slate-500">Terminées</p>
+                  <p className="text-sm text-slate-500">
+                    {t("todos.stats.completed")}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -367,7 +375,9 @@ export function TasksSchedulingPage() {
                   <div className="text-2xl font-bold text-red-600">
                     {todoStats.overdue}
                   </div>
-                  <p className="text-sm text-slate-500">En retard</p>
+                  <p className="text-sm text-slate-500">
+                    {t("todos.stats.overdue")}
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -397,11 +407,13 @@ export function TasksSchedulingPage() {
           {/* Todo List */}
           <div className="space-y-3">
             {todosLoading && (
-              <p className="text-center text-slate-500 py-8">Chargement...</p>
+              <p className="text-center text-slate-500 py-8">
+                {t("common.loading")}
+              </p>
             )}
             {todosError && (
               <p className="text-center text-red-500 py-8">
-                Erreur lors du chargement: {todosError}
+                {t("tasksScheduling.errors.todoLoad", { error: todosError })}
               </p>
             )}
             {!todosLoading && !todosError && filteredTodos.length === 0 && (
@@ -428,7 +440,7 @@ export function TasksSchedulingPage() {
           <div className="flex justify-end">
             <Button onClick={() => setShowScheduleForm(true)} className="w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
-              Nouvelle planification
+              {t("tasksScheduling.actions.newSchedule")}
             </Button>
           </div>
 
@@ -439,7 +451,9 @@ export function TasksSchedulingPage() {
                 <div className="text-2xl font-bold text-slate-900">
                   {scheduleStats.total}
                 </div>
-                <p className="text-sm text-slate-500">Total</p>
+                <p className="text-sm text-slate-500">
+                  {t("schedule.stats.total")}
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -447,7 +461,9 @@ export function TasksSchedulingPage() {
                 <div className="text-2xl font-bold text-green-600">
                   {scheduleStats.enabled}
                 </div>
-                <p className="text-sm text-slate-500">Actives</p>
+                <p className="text-sm text-slate-500">
+                  {t("schedule.stats.enabled")}
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -455,7 +471,9 @@ export function TasksSchedulingPage() {
                 <div className="text-2xl font-bold text-orange-600">
                   {scheduleStats.disabled}
                 </div>
-                <p className="text-sm text-slate-500">Désactivées</p>
+                <p className="text-sm text-slate-500">
+                  {t("schedule.stats.disabled")}
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -463,7 +481,9 @@ export function TasksSchedulingPage() {
                 <div className="text-2xl font-bold text-blue-600">
                   {scheduleStats.cron}
                 </div>
-                <p className="text-sm text-slate-500">Récurrentes</p>
+                <p className="text-sm text-slate-500">
+                  {t("schedule.stats.cron")}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -490,11 +510,13 @@ export function TasksSchedulingPage() {
           {/* Schedule List */}
           <div className="space-y-3">
             {tasksLoading && (
-              <p className="text-center text-slate-500 py-8">Chargement...</p>
+              <p className="text-center text-slate-500 py-8">
+                {t("common.loading")}
+              </p>
             )}
             {tasksError && (
               <p className="text-center text-red-500 py-8">
-                Erreur lors du chargement: {tasksError}
+                {t("tasksScheduling.errors.scheduleLoad", { error: tasksError })}
               </p>
             )}
             {!tasksLoading && !tasksError && tasks.length === 0 && (

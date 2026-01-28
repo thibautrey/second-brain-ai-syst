@@ -597,10 +597,14 @@ export interface ReclassifyResult {
   success: boolean;
   message: string;
   action: "removed_negative" | "converted_to_negative";
+  voiceSampleCreated?: boolean;
+  retrainingTriggered?: boolean;
 }
 
 /**
  * Reclassify a recording - mark as user's voice or someone else's
+ * When marked as user's voice, the audio is automatically converted to a voice sample
+ * and retraining is triggered.
  * @param recordingId The ID of the recording to reclassify
  * @param newClassification 'user' if it's the user's voice, 'other' if it's not
  * @param profileId Required when reclassifying adaptive samples

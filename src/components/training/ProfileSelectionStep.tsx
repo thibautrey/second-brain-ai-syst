@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import {
   AlertCircle,
@@ -24,6 +25,7 @@ export function ProfileSelectionStep({
   isLoading,
   error,
 }: ProfileSelectionStepProps) {
+  const { t } = useTranslation();
   const [profiles, setProfiles] = useState<any[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
     null,
@@ -66,7 +68,9 @@ export function ProfileSelectionStep({
         }
       } catch (err) {
         setLocalError(
-          err instanceof Error ? err.message : "Failed to load profiles",
+          err instanceof Error
+            ? err.message
+            : t("training.profileSelection.errors.loadProfiles"),
         );
       } finally {
         setIsLoadingProfiles(false);
@@ -78,7 +82,7 @@ export function ProfileSelectionStep({
 
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) {
-      setLocalError("Profile name is required");
+      setLocalError(t("training.profileSelection.errors.profileNameRequired"));
       return;
     }
 
@@ -94,7 +98,9 @@ export function ProfileSelectionStep({
       onProfileSelected(newProfile.id);
     } catch (err) {
       setLocalError(
-        err instanceof Error ? err.message : "Failed to create profile",
+        err instanceof Error
+          ? err.message
+          : t("training.profileSelection.errors.createProfile"),
       );
     } finally {
       setIsCreatingProfile(false);
@@ -140,7 +146,7 @@ export function ProfileSelectionStep({
       mediaRecorder.start();
       setIsRecordingVerification(true);
     } catch (err) {
-      setLocalError("Failed to access microphone. Please grant permission.");
+      setLocalError(t("training.profileSelection.errors.microphoneAccess"));
       setVerifyingProfileId(null);
     }
   };
@@ -197,7 +203,11 @@ export function ProfileSelectionStep({
         profileName: result.profileName,
       });
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : "Verification failed");
+      setLocalError(
+        err instanceof Error
+          ? err.message
+          : t("training.profileSelection.errors.verificationFailed"),
+      );
     } finally {
       setIsVerifying(false);
     }
@@ -206,7 +216,9 @@ export function ProfileSelectionStep({
   if (isLoadingProfiles) {
     return (
       <div className="max-w-2xl mx-auto text-center py-12">
-        <p className="text-slate-600">Loading your profiles...</p>
+        <p className="text-slate-600">
+          {t("training.profileSelection.loading")}
+        </p>
       </div>
     );
   }
@@ -215,11 +227,10 @@ export function ProfileSelectionStep({
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">
-          Select or Create a Voice Profile
+          {t("training.profileSelection.title")}
         </h2>
         <p className="text-slate-600">
-          You can create multiple profiles for different voices and train them
-          independently. You can always add more samples to improve accuracy.
+          {t("training.profileSelection.subtitle")}
         </p>
       </div>
 
@@ -227,7 +238,9 @@ export function ProfileSelectionStep({
         <div className="mb-6 flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
           <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-red-900">Error</p>
+            <p className="font-medium text-red-900">
+              {t("common.error")}
+            </p>
             <p className="text-sm text-red-800 mt-1">{error || localError}</p>
           </div>
         </div>
@@ -238,7 +251,7 @@ export function ProfileSelectionStep({
         {profiles.length > 0 && (
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">
-              Your Profiles
+              {t("training.profileSelection.yourProfiles")}
             </h3>
             <div className="space-y-3">
               {profiles.map((profile) => (
@@ -264,13 +277,18 @@ export function ProfileSelectionStep({
                         </h4>
                       </div>
                       <p className="text-xs text-slate-500 mt-1">
-                        {profile.voiceSamples?.length || 0} samples • Created{" "}
-                        {new Date(profile.createdAt).toLocaleDateString()}
+                        {t("training.profileSelection.sampleCount", {
+                          count: profile.voiceSamples?.length || 0,
+                        })}{" "}
+                        •{" "}
+                        {t("training.profileSelection.createdOn", {
+                          date: new Date(profile.createdAt).toLocaleDateString(),
+                        })}
                       </p>
 
                       {profile.isEnrolled && (
                         <div className="mt-2 inline-block px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-medium">
-                          ✓ Enrolled
+                          {t("training.profileSelection.enrolled")}
                         </div>
                       )}
                     </div>
@@ -286,7 +304,7 @@ export function ProfileSelectionStep({
                               <div className="flex items-center gap-2 flex-1">
                                 <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
                                 <span className="text-sm text-slate-600">
-                                  Recording...
+                                  {t("training.profileSelection.recording")}
                                 </span>
                               </div>
                               <Button
@@ -298,7 +316,7 @@ export function ProfileSelectionStep({
                                 className="bg-red-600 hover:bg-red-700 text-white gap-1"
                               >
                                 <Square className="w-4 h-4" />
-                                Stop
+                                {t("training.profileSelection.stop")}
                               </Button>
                               <Button
                                 onClick={(e) => {
@@ -315,7 +333,7 @@ export function ProfileSelectionStep({
                           ) : isVerifying ? (
                             <div className="flex items-center gap-2 text-sm text-slate-600">
                               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                              Verifying voice...
+                              {t("training.profileSelection.verifying")}
                             </div>
                           ) : verificationResult ? (
                             <div
@@ -330,24 +348,24 @@ export function ProfileSelectionStep({
                                   <>
                                     <CheckCircle2 className="w-5 h-5 text-green-600" />
                                     <span className="font-medium text-green-900">
-                                      Voice Recognized!
+                                      {t("training.profileSelection.voiceRecognized")}
                                     </span>
                                   </>
                                 ) : (
                                   <>
                                     <AlertCircle className="w-5 h-5 text-amber-600" />
                                     <span className="font-medium text-amber-900">
-                                      Voice Not Recognized
+                                      {t("training.profileSelection.voiceNotRecognized")}
                                     </span>
                                   </>
                                 )}
                               </div>
                               <p className="text-sm mt-1 text-slate-600">
-                                Confidence:{" "}
-                                {(verificationResult.confidence * 100).toFixed(
-                                  1,
-                                )}
-                                %
+                                {t("training.profileSelection.confidence", {
+                                  percent: (
+                                    verificationResult.confidence * 100
+                                  ).toFixed(1),
+                                })}
                               </p>
                               <div className="flex gap-2 mt-2">
                                 <Button
@@ -360,7 +378,7 @@ export function ProfileSelectionStep({
                                   className="gap-1"
                                 >
                                   <Mic className="w-4 h-4" />
-                                  Try Again
+                                  {t("training.profileSelection.tryAgain")}
                                 </Button>
                                 <Button
                                   onClick={(e) => {
@@ -371,7 +389,7 @@ export function ProfileSelectionStep({
                                   size="sm"
                                   variant="ghost"
                                 >
-                                  Close
+                                  {t("training.profileSelection.close")}
                                 </Button>
                               </div>
                             </div>
@@ -386,7 +404,7 @@ export function ProfileSelectionStep({
                                 className="bg-blue-600 hover:bg-blue-700 text-white gap-1"
                               >
                                 <Mic className="w-4 h-4" />
-                                Start Recording
+                                {t("training.profileSelection.startRecording")}
                               </Button>
                               <Button
                                 onClick={(e) => {
@@ -396,7 +414,7 @@ export function ProfileSelectionStep({
                                 size="sm"
                                 variant="ghost"
                               >
-                                Cancel
+                                {t("common.cancel")}
                               </Button>
                             </div>
                           )}
@@ -412,7 +430,7 @@ export function ProfileSelectionStep({
                           className="gap-2 text-slate-600 hover:text-slate-900"
                         >
                           <Shield className="w-4 h-4" />
-                          Verify Voice
+                          {t("training.profileSelection.verifyVoice")}
                         </Button>
                       )}
                     </div>
@@ -427,18 +445,18 @@ export function ProfileSelectionStep({
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
           <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <Plus className="w-5 h-5" />
-            Create New Profile
+            {t("training.profileSelection.createTitle")}
           </h3>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-900 mb-2">
-                Profile Name
+                {t("training.profileSelection.profileNameLabel")}
               </label>
               <input
                 type="text"
                 value={newProfileName}
                 onChange={(e) => setNewProfileName(e.target.value)}
-                placeholder="e.g., Work Voice, Personal, Second Language"
+                placeholder={t("training.profileSelection.profileNamePlaceholder")}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isCreatingProfile || isLoading}
               />
@@ -450,31 +468,34 @@ export function ProfileSelectionStep({
               }
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 font-medium"
             >
-              {isCreatingProfile ? "Creating..." : "Create New Profile"}
+              {isCreatingProfile
+                ? t("training.profileSelection.creating")
+                : t("training.profileSelection.createAction")}
             </Button>
           </div>
         </div>
 
         {/* Continue Button */}
-        <Button
-          onClick={onContinue}
-          disabled={isLoading || !selectedProfileId}
-          className="w-full bg-green-600 hover:bg-green-700 text-white py-3 font-medium text-lg"
-        >
-          Continue with Selected Profile
-        </Button>
+      <Button
+        onClick={onContinue}
+        disabled={isLoading || !selectedProfileId}
+        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 font-medium text-lg"
+      >
+        {t("training.profileSelection.continue")}
+      </Button>
       </div>
 
       {/* Info Section */}
       <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h4 className="font-semibold text-blue-900 mb-2">💡 Tips</h4>
+        <h4 className="font-semibold text-blue-900 mb-2">
+          {t("training.profileSelection.tipsTitle")}
+        </h4>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>
-            • You can add more samples to a profile at any time to improve
-            accuracy
-          </li>
-          <li>• Re-training with more samples will refine the voice model</li>
-          <li>• Keep profiles organized by naming them descriptively</li>
+          {t<string[]>("training.profileSelection.tips", {
+            returnObjects: true,
+          }).map((tip) => (
+            <li key={tip}>• {tip}</li>
+          ))}
         </ul>
       </div>
     </div>

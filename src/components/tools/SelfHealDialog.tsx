@@ -17,6 +17,7 @@ import {
   Zap,
 } from "lucide-react";
 import { apiPost } from "../../services/api";
+import { useTranslation } from "react-i18next";
 
 interface Task {
   task: string;
@@ -47,6 +48,7 @@ export function SelfHealDialog({
   toolId,
   toolName,
 }: SelfHealDialogProps) {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [healed, setHealed] = useState(false);
@@ -66,7 +68,7 @@ export function SelfHealDialog({
       setTasks(data.tasks);
       setHealed(!data.hasErrors);
     } catch (err: any) {
-      setError(err.message || "Erreur lors de la récupération");
+      setError(err.message || t("toolsConfig.selfHeal.errors.fetchFailed"));
     } finally {
       setLoading(false);
     }
@@ -92,15 +94,27 @@ export function SelfHealDialog({
       case "completed":
         return (
           <Badge variant="default" className="bg-green-600">
-            Complété
+            {t("toolsConfig.selfHeal.status.completed")}
           </Badge>
         );
       case "failed":
-        return <Badge variant="destructive">Échoué</Badge>;
+        return (
+          <Badge variant="destructive">
+            {t("toolsConfig.selfHeal.status.failed")}
+          </Badge>
+        );
       case "in-progress":
-        return <Badge variant="secondary">En cours</Badge>;
+        return (
+          <Badge variant="secondary">
+            {t("toolsConfig.selfHeal.status.inProgress")}
+          </Badge>
+        );
       case "pending":
-        return <Badge variant="outline">En attente</Badge>;
+        return (
+          <Badge variant="outline">
+            {t("toolsConfig.selfHeal.status.pending")}
+          </Badge>
+        );
       default:
         return null;
     }
@@ -112,10 +126,10 @@ export function SelfHealDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-yellow-600" />
-            Auto-réparation de l'outil
+            {t("toolsConfig.selfHeal.title")}
           </DialogTitle>
           <DialogDescription>
-            Diagnostique et répare les problèmes du tool "{toolName}"
+            {t("toolsConfig.selfHeal.description", { toolName })}
           </DialogDescription>
         </DialogHeader>
 
@@ -140,7 +154,9 @@ export function SelfHealDialog({
                   <div className="text-2xl font-bold text-blue-600">
                     {tasks.filter((t) => t.status === "completed").length}
                   </div>
-                  <div className="mt-1 text-xs text-gray-600">Complétées</div>
+                  <div className="mt-1 text-xs text-gray-600">
+                    {t("toolsConfig.selfHeal.summary.completed")}
+                  </div>
                 </CardContent>
               </Card>
               <Card>
@@ -148,7 +164,9 @@ export function SelfHealDialog({
                   <div className="text-2xl font-bold text-gray-600">
                     {tasks.filter((t) => t.status === "in-progress").length}
                   </div>
-                  <div className="mt-1 text-xs text-gray-600">En cours</div>
+                  <div className="mt-1 text-xs text-gray-600">
+                    {t("toolsConfig.selfHeal.summary.inProgress")}
+                  </div>
                 </CardContent>
               </Card>
               <Card>
@@ -156,7 +174,9 @@ export function SelfHealDialog({
                   <div className="text-2xl font-bold text-red-600">
                     {tasks.filter((t) => t.status === "failed").length}
                   </div>
-                  <div className="mt-1 text-xs text-gray-600">Échouées</div>
+                  <div className="mt-1 text-xs text-gray-600">
+                    {t("toolsConfig.selfHeal.summary.failed")}
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -207,7 +227,7 @@ export function SelfHealDialog({
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3 text-green-800">
                   <CheckCircle className="w-5 h-5" />
-                  <p>L'outil a été inspectionné et est en bon état !</p>
+                  <p>{t("toolsConfig.selfHeal.success")}</p>
                 </div>
               </CardContent>
             </Card>
@@ -219,8 +239,7 @@ export function SelfHealDialog({
               <CardContent className="pt-6 text-center">
                 <Zap className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p className="text-gray-600">
-                  Cliquez sur le bouton ci-dessous pour commencer
-                  l'auto-réparation
+                  {t("toolsConfig.selfHeal.empty")}
                 </p>
               </CardContent>
             </Card>
@@ -232,7 +251,7 @@ export function SelfHealDialog({
               <CardContent className="pt-6 text-center">
                 <div className="inline-flex items-center gap-2 text-gray-600">
                   <div className="w-4 h-4 border-2 border-gray-300 rounded-full border-t-gray-600 animate-spin" />
-                  Analyse en cours...
+                  {t("toolsConfig.selfHeal.loading")}
                 </div>
               </CardContent>
             </Card>
@@ -242,14 +261,16 @@ export function SelfHealDialog({
         {/* Actions */}
         <div className="flex justify-end gap-3 mt-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Fermer
+            {t("common.close")}
           </Button>
           <Button
             onClick={startHealing}
             disabled={loading}
             className="bg-yellow-600 hover:bg-yellow-700"
           >
-            {loading ? "Réparation en cours..." : "Commencer l'auto-réparation"}
+            {loading
+              ? t("toolsConfig.selfHeal.inProgress")
+              : t("toolsConfig.selfHeal.start")}
           </Button>
         </div>
       </DialogContent>

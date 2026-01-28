@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -22,6 +23,7 @@ import { useChatMessages } from "../hooks/useChatMessages";
 import { cn } from "../lib/utils";
 
 export function FloatingChat() {
+  const { t } = useTranslation();
   const { messages, isLoading, error, sendMessage, clearMessages } =
     useChatMessages();
   const [input, setInput] = useState("");
@@ -93,7 +95,7 @@ export function FloatingChat() {
                 >
                   <Bot className="w-5 h-5" />
                 </motion.div>
-                <h3 className="font-semibold">Second Brain</h3>
+                <h3 className="font-semibold">{t("chat.widgetTitle")}</h3>
               </div>
               <div className="flex items-center gap-1">
                 {messages.length > 0 && (
@@ -138,10 +140,9 @@ export function FloatingChat() {
                   >
                     <Bot className="w-12 h-12 mb-3 opacity-50" />
                   </motion.div>
-                  <p className="text-sm">Commencez une conversation...</p>
+                  <p className="text-sm">{t("chat.emptyTitle")}</p>
                   <p className="text-xs mt-1 text-center px-4">
-                    Je peux accéder à vos mémoires pour des réponses
-                    personnalisées
+                    {t("chat.accessMemories")}
                   </p>
                 </motion.div>
               ) : (
@@ -228,7 +229,7 @@ export function FloatingChat() {
                   >
                     <Loader2 className="w-4 h-4" />
                   </motion.div>
-                  <span className="text-sm">Réflexion en cours...</span>
+                  <span className="text-sm">{t("chat.thinking")}</span>
                 </motion.div>
               )}
 
@@ -260,7 +261,7 @@ export function FloatingChat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Écrivez votre message..."
+                  placeholder={t("chat.inputPlaceholder")}
                   disabled={isLoading}
                   rows={1}
                   className={cn(

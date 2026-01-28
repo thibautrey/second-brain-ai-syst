@@ -101,31 +101,31 @@ export function TodoList() {
   }[] = [
     {
       key: "all",
-      label: "Toutes",
+      label: t("todos.filters.all"),
       icon: <ListTodo className="w-4 h-4" />,
       count: stats?.total,
     },
     {
       key: "pending",
-      label: "À faire",
+      label: t("todos.filters.pending"),
       icon: <Circle className="w-4 h-4" />,
       count: stats?.pending,
     },
     {
       key: "in_progress",
-      label: "En cours",
+      label: t("todos.filters.inProgress"),
       icon: <Clock className="w-4 h-4" />,
       count: stats?.inProgress,
     },
     {
       key: "completed",
-      label: "Terminées",
+      label: t("todos.filters.completed"),
       icon: <CheckCircle2 className="w-4 h-4" />,
       count: stats?.completed,
     },
     {
       key: "overdue",
-      label: "En retard",
+      label: t("todos.filters.overdue"),
       icon: <AlertCircle className="w-4 h-4" />,
       count: stats?.overdue,
     },
@@ -136,14 +136,16 @@ export function TodoList() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">Tâches</h2>
+          <h2 className="text-3xl font-bold text-slate-900">
+            {t("todos.title")}
+          </h2>
           <p className="text-slate-600 mt-1">
-            Gérez vos tâches et suivez votre progression
+            {t("todos.subtitle")}
           </p>
         </div>
         <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
-          Nouvelle tâche
+          {t("todos.newTodo")}
         </Button>
       </div>
 
@@ -155,7 +157,9 @@ export function TodoList() {
               <div className="text-2xl font-bold text-slate-900">
                 {stats.pending}
               </div>
-              <p className="text-sm text-slate-500">À faire</p>
+              <p className="text-sm text-slate-500">
+                {t("todos.stats.pending")}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -163,7 +167,9 @@ export function TodoList() {
               <div className="text-2xl font-bold text-blue-600">
                 {stats.inProgress}
               </div>
-              <p className="text-sm text-slate-500">En cours</p>
+              <p className="text-sm text-slate-500">
+                {t("todos.stats.inProgress")}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -171,7 +177,9 @@ export function TodoList() {
               <div className="text-2xl font-bold text-green-600">
                 {stats.completed}
               </div>
-              <p className="text-sm text-slate-500">Terminées</p>
+              <p className="text-sm text-slate-500">
+                {t("todos.stats.completed")}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -179,7 +187,9 @@ export function TodoList() {
               <div className="text-2xl font-bold text-red-600">
                 {stats.overdue}
               </div>
-              <p className="text-sm text-slate-500">En retard</p>
+              <p className="text-sm text-slate-500">
+                {t("todos.stats.overdue")}
+              </p>
             </CardContent>
           </Card>
         </div>

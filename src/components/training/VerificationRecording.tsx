@@ -3,6 +3,7 @@ import { Mic, Square, Volume2, Zap } from "lucide-react";
 import { Button } from "../ui/button";
 import { VoiceActivityDetector } from "../../utils/voice-activity-detection";
 import { DEFAULT_VERIFICATION_VAD_CONFIG } from "../../config/vad-config";
+import { useTranslation } from "react-i18next";
 
 interface VerificationRecordingProps {
   onComplete: (audioBlob: Blob, duration: number) => Promise<void>;
@@ -15,6 +16,7 @@ export function VerificationRecording({
   onCancel,
   disabled = false,
 }: VerificationRecordingProps) {
+  const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -147,7 +149,7 @@ export function VerificationRecording({
       }
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      alert("Unable to access microphone. Please check permissions.");
+      alert(t("training.verificationRecording.errors.micAccess"));
     }
   };
 
@@ -212,11 +214,10 @@ export function VerificationRecording({
           <Zap className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold text-slate-900">
-              Quick Verification Recording
+              {t("training.verificationRecording.title")}
             </p>
             <p className="text-sm text-slate-700 mt-1">
-              Click the button to start recording. Speak clearly, and the system
-              will automatically stop when you finish speaking.
+              {t("training.verificationRecording.subtitle")}
             </p>
           </div>
         </div>
@@ -228,7 +229,7 @@ export function VerificationRecording({
           <div className="flex items-center justify-between">
             <p className="flex items-center gap-2 text-xs font-medium text-slate-700">
               <Volume2 className="w-4 h-4" />
-              Audio Level
+              {t("training.verificationRecording.audioLevel")}
             </p>
             <p className="text-xs text-slate-600">{Math.round(audioLevel)}%</p>
           </div>
@@ -240,7 +241,7 @@ export function VerificationRecording({
           </div>
           {audioLevel < 20 && (
             <p className="flex items-center gap-1 text-xs text-amber-600">
-              ⚠️ Volume is low - speak louder or move closer to microphone
+              {t("training.verificationRecording.lowVolume")}
             </p>
           )}
         </div>
@@ -248,7 +249,9 @@ export function VerificationRecording({
 
       {/* Timer Display */}
       <div className="text-center">
-        <p className="mb-1 text-xs text-slate-600">Recording Time</p>
+        <p className="mb-1 text-xs text-slate-600">
+          {t("training.verificationRecording.recordingTime")}
+        </p>
         <p
           className={`text-5xl font-bold font-mono ${
             isRecording ? "text-red-600 animate-pulse" : "text-slate-900"
@@ -262,14 +265,14 @@ export function VerificationRecording({
       {isRecording && (
         <div className="flex items-center justify-center gap-2 text-sm font-medium text-red-600">
           <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
-          Recording in progress... (will stop automatically on silence)
+          {t("training.verificationRecording.recordingInProgress")}
         </div>
       )}
 
       {isProcessing && (
         <div className="flex items-center justify-center gap-2 text-sm font-medium text-blue-600">
           <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse" />
-          Processing audio...
+          {t("training.verificationRecording.processing")}
         </div>
       )}
 
@@ -282,7 +285,7 @@ export function VerificationRecording({
             className="flex-1 gap-2 py-3 font-medium text-white bg-red-600 hover:bg-red-700"
           >
             <Mic className="w-5 h-5" />
-            Start Recording
+            {t("training.verificationRecording.start")}
           </Button>
         ) : (
           <>
@@ -291,14 +294,14 @@ export function VerificationRecording({
               className="flex-1 gap-2 py-3 font-medium text-white bg-slate-900 hover:bg-slate-800"
             >
               <Square className="w-5 h-5" />
-              Stop Recording
+              {t("training.verificationRecording.stop")}
             </Button>
             <Button
               onClick={handleCancel}
               variant="outline"
               className="px-4 py-3 font-medium"
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
           </>
         )}
@@ -306,12 +309,14 @@ export function VerificationRecording({
 
       {/* Tips */}
       <div className="p-3 space-y-1 text-xs text-blue-900 border border-blue-200 rounded-lg bg-blue-50">
-        <p className="font-medium">Recording tips:</p>
+        <p className="font-medium">
+          {t("training.verificationRecording.tipsTitle")}
+        </p>
         <ul className="list-disc list-inside space-y-0.5">
-          <li>Speak naturally and clearly</li>
-          <li>Maintain steady volume</li>
-          <li>Say one of the training phrases or any sentence</li>
-          <li>The recording will stop automatically after silence</li>
+          <li>{t("training.verificationRecording.tips.0")}</li>
+          <li>{t("training.verificationRecording.tips.1")}</li>
+          <li>{t("training.verificationRecording.tips.2")}</li>
+          <li>{t("training.verificationRecording.tips.3")}</li>
         </ul>
       </div>
     </div>

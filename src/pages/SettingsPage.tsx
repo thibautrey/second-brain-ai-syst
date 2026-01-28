@@ -161,8 +161,7 @@ function ProvidersSection() {
             {t("settings.providers.title")}
           </h3>
           <p className="text-sm text-slate-500">
-            Configurez vos clés API et endpoints pour les différents services
-            d'IA.
+            {t("settings.providers.description")}
           </p>
         </div>
         <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
@@ -189,9 +188,9 @@ function ProvidersSection() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Server className="w-12 h-12 mb-4 text-slate-300" />
               <p className="text-center text-slate-500">
-                Aucun provider configuré.
+                {t("settings.providers.emptyState.title")}
                 <br />
-                Ajoutez un provider pour commencer.
+                {t("settings.providers.emptyState.subtitle")}
               </p>
             </CardContent>
           </Card>
@@ -252,19 +251,19 @@ function ProviderForm({
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { t } = useTranslation();
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = "Le nom est requis";
+      newErrors.name = t("settings.providers.validation.nameRequired");
     }
     if (!formData.apiKey.trim()) {
-      newErrors.apiKey = "La clé API est requise";
+      newErrors.apiKey = t("settings.providers.validation.apiKeyRequired");
     }
     if (formData.type === "openai-compatible" && !formData.baseUrl?.trim()) {
-      newErrors.baseUrl =
-        "L'URL de base est requise pour les providers compatibles OpenAI";
+      newErrors.baseUrl = t("settings.providers.validation.baseUrlRequired");
     }
 
     setErrors(newErrors);
@@ -281,26 +280,28 @@ function ProviderForm({
     <Card>
       <CardHeader>
         <CardTitle>
-          {initialData ? "Modifier le Provider" : "Nouveau Provider"}
+          {initialData
+            ? t("settings.providers.editProvider")
+            : t("settings.providers.newProvider")}
         </CardTitle>
         <CardDescription>
           {initialData
-            ? "Modifiez les informations du provider"
-            : "Configurez un nouveau provider d'IA"}
+            ? t("settings.providers.editProviderDescription")
+            : t("settings.providers.newProviderDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="name">Nom du Provider</Label>
+              <Label htmlFor="name">{t("settings.providers.providerName")}</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="ex: OpenAI Production"
+                placeholder={t("settings.providers.providerNamePlaceholder")}
               />
               {errors.name && (
                 <p className="text-sm text-red-500">{errors.name}</p>
@@ -308,7 +309,9 @@ function ProviderForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="type">Type de Provider</Label>
+              <Label htmlFor="type">
+                {t("settings.providers.providerTypeLabel")}
+              </Label>
               <Select
                 id="type"
                 value={formData.type}
@@ -319,10 +322,13 @@ function ProviderForm({
                   })
                 }
                 options={[
-                  { value: "openai", label: "OpenAI" },
+                  {
+                    value: "openai",
+                    label: t("settings.providers.providerType.openai"),
+                  },
                   {
                     value: "openai-compatible",
-                    label: "OpenAI Compatible (URL personnalisée)",
+                    label: t("settings.providers.providerType.openaiCompatible"),
                   },
                 ]}
               />
@@ -330,7 +336,9 @@ function ProviderForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="apiKey">Clé API</Label>
+            <Label htmlFor="apiKey">
+              {t("settings.providers.apiKeyLabel")}
+            </Label>
             <div className="relative">
               <Input
                 id="apiKey"
@@ -339,7 +347,7 @@ function ProviderForm({
                 onChange={(e) =>
                   setFormData({ ...formData, apiKey: e.target.value })
                 }
-                placeholder="sk-..."
+                placeholder={t("settings.providers.apiKeyPlaceholder")}
                 className="pr-10"
               />
               <button
@@ -361,21 +369,22 @@ function ProviderForm({
 
           {formData.type === "openai-compatible" && (
             <div className="space-y-2">
-              <Label htmlFor="baseUrl">URL de Base</Label>
+              <Label htmlFor="baseUrl">
+                {t("settings.providers.baseUrlLabel")}
+              </Label>
               <Input
                 id="baseUrl"
                 value={formData.baseUrl}
                 onChange={(e) =>
                   setFormData({ ...formData, baseUrl: e.target.value })
                 }
-                placeholder="https://api.example.com/v1"
+                placeholder={t("settings.providers.baseUrlPlaceholder")}
               />
               {errors.baseUrl && (
                 <p className="text-sm text-red-500">{errors.baseUrl}</p>
               )}
               <p className="text-xs text-slate-500">
-                L'URL de base de l'API compatible OpenAI (ex:
-                https://api.together.xyz/v1)
+                {t("settings.providers.baseUrlHelp")}
               </p>
             </div>
           )}
@@ -387,7 +396,7 @@ function ProviderForm({
                 setFormData({ ...formData, isEnabled: checked })
               }
             />
-            <Label>Provider actif</Label>
+            <Label>{t("settings.providers.activeLabel")}</Label>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
@@ -397,10 +406,10 @@ function ProviderForm({
               onClick={onCancel}
               disabled={isSaving}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Enregistrement..." : "Enregistrer"}
+              {isSaving ? t("common.saving") : t("common.save")}
             </Button>
           </div>
         </form>
@@ -435,6 +444,7 @@ function ProviderCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [faviconError, setFaviconError] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchFavicon = async () => {
@@ -491,13 +501,17 @@ function ProviderCard({
             <div>
               <h4 className="font-semibold text-slate-900">{provider.name}</h4>
               <p className="text-sm text-slate-500">
-                {provider.type === "openai" ? "OpenAI" : "OpenAI Compatible"}
+                {provider.type === "openai"
+                  ? t("settings.providers.providerType.openai")
+                  : t("settings.providers.providerType.openaiCompatibleShort")}
                 {provider.baseUrl && (
                   <span className="ml-2 text-xs">({provider.baseUrl})</span>
                 )}
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                {provider.models.length} modèle(s) disponible(s)
+                {t("settings.providers.modelCount", {
+                  count: provider.models.length,
+                })}
               </p>
             </div>
           </div>
@@ -512,7 +526,7 @@ function ProviderCard({
               size="icon"
               onClick={onSyncModels}
               disabled={isSyncing}
-              title="Synchroniser les modèles"
+              title={t("settings.providers.syncModels")}
             >
               <RefreshCw
                 className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`}
@@ -558,7 +572,9 @@ function ProviderCard({
         {/* Models Preview */}
         {provider.models.length > 0 && (
           <div className="pt-4 mt-4 border-t border-slate-100">
-            <p className="mb-2 text-xs font-medium text-slate-500">Modèles:</p>
+            <p className="mb-2 text-xs font-medium text-slate-500">
+              {t("settings.providers.modelsLabel")}
+            </p>
             <div className="flex flex-wrap gap-1">
               {provider.models.slice(0, 5).map((model) => (
                 <span
@@ -570,7 +586,9 @@ function ProviderCard({
               ))}
               {provider.models.length > 5 && (
                 <span className="px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-600">
-                  +{provider.models.length - 5} autres
+                  {t("settings.providers.moreModels", {
+                    count: provider.models.length - 5,
+                  })}
                 </span>
               )}
             </div>
@@ -582,6 +600,7 @@ function ProviderCard({
 }
 
 function ModelsConfigSection() {
+  const { t } = useTranslation();
   const {
     settings,
     updateTaskConfig,
@@ -621,11 +640,10 @@ function ModelsConfigSection() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">
-            Configuration des Modèles
+            {t("settings.models.title")}
           </h3>
           <p className="text-sm text-slate-500">
-            Choisissez un mode : rapide (un seul modèle LLM partagé) ou avancé
-            (configuration par tâche).
+            {t("settings.models.description")}
           </p>
         </div>
         <div className="inline-flex items-center rounded-lg bg-slate-100 p-1 text-sm font-medium text-slate-700">
@@ -637,7 +655,7 @@ function ModelsConfigSection() {
             }`}
             onClick={() => setMode("simple")}
           >
-            Mode simple
+            {t("settings.models.mode.simple")}
           </button>
           <button
             className={`rounded-md px-3 py-1 transition ${
@@ -647,7 +665,7 @@ function ModelsConfigSection() {
             }`}
             onClick={() => setMode("advanced")}
           >
-            Mode avancé
+            {t("settings.models.mode.advanced")}
           </button>
         </div>
       </div>
@@ -657,9 +675,9 @@ function ModelsConfigSection() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Server className="w-12 h-12 mb-4 text-slate-300" />
             <p className="text-center text-slate-500">
-              Vous devez d'abord configurer au moins un provider
+              {t("settings.models.noProviders.title")}
               <br />
-              dans l'onglet "Providers IA".
+              {t("settings.models.noProviders.subtitle")}
             </p>
           </CardContent>
         </Card>
@@ -725,6 +743,7 @@ function SimpleModelsConfig({
   onBatchUpdate,
   isSaving,
 }: SimpleModelsConfigProps) {
+  const { t } = useTranslation();
   const taskConfigs = settings.taskConfigs || [];
 
   const llmTasks: ModelCapability[] = [
@@ -741,34 +760,32 @@ function SimpleModelsConfig({
   const cards = [
     {
       id: "llm",
-      title: "Modèle LLM global",
-      description:
-        "Utilisé pour Chat, Routage, Réflexion, Résumés et Analyse. Sélectionnez un seul modèle pour tout.",
+      title: t("settings.models.simpleCards.llm.title"),
+      description: t("settings.models.simpleCards.llm.description"),
       taskTypes: llmTasks,
       required: true,
       icon: <Sliders className="w-5 h-5 text-slate-700" />,
     },
     {
       id: "embeddings",
-      title: "Embeddings (obligatoire)",
-      description:
-        "Vectorisation pour la recherche sémantique (Weaviate et résumés).",
+      title: t("settings.models.simpleCards.embeddings.title"),
+      description: t("settings.models.simpleCards.embeddings.description"),
       taskTypes: embeddingTasks,
       required: true,
       icon: <Server className="w-5 h-5 text-slate-700" />,
     },
     {
       id: "speech",
-      title: "Speech to Text",
-      description: "Transcription audio vers texte (Whisper ou équivalent).",
+      title: t("settings.models.simpleCards.speech.title"),
+      description: t("settings.models.simpleCards.speech.description"),
       taskTypes: speechTasks,
       required: false,
       icon: <Mic className="w-5 h-5 text-slate-700" />,
     },
     {
       id: "images",
-      title: "Génération d'Images",
-      description: "Création d'images à partir de texte (DALL·E, etc.).",
+      title: t("settings.models.simpleCards.images.title"),
+      description: t("settings.models.simpleCards.images.description"),
       taskTypes: imageTasks,
       required: false,
       icon: <Image className="w-5 h-5 text-slate-700" />,
@@ -830,6 +847,7 @@ function SimpleTaskCard({
   ) => Promise<void>;
   isSaving: boolean;
 }) {
+  const { t } = useTranslation();
   const configs = taskTypes.map((taskType) =>
     taskConfigs.find((tc) => tc.taskType === taskType),
   );
@@ -900,7 +918,7 @@ function SimpleTaskCard({
   const providerOptionGroups: SelectOptionGroup[] = [];
   if (compatibleProviders.length > 0) {
     providerOptionGroups.push({
-      label: "✓ Suggérés",
+      label: t("settings.models.optionGroups.suggested"),
       options: compatibleProviders.map((p) => ({
         value: p.id,
         label: p.name,
@@ -909,7 +927,7 @@ function SimpleTaskCard({
   }
   if (otherProviders.length > 0) {
     providerOptionGroups.push({
-      label: "Autres providers",
+      label: t("settings.models.optionGroups.otherProviders"),
       options: otherProviders.map((p) => ({
         value: p.id,
         label: p.name,
@@ -920,7 +938,7 @@ function SimpleTaskCard({
   const modelOptionGroups: SelectOptionGroup[] = [];
   if (compatibleModels.length > 0) {
     modelOptionGroups.push({
-      label: "✓ Suggérés",
+      label: t("settings.models.optionGroups.suggested"),
       options: compatibleModels.map((m) => ({
         value: m.id,
         label: m.name,
@@ -933,8 +951,8 @@ function SimpleTaskCard({
     modelOptionGroups.push({
       label:
         compatibleModels.length === 0
-          ? "Modèles disponibles"
-          : "Autres modèles",
+          ? t("settings.models.optionGroups.availableModels")
+          : t("settings.models.optionGroups.otherModels"),
       options: modelsToShow.map((m) => ({
         value: m.id,
         label: m.name,
@@ -947,12 +965,12 @@ function SimpleTaskCard({
     .join(" · ");
 
   const statusLabel = isMixed
-    ? "Configurations différentes"
+    ? t("settings.models.status.mixed")
     : isConfigured
-      ? "Config. ok"
+      ? t("settings.models.status.configured")
       : required
-        ? "À configurer"
-        : "Optionnel";
+        ? t("settings.models.status.needsConfig")
+        : t("settings.models.status.optional");
 
   const statusClass = isMixed
     ? "bg-amber-100 text-amber-700"
@@ -977,25 +995,26 @@ function SimpleTaskCard({
               </span>
               {required ? (
                 <span className="px-2 py-0.5 text-xs rounded-full bg-slate-900 text-white">
-                  Obligatoire
+                  {t("common.required")}
                 </span>
               ) : (
                 <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700">
-                  Optionnel
+                  {t("common.optional")}
                 </span>
               )}
             </div>
             <p className="text-sm text-slate-500">{description}</p>
-            <p className="text-xs text-slate-500">Couvre : {coverage}</p>
+            <p className="text-xs text-slate-500">
+              {t("settings.models.coverage", { coverage })}
+            </p>
             {isMixed && (
               <p className="text-xs text-amber-600">
-                Certaines tâches de ce groupe utilisent des modèles différents. Choisissez un provider
-                pour harmoniser.
+                {t("settings.models.warnings.mixed")}
               </p>
             )}
             {required && missingCount > 0 && !isConfigured && (
               <p className="text-xs text-rose-600">
-                Ce groupe est requis : sélectionnez au moins un provider et un modèle.
+                {t("settings.models.warnings.required")}
               </p>
             )}
           </div>
@@ -1003,40 +1022,40 @@ function SimpleTaskCard({
 
         <div className="grid gap-4 mt-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Provider</Label>
+            <Label>{t("settings.models.providerLabel")}</Label>
             <Select
               value={groupProviderId}
               onChange={(e) => handleProviderChange(e.target.value)}
               disabled={isSaving}
-              placeholder="Sélectionner un provider"
-              options={[{ value: "", label: "Aucun" }]}
+              placeholder={t("settings.models.providerPlaceholder")}
+              options={[{ value: "", label: t("common.none") }]}
               optionGroups={providerOptionGroups}
             />
             {compatibleProviders.length === 0 && enabledProviders.length > 0 && (
               <p className="text-xs text-amber-600">
-                Aucun provider recommandé, mais vous pouvez en choisir un et sélectionner le modèle manuellement.
+                {t("settings.models.noRecommendedProvider")}
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label>Modèle</Label>
+            <Label>{t("settings.models.modelLabel")}</Label>
             <Select
               value={groupModelId}
               onChange={(e) => handleModelChange(e.target.value)}
               disabled={isSaving || !groupProviderId}
-              placeholder="Sélectionner un modèle"
-              options={[{ value: "", label: "Aucun" }]}
+              placeholder={t("settings.models.modelPlaceholder")}
+              options={[{ value: "", label: t("common.none") }]}
               optionGroups={modelOptionGroups}
             />
             {groupProviderId && compatibleModels.length === 0 && (
               <p className="text-xs text-amber-600">
-                Aucun modèle suggéré pour ce provider, choisissez n'importe quel modèle disponible.
+                {t("settings.models.noSuggestedModelForProvider")}
               </p>
             )}
             {!groupProviderId && (
               <p className="text-xs text-slate-500">
-                Choisissez un provider avant de sélectionner un modèle.
+                {t("settings.models.selectProviderFirst")}
               </p>
             )}
           </div>
@@ -1068,6 +1087,7 @@ function TaskConfigCard({
   providers: AIProvider[];
   isSaving: boolean;
 }) {
+  const { t } = useTranslation();
   const taskInfo = TASK_LABELS[taskType];
   const selectedProvider = providers.find((p) => p.id === config?.providerId);
   const selectedFallbackProvider = providers.find(
@@ -1186,7 +1206,7 @@ function TaskConfigCard({
   const providerOptionGroups: SelectOptionGroup[] = [];
   if (suggestedProviders.length > 0) {
     providerOptionGroups.push({
-      label: "✓ Suggérés (modèles compatibles)",
+      label: t("settings.models.optionGroups.suggestedCompatible"),
       options: suggestedProviders.map((p) => ({
         value: p.id,
         label: p.name,
@@ -1195,7 +1215,7 @@ function TaskConfigCard({
   }
   if (otherProviders.length > 0) {
     providerOptionGroups.push({
-      label: "Autres providers",
+      label: t("settings.models.optionGroups.otherProviders"),
       options: otherProviders.map((p) => ({
         value: p.id,
         label: p.name,
@@ -1207,7 +1227,7 @@ function TaskConfigCard({
   const modelOptionGroups: SelectOptionGroup[] = [];
   if (suggestedModels.length > 0) {
     modelOptionGroups.push({
-      label: "✓ Suggérés pour cette tâche",
+      label: t("settings.models.optionGroups.suggestedForTask"),
       options: suggestedModels.map((m) => ({
         value: m.id,
         label: m.name,
@@ -1220,7 +1240,9 @@ function TaskConfigCard({
   if (modelsToShow.length > 0) {
     modelOptionGroups.push({
       label:
-        suggestedModels.length === 0 ? "Modèles disponibles" : "Autres modèles",
+        suggestedModels.length === 0
+          ? t("settings.models.optionGroups.availableModels")
+          : t("settings.models.optionGroups.otherModels"),
       options: modelsToShow.map((m) => ({
         value: m.id,
         label: m.name,
@@ -1232,7 +1254,7 @@ function TaskConfigCard({
   const fallbackProviderOptionGroups: SelectOptionGroup[] = [];
   if (suggestedProviders.length > 0) {
     fallbackProviderOptionGroups.push({
-      label: "✓ Suggérés (modèles compatibles)",
+      label: t("settings.models.optionGroups.suggestedCompatible"),
       options: suggestedProviders.map((p) => ({
         value: p.id,
         label: p.name,
@@ -1241,7 +1263,7 @@ function TaskConfigCard({
   }
   if (otherProviders.length > 0) {
     fallbackProviderOptionGroups.push({
-      label: "Autres providers",
+      label: t("settings.models.optionGroups.otherProviders"),
       options: otherProviders.map((p) => ({
         value: p.id,
         label: p.name,
@@ -1253,7 +1275,7 @@ function TaskConfigCard({
   const fallbackModelOptionGroups: SelectOptionGroup[] = [];
   if (suggestedFallbackModels.length > 0) {
     fallbackModelOptionGroups.push({
-      label: "✓ Suggérés pour cette tâche",
+      label: t("settings.models.optionGroups.suggestedForTask"),
       options: suggestedFallbackModels.map((m) => ({
         value: m.id,
         label: m.name,
@@ -1269,8 +1291,8 @@ function TaskConfigCard({
     fallbackModelOptionGroups.push({
       label:
         suggestedFallbackModels.length === 0
-          ? "Modèles disponibles"
-          : "Autres modèles",
+          ? t("settings.models.optionGroups.availableModels")
+          : t("settings.models.optionGroups.otherModels"),
       options: fallbackModelsToShow.map((m) => ({
         value: m.id,
         label: m.name,
@@ -1288,11 +1310,11 @@ function TaskConfigCard({
               <h4 className="font-semibold text-slate-900">{taskInfo.label}</h4>
               {isConfigured ? (
                 <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">
-                  Configuré
+                  {t("settings.models.configured")}
                 </span>
               ) : (
                 <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700">
-                  Non configuré
+                  {t("settings.models.notConfigured")}
                 </span>
               )}
             </div>
@@ -1301,35 +1323,34 @@ function TaskConfigCard({
             {/* Primary Configuration */}
             <div className="p-3 mt-4 rounded-lg bg-slate-50">
               <h5 className="mb-3 text-sm font-medium text-slate-700">
-                Configuration Primaire
+                {t("settings.models.primary.title")}
               </h5>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Provider</Label>
+                  <Label>{t("settings.models.providerLabel")}</Label>
                   <Select
                     value={config?.providerId || ""}
                     onChange={(e) => handleProviderChange(e.target.value)}
                     disabled={isSaving}
-                    placeholder="Sélectionner un provider"
-                    options={[{ value: "", label: "Aucun" }]}
+                    placeholder={t("settings.models.providerPlaceholder")}
+                    options={[{ value: "", label: t("common.none") }]}
                     optionGroups={providerOptionGroups}
                   />
                   {suggestedProviders.length === 0 &&
                     enabledProviders.length > 0 && (
                       <p className="text-xs text-amber-600">
-                        Aucun provider suggéré pour cette tâche, mais vous
-                        pouvez choisir n'importe lequel
+                        {t("settings.models.noSuggestedProviderForTask")}
                       </p>
                     )}
                   {enabledProviders.length === 0 && (
                     <p className="text-xs text-amber-600">
-                      Aucun provider actif disponible
+                      {t("settings.models.noActiveProvider")}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Modèle</Label>
+                  <Label>{t("settings.models.modelLabel")}</Label>
                   <Select
                     value={config?.modelId || ""}
                     onChange={(e) =>
@@ -1341,16 +1362,15 @@ function TaskConfigCard({
                       )
                     }
                     disabled={isSaving || !config?.providerId}
-                    placeholder="Sélectionner un modèle"
-                    options={[{ value: "", label: "Aucun" }]}
+                    placeholder={t("settings.models.modelPlaceholder")}
+                    options={[{ value: "", label: t("common.none") }]}
                     optionGroups={modelOptionGroups}
                   />
                   {selectedProvider &&
                     suggestedModels.length === 0 &&
                     otherModels.length > 0 && (
                       <p className="text-xs text-amber-600">
-                        Aucun modèle suggéré, mais vous pouvez utiliser
-                        n'importe quel modèle
+                        {t("settings.models.noSuggestedModel")}
                       </p>
                     )}
                 </div>
@@ -1360,38 +1380,38 @@ function TaskConfigCard({
             {/* Fallback Configuration */}
             <div className="p-3 mt-4 border border-dashed rounded-lg bg-slate-50 border-slate-300">
               <h5 className="mb-3 text-sm font-medium text-slate-700">
-                ⚡ Configuration de Secours
+                {t("settings.models.fallback.title")}
               </h5>
               <p className="mb-3 text-xs text-slate-500">
-                Utilisé automatiquement en cas d'échec du provider primaire
+                {t("settings.models.fallback.description")}
               </p>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Provider de Secours</Label>
+                  <Label>{t("settings.models.fallback.providerLabel")}</Label>
                   <Select
                     value={config?.fallbackProviderId || ""}
                     onChange={(e) =>
                       handleFallbackProviderChange(e.target.value)
                     }
                     disabled={isSaving}
-                    placeholder="Sélectionner un provider"
-                    options={[{ value: "", label: "Aucun" }]}
+                    placeholder={t("settings.models.providerPlaceholder")}
+                    options={[{ value: "", label: t("common.none") }]}
                     optionGroups={fallbackProviderOptionGroups}
                   />
                   {isFallbackConfigured && (
                     <p className="text-xs text-green-600">
-                      ✓ Fallback configuré
+                      {t("settings.models.fallback.configured")}
                     </p>
                   )}
                   {!isFallbackConfigured && (
                     <p className="text-xs text-amber-600">
-                      Optionnel : configurez un fallback pour plus de résilience
+                      {t("settings.models.fallback.optionalHint")}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Modèle de Secours</Label>
+                  <Label>{t("settings.models.fallback.modelLabel")}</Label>
                   <Select
                     value={config?.fallbackModelId || ""}
                     onChange={(e) =>
@@ -1403,16 +1423,15 @@ function TaskConfigCard({
                       )
                     }
                     disabled={isSaving || !config?.fallbackProviderId}
-                    placeholder="Sélectionner un modèle"
-                    options={[{ value: "", label: "Aucun" }]}
+                    placeholder={t("settings.models.modelPlaceholder")}
+                    options={[{ value: "", label: t("common.none") }]}
                     optionGroups={fallbackModelOptionGroups}
                   />
                   {selectedFallbackProvider &&
                     suggestedFallbackModels.length === 0 &&
                     otherFallbackModels.length > 0 && (
                       <p className="text-xs text-amber-600">
-                        Aucun modèle suggéré, mais vous pouvez utiliser
-                        n'importe quel modèle
+                        {t("settings.models.noSuggestedModel")}
                       </p>
                     )}
                 </div>
@@ -1428,6 +1447,7 @@ function TaskConfigCard({
 // ==================== Continuous Listening Section ====================
 
 function ContinuousListeningSection() {
+  const { t } = useTranslation();
   const { settings, isLoading, actions } = useContinuousListening();
   const [isSaving, setIsSaving] = useState(false);
   const [testText, setTestText] = useState("");
@@ -1472,7 +1492,7 @@ function ContinuousListeningSection() {
       await actions.updateSettings(formState);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Erreur lors de la sauvegarde",
+        err instanceof Error ? err.message : t("common.errorSaving"),
       );
     } finally {
       setIsSaving(false);
@@ -1502,11 +1522,10 @@ function ContinuousListeningSection() {
       {/* Header */}
       <div>
         <h3 className="text-lg font-semibold text-slate-900">
-          Écoute Continue
+          {t("settings.listening.headerTitle")}
         </h3>
         <p className="text-sm text-slate-500">
-          Configurez le mode d'écoute en continu pour capturer automatiquement
-          vos pensées et commandes.
+          {t("settings.listening.headerDescription")}
         </p>
       </div>
 
@@ -1522,34 +1541,36 @@ function ContinuousListeningSection() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Mic className="w-5 h-5" />
-            Mot d'Activation (Wake Word)
+            {t("settings.listening.wakeWord.title")}
           </CardTitle>
           <CardDescription>
-            Le mot ou la phrase qui déclenche le mode commande
+            {t("settings.listening.wakeWord.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="wakeWord">Mot d'activation</Label>
+              <Label htmlFor="wakeWord">
+                {t("settings.listening.wakeWord.label")}
+              </Label>
               <Input
                 id="wakeWord"
                 value={formState.wakeWord}
                 onChange={(e) =>
                   setFormState({ ...formState, wakeWord: e.target.value })
                 }
-                placeholder="Hey Brain"
+                placeholder={t("settings.listening.wakeWord.placeholder")}
               />
               <p className="text-xs text-slate-500">
-                Dites ce mot avant une commande pour que le système réponde
-                activement
+                {t("settings.listening.wakeWord.help")}
               </p>
             </div>
 
             <div className="space-y-2">
               <Label>
-                Sensibilité ({(formState.wakeWordSensitivity * 100).toFixed(0)}
-                %)
+                {t("settings.listening.wakeWord.sensitivity", {
+                  percent: (formState.wakeWordSensitivity * 100).toFixed(0),
+                })}
               </Label>
               <input
                 type="range"
@@ -1565,24 +1586,26 @@ function ContinuousListeningSection() {
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
               />
               <p className="text-xs text-slate-500">
-                Augmentez pour détecter plus de variations du mot d'activation
+                {t("settings.listening.wakeWord.sensitivityHint")}
               </p>
             </div>
           </div>
 
           {/* Test Wake Word */}
           <div className="p-4 space-y-3 rounded-lg bg-slate-50">
-            <Label>Tester le mot d'activation</Label>
+            <Label>{t("settings.listening.wakeWord.testTitle")}</Label>
             <div className="flex gap-2">
               <Input
                 value={testText}
                 onChange={(e) => setTestText(e.target.value)}
-                placeholder={`Ex: ${formState.wakeWord} quelle heure est-il ?`}
+                placeholder={t("settings.listening.wakeWord.testPlaceholder", {
+                  word: formState.wakeWord,
+                })}
                 className="flex-1"
               />
               <Button onClick={handleTestWakeWord} variant="outline">
                 <Play className="w-4 h-4 mr-2" />
-                Tester
+                {t("settings.listening.wakeWord.testAction")}
               </Button>
             </div>
             {testResult && (
@@ -1594,11 +1617,14 @@ function ContinuousListeningSection() {
                     <Check className="w-5 h-5 text-green-500 mt-0.5" />
                     <div>
                       <p className="font-medium text-green-700">
-                        Wake word détecté !
+                        {t("settings.listening.wakeWord.detected")}
                       </p>
                       <p className="text-sm text-green-600">
-                        Commande extraite : "
-                        {testResult.remainingText || "(vide)"}"
+                        {t("settings.listening.wakeWord.commandExtracted", {
+                          command:
+                            testResult.remainingText ||
+                            t("settings.listening.wakeWord.emptyCommand"),
+                        })}
                       </p>
                     </div>
                   </div>
@@ -1607,10 +1633,10 @@ function ContinuousListeningSection() {
                     <X className="w-5 h-5 text-orange-500 mt-0.5" />
                     <div>
                       <p className="font-medium text-orange-700">
-                        Wake word non détecté
+                        {t("settings.listening.wakeWord.notDetected")}
                       </p>
                       <p className="text-sm text-orange-600">
-                        Ce texte sera traité comme observation passive
+                        {t("settings.listening.wakeWord.passiveNote")}
                       </p>
                     </div>
                   </div>
@@ -1626,17 +1652,19 @@ function ContinuousListeningSection() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Volume2 className="w-5 h-5" />
-            Traitement Audio
+            {t("settings.listening.audioProcessing.title")}
           </CardTitle>
           <CardDescription>
-            Paramètres de détection de voix et de silence
+            {t("settings.listening.audioProcessing.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label>
-                Sensibilité VAD ({(formState.vadSensitivity * 100).toFixed(0)}%)
+                {t("settings.listening.audioProcessing.vadSensitivity", {
+                  percent: (formState.vadSensitivity * 100).toFixed(0),
+                })}
               </Label>
               <input
                 type="range"
@@ -1652,13 +1680,16 @@ function ContinuousListeningSection() {
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
               />
               <p className="text-xs text-slate-500">
-                Détection d'activité vocale : plus sensible = détecte les voix
-                faibles
+                {t("settings.listening.audioProcessing.vadHint")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Délai de silence ({formState.silenceDetectionMs}ms)</Label>
+              <Label>
+                {t("settings.listening.audioProcessing.silenceDelay", {
+                  ms: formState.silenceDetectionMs,
+                })}
+              </Label>
               <input
                 type="range"
                 min="500"
@@ -1674,7 +1705,7 @@ function ContinuousListeningSection() {
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
               />
               <p className="text-xs text-slate-500">
-                Durée de silence avant de considérer la phrase terminée
+                {t("settings.listening.audioProcessing.silenceHint")}
               </p>
             </div>
           </div>
@@ -1686,17 +1717,18 @@ function ContinuousListeningSection() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <User className="w-5 h-5" />
-            Identification du Locuteur
+            {t("settings.listening.speaker.title")}
           </CardTitle>
           <CardDescription>
-            Paramètres pour reconnaître votre voix parmi d'autres
+            {t("settings.listening.speaker.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>
-              Seuil de confiance (
-              {(formState.speakerConfidenceThreshold * 100).toFixed(0)}%)
+              {t("settings.listening.speaker.confidenceThreshold", {
+                percent: (formState.speakerConfidenceThreshold * 100).toFixed(0),
+              })}
             </Label>
             <input
               type="range"
@@ -1712,8 +1744,7 @@ function ContinuousListeningSection() {
               className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
             />
             <p className="text-xs text-slate-500">
-              Niveau de certitude requis pour confirmer que c'est bien vous qui
-              parlez. Un seuil plus bas accepte plus de variantes de votre voix.
+              {t("settings.listening.speaker.confidenceHint")}
             </p>
           </div>
         </CardContent>
@@ -1724,17 +1755,18 @@ function ContinuousListeningSection() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Sliders className="w-5 h-5" />
-            Seuil de Pertinence
+            {t("settings.listening.memory.title")}
           </CardTitle>
           <CardDescription>
-            Contrôle ce qui est enregistré en mémoire passive
+            {t("settings.listening.memory.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>
-              Importance minimum (
-              {(formState.minImportanceThreshold * 100).toFixed(0)}%)
+              {t("settings.listening.memory.minImportance", {
+                percent: (formState.minImportanceThreshold * 100).toFixed(0),
+              })}
             </Label>
             <input
               type="range"
@@ -1750,9 +1782,7 @@ function ContinuousListeningSection() {
               className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
             />
             <p className="text-xs text-slate-500">
-              Seules les paroles jugées pertinentes au-dessus de ce seuil seront
-              mémorisées. Un seuil bas capture plus d'informations, un seuil
-              haut est plus sélectif.
+              {t("settings.listening.memory.minImportanceHint")}
             </p>
           </div>
         </CardContent>
@@ -1763,18 +1793,20 @@ function ContinuousListeningSection() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Bell className="w-5 h-5" />
-            Notifications
+            {t("settings.listening.notifications.title")}
           </CardTitle>
           <CardDescription>
-            Paramètres des alertes visuelles et sonores
+            {t("settings.listening.notifications.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-base">Mémoire enregistrée</Label>
+              <Label className="text-base">
+                {t("settings.listening.notifications.memoryStored")}
+              </Label>
               <p className="text-sm text-slate-500">
-                Notifier quand une parole est sauvegardée en mémoire
+                {t("settings.listening.notifications.memoryStoredHint")}
               </p>
             </div>
             <Switch
@@ -1786,9 +1818,11 @@ function ContinuousListeningSection() {
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-base">Commande détectée</Label>
+              <Label className="text-base">
+                {t("settings.listening.notifications.commandDetected")}
+              </Label>
               <p className="text-sm text-slate-500">
-                Notifier quand le wake word est reconnu
+                {t("settings.listening.notifications.commandDetectedHint")}
               </p>
             </div>
             <Switch
@@ -1807,12 +1841,12 @@ function ContinuousListeningSection() {
           {isSaving ? (
             <>
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              Sauvegarde...
+              {t("common.saving")}
             </>
           ) : (
             <>
               <Check className="w-4 h-4 mr-2" />
-              Sauvegarder
+              {t("common.save")}
             </>
           )}
         </Button>
@@ -1824,6 +1858,7 @@ function ContinuousListeningSection() {
 // ==================== Secrets Section ====================
 
 function SecretsSection() {
+  const { t } = useTranslation();
   const {
     secrets,
     isLoading,
@@ -1888,11 +1923,10 @@ function SecretsSection() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">
-            Secrets & Clés API
+            {t("settings.secrets.title")}
           </h3>
           <p className="text-sm text-slate-500">
-            Stockez vos clés API et secrets de manière sécurisée avec
-            chiffrement AES-256-GCM.
+            {t("settings.secrets.subtitle")}
           </p>
         </div>
         <Button
@@ -1900,7 +1934,7 @@ function SecretsSection() {
           disabled={isAdding || editingKey !== null}
         >
           <Plus className="w-4 h-4 mr-2" />
-          Ajouter un Secret
+          {t("settings.secrets.addSecret")}
         </Button>
       </div>
 
@@ -1929,10 +1963,9 @@ function SecretsSection() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Lock className="w-12 h-12 mb-4 text-slate-300" />
               <p className="text-center text-slate-500">
-                Aucun secret configuré.
+                {t("settings.secrets.emptyState.title")}
                 <br />
-                Ajoutez vos clés API pour utiliser les outils générés et
-                l'intégration MCP.
+                {t("settings.secrets.emptyState.subtitle")}
               </p>
             </CardContent>
           </Card>
@@ -1982,6 +2015,7 @@ function SecretForm({
   isSaving: boolean;
   categories: string[];
 }) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<SecretFormData>({
     key: initialData?.key || "",
     value: initialData?.value || "",
@@ -1998,18 +2032,18 @@ function SecretForm({
     const newErrors: Record<string, string> = {};
 
     if (!formData.key.trim()) {
-      newErrors.key = "La clé est requise";
+      newErrors.key = t("settings.secrets.validation.keyRequired");
     } else if (!/^[a-z][a-z0-9_]*$/.test(formData.key)) {
       newErrors.key =
-        "La clé doit commencer par une lettre minuscule et contenir uniquement des lettres minuscules, chiffres et underscores";
+        t("settings.secrets.validation.keyFormat");
     }
 
     if (!formData.value.trim()) {
-      newErrors.value = "La valeur est requise";
+      newErrors.value = t("settings.secrets.validation.valueRequired");
     }
 
     if (!formData.displayName.trim()) {
-      newErrors.displayName = "Le nom d'affichage est requis";
+      newErrors.displayName = t("settings.secrets.validation.displayNameRequired");
     }
 
     setErrors(newErrors);
@@ -2026,26 +2060,28 @@ function SecretForm({
     <Card>
       <CardHeader>
         <CardTitle>
-          {isEditing ? "Modifier le Secret" : "Nouveau Secret"}
+          {isEditing
+            ? t("settings.secrets.editTitle")
+            : t("settings.secrets.newTitle")}
         </CardTitle>
         <CardDescription>
           {isEditing
-            ? "Modifiez votre clé API ou secret"
-            : "Créez un nouveau secret sécurisé"}
+            ? t("settings.secrets.editDescription")
+            : t("settings.secrets.newDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="key">Clé (identifiant unique)</Label>
+              <Label htmlFor="key">{t("settings.secrets.keyLabel")}</Label>
               <Input
                 id="key"
                 value={formData.key}
                 onChange={(e) =>
                   setFormData({ ...formData, key: e.target.value })
                 }
-                placeholder="openai_api_key"
+                placeholder={t("settings.secrets.keyPlaceholder")}
                 disabled={isEditing}
                 className={isEditing ? "bg-slate-50" : ""}
               />
@@ -2053,19 +2089,21 @@ function SecretForm({
                 <p className="text-sm text-red-500">{errors.key}</p>
               )}
               <p className="text-xs text-slate-500">
-                Format: minuscules, chiffres, underscores uniquement
+                {t("settings.secrets.keyHelp")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="displayName">Nom d'affichage</Label>
+              <Label htmlFor="displayName">
+                {t("settings.secrets.displayNameLabel")}
+              </Label>
               <Input
                 id="displayName"
                 value={formData.displayName}
                 onChange={(e) =>
                   setFormData({ ...formData, displayName: e.target.value })
                 }
-                placeholder="OpenAI API Key"
+                placeholder={t("settings.secrets.displayNamePlaceholder")}
               />
               {errors.displayName && (
                 <p className="text-sm text-red-500">{errors.displayName}</p>
@@ -2074,7 +2112,7 @@ function SecretForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="value">Valeur</Label>
+            <Label htmlFor="value">{t("settings.secrets.valueLabel")}</Label>
             <div className="relative">
               <Input
                 id="value"
@@ -2083,7 +2121,7 @@ function SecretForm({
                 onChange={(e) =>
                   setFormData({ ...formData, value: e.target.value })
                 }
-                placeholder="sk-... ou votre valeur secrète"
+                placeholder={t("settings.secrets.valuePlaceholder")}
                 className="pr-10"
               />
               <button
@@ -2105,7 +2143,9 @@ function SecretForm({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="category">Catégorie</Label>
+              <Label htmlFor="category">
+                {t("settings.secrets.categoryLabel")}
+              </Label>
               <Select
                 id="category"
                 value={formData.category}
@@ -2116,18 +2156,20 @@ function SecretForm({
                   value: cat,
                   label:
                     {
-                      general: "Général",
-                      ai_provider: "Provider IA",
-                      mcp: "MCP Server",
-                      integration: "Intégration",
-                      generated_tool: "Outil Généré",
+                      general: t("settings.secrets.categories.general"),
+                      ai_provider: t("settings.secrets.categories.aiProvider"),
+                      mcp: t("settings.secrets.categories.mcp"),
+                      integration: t("settings.secrets.categories.integration"),
+                      generated_tool: t("settings.secrets.categories.generatedTool"),
                     }[cat] || cat,
                 }))}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="expiresAt">Expiration (optionnel)</Label>
+              <Label htmlFor="expiresAt">
+                {t("settings.secrets.expiresAtLabel")}
+              </Label>
               <Input
                 id="expiresAt"
                 type="datetime-local"
@@ -2137,20 +2179,22 @@ function SecretForm({
                 }
               />
               <p className="text-xs text-slate-500">
-                Laissez vide pour pas d'expiration
+                {t("settings.secrets.expiresAtHelp")}
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description (optionnel)</Label>
+            <Label htmlFor="description">
+              {t("settings.secrets.descriptionLabel")}
+            </Label>
             <Input
               id="description"
               value={formData.description || ""}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              placeholder="Ex: Clé pour accéder à l'API GPT-4"
+              placeholder={t("settings.secrets.descriptionPlaceholder")}
             />
           </div>
 
@@ -2161,14 +2205,14 @@ function SecretForm({
               onClick={onCancel}
               disabled={isSaving}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isSaving}>
               {isSaving
-                ? "Enregistrement..."
+                ? t("common.saving")
                 : isEditing
-                  ? "Modifier"
-                  : "Créer"}
+                  ? t("common.edit")
+                  : t("common.create")}
             </Button>
           </div>
         </form>
@@ -2204,13 +2248,14 @@ function SecretCard({
   isSaving: boolean;
   categories: string[];
 }) {
+  const { t } = useTranslation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const categoryLabels: Record<string, string> = {
-    general: "Général",
-    ai_provider: "Provider IA",
-    mcp: "MCP Server",
-    integration: "Intégration",
-    generated_tool: "Outil Généré",
+    general: t("settings.secrets.categories.general"),
+    ai_provider: t("settings.secrets.categories.aiProvider"),
+    mcp: t("settings.secrets.categories.mcp"),
+    integration: t("settings.secrets.categories.integration"),
+    generated_tool: t("settings.secrets.categories.generatedTool"),
   };
 
   if (isEditing) {
@@ -2253,7 +2298,7 @@ function SecretCard({
                 <button
                   onClick={onCopy}
                   className="p-1 rounded hover:bg-slate-200"
-                  title="Copier la clé"
+                  title={t("settings.secrets.copyKey")}
                 >
                   <Copy
                     className={`w-3 h-3 ${isCopied ? "text-green-500" : "text-slate-400"}`}
@@ -2267,14 +2312,14 @@ function SecretCard({
                 <>
                   <Calendar className="w-3 h-3" />
                   <span>
-                    Expire le{" "}
+                    {t("settings.secrets.expiresOn")}{" "}
                     {new Date(secret.expiresAt).toLocaleDateString("fr-FR")}
                   </span>
                 </>
               )}
               {secret.lastUsedAt && (
                 <span>
-                  · Utilisé le{" "}
+                  · {t("settings.secrets.lastUsed")}{" "}
                   {new Date(secret.lastUsedAt).toLocaleDateString("fr-FR")}
                 </span>
               )}
@@ -2286,7 +2331,7 @@ function SecretCard({
               variant="ghost"
               size="icon"
               onClick={onToggleShow}
-              title="Afficher/Masquer la valeur"
+              title={t("settings.secrets.toggleValue")}
             >
               {isShown ? (
                 <Eye className="w-4 h-4 text-slate-400" />
@@ -2335,14 +2380,13 @@ function SecretCard({
         {isShown && (
           <div className="p-3 mt-4 border rounded-lg bg-amber-50 border-amber-200">
             <p className="mb-2 text-xs font-semibold text-amber-700">
-              Valeur :
+              {t("settings.secrets.valueLabel")}:
             </p>
             <div className="p-2 font-mono text-sm break-all bg-white border rounded border-amber-100 text-slate-900">
               {secret.value || "••••••••"}
             </div>
             <p className="mt-2 text-xs text-amber-600">
-              ⚠️ Ne partagez pas cette valeur. Elle est chiffrée en base de
-              données.
+              {t("settings.secrets.valueWarning")}
             </p>
           </div>
         )}

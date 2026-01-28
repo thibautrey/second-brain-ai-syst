@@ -61,16 +61,19 @@ export function CompletionStep({ onNext }: CompletionStepProps) {
             </h3>
           </div>
           <div className="space-y-2 text-sm">
-            <p>• Your conversations and interactions will be automatically captured</p>
-            <p>• AI will generate daily and weekly summaries of your activity</p>
-            <p>• Proactive insights will help you stay on track with goals and habits</p>
-            <p>• You can search through your entire memory history at any time</p>
+            {t<string[]>("onboarding.completionStep.summaryBullets", {
+              returnObjects: true,
+            }).map((line) => (
+              <p key={line}>• {line}</p>
+            ))}
           </div>
         </CardContent>
       </Card>
 
       <div className="space-y-3">
-        <h3 className="font-semibold text-center">Suggested Next Steps</h3>
+        <h3 className="font-semibold text-center">
+          {t("onboarding.completionStep.suggestedTitle")}
+        </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {nextSteps.map((step, index) => {
             const Icon = step.icon;

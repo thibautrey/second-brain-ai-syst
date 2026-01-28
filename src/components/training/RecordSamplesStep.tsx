@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { AlertCircle, CheckCircle2, Play, Trash2, Globe } from "lucide-react";
 import { RecordingControl } from "./RecordingControl";
@@ -199,6 +200,7 @@ export function RecordSamplesStep({
   isLoading,
   error,
 }: RecordSamplesStepProps) {
+  const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
@@ -239,7 +241,10 @@ export function RecordSamplesStep({
     try {
       await onRecordingComplete(audioBlob, duration, selectedLanguage);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Recording failed";
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("training.recordSamples.errors.recordingFailed");
       setRecordingError(msg);
     }
   };
@@ -257,11 +262,10 @@ export function RecordSamplesStep({
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">
-          Record Voice Samples
+          {t("training.recordSamples.title")}
         </h2>
         <p className="text-slate-600">
-          Record natural readings of the phrases below. Train with multiple
-          languages for better accuracy.
+          {t("training.recordSamples.subtitle")}
         </p>
       </div>
 
@@ -271,12 +275,12 @@ export function RecordSamplesStep({
           <div className="flex items-center gap-2">
             <Globe className="w-5 h-5 text-indigo-600" />
             <span className="font-medium text-slate-900">
-              Training Language
+              {t("training.recordSamples.languageTitle")}
             </span>
           </div>
           {languagesUsed.length > 0 && (
             <div className="flex items-center gap-1.5 text-xs text-slate-600">
-              <span>Recorded:</span>
+              <span>{t("training.recordSamples.recordedLabel")}</span>
               {languagesUsed.map(([code, count]) => {
                 const lang = SUPPORTED_LANGUAGES.find((l) => l.code === code);
                 return (
@@ -284,7 +288,8 @@ export function RecordSamplesStep({
                     key={code}
                     className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-slate-200"
                   >
-                    {lang?.flag} {count}
+                    {lang?.flag}{" "}
+                    {t("training.recordSamples.samplesCount", { count })}
                   </span>
                 );
               })}
@@ -340,7 +345,7 @@ export function RecordSamplesStep({
                     </span>
                     {count > 0 && (
                       <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">
-                        {count} sample{count > 1 ? "s" : ""}
+                        {t("training.recordSamples.samplesCount", { count })}
                       </span>
                     )}
                   </button>
@@ -351,8 +356,7 @@ export function RecordSamplesStep({
         </div>
 
         <p className="mt-2 text-xs text-slate-500">
-          💡 Tip: Recording samples in multiple languages improves recognition
-          when you switch languages
+          {t("training.recordSamples.languageTip")}
         </p>
       </div>
 
@@ -363,13 +367,17 @@ export function RecordSamplesStep({
             <p className="text-2xl font-bold text-blue-600">
               {totalRecordings}
             </p>
-            <p className="text-xs text-slate-600 mt-1">Total Samples</p>
+            <p className="text-xs text-slate-600 mt-1">
+              {t("training.recordSamples.stats.totalSamples")}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-indigo-600">
               {uniquePhrases}
             </p>
-            <p className="text-xs text-slate-600 mt-1">Unique Phrases</p>
+            <p className="text-xs text-slate-600 mt-1">
+              {t("training.recordSamples.stats.uniquePhrases")}
+            </p>
           </div>
           <div className="text-center">
             <p
@@ -380,14 +388,16 @@ export function RecordSamplesStep({
               {canContinue ? "✓" : "•"}
             </p>
             <p className="text-xs text-slate-600 mt-1">
-              {canContinue ? "Ready" : "Keep Recording"}
+              {canContinue
+                ? t("training.recordSamples.stats.ready")
+                : t("training.recordSamples.stats.keepRecording")}
             </p>
           </div>
         </div>
 
         {!canContinue && (
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
-            Record at least 1 sample to continue.
+            {t("training.recordSamples.minimumSamples")}
           </div>
         )}
 
@@ -422,7 +432,7 @@ export function RecordSamplesStep({
       {/* Phrase Navigator */}
       <div className="mb-8">
         <h3 className="font-semibold text-slate-900 mb-4">
-          Select Phrase
+          {t("training.recordSamples.selectPhrase")}
           <span className="ml-2 text-sm font-normal text-slate-500">
             ({currentLanguageInfo.flag} {currentLanguageInfo.name})
           </span>
@@ -457,7 +467,9 @@ export function RecordSamplesStep({
       {/* Recorded Samples */}
       {recordings.length > 0 && (
         <div className="mb-8">
-          <h3 className="font-semibold text-slate-900 mb-4">Your Samples</h3>
+          <h3 className="font-semibold text-slate-900 mb-4">
+            {t("training.recordSamples.yourSamples")}
+          </h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {recordings.map((recording) => {
               const recordingLang = recording.language || "en";
@@ -471,6 +483,11 @@ export function RecordSamplesStep({
               const mins = Math.floor(recording.duration / 60);
               const secs = recording.duration % 60;
               const durationStr = `${mins}:${secs.toString().padStart(2, "0")}`;
+              const categoryKey = phrase.category.toLowerCase();
+              const categoryLabel = t(
+                `training.recordSamples.categories.${categoryKey}`,
+                phrase.category,
+              );
 
               return (
                 <div
@@ -492,7 +509,7 @@ export function RecordSamplesStep({
                       </span>
                       <span>•</span>
                       <span className="text-blue-600 font-medium">
-                        {phrase.category}
+                        {categoryLabel}
                       </span>
                     </div>
                   </div>
@@ -504,14 +521,14 @@ export function RecordSamplesStep({
                         audio.play();
                       }}
                       className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
-                      title="Play recording"
+                      title={t("training.recordSamples.playRecording")}
                     >
                       <Play className="w-4 h-4 text-slate-600" />
                     </button>
                     <button
                       onClick={() => onDeleteRecording(recording.id)}
                       className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                      title="Delete recording"
+                      title={t("training.recordSamples.deleteRecording")}
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
                     </button>
@@ -539,21 +556,23 @@ export function RecordSamplesStep({
           disabled={!canContinue || isLoading}
           className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 font-medium"
         >
-          {isLoading ? "Processing..." : "Continue to Paragraph Reading"}
+          {isLoading
+            ? t("training.recordSamples.processing")
+            : t("training.recordSamples.continueToParagraphs")}
         </Button>
       </div>
 
       {/* Info Section */}
       <div className="mt-8 p-4 rounded-lg bg-blue-50 border border-blue-200">
-        <h4 className="font-semibold text-blue-900 mb-2">Recording Tips</h4>
+        <h4 className="font-semibold text-blue-900 mb-2">
+          {t("training.recordSamples.tipsTitle")}
+        </h4>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Record in a quiet environment for best results</li>
-          <li>• Speak naturally without over-pronunciation</li>
-          <li>
-            • Train with multiple languages for better multilingual recognition
-          </li>
-          <li>• Multiple recordings of the same phrase strengthen the model</li>
-          <li>• Next: You'll read longer paragraphs for even better voice modeling</li>
+          {t<string[]>("training.recordSamples.tips", {
+            returnObjects: true,
+          }).map((tip) => (
+            <li key={tip}>• {tip}</li>
+          ))}
         </ul>
       </div>
     </div>

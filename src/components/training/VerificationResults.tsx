@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { AlertCircle, CheckCircle2, TrendingUp, Mic } from "lucide-react";
 import { VerificationRecording } from "./VerificationRecording";
+import { useTranslation } from "react-i18next";
 
 interface VerificationResultsProps {
   speakerProfileId: string;
@@ -29,16 +30,17 @@ export function VerificationResults({
   verificationResult,
   verificationError,
 }: VerificationResultsProps) {
+  const { t } = useTranslation();
   const [isRecordingVerification, setIsRecordingVerification] = useState(false);
 
   const qualityLabel =
     confidenceScore >= 0.9
-      ? "Excellent"
+      ? t("training.verificationResults.quality.excellent")
       : confidenceScore >= 0.8
-        ? "Very Good"
+        ? t("training.verificationResults.quality.veryGood")
         : confidenceScore >= 0.7
-          ? "Good"
-          : "Fair";
+          ? t("training.verificationResults.quality.good")
+          : t("training.verificationResults.quality.fair");
 
   const qualityColor =
     confidenceScore >= 0.9
@@ -64,12 +66,11 @@ export function VerificationResults({
         <div className="flex items-center gap-3 mb-4">
           <CheckCircle2 className="w-8 h-8 text-green-600" />
           <h2 className="text-2xl font-bold text-slate-900">
-            Training Complete!
+            {t("training.verificationResults.title")}
           </h2>
         </div>
         <p className="text-slate-600">
-          Your voice profile has been successfully trained. Below you can see
-          your profile metrics and verify the system recognizes you.
+          {t("training.verificationResults.subtitle")}
         </p>
       </div>
 
@@ -80,7 +81,7 @@ export function VerificationResults({
           {/* Confidence Score */}
           <div className="p-4 border border-blue-200 rounded-lg bg-linear-to-br from-blue-50 to-indigo-50">
             <p className="mb-1 text-xs font-medium text-slate-600">
-              Confidence Score
+              {t("training.verificationResults.metrics.confidenceLabel")}
             </p>
             <p className={`text-3xl font-bold ${qualityColor}`}>
               {(confidenceScore * 100).toFixed(1)}%
@@ -93,21 +94,25 @@ export function VerificationResults({
           {/* Samples Recorded */}
           <div className="p-4 border border-purple-200 rounded-lg bg-linear-to-br from-purple-50 to-pink-50">
             <p className="mb-1 text-xs font-medium text-slate-600">
-              Samples Recorded
+              {t("training.verificationResults.metrics.samplesLabel")}
             </p>
             <p className="text-3xl font-bold text-purple-600">{sampleCount}</p>
-            <p className="mt-1 text-xs text-slate-600">voice samples</p>
+            <p className="mt-1 text-xs text-slate-600">
+              {t("training.verificationResults.metrics.samplesUnit")}
+            </p>
           </div>
 
           {/* Training Time */}
           <div className="p-4 border rounded-lg bg-linear-to-br from-emerald-50 to-cyan-50 border-emerald-200">
             <p className="mb-1 text-xs font-medium text-slate-600">
-              Training Duration
+              {t("training.verificationResults.metrics.durationLabel")}
             </p>
             <p className="text-3xl font-bold text-emerald-600">
               {trainingDuration.toFixed(1)}s
             </p>
-            <p className="mt-1 text-xs text-slate-600">seconds</p>
+            <p className="mt-1 text-xs text-slate-600">
+              {t("training.verificationResults.metrics.durationUnit")}
+            </p>
           </div>
         </div>
 
@@ -118,17 +123,17 @@ export function VerificationResults({
             <div>
               <p className="font-semibold text-green-900">
                 {confidenceScore >= 0.9
-                  ? "Excellent Profile!"
+                  ? t("training.verificationResults.profile.excellentTitle")
                   : confidenceScore >= 0.8
-                    ? "Good Quality Profile"
-                    : "Profile Created"}
+                    ? t("training.verificationResults.profile.goodTitle")
+                    : t("training.verificationResults.profile.createdTitle")}
               </p>
               <p className="mt-1 text-sm text-green-800">
                 {confidenceScore >= 0.9
-                  ? "Your voice profile has excellent training quality. The system will recognize you with high accuracy."
+                  ? t("training.verificationResults.profile.excellentBody")
                   : confidenceScore >= 0.8
-                    ? "Your voice profile is well-trained. Recognition accuracy should be very good."
-                    : "Your voice profile is created. Consider recording more samples for better accuracy."}
+                    ? t("training.verificationResults.profile.goodBody")
+                    : t("training.verificationResults.profile.createdBody")}
               </p>
             </div>
           </div>
@@ -139,12 +144,11 @@ export function VerificationResults({
       <div className="p-8 mb-6 bg-white border rounded-lg shadow-sm border-slate-200">
         <h3 className="flex items-center gap-2 mb-4 text-lg font-bold text-slate-900">
           <Mic className="w-5 h-5" />
-          Test Your Voice Profile
+          {t("training.verificationResults.verifyTitle")}
         </h3>
 
         <p className="mb-6 text-slate-600">
-          Record a sample using one of the training phrases to verify that the
-          system recognizes you. This is a quick confidence check.
+          {t("training.verificationResults.verifySubtitle")}
         </p>
 
         {isRecordingVerification ? (
@@ -160,7 +164,9 @@ export function VerificationResults({
             className="w-full gap-2 py-3 font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
             <Mic className="w-5 h-5" />
-            {isVerifying ? "Verifying..." : "Start Verification Recording"}
+            {isVerifying
+              ? t("training.verificationResults.verifying")
+              : t("training.verificationResults.startVerification")}
           </Button>
         )}
 
@@ -188,8 +194,8 @@ export function VerificationResults({
                   }`}
                 >
                   {verificationResult.recognized
-                    ? "Voice Recognized!"
-                    : "Voice Not Recognized"}
+                    ? t("training.verificationResults.recognized")
+                    : t("training.verificationResults.notRecognized")}
                 </p>
                 <p
                   className={`text-sm mt-1 ${
@@ -198,13 +204,13 @@ export function VerificationResults({
                       : "text-amber-800"
                   }`}
                 >
-                  Confidence: {(verificationResult.confidence * 100).toFixed(1)}
-                  %
+                  {t("training.verificationResults.confidence", {
+                    score: (verificationResult.confidence * 100).toFixed(1),
+                  })}
                 </p>
                 {!verificationResult.recognized && (
                   <p className="mt-2 text-sm text-amber-800">
-                    Try speaking more naturally or record another sample. The
-                    system may need more training data.
+                    {t("training.verificationResults.notRecognizedHint")}
                   </p>
                 )}
               </div>
@@ -224,33 +230,24 @@ export function VerificationResults({
       <div className="p-6 mb-6 space-y-4 border border-blue-200 rounded-lg bg-linear-to-r from-blue-50 to-indigo-50">
         <h3 className="flex items-center gap-2 font-semibold text-slate-900">
           <CheckCircle2 className="w-5 h-5 text-blue-600" />
-          What's Next?
+          {t("training.verificationResults.nextStepsTitle")}
         </h3>
         <ul className="space-y-3 text-sm text-slate-700">
           <li className="flex gap-3">
             <span className="shrink-0 font-bold text-blue-600">1.</span>
-            <span>
-              Your voice profile is now active and ready to use for
-              authentication
-            </span>
+            <span>{t("training.verificationResults.nextSteps.0")}</span>
           </li>
           <li className="flex gap-3">
             <span className="shrink-0 font-bold text-blue-600">2.</span>
-            <span>
-              Use your voice to unlock the system or authorize transactions
-            </span>
+            <span>{t("training.verificationResults.nextSteps.1")}</span>
           </li>
           <li className="flex gap-3">
             <span className="shrink-0 font-bold text-blue-600">3.</span>
-            <span>
-              You can record additional samples anytime to improve accuracy
-            </span>
+            <span>{t("training.verificationResults.nextSteps.2")}</span>
           </li>
           <li className="flex gap-3">
             <span className="shrink-0 font-bold text-blue-600">4.</span>
-            <span>
-              Create additional profiles for different voice variations
-            </span>
+            <span>{t("training.verificationResults.nextSteps.3")}</span>
           </li>
         </ul>
       </div>
@@ -260,17 +257,18 @@ export function VerificationResults({
         onClick={onComplete}
         className="w-full py-3 text-lg font-semibold text-white bg-green-600 hover:bg-green-700"
       >
-        Complete Setup
+        {t("training.verificationResults.complete")}
       </Button>
 
       {/* Info Footer */}
       <div className="p-4 mt-6 space-y-2 text-xs border rounded-lg bg-slate-50 border-slate-200 text-slate-600">
         <p>
-          <strong>Profile ID:</strong> {speakerProfileId.substring(0, 16)}...
+          <strong>{t("training.verificationResults.profileId")}:</strong>{" "}
+          {speakerProfileId.substring(0, 16)}...
         </p>
         <p>
-          <strong>Note:</strong> Your voice profile is stored securely. You can
-          view and manage all your profiles in settings.
+          <strong>{t("training.verificationResults.noteLabel")}:</strong>{" "}
+          {t("training.verificationResults.note")}
         </p>
       </div>
     </div>

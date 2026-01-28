@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Mic, Square, Play, Trash2, Volume2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { VoiceActivityDetector } from "../../utils/voice-activity-detection";
@@ -24,6 +25,7 @@ export function RecordingControl({
   disabled,
   autoStopOnSilence = false,
 }: RecordingControlProps) {
+  const { t } = useTranslation();
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -148,7 +150,7 @@ export function RecordingControl({
       onStart();
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      alert("Unable to access microphone. Please check permissions.");
+      alert(t("training.recordingControl.errors.microphoneAccess"));
     }
   };
 
@@ -183,12 +185,18 @@ export function RecordingControl({
       {/* Phrase Display */}
       <div className="space-y-2">
         <p className="text-xs font-semibold tracking-wider uppercase text-slate-500">
-          Read this phrase:
+          {t("training.recordingControl.readPhrase")}
         </p>
         <div className="p-4 border-2 border-blue-200 rounded-lg bg-linear-to-r from-blue-50 to-indigo-50">
           <p className="text-2xl font-bold text-slate-900">"{phrase}"</p>
           <p className="mt-2 text-xs text-slate-600">
-            Category: <span className="font-medium">{category}</span>
+            {t("training.recordingControl.categoryLabel")}{" "}
+            <span className="font-medium">
+              {t(
+                `training.recordSamples.categories.${category.toLowerCase()}`,
+                category,
+              )}
+            </span>
           </p>
         </div>
       </div>
@@ -199,7 +207,7 @@ export function RecordingControl({
           <div className="flex items-center justify-between">
             <p className="flex items-center gap-2 text-xs font-medium text-slate-700">
               <Volume2 className="w-4 h-4" />
-              Audio Level
+              {t("training.recordingControl.audioLevel")}
             </p>
             <p className="text-xs text-slate-600">{Math.round(audioLevel)}%</p>
           </div>
@@ -211,7 +219,7 @@ export function RecordingControl({
           </div>
           {audioLevel < 20 && (
             <p className="flex items-center gap-1 text-xs text-amber-600">
-              ⚠️ Volume is low - speak louder or move closer to microphone
+              {t("training.recordingControl.lowVolumeWarning")}
             </p>
           )}
         </div>
@@ -219,7 +227,9 @@ export function RecordingControl({
 
       {/* Timer Display */}
       <div className="text-center">
-        <p className="mb-1 text-xs text-slate-600">Recording Time</p>
+        <p className="mb-1 text-xs text-slate-600">
+          {t("training.recordingControl.recordingTime")}
+        </p>
         <p
           className={`text-5xl font-bold font-mono ${
             isRecording ? "text-red-600 animate-pulse" : "text-slate-900"
@@ -233,7 +243,7 @@ export function RecordingControl({
       {isRecording && (
         <div className="flex items-center justify-center gap-2 text-sm font-medium text-red-600">
           <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
-          Recording in progress...
+          {t("training.recordingControl.recordingInProgress")}
         </div>
       )}
 
@@ -246,7 +256,7 @@ export function RecordingControl({
             className="flex-1 gap-2 py-3 font-medium text-white bg-red-600 hover:bg-red-700"
           >
             <Mic className="w-5 h-5" />
-            Start Recording
+            {t("training.recordingControl.startRecording")}
           </Button>
         ) : (
           <>
@@ -255,14 +265,14 @@ export function RecordingControl({
               className="flex-1 gap-2 py-3 font-medium text-white bg-slate-900 hover:bg-slate-800"
             >
               <Square className="w-5 h-5" />
-              Stop Recording
+              {t("training.recordingControl.stopRecording")}
             </Button>
             <Button
               onClick={onCancel}
               variant="outline"
               className="px-4 py-3 font-medium"
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
           </>
         )}
@@ -270,12 +280,15 @@ export function RecordingControl({
 
       {/* Tips */}
       <div className="p-3 space-y-1 text-xs text-blue-900 border border-blue-200 rounded-lg bg-blue-50">
-        <p className="font-medium">Recording tips:</p>
+        <p className="font-medium">
+          {t("training.recordingControl.tipsTitle")}
+        </p>
         <ul className="list-disc list-inside space-y-0.5">
-          <li>Speak naturally and clearly</li>
-          <li>Maintain steady volume</li>
-          <li>Avoid background noise if possible</li>
-          <li>Record 3-5 samples per phrase</li>
+          {t<string[]>("training.recordingControl.tips", {
+            returnObjects: true,
+          }).map((tip) => (
+            <li key={tip}>{tip}</li>
+          ))}
         </ul>
       </div>
     </div>
