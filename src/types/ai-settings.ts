@@ -41,9 +41,18 @@ export interface AITaskConfig {
   fallbackModelId: string | null;
 }
 
+export interface ChatGPTOAuthStatus {
+  isConnected: boolean;
+  isEnabled: boolean;
+  accountId?: string;
+  expiresAt?: string;
+  lastUsedAt?: string;
+}
+
 export interface AISettings {
   providers: AIProvider[];
   taskConfigs: AITaskConfig[];
+  chatGPTOAuth?: ChatGPTOAuthStatus;
 }
 
 export const DEFAULT_OPENAI_MODELS: Omit<AIModel, "providerId">[] = [

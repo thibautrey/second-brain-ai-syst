@@ -1,6 +1,7 @@
 import prisma from "../services/prisma.js";
 import { ProviderType, ModelCapability, Prisma } from "@prisma/client";
 import { modelDiscoveryService } from "../services/model-discovery.js";
+import { chatGPTOAuthService } from "../services/chatgpt-oauth.js";
 
 // ==================== Types ====================
 
@@ -610,12 +611,21 @@ export async function updateTaskConfig(
  * Get full AI settings (providers + task configs)
  */
 export async function getAISettings(userId: string) {
-  const [providers, taskConfigs] = await Promise.all([
+  const [providers, taskConfigs, chatGPTOAuthStatus] = await Promise.all([
     getProviders(userId),
     getTaskConfigs(userId),
+    chatGPTOAuthService.getOAuthStatus(userId),
   ]);
 
-  return { providers, taskConfigs };
+  return { 
+    providers, 
+    taskConfigs,
+    chatGPTOAuth: {
+      isConnected: chatGPTOAuthStatus.isConnected,
+      isEnabled: chatGPTOAuthStatus.isEnabled,
+      accountId: chatGPTOAuthStatus.accountId,
+    },
+  };
 }
 
 // ==================== Helper Functions ====================

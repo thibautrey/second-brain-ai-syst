@@ -232,12 +232,12 @@ export class ModelRecoveryService {
     modelId: string,
   ): Promise<boolean> {
     try {
-      // Determine the API endpoint based on provider name
-      const baseUrl = provider.baseUrl || this.getProviderBaseUrl(provider.name);
+      // Determine the API endpoint based on provider type
+      const baseUrl = provider.baseUrl || this.getProviderBaseUrl(provider.type);
 
       if (!baseUrl) {
         console.log(
-          `[ModelRecovery] No base URL configured for provider ${provider.name}`,
+          `[ModelRecovery] No base URL configured for provider type ${provider.type}`,
         );
         return false;
       }
@@ -281,6 +281,13 @@ export class ModelRecoveryService {
    */
   private getProviderBaseUrl(providerName: string): string {
     const urls: Record<string, string> = {
+      OPENAI: "https://api.openai.com/v1",
+      OPENAI_COMPATIBLE: "http://localhost:8000/v1",
+      ANTHROPIC: "https://api.anthropic.com",
+      GOOGLE: "https://generativelanguage.googleapis.com",
+      OLLAMA: "http://localhost:11434/api",
+      GPUSTACK: "http://localhost:8000/v1",
+      // Legacy lowercase variants for backwards compatibility
       OpenAI: "https://api.openai.com/v1",
       GpuStack: "http://localhost:8000/v1",
       Anthropic: "https://api.anthropic.com",

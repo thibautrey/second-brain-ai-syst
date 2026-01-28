@@ -50,6 +50,15 @@ import {
   syncProviderModels,
   testProviderApiKey,
 } from "../controllers/ai-settings.controller.js";
+import {
+  initiateOAuthFlow,
+  handleOAuthCallback,
+  getOAuthStatus,
+  disconnectOAuth,
+  setOAuthEnabled,
+  checkUsage as checkChatGPTUsage,
+  testConnection as testChatGPTConnection,
+} from "../controllers/chatgpt-oauth.controller.js";
 import { audioUploadService } from "./audio-upload.js";
 import { speakerRecognitionService } from "./speaker-recognition.js";
 import { VoiceTrainingController } from "../controllers/input-ingestion.controller.js";
@@ -1061,6 +1070,173 @@ app.put(
         req.body,
       );
       res.json(config);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ==================== ChatGPT OAuth Routes ====================
+
+/**
+ * GET /api/auth/chatgpt/status
+ * Get ChatGPT OAuth connection status
+ */
+app.get(
+  "/api/auth/chatgpt/status",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const status = await getOAuthStatus(req.userId);
+      res.json(status);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/auth/chatgpt/initiate
+ * Initiate ChatGPT OAuth flow - returns authorization URL
+ */
+app.post(
+  "/api/auth/chatgpt/initiate",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await initiateOAuthFlow(req.userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/auth/chatgpt/callback
+ * Handle OAuth callback from OpenAI
+ * This endpoint is called by OpenAI after user authorizes
+ */
+app.get(
+  "/api/auth/chatgpt/callback",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { code, state, error: oauthError, error_description } = req.query;
+
+      // Handle OAuth errors from OpenAI
+      if (oauthError) {
+        console.error("OAuth error from OpenAI:", oauthError, error_description);
+        // Redirect to frontend with error
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        return res.redirect(`${frontendUrl}/settings?chatgpt_oauth=error&message=${encodeURIComponent(error_description as string || oauthError as string)}`);
+      }
+
+      if (!code || !state) {
+        return res.status(400).json({ error: "Missing code or state parameter" });
+      }
+
+      const result = await handleOAuthCallback(
+        state as string,
+        code as string,
+      );
+
+      // Redirect to frontend with result
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      if (result.success) {
+        res.redirect(`${frontendUrl}/settings?chatgpt_oauth=success`);
+      } else {
+        res.redirect(`${frontendUrl}/settings?chatgpt_oauth=error&message=${encodeURIComponent(result.error || "Unknown error")}`);
+      }
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/auth/chatgpt/disconnect
+ * Disconnect ChatGPT OAuth (delete credentials)
+ */
+app.post(
+  "/api/auth/chatgpt/disconnect",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await disconnectOAuth(req.userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/auth/chatgpt/toggle
+ * Toggle ChatGPT OAuth enabled/disabled
+ */
+app.post(
+  "/api/auth/chatgpt/toggle",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { enabled } = req.body;
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+      const result = await setOAuthEnabled(req.userId, enabled);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/auth/chatgpt/usage
+ * Check ChatGPT usage limits
+ */
+app.get(
+  "/api/auth/chatgpt/usage",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const usage = await checkChatGPTUsage(req.userId);
+      res.json(usage);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/auth/chatgpt/test
+ * Test ChatGPT OAuth connection
+ */
+app.get(
+  "/api/auth/chatgpt/test",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await testChatGPTConnection(req.userId);
+      res.json(result);
     } catch (error) {
       next(error);
     }

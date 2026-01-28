@@ -55,6 +55,7 @@ import {
   DEFAULT_OPENAI_MODELS,
 } from "../types/ai-settings";
 import { useContinuousListening } from "../contexts/ContinuousListeningContext";
+import { ChatGPTOAuthSection } from "../components/settings/ChatGPTOAuthSection";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -138,6 +139,22 @@ function ProvidersSection() {
 
   return (
     <div className="space-y-6">
+      {/* ChatGPT OAuth Section */}
+      <ChatGPTOAuthSection />
+
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-white px-2 text-slate-500">
+            {t("settings.providers.orUseApiKey", "Or use API keys")}
+          </span>
+        </div>
+      </div>
+
+      {/* API Key Providers Section */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">

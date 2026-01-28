@@ -81,6 +81,9 @@ model User {
   negativeExamples      NegativeExample[]
   ConversationRecording ConversationRecording[]
 
+  // ChatGPT OAuth Integration
+  chatGPTOAuthCredentials ChatGPTOAuthCredentials?
+
   @@map("users")
 }
 
@@ -892,6 +895,54 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ==================== ChatGPT OAuth Model ====================
+// Stores OAuth tokens for ChatGPT account integration
+// Allows users to use their ChatGPT subscription quota
+
+model ChatGPTOAuthCredentials {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // OAuth tokens (encrypted)
+  accessToken  String // Encrypted access token
+  refreshToken String // Encrypted refresh token
+  expiresAt    DateTime // When the access token expires
+
+  // Account information extracted from JWT
+  accountId String? // ChatGPT account ID
+
+  // Metadata
+  isEnabled       Boolean   @default(true) // Whether to use OAuth instead of API key
+  lastUsedAt      DateTime? // Last time the OAuth credentials were used
+  lastRefreshedAt DateTime? // Last time tokens were refreshed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("chatgpt_oauth_credentials")
+}
+
+// OAuth session state for PKCE flow (temporary storage during auth)
+model ChatGPTOAuthSession {
+  id     String @id @default(cuid())
+  userId String
+
+  // PKCE values
+  state        String @unique // Random state for CSRF protection
+  codeVerifier String // PKCE code verifier (stored temporarily)
+
+  // Expiration
+  expiresAt DateTime // Session expires after 10 minutes
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([state])
+  @@index([expiresAt])
+  @@map("chatgpt_oauth_sessions")
 }
 
 enum ProviderType {
