@@ -315,19 +315,163 @@ ${tool.code}
   }
 
   /**
-   * Search tools by keyword
+   * Search tools by keyword with enhanced matching
+   * Uses multiple keywords and common synonyms for better discovery
    */
   async searchTools(userId: string, query: string): Promise<GeneratedTool[]> {
+    // Stop words to ignore (French and English)
+    const stopWords = new Set([
+      "le",
+      "la",
+      "les",
+      "un",
+      "une",
+      "des",
+      "de",
+      "du",
+      "au",
+      "aux",
+      "je",
+      "tu",
+      "il",
+      "elle",
+      "on",
+      "nous",
+      "vous",
+      "ils",
+      "elles",
+      "est",
+      "sont",
+      "être",
+      "avoir",
+      "faire",
+      "peut",
+      "peux",
+      "pouvez",
+      "pour",
+      "avec",
+      "sans",
+      "dans",
+      "sur",
+      "par",
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "i",
+      "you",
+      "he",
+      "she",
+      "it",
+      "we",
+      "they",
+      "to",
+      "of",
+      "in",
+      "on",
+      "at",
+      "by",
+      "for",
+      "with",
+      "from",
+      "get",
+      "give",
+      "make",
+      "take",
+      "find",
+      "show",
+    ]);
+
+    // Common synonyms for tool discovery
+    const synonymGroups: string[][] = [
+      ["météo", "meteo", "weather", "temps", "climat", "forecast", "prévision"],
+      ["recherche", "search", "find", "chercher", "trouver"],
+      ["traduction", "translate", "translation", "traduire"],
+      ["calcul", "calculate", "calculator", "math", "compute"],
+      ["email", "mail", "courriel", "message"],
+      ["actualités", "news", "actualites", "nouvelles", "info"],
+      ["prix", "price", "cost", "tarif"],
+      ["bourse", "stock", "stocks", "finance", "market"],
+      ["crypto", "bitcoin", "cryptocurrency"],
+      ["localisation", "location", "gps", "position"],
+      ["carte", "map", "maps", "itinéraire", "direction"],
+    ];
+
+    // Build synonym map
+    const synonymMap = new Map<string, string[]>();
+    for (const group of synonymGroups) {
+      for (const word of group) {
+        synonymMap.set(word.toLowerCase(), group);
+      }
+    }
+
+    // Extract meaningful keywords
+    const rawKeywords = query
+      .toLowerCase()
+      .replace(/[^a-zà-ÿ0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 2 && !stopWords.has(word));
+
+    // Expand with synonyms
+    const expandedKeywords = new Set<string>();
+    for (const keyword of rawKeywords) {
+      expandedKeywords.add(keyword);
+      const synonyms = synonymMap.get(keyword);
+      if (synonyms) {
+        for (const synonym of synonyms) {
+          expandedKeywords.add(synonym);
+        }
+      }
+    }
+
+    const keywordsArray = Array.from(expandedKeywords);
+
+    // If no meaningful keywords, fall back to simple search
+    if (keywordsArray.length === 0) {
+      return prisma.generatedTool.findMany({
+        where: {
+          userId,
+          enabled: true,
+          OR: [
+            { name: { contains: query, mode: "insensitive" } },
+            { displayName: { contains: query, mode: "insensitive" } },
+            { description: { contains: query, mode: "insensitive" } },
+          ],
+        },
+      });
+    }
+
+    // Build OR conditions for all keywords
+    const orConditions: any[] = [];
+    for (const keyword of keywordsArray) {
+      orConditions.push({ name: { contains: keyword, mode: "insensitive" } });
+      orConditions.push({
+        displayName: { contains: keyword, mode: "insensitive" },
+      });
+      orConditions.push({
+        description: { contains: keyword, mode: "insensitive" },
+      });
+    }
+    orConditions.push({ tags: { hasSome: keywordsArray } });
+
     return prisma.generatedTool.findMany({
       where: {
         userId,
         enabled: true,
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { displayName: { contains: query, mode: "insensitive" } },
-          { description: { contains: query, mode: "insensitive" } },
-          { tags: { hasSome: [query.toLowerCase()] } },
-        ],
+        OR: orConditions,
       },
     });
   }

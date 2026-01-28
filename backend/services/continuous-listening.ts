@@ -14,6 +14,9 @@
  * - Only voice-containing audio chunks are sent to the provider API
  * - Silence is filtered out locally using low-CPU VAD
  * - Reduces API costs by ~80-90% while maintaining quality
+ *
+ * Note: AI response/tool handling is delegated to ChatResponseService
+ * to avoid code duplication with the chat controller.
  */
 
 import {
@@ -41,12 +44,9 @@ import { MemoryManagerService } from "./memory-manager.js";
 import OpenAI from "openai";
 import { flowTracker } from "./flow-tracker.js";
 import { getEmbeddingService } from "./embedding-wrapper.js";
-import { injectContextIntoPrompt } from "./llm-router.js";
-import { memorySearchService } from "./memory-search.js";
 import { notificationService } from "./notification.js";
 import prisma from "./prisma.js";
 import { randomBytes } from "crypto";
-import { toolExecutorService } from "./tool-executor.js";
 
 // ==================== Types ====================
 
@@ -751,6 +751,26 @@ export class ContinuousListeningService extends EventEmitter {
           decision: "Command mode activated",
         });
 
+        // Update processing context for meta-questions
+        this.lastProcessingContext = {
+          speakerDetected: speakerResult.isTargetUser,
+          speakerConfidence: speakerResult.confidence,
+          speakerId: speakerResult.speakerId,
+          transcriptionConfidence: transcription.confidence,
+          transcriptionLanguage: transcription.language,
+          audioDuration: duration,
+          noiseFilterResult: {
+            isMeaningful: noiseFilterResult.isMeaningful,
+            category: noiseFilterResult.category,
+            confidence: noiseFilterResult.confidence,
+          },
+          intentClassification: {
+            inputType: classification.inputType,
+            confidence: classification.confidence,
+            wakeWordDetected: hasWakeWord,
+          },
+        };
+
         // Process the command through AI and send notification
         await this.processQuestionAndRespond(commandText, flowId, startTime);
 
@@ -792,6 +812,26 @@ export class ContinuousListeningService extends EventEmitter {
           status: "started",
           decision: "Auto-responding to question (no wake word needed)",
         });
+
+        // Update processing context for meta-questions
+        this.lastProcessingContext = {
+          speakerDetected: speakerResult.isTargetUser,
+          speakerConfidence: speakerResult.confidence,
+          speakerId: speakerResult.speakerId,
+          transcriptionConfidence: transcription.confidence,
+          transcriptionLanguage: transcription.language,
+          audioDuration: duration,
+          noiseFilterResult: {
+            isMeaningful: noiseFilterResult.isMeaningful,
+            category: noiseFilterResult.category,
+            confidence: noiseFilterResult.confidence,
+          },
+          intentClassification: {
+            inputType: classification.inputType,
+            confidence: classification.confidence,
+            wakeWordDetected: hasWakeWord,
+          },
+        };
 
         // Process the question through AI and send notification
         await this.processQuestionAndRespond(
@@ -1139,8 +1179,62 @@ export class ContinuousListeningService extends EventEmitter {
   }
 
   /**
+   * Context from the audio processing pipeline
+   * Used to answer meta-questions about the system
+   */
+  private lastProcessingContext: {
+    speakerDetected: boolean;
+    speakerConfidence: number;
+    speakerId: string;
+    transcriptionConfidence: number;
+    transcriptionLanguage: string;
+    audioDuration: number;
+    noiseFilterResult?: {
+      isMeaningful: boolean;
+      category: string;
+      confidence: number;
+    };
+    intentClassification?: {
+      inputType: string;
+      confidence: number;
+      wakeWordDetected: boolean;
+    };
+  } | null = null;
+
+  /**
+   * Build audio processing context for meta-questions
+   */
+  private buildAudioProcessingContext(): string {
+    if (!this.lastProcessingContext) {
+      return "";
+    }
+
+    const ctx = this.lastProcessingContext;
+    return `
+
+CURRENT AUDIO PROCESSING STATUS (for answering meta-questions about detection):
+- Speaker detected: ${ctx.speakerDetected ? "YES" : "NO"}
+- Speaker identification confidence: ${(ctx.speakerConfidence * 100).toFixed(1)}%
+- Speaker ID: ${ctx.speakerId}
+- Audio duration: ${ctx.audioDuration.toFixed(2)}s
+- Transcription confidence: ${(ctx.transcriptionConfidence * 100).toFixed(1)}%
+- Language detected: ${ctx.transcriptionLanguage}
+${ctx.noiseFilterResult ? `- Content meaningful: ${ctx.noiseFilterResult.isMeaningful ? "YES" : "NO"} (${ctx.noiseFilterResult.category}, ${(ctx.noiseFilterResult.confidence * 100).toFixed(1)}% confidence)` : ""}
+${
+  ctx.intentClassification
+    ? `- Intent: ${ctx.intentClassification.inputType} (${(ctx.intentClassification.confidence * 100).toFixed(1)}% confidence)
+- Wake word detected: ${ctx.intentClassification.wakeWordDetected ? "YES" : "NO"}`
+    : ""
+}
+
+If the user asks whether you detected them, heard them, or similar meta-questions about the system, use this information to answer directly without using any tools.`;
+  }
+
+  /**
    * Process a question through the AI and send a notification with the response
    * This is used for both wake-word commands and auto-respond questions
+   *
+   * Delegates to the shared ChatResponseService for LLM/tool handling
    */
   private async processQuestionAndRespond(
     questionText: string,
@@ -1151,169 +1245,48 @@ export class ContinuousListeningService extends EventEmitter {
       console.log(`\n🤖 [AI] Processing question: "${questionText}"`);
       const aiStart = Date.now();
 
-      // Get user's AI provider configuration
-      const taskConfig = await prisma.aITaskConfig.findFirst({
-        where: {
-          userId: this.config.userId,
-          taskType: "REFLECTION",
-        },
-        include: {
-          provider: true,
-          model: true,
+      // Build audio-specific context for meta-questions
+      const audioContext = this.buildAudioProcessingContext();
+
+      // Use the shared chat response service
+      const { getChatResponse } = await import("./chat-response.js");
+
+      const result = await getChatResponse(this.config.userId, questionText, {
+        additionalContext: audioContext,
+        maxIterations: 10,
+        maxTokens: 1000,
+        includeMemorySearch: true,
+        memoryCount: 3,
+        onToolCall: (toolName, iteration) => {
+          console.log(`   🔧 Tool call ${iteration}: ${toolName}`);
         },
       });
-
-      if (!taskConfig?.provider) {
-        console.log(`   ⚠️ No AI provider configured - skipping AI response`);
-        return;
-      }
-
-      // Search for relevant memories
-      let relevantMemories: string[] = [];
-      try {
-        const searchResponse = await memorySearchService.semanticSearch(
-          this.config.userId,
-          questionText,
-          3,
-        );
-        relevantMemories = searchResponse.results
-          .map((r: any) => r.memory?.content || r.memory?.text)
-          .filter(Boolean);
-      } catch (error) {
-        console.log(`   ⚠️ Memory search failed:`, error);
-      }
-
-      // Build context
-      const memoryContext =
-        relevantMemories.length > 0
-          ? `\n\nRelevant memories:\n${relevantMemories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`
-          : "";
-
-      // Create OpenAI client
-      const openai = new OpenAI({
-        apiKey: taskConfig.provider.apiKey,
-        baseURL: taskConfig.provider.baseUrl || "https://api.openai.com/v1",
-      });
-
-      // Get available tools for LLM function calling
-      const tools = toolExecutorService.getToolSchemas();
-
-      // Build base system prompt
-      const baseSystemPrompt = `You are a helpful AI assistant integrated into a "Second Brain" system.
-You help the user with questions and tasks based on their voice commands.
-Respond concisely and helpfully. If you need to use tools to answer the question, use them.
-The current time is ${new Date().toLocaleString()}.${memoryContext}`;
-
-      // Inject user context (profile with location, API keys, etc.) like the chat does
-      const systemPromptWithContext = await injectContextIntoPrompt(
-        baseSystemPrompt,
-        this.config.userId,
-      );
-
-      // Make LLM call with tools
-      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        {
-          role: "system",
-          content: systemPromptWithContext,
-        },
-        {
-          role: "user",
-          content: questionText,
-        },
-      ];
-
-      // Format tools for OpenAI API (must be wrapped in {type: "function", function: schema})
-      const formattedTools =
-        tools.length > 0
-          ? tools.map((schema) => ({
-              type: "function" as const,
-              function: schema,
-            }))
-          : undefined;
-
-      let response = await openai.chat.completions.create({
-        model: taskConfig.model?.modelId || "gpt-4",
-        messages,
-        tools: formattedTools,
-        tool_choice: formattedTools ? "auto" : undefined,
-        max_tokens: 1000,
-      });
-
-      let assistantMessage = response.choices[0].message;
-      let finalResponse = assistantMessage.content || "";
-
-      // Handle tool calls if any
-      let toolCallCount = 0;
-      const maxToolCalls = 5;
-
-      while (assistantMessage.tool_calls && toolCallCount < maxToolCalls) {
-        toolCallCount++;
-        console.log(
-          `   🔧 Tool call ${toolCallCount}: ${assistantMessage.tool_calls.map((tc) => tc.function.name).join(", ")}`,
-        );
-
-        // Add assistant message with tool calls
-        messages.push(assistantMessage);
-
-        // Execute each tool call
-        for (const toolCall of assistantMessage.tool_calls) {
-          try {
-            const toolParams = JSON.parse(toolCall.function.arguments);
-            const toolResult = await toolExecutorService.executeTool(
-              this.config.userId,
-              {
-                toolId: toolCall.function.name,
-                action: toolParams.action || "default",
-                params: toolParams,
-              },
-            );
-
-            messages.push({
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content:
-                typeof toolResult === "string"
-                  ? toolResult
-                  : JSON.stringify(toolResult),
-            });
-          } catch (toolError) {
-            console.log(`   ⚠️ Tool error: ${toolError}`);
-            messages.push({
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content: `Error: ${toolError instanceof Error ? toolError.message : String(toolError)}`,
-            });
-          }
-        }
-
-        // Get next response
-        response = await openai.chat.completions.create({
-          model: taskConfig.model?.modelId || "gpt-4",
-          messages,
-          tools: formattedTools,
-          tool_choice: formattedTools ? "auto" : undefined,
-          max_tokens: 1000,
-        });
-
-        assistantMessage = response.choices[0].message;
-        if (assistantMessage.content) {
-          finalResponse = assistantMessage.content;
-        }
-      }
 
       console.log(`   → AI response generated in ${Date.now() - aiStart}ms`);
       console.log(
-        `   → Response: "${finalResponse.substring(0, 100)}${finalResponse.length > 100 ? "..." : ""}"`,
+        `   → Response: "${result.response.substring(0, 100)}${result.response.length > 100 ? "..." : ""}"`,
       );
 
+      if (!result.success) {
+        console.log(`   ⚠️ AI response failed: ${result.error}`);
+        flowTracker.trackEvent({
+          flowId,
+          stage: "ai_response_failed",
+          service: "ContinuousListeningService",
+          status: "failed",
+          data: { error: result.error },
+        });
+        return;
+      }
+
       // Send notification with the response
-      if (finalResponse) {
+      if (result.response) {
         const notificationStart = Date.now();
 
         await notificationService.createNotification({
           userId: this.config.userId,
           title: "🎤 Voice Question Answer",
-          message: finalResponse,
+          message: result.response,
           type: "INFO",
           channels: ["IN_APP", "PUSH", "TELEGRAM"],
           sourceType: "voice_question",
@@ -1321,7 +1294,8 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`;
             question: questionText,
             flowId,
             processingTime: Date.now() - startTime,
-            toolCallCount,
+            toolsUsed: result.toolsUsed.length,
+            iterations: result.totalIterations,
           },
           skipSpamCheck: true, // Voice questions should always get through
         });
@@ -1337,15 +1311,16 @@ The current time is ${new Date().toLocaleString()}.${memoryContext}`;
           status: "success",
           duration: Date.now() - aiStart,
           data: {
-            responseLength: finalResponse.length,
-            toolCallCount,
+            responseLength: result.response.length,
+            toolsUsed: result.toolsUsed.length,
+            iterations: result.totalIterations,
           },
         });
 
         this.emit("ai_response", {
           question: questionText,
-          response: finalResponse,
-          toolCallCount,
+          response: result.response,
+          toolsUsed: result.toolsUsed,
         });
       }
     } catch (error) {

@@ -644,29 +644,347 @@ Generate Python code that accomplishes this objective.`;
 
   /**
    * Find similar existing tool by semantic search
+   * Enhanced to use multiple keywords and common synonyms
    */
   private async findSimilarTool(
     userId: string,
     objective: string,
   ): Promise<GeneratedTool | null> {
-    // Simple keyword matching for now
-    // TODO: Add proper semantic search using embeddings
-    const keywords = objective.toLowerCase().split(/\s+/);
+    // Stop words to ignore (French and English)
+    const stopWords = new Set([
+      // French
+      "le",
+      "la",
+      "les",
+      "un",
+      "une",
+      "des",
+      "de",
+      "du",
+      "au",
+      "aux",
+      "ce",
+      "cette",
+      "ces",
+      "mon",
+      "ma",
+      "mes",
+      "ton",
+      "ta",
+      "tes",
+      "son",
+      "sa",
+      "ses",
+      "notre",
+      "nos",
+      "votre",
+      "vos",
+      "leur",
+      "leurs",
+      "je",
+      "tu",
+      "il",
+      "elle",
+      "on",
+      "nous",
+      "vous",
+      "ils",
+      "elles",
+      "me",
+      "te",
+      "se",
+      "lui",
+      "y",
+      "en",
+      "et",
+      "ou",
+      "mais",
+      "donc",
+      "car",
+      "ni",
+      "que",
+      "qui",
+      "quoi",
+      "est",
+      "sont",
+      "être",
+      "avoir",
+      "faire",
+      "peut",
+      "peux",
+      "pouvez",
+      "pour",
+      "avec",
+      "sans",
+      "dans",
+      "sur",
+      "sous",
+      "par",
+      "chez",
+      "a",
+      "à",
+      "ai",
+      "as",
+      "avez",
+      "avons",
+      "ont",
+      "ne",
+      "pas",
+      "plus",
+      "moins",
+      "très",
+      "bien",
+      "mal",
+      "quel",
+      "quelle",
+      "quels",
+      "quelles",
+      "comment",
+      "pourquoi",
+      "quand",
+      "donner",
+      "donne",
+      "donnez",
+      "récupérer",
+      "récupère",
+      "obtenir",
+      "obtiens",
+      // English
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "could",
+      "should",
+      "can",
+      "may",
+      "might",
+      "must",
+      "shall",
+      "i",
+      "you",
+      "he",
+      "she",
+      "it",
+      "we",
+      "they",
+      "me",
+      "him",
+      "her",
+      "us",
+      "them",
+      "my",
+      "your",
+      "his",
+      "her",
+      "its",
+      "our",
+      "their",
+      "this",
+      "that",
+      "these",
+      "those",
+      "what",
+      "which",
+      "who",
+      "whom",
+      "where",
+      "when",
+      "why",
+      "how",
+      "and",
+      "or",
+      "but",
+      "if",
+      "then",
+      "else",
+      "because",
+      "so",
+      "to",
+      "of",
+      "in",
+      "on",
+      "at",
+      "by",
+      "for",
+      "with",
+      "from",
+      "about",
+      "get",
+      "give",
+      "make",
+      "take",
+      "find",
+      "show",
+      "tell",
+      "want",
+    ]);
+
+    // Common synonyms for tool discovery (bidirectional)
+    const synonymGroups: string[][] = [
+      [
+        "météo",
+        "meteo",
+        "weather",
+        "temps",
+        "climat",
+        "forecast",
+        "prévision",
+        "prevision",
+      ],
+      ["recherche", "search", "find", "chercher", "trouver", "lookup"],
+      ["traduction", "translate", "translation", "traduire", "translator"],
+      ["calcul", "calculate", "calculator", "computation", "math", "compute"],
+      ["email", "mail", "courriel", "message", "envoyer"],
+      ["actualités", "news", "actualites", "nouvelles", "info", "information"],
+      ["prix", "price", "cost", "tarif", "cout", "coût"],
+      [
+        "bourse",
+        "stock",
+        "stocks",
+        "finance",
+        "market",
+        "marché",
+        "action",
+        "actions",
+      ],
+      ["cryptomonnaie", "crypto", "bitcoin", "cryptocurrency", "blockchain"],
+      [
+        "localisation",
+        "location",
+        "gps",
+        "position",
+        "géolocalisation",
+        "geolocalisation",
+      ],
+      [
+        "carte",
+        "map",
+        "maps",
+        "itinéraire",
+        "itineraire",
+        "direction",
+        "directions",
+      ],
+    ];
+
+    // Build synonym map for quick lookup
+    const synonymMap = new Map<string, string[]>();
+    for (const group of synonymGroups) {
+      for (const word of group) {
+        synonymMap.set(word.toLowerCase(), group);
+      }
+    }
+
+    // Extract meaningful keywords from objective
+    const rawKeywords = objective
+      .toLowerCase()
+      .replace(/[^a-zà-ÿ0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 2 && !stopWords.has(word));
+
+    // Expand keywords with synonyms
+    const expandedKeywords = new Set<string>();
+    for (const keyword of rawKeywords) {
+      expandedKeywords.add(keyword);
+      const synonyms = synonymMap.get(keyword);
+      if (synonyms) {
+        for (const synonym of synonyms) {
+          expandedKeywords.add(synonym);
+        }
+      }
+    }
+
+    const keywordsArray = Array.from(expandedKeywords);
+
+    if (keywordsArray.length === 0) {
+      return null;
+    }
+
+    // Build OR conditions for all meaningful keywords
+    const orConditions: any[] = [];
+    for (const keyword of keywordsArray) {
+      orConditions.push({ name: { contains: keyword, mode: "insensitive" } });
+      orConditions.push({
+        displayName: { contains: keyword, mode: "insensitive" },
+      });
+      orConditions.push({
+        description: { contains: keyword, mode: "insensitive" },
+      });
+    }
+    // Also check tags
+    orConditions.push({ tags: { hasSome: keywordsArray } });
 
     const tools = await prisma.generatedTool.findMany({
       where: {
         userId,
         enabled: true,
-        OR: [
-          { name: { contains: keywords[0], mode: "insensitive" } },
-          { description: { contains: keywords[0], mode: "insensitive" } },
-          { tags: { hasSome: keywords } },
-        ],
+        OR: orConditions,
       },
     });
 
-    // Return best match if any
-    return tools[0] || null;
+    if (tools.length === 0) {
+      return null;
+    }
+
+    // Score tools by how many keywords they match
+    const scoredTools = tools.map((tool) => {
+      let score = 0;
+      const toolText =
+        `${tool.name} ${tool.displayName} ${tool.description} ${(tool.tags || []).join(" ")}`.toLowerCase();
+
+      for (const keyword of keywordsArray) {
+        if (toolText.includes(keyword)) {
+          score++;
+          // Bonus for name/displayName match (more significant)
+          if (
+            tool.name.toLowerCase().includes(keyword) ||
+            tool.displayName.toLowerCase().includes(keyword)
+          ) {
+            score += 2;
+          }
+        }
+      }
+
+      // Bonus for verified tools
+      if (tool.isVerified) {
+        score += 1;
+      }
+
+      // Bonus for frequently used tools
+      if (tool.usageCount > 5) {
+        score += 1;
+      }
+
+      return { tool, score };
+    });
+
+    // Sort by score descending and return best match
+    scoredTools.sort((a, b) => b.score - a.score);
+
+    // Only return if score is meaningful (at least 1 match)
+    if (scoredTools[0].score > 0) {
+      console.log(
+        `[DynamicToolGenerator] Found similar tool "${scoredTools[0].tool.name}" with score ${scoredTools[0].score} for objective: "${objective}"`,
+      );
+      return scoredTools[0].tool;
+    }
+
+    return null;
   }
 
   /**
