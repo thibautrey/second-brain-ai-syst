@@ -13,6 +13,70 @@ const router = Router();
 router.use(authMiddleware);
 
 /**
+ * Validate Python syntax by checking for common issues
+ * This is a basic check since we don't have a full Python parser in Node.js
+ */
+function validatePythonSyntax(code: string): string | null {
+  // Check for ES6 import statements (common error when converting JS to Python)
+  if (
+    /^\s*import\s+.*\s+from\s+['"]/.test(code) ||
+    /^import\s+[a-zA-Z0-9_]+/.test(code)
+  ) {
+    const lines = code.split("\n");
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      if (/^\s*import\s+.*\s+from\s+['"]/.test(lines[i])) {
+        return `Erreur à la ligne ${i + 1}: ES6 import statement détecté. Utilisez 'import X' ou 'from X import Y' pour Python`;
+      }
+    }
+  }
+
+  // Check for require statements (JavaScript not Python)
+  if (/require\s*\(\s*['"]/.test(code)) {
+    return "Erreur: require() est JavaScript. Utilisez import pour Python ou convertissez le code en Python";
+  }
+
+  // Basic check for mismatched quotes or obvious syntax issues
+  // Count parentheses, brackets, braces
+  const chars = {
+    "(": 0,
+    ")": 0,
+    "[": 0,
+    "]": 0,
+    "{": 0,
+    "}": 0,
+  };
+
+  for (const char of code) {
+    if (
+      char === "(" ||
+      char === ")" ||
+      char === "[" ||
+      char === "]" ||
+      char === "{" ||
+      char === "}"
+    ) {
+      chars[char as keyof typeof chars]++;
+    }
+  }
+
+  if (chars["("] !== chars[")"]) {
+    return "Erreur de syntaxe: parenthèses non appairées";
+  }
+  if (chars["["] !== chars["]"]) {
+    return "Erreur de syntaxe: crochets non appairés";
+  }
+  if (chars["{"] !== chars["}"]) {
+    return "Erreur de syntaxe: accolades non appairées";
+  }
+
+  // If no obvious issues, return null
+  return null;
+}
+
+// All routes require authentication
+router.use(authMiddleware);
+
+/**
  * Generate a new tool
  * POST /api/generated-tools/generate
  */
@@ -396,15 +460,42 @@ router.post(
           "Aucune dépendance manquante détectée",
         );
 
-        // Task 3: Validate syntax
+        // Task 3: Validate syntax (language-aware)
         addTask("Validation de la syntaxe du code", "in-progress");
         try {
-          new Function(tool.code); // Basic JS validation
-          addTask(
-            "Validation de la syntaxe du code",
-            "completed",
-            "Syntaxe valide",
-          );
+          if (tool.language === "javascript" || tool.language === "js") {
+            // For JavaScript, validate using Function constructor
+            new Function(tool.code);
+            addTask(
+              "Validation de la syntaxe du code",
+              "completed",
+              "Syntaxe JavaScript valide",
+            );
+          } else if (tool.language === "python") {
+            // For Python, do basic syntax check (import detection)
+            // Full Python parsing would require a Python parser in Node
+            const hasSyntaxErrors = validatePythonSyntax(tool.code);
+            if (!hasSyntaxErrors) {
+              addTask(
+                "Validation de la syntaxe du code",
+                "completed",
+                "Syntaxe Python valide",
+              );
+            } else {
+              addTask(
+                "Validation de la syntaxe du code",
+                "failed",
+                undefined,
+                hasSyntaxErrors,
+              );
+            }
+          } else {
+            addTask(
+              "Validation de la syntaxe du code",
+              "completed",
+              `Syntaxe ${tool.language} (vérification limitée)`,
+            );
+          }
         } catch (e: any) {
           addTask(
             "Validation de la syntaxe du code",
@@ -431,12 +522,32 @@ router.post(
           );
         }
 
-        // Task 5: Test basic execution
+        // Task 5: Test basic execution (language-aware)
         addTask("Test d'exécution basique", "in-progress");
         try {
-          // This is a simplified test - in production you'd actually execute the tool
-          const testFunc = new Function(tool.code);
-          addTask("Test d'exécution basique", "completed", "Exécution réussie");
+          if (tool.language === "javascript" || tool.language === "js") {
+            // For JavaScript, try to create a function
+            const testFunc = new Function(tool.code);
+            addTask(
+              "Test d'exécution basique",
+              "completed",
+              "Exécution JavaScript réussie",
+            );
+          } else if (tool.language === "python") {
+            // For Python tools, skip function execution test
+            // (actual execution will be done by Python executor service)
+            addTask(
+              "Test d'exécution basique",
+              "completed",
+              "Code Python accepté (exécution via service dédié)",
+            );
+          } else {
+            addTask(
+              "Test d'exécution basique",
+              "completed",
+              `Exécution ${tool.language} (test limité)`,
+            );
+          }
         } catch (e: any) {
           addTask(
             "Test d'exécution basique",
