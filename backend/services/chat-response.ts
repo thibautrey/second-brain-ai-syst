@@ -22,6 +22,7 @@ import {
   executeTextToolCalls,
   extractAllTextToolCalls,
 } from "./chat-tools.js";
+import { CHAT_CONFIG } from "../config/chat-config.js";
 
 import OpenAI from "openai";
 import { flowTracker } from "./flow-tracker.js";
@@ -32,7 +33,7 @@ import { toolExecutorService } from "./tool-executor.js";
 export interface ChatResponseOptions {
   /** Additional context to include in system prompt (e.g., audio processing status) */
   additionalContext?: string;
-  /** Maximum tool call iterations (default: 10) */
+  /** Maximum tool call iterations (default: 30 from CHAT_CONFIG) */
   maxIterations?: number;
   /** Maximum tokens for response (default: 1000) */
   maxTokens?: number;
@@ -61,7 +62,11 @@ export interface ChatResponseResult {
   flowId: string;
 }
 
-type ChatMessageParam = {
+/**
+ * Standard chat message format for OpenAI API
+ * Exported for use across chat services
+ */
+export type ChatMessageParam = {
   role: "system" | "user" | "assistant" | "tool";
   content: string | null;
   tool_calls?: any[];
@@ -82,7 +87,7 @@ export async function getChatResponse(
 ): Promise<ChatResponseResult> {
   const {
     additionalContext = "",
-    maxIterations = 10,
+    maxIterations = CHAT_CONFIG.MAX_ITERATIONS,
     maxTokens = 1000,
     includeMemorySearch = true,
     memoryCount = 3,
@@ -179,7 +184,7 @@ export async function getChatResponse(
     let fullResponse = "";
     let iterationCount = 0;
     let consecutiveFailures = 0;
-    const MAX_CONSECUTIVE_FAILURES = 3;
+    const MAX_CONSECUTIVE_FAILURES = CHAT_CONFIG.MAX_CONSECUTIVE_FAILURES;
 
     while (iterationCount < maxIterations) {
       iterationCount++;

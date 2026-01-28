@@ -19,6 +19,12 @@ import {
   getUserContextData,
   prepareSystemPrompt,
 } from "../services/chat-context.js";
+import {
+  CHAT_CONFIG,
+  LlmTool,
+  ToolFunctionDefinition,
+} from "../config/chat-config.js";
+import { ChatMessageParam } from "../services/chat-response.js";
 import { NextFunction, Response } from "express";
 import {
   createToolMetadata,
@@ -49,25 +55,6 @@ import { randomBytes } from "crypto";
 import { responseCacheService } from "../services/response-cache.js";
 import { speculativeExecutor } from "../services/speculative-executor.js";
 import { toolExecutorService } from "../services/tool-executor.js";
-
-type ToolFunctionDefinition = {
-  name: string;
-  description?: string;
-  parameters?: Record<string, any>;
-};
-
-type LlmTool = {
-  type: "function";
-  function: ToolFunctionDefinition;
-};
-
-type ChatMessageParam = {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
-  tool_calls?: any[];
-  tool_call_id?: string;
-  name?: string;
-};
 
 const intentRouter = new IntentRouterService();
 
@@ -270,8 +257,8 @@ export async function chatStream(
     let sanitizationResults = new Map<string, any>();
     let iterationCount = 0;
     let consecutiveFailures = 0;
-    const MAX_ITERATIONS = 30;
-    const MAX_CONSECUTIVE_FAILURES = 5;
+    const MAX_ITERATIONS = CHAT_CONFIG.MAX_ITERATIONS;
+    const MAX_CONSECUTIVE_FAILURES = CHAT_CONFIG.MAX_CONSECUTIVE_FAILURES;
 
     const llmStart = Date.now();
 
