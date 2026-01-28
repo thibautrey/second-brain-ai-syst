@@ -903,7 +903,10 @@ def extract_embedding_from_buffer(
             load_model()
         
         # Convert PCM bytes to numpy array
+        # Note: .copy() is required because np.frombuffer can return arrays with negative strides
+        # which are not supported by PyTorch's torch.from_numpy()
         audio_np = np.frombuffer(audio_buffer, dtype=np.int16).astype(np.float32) / 32768.0
+        audio_np = audio_np.copy()  # Ensure contiguous array with positive strides
         
         # Convert to torch tensor (add channel dimension)
         waveform = torch.from_numpy(audio_np).unsqueeze(0)

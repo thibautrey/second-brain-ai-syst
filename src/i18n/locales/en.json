@@ -374,7 +374,20 @@
     "searchPlaceholder": "Search your memories...",
     "memoryType": "Memory Type",
     "deleteConfirm": "Are you sure you want to delete this memory?",
-    "noRecentActivity": "No recent activity"
+    "noRecentActivity": "No recent activity",
+    "search": {
+      "semanticShort": "Semantic",
+      "textShort": "Text"
+    },
+    "filters": {
+      "pinned": "Pinned",
+      "archived": "Archived",
+      "title": "Filters"
+    },
+    "timeline": {
+      "count": "{{count}} memory",
+      "count_plural": "{{count}} memories"
+    }
   },
   "todos": {
     "createTodo": "Create Task",
@@ -442,6 +455,22 @@
       "enabled": "Active",
       "disabled": "Disabled",
       "cron": "Recurring"
+    },
+    "item": {
+      "actionType": {
+        "runAgent": "Run Agent"
+      },
+      "scheduleType": {
+        "interval": "Interval"
+      },
+      "nextRun": {
+        "label": "Next run:",
+        "inHours": "in {{count}} hour",
+        "inHours_plural": "in {{count}} hours"
+      },
+      "runCount": "{{count}} run",
+      "runCount_plural": "{{count}} runs",
+      "lastRun": "Last run: {{date}}"
     }
   },
   "tools": {
@@ -454,6 +483,18 @@
     "configureRequired": "Configure required settings to install",
     "endpointNotAvailable": "Tools configuration endpoints are not yet",
     "apiTip": "💡 Tip: API endpoints for tools"
+  },
+  "toolsConfig": {
+    "title": "Tools Configuration",
+    "subtitle": "Manage built-in tools, generated tools, and MCP servers",
+    "generated": {
+      "versionLabel": "Version",
+      "usageLabel": "Usage",
+      "createdAtLabel": "Created",
+      "copyId": "Copy ID",
+      "selfHeal": "Self-heal",
+      "requiredSecretsLabel": "Required secrets"
+    }
   },
   "chat": {
     "accessMemories": "I can access your memories for personalized answers",
@@ -468,6 +509,27 @@
   },
   "training": {
     "passphrase": "My voice is my password",
+    "page": {
+      "title": "Voice Training",
+      "subtitle": "Create and train your voice profile for better recognition",
+      "tabs": {
+        "train": "Train",
+        "review": "Review"
+      },
+      "steps": {
+        "profile": "Profile",
+        "phrases": "Phrases",
+        "paragraphs": "Paragraphs",
+        "train": "Train",
+        "verify": "Verify"
+      },
+      "gettingStarted": {
+        "title": "Getting Started",
+        "tip1": "Create a voice profile to begin training.",
+        "tip2": "Record a few short phrases to build your model.",
+        "tip3": "Read longer paragraphs for higher accuracy."
+      }
+    },
     "recordSamples": {
       "title": "Record Voice Samples",
       "subtitle": "Record natural readings of the phrases below. Train with multiple languages for better accuracy.",
@@ -752,6 +814,7 @@
     "bestStreak": "Best",
     "days": "days",
     "weekAtGlance": "Your Week at a Glance",
+    "mostActive": "You're most active around",
     "mostActiveSentence": "You're most active around {{time}} in the {{period}}. That's a great time for reflection! ✨",
     "positive": "Positive",
     "neutral": "Neutral",
