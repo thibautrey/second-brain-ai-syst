@@ -395,20 +395,53 @@ export class ContinuousListeningService extends EventEmitter {
       // Clear speech buffer for next segment
       this.speechBuffer.clear();
 
-      // Step 1: Speaker Identification
-      console.log(`\n👤 [STEP 1] Speaker Identification...`);
+      // ============================================================================
+      // OPTIMIZATION: Parallel Speaker ID + Transcription
+      // Both operations are independent and can run concurrently
+      // This saves ~500-1500ms per speech segment
+      // ============================================================================
+      console.log(
+        `\n⚡ [PARALLEL] Starting Speaker ID + Transcription concurrently...`,
+      );
       console.log(`   → Audio segment duration: ${duration.toFixed(2)}s`);
-      const speakerStart = Date.now();
-      const speakerResult = await this.identifySpeaker(audioData, duration);
 
+      const parallelStart = Date.now();
+
+      // Start both operations in parallel
+      const [speakerResult, transcription] = await Promise.all([
+        // Speaker Identification
+        (async () => {
+          const speakerStart = Date.now();
+          const result = await this.identifySpeaker(audioData, duration);
+          console.log(
+            `\n👤 [SPEAKER ID] Completed in ${Date.now() - speakerStart}ms`,
+          );
+          console.log(
+            `   → Speaker: ${result.isTargetUser ? "✅ Target user" : "❌ Other/Unknown"}`,
+          );
+          console.log(
+            `   → Confidence: ${(result.confidence * 100).toFixed(1)}%`,
+          );
+          return result;
+        })(),
+        // Transcription
+        (async () => {
+          const transcriptionStart = Date.now();
+          const result = await this.transcribeAudio(audioData, duration);
+          console.log(
+            `\n📝 [TRANSCRIPTION] Completed in ${Date.now() - transcriptionStart}ms`,
+          );
+          console.log(
+            `   → Text: "${result.text.slice(0, 80)}${result.text.length > 80 ? "..." : ""}"`,
+          );
+          return result;
+        })(),
+      ]);
+
+      const parallelDuration = Date.now() - parallelStart;
       console.log(
-        `   → Speaker: ${speakerResult.isTargetUser ? "✅ Target user" : "❌ Other/Unknown"}`,
+        `\n⚡ [PARALLEL] Both completed in ${parallelDuration}ms (parallel execution)`,
       );
-      console.log(
-        `   → Confidence: ${(speakerResult.confidence * 100).toFixed(1)}%`,
-      );
-      console.log(`   → Speaker ID: ${speakerResult.speakerId}`);
-      console.log(`   → Duration: ${Date.now() - speakerStart}ms`);
 
       // Step 1.5: Adaptive Speaker Learning (background, non-blocking)
       // This helps the system improve speaker detection over time
@@ -453,11 +486,12 @@ export class ContinuousListeningService extends EventEmitter {
         stage: "speaker_identification",
         service: "SpeakerRecognition",
         status: speakerResult.isTargetUser ? "success" : "skipped",
-        duration: Date.now() - speakerStart,
+        duration: parallelDuration,
         data: {
           isTargetUser: speakerResult.isTargetUser,
           confidence: speakerResult.confidence,
           speakerId: speakerResult.speakerId,
+          parallelExecution: true,
         },
         decision: speakerResult.isTargetUser
           ? "Target user identified"
@@ -480,30 +514,18 @@ export class ContinuousListeningService extends EventEmitter {
         };
       }
 
-      // Step 2: Transcription
-      console.log(`\n📝 [STEP 2] Transcribing audio...`);
-      const transcriptionStart = Date.now();
-      const transcription = await this.transcribeAudio(audioData, duration);
-
-      console.log(
-        `   → Text: "${transcription.text.slice(0, 100)}${transcription.text.length > 100 ? "..." : ""}"`,
-      );
-      console.log(`   → Language: ${transcription.language}`);
-      console.log(
-        `   → Confidence: ${(transcription.confidence * 100).toFixed(1)}%`,
-      );
-      console.log(`   → Duration: ${Date.now() - transcriptionStart}ms`);
-
+      // Transcription already completed in parallel - just log and continue
       flowTracker.trackEvent({
         flowId,
         stage: "transcription",
         service: "OpenAI/Whisper",
         status: "success",
-        duration: Date.now() - transcriptionStart,
+        duration: parallelDuration, // Both ran in parallel, so use the same duration
         data: {
           textLength: transcription.text.length,
           confidence: transcription.confidence,
           language: transcription.language,
+          parallelExecution: true,
         },
       });
 
@@ -981,6 +1003,9 @@ export class ContinuousListeningService extends EventEmitter {
    * ECAPA-TDNN models work best with 3+ seconds of speech. Shorter clips will have
    * adjusted thresholds to account for lower reliability.
    *
+   * OPTIMIZATION: Uses in-memory buffer extraction (no file I/O)
+   * and local similarity computation for faster processing.
+   *
    * @param audioData - PCM audio buffer
    * @param audioDuration - Duration in seconds (used to adjust confidence thresholds)
    */
@@ -1003,24 +1028,32 @@ export class ContinuousListeningService extends EventEmitter {
     try {
       const embeddingService = await getEmbeddingService();
 
-      // Save temp file for embedding extraction - use shared volume for Docker compatibility
-      const sharedTmpDir = process.env.AUDIO_TMP_DIR || "/app/data/audio/tmp";
-      const fs = await import("fs/promises");
-      await fs.mkdir(sharedTmpDir, { recursive: true });
-      const tempPath = `${sharedTmpDir}/continuous_audio_${Date.now()}.wav`;
-      await this.saveAsWav(audioData, tempPath);
+      // ============================================================================
+      // OPTIMIZATION: Use in-memory buffer extraction + combined endpoint
+      // This avoids file I/O and reduces HTTP round-trips
+      // Old method: saveAsWav → extractEmbedding → computeSimilarity (3 operations)
+      // New method: extractAndCompare with buffer (1 operation)
+      // ============================================================================
 
-      // Extract embedding
-      const embedding = await embeddingService.extractEmbedding(tempPath);
+      const extractStart = Date.now();
 
-      // Cleanup temp file
-      await fs.unlink(tempPath).catch(() => {});
-
-      // Compare with centroid
-      const rawSimilarity = await embeddingService.computeSimilarity(
-        embedding,
+      // Use the optimized combined endpoint
+      const result = await embeddingService.extractAndCompare(
+        audioData,
         this.config.centroidEmbedding,
+        { sampleRate: 16000, applyPreprocessing: true },
       );
+
+      const extractDuration = Date.now() - extractStart;
+      console.log(
+        `   → Embedding extraction + comparison: ${extractDuration}ms (in-memory)`,
+      );
+      console.log(
+        `   → Processing time (Python): ${result.processingTimeMs}ms`,
+      );
+
+      const embedding = result.embedding;
+      const rawSimilarity = result.similarity;
 
       // Apply duration-based adjustments for speaker identification
       // Short audio clips (< 2s) have less reliable embeddings

@@ -878,6 +878,211 @@ def compute_centroid_endpoint() -> Union[Dict[str, Any], Tuple]:
         logger.error(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+
+# ==================== NEW: In-Memory Audio Buffer Endpoint ====================
+
+def extract_embedding_from_buffer(
+    audio_buffer: bytes, 
+    sample_rate: int = 16000,
+    apply_preprocessing: bool = True
+) -> List[float]:
+    """
+    Extract speaker embedding directly from audio buffer (no file I/O).
+    
+    Args:
+        audio_buffer: Raw PCM16 audio bytes (mono, 16-bit signed)
+        sample_rate: Sample rate of the audio (default: 16000)
+        apply_preprocessing: Whether to apply audio preprocessing
+        
+    Returns:
+        List of 192 embedding values
+    """
+    try:
+        # Load model if not already loaded
+        if model is None:
+            load_model()
+        
+        # Convert PCM bytes to numpy array
+        audio_np = np.frombuffer(audio_buffer, dtype=np.int16).astype(np.float32) / 32768.0
+        
+        # Convert to torch tensor (add channel dimension)
+        waveform = torch.from_numpy(audio_np).unsqueeze(0)
+        
+        # Apply preprocessing pipeline for better accuracy
+        if apply_preprocessing:
+            waveform, sample_rate, preprocess_meta = audio_preprocessor.process(waveform, sample_rate)
+            logger.debug(f"Buffer preprocessing: {preprocess_meta['preprocessing_applied']}")
+            logger.debug(f"Duration: {preprocess_meta['original_duration_s']:.2f}s → {preprocess_meta['final_duration_s']:.2f}s")
+        else:
+            # Legacy mode: ensure correct sample rate
+            if sample_rate != 16000:
+                waveform = torchaudio.functional.resample(waveform, sample_rate, 16000)
+        
+        # Move to device
+        waveform = waveform.to(DEVICE)
+        
+        # Extract embedding
+        with torch.no_grad():
+            embedding = model.encode_batch(waveform, normalize=False)
+        
+        # Convert to list
+        embedding_list = embedding.squeeze().cpu().numpy().tolist()
+        
+        # Ensure it's a flat list
+        if isinstance(embedding_list, list) and len(embedding_list) > 0:
+            if isinstance(embedding_list[0], list):
+                embedding_list = embedding_list[0]
+        
+        return embedding_list
+        
+    except Exception as e:
+        logger.error(f"✗ Failed to extract embedding from buffer: {e}")
+        raise
+
+
+@app.route("/extract-embedding-buffer", methods=["POST"])
+def extract_embedding_buffer_endpoint() -> Union[Dict[str, Any], Tuple]:
+    """
+    Extract embedding directly from audio buffer (no file I/O).
+    Much faster for real-time streaming scenarios.
+    
+    Request body (JSON):
+    {
+        "audio_base64": "<base64-encoded PCM16 audio>",
+        "sample_rate": 16000,  // optional, default: 16000
+        "apply_preprocessing": true  // optional, default: true
+    }
+    
+    OR multipart form with:
+    - audio: raw PCM16 bytes
+    - sample_rate: int (optional)
+    - apply_preprocessing: bool (optional)
+    """
+    import base64
+    import time
+    
+    start_time = time.time()
+    
+    try:
+        # Handle both JSON and multipart form data
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            # Multipart form: raw bytes
+            if 'audio' not in request.files:
+                return jsonify({"error": "Missing audio file in form data"}), 400
+            
+            audio_buffer = request.files['audio'].read()
+            sample_rate = int(request.form.get('sample_rate', 16000))
+            apply_preprocessing = request.form.get('apply_preprocessing', 'true').lower() == 'true'
+        else:
+            # JSON: base64 encoded
+            data = request.get_json()
+            
+            if not data or "audio_base64" not in data:
+                return jsonify({"error": "Missing required field: audio_base64"}), 400
+            
+            audio_buffer = base64.b64decode(data["audio_base64"])
+            sample_rate = data.get("sample_rate", 16000)
+            apply_preprocessing = data.get("apply_preprocessing", True)
+        
+        duration_seconds = len(audio_buffer) / (sample_rate * 2)  # PCM16 = 2 bytes per sample
+        logger.info(f"Processing audio buffer: {len(audio_buffer)} bytes ({duration_seconds:.2f}s)")
+        
+        embedding = extract_embedding_from_buffer(
+            audio_buffer, 
+            sample_rate=sample_rate,
+            apply_preprocessing=apply_preprocessing
+        )
+        
+        processing_time = (time.time() - start_time) * 1000  # ms
+        
+        return jsonify({
+            "success": True,
+            "embedding": embedding,
+            "dimension": len(embedding),
+            "model": MODEL_NAME,
+            "preprocessing_applied": apply_preprocessing,
+            "audio_duration_s": duration_seconds,
+            "processing_time_ms": round(processing_time, 1)
+        })
+        
+    except Exception as e:
+        logger.error(f"Buffer extraction error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/extract-embedding-and-compare", methods=["POST"])
+def extract_embedding_and_compare_endpoint() -> Union[Dict[str, Any], Tuple]:
+    """
+    Extract embedding from buffer AND compute similarity in one call.
+    Optimized for speaker identification - reduces round trips.
+    
+    Request body (JSON):
+    {
+        "audio_base64": "<base64-encoded PCM16 audio>",
+        "centroid_embedding": [...],  // 192-dim reference embedding
+        "sample_rate": 16000,  // optional
+        "apply_preprocessing": true  // optional
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "embedding": [...],
+        "similarity": 0.85,
+        "processing_time_ms": 150
+    }
+    """
+    import base64
+    import time
+    
+    start_time = time.time()
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "Missing request body"}), 400
+        
+        if "audio_base64" not in data:
+            return jsonify({"error": "Missing required field: audio_base64"}), 400
+        
+        if "centroid_embedding" not in data:
+            return jsonify({"error": "Missing required field: centroid_embedding"}), 400
+        
+        audio_buffer = base64.b64decode(data["audio_base64"])
+        centroid = data["centroid_embedding"]
+        sample_rate = data.get("sample_rate", 16000)
+        apply_preprocessing = data.get("apply_preprocessing", True)
+        
+        duration_seconds = len(audio_buffer) / (sample_rate * 2)
+        
+        # Extract embedding
+        embedding = extract_embedding_from_buffer(
+            audio_buffer,
+            sample_rate=sample_rate,
+            apply_preprocessing=apply_preprocessing
+        )
+        
+        # Compute similarity
+        similarity = compute_similarity(embedding, centroid)
+        
+        processing_time = (time.time() - start_time) * 1000
+        
+        return jsonify({
+            "success": True,
+            "embedding": embedding,
+            "similarity": similarity,
+            "dimension": len(embedding),
+            "model": MODEL_NAME,
+            "audio_duration_s": duration_seconds,
+            "processing_time_ms": round(processing_time, 1)
+        })
+        
+    except Exception as e:
+        logger.error(f"Extract and compare error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({"error": "Endpoint not found"}), 404

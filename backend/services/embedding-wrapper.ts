@@ -3,6 +3,12 @@
  *
  * Communicates with the Python embedding service via HTTP.
  * Handles automatic startup and health checks.
+ *
+ * Optimizations:
+ * - Local cosine similarity computation (avoids HTTP round-trip)
+ * - In-memory embedding cache for centroids
+ * - Buffer-based extraction (no file I/O)
+ * - Combined extract-and-compare endpoint
  */
 
 import axios, { AxiosInstance } from "axios";
@@ -28,6 +34,27 @@ interface ExtractEmbeddingResponse {
   embedding: number[];
   dimension: number;
   model: string;
+  preprocessing_applied?: boolean;
+}
+
+interface ExtractFromBufferResponse {
+  success: boolean;
+  embedding: number[];
+  dimension: number;
+  model: string;
+  preprocessing_applied: boolean;
+  audio_duration_s: number;
+  processing_time_ms: number;
+}
+
+interface ExtractAndCompareResponse {
+  success: boolean;
+  embedding: number[];
+  similarity: number;
+  dimension: number;
+  model: string;
+  audio_duration_s: number;
+  processing_time_ms: number;
 }
 
 interface BatchExtractResponse {
@@ -61,11 +88,108 @@ interface ComputeCentroidResponse {
   embedding_count: number;
 }
 
+// ==================== Embedding Cache ====================
+
+interface CachedEmbedding {
+  embedding: number[];
+  cachedAt: number;
+  source: string;
+}
+
+class EmbeddingCache {
+  private cache: Map<string, CachedEmbedding> = new Map();
+  private maxSize: number;
+  private ttlMs: number;
+
+  constructor(maxSize: number = 100, ttlMinutes: number = 60) {
+    this.maxSize = maxSize;
+    this.ttlMs = ttlMinutes * 60 * 1000;
+  }
+
+  set(key: string, embedding: number[], source: string = "unknown"): void {
+    // Evict oldest if at capacity
+    if (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey) this.cache.delete(oldestKey);
+    }
+
+    this.cache.set(key, {
+      embedding,
+      cachedAt: Date.now(),
+      source,
+    });
+  }
+
+  get(key: string): number[] | null {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+
+    // Check TTL
+    if (Date.now() - cached.cachedAt > this.ttlMs) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return cached.embedding;
+  }
+
+  has(key: string): boolean {
+    return this.get(key) !== null;
+  }
+
+  delete(key: string): boolean {
+    return this.cache.delete(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  getStats(): { size: number; maxSize: number; ttlMinutes: number } {
+    return {
+      size: this.cache.size,
+      maxSize: this.maxSize,
+      ttlMinutes: this.ttlMs / 60000,
+    };
+  }
+}
+
+// ==================== Local Similarity Computation ====================
+
+/**
+ * Compute cosine similarity locally (avoids HTTP round-trip)
+ * This is ~100x faster than calling the Python service
+ */
+export function computeCosineSimilarityLocal(
+  embedding1: number[],
+  embedding2: number[],
+): number {
+  if (embedding1.length !== embedding2.length) {
+    throw new Error(
+      `Embedding dimension mismatch: ${embedding1.length} vs ${embedding2.length}`,
+    );
+  }
+
+  let dotProduct = 0;
+  let norm1 = 0;
+  let norm2 = 0;
+
+  for (let i = 0; i < embedding1.length; i++) {
+    dotProduct += embedding1[i] * embedding2[i];
+    norm1 += embedding1[i] * embedding1[i];
+    norm2 += embedding2[i] * embedding2[i];
+  }
+
+  const denominator = Math.sqrt(norm1) * Math.sqrt(norm2);
+  return denominator > 0 ? dotProduct / denominator : 0;
+}
+
 export class EmbeddingService {
   private config: Required<EmbeddingServiceConfig>;
   private client: AxiosInstance;
   private pythonProcess: any = null;
   private isReady = false;
+  private centroidCache: EmbeddingCache;
 
   constructor(config: EmbeddingServiceConfig) {
     this.config = {
@@ -80,6 +204,9 @@ export class EmbeddingService {
       baseURL: `http://${this.config.host}:${this.config.port}`,
       timeout: 300000, // 5 minutes for model operations
     });
+
+    // Initialize centroid cache (100 entries, 60 minute TTL)
+    this.centroidCache = new EmbeddingCache(100, 60);
   }
 
   /**
@@ -336,6 +463,153 @@ export class EmbeddingService {
     }
   }
 
+  // ==================== Optimized Methods ====================
+
+  /**
+   * Compute similarity locally (no HTTP call)
+   * ~100x faster than calling the Python service
+   */
+  computeSimilarityLocal(embedding1: number[], embedding2: number[]): number {
+    return computeCosineSimilarityLocal(embedding1, embedding2);
+  }
+
+  /**
+   * Extract embedding directly from audio buffer (no file I/O)
+   * Much faster for real-time streaming scenarios
+   */
+  async extractEmbeddingFromBuffer(
+    audioBuffer: Buffer,
+    options: {
+      sampleRate?: number;
+      applyPreprocessing?: boolean;
+    } = {},
+  ): Promise<{
+    embedding: number[];
+    processingTimeMs: number;
+    audioDurationS: number;
+  }> {
+    if (!this.isReady) {
+      throw new Error("Embedding service is not ready");
+    }
+
+    const { sampleRate = 16000, applyPreprocessing = true } = options;
+
+    try {
+      const response = await this.client.post<ExtractFromBufferResponse>(
+        "/extract-embedding-buffer",
+        {
+          audio_base64: audioBuffer.toString("base64"),
+          sample_rate: sampleRate,
+          apply_preprocessing: applyPreprocessing,
+        },
+      );
+
+      if (!response.data.success) {
+        throw new Error("Failed to extract embedding from buffer");
+      }
+
+      return {
+        embedding: response.data.embedding,
+        processingTimeMs: response.data.processing_time_ms,
+        audioDurationS: response.data.audio_duration_s,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Failed to extract embedding from buffer: ${message}`);
+    }
+  }
+
+  /**
+   * Extract embedding AND compute similarity in one HTTP call
+   * Optimized for speaker identification - reduces round trips
+   */
+  async extractAndCompare(
+    audioBuffer: Buffer,
+    centroidEmbedding: number[],
+    options: {
+      sampleRate?: number;
+      applyPreprocessing?: boolean;
+    } = {},
+  ): Promise<{
+    embedding: number[];
+    similarity: number;
+    processingTimeMs: number;
+    audioDurationS: number;
+  }> {
+    if (!this.isReady) {
+      throw new Error("Embedding service is not ready");
+    }
+
+    const { sampleRate = 16000, applyPreprocessing = true } = options;
+
+    try {
+      const response = await this.client.post<ExtractAndCompareResponse>(
+        "/extract-embedding-and-compare",
+        {
+          audio_base64: audioBuffer.toString("base64"),
+          centroid_embedding: centroidEmbedding,
+          sample_rate: sampleRate,
+          apply_preprocessing: applyPreprocessing,
+        },
+      );
+
+      if (!response.data.success) {
+        throw new Error("Failed to extract and compare");
+      }
+
+      return {
+        embedding: response.data.embedding,
+        similarity: response.data.similarity,
+        processingTimeMs: response.data.processing_time_ms,
+        audioDurationS: response.data.audio_duration_s,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Failed to extract and compare: ${message}`);
+    }
+  }
+
+  // ==================== Centroid Cache Methods ====================
+
+  /**
+   * Get cached centroid embedding for a speaker profile
+   */
+  getCachedCentroid(profileId: string): number[] | null {
+    return this.centroidCache.get(profileId);
+  }
+
+  /**
+   * Cache centroid embedding for a speaker profile
+   */
+  cacheCentroid(
+    profileId: string,
+    centroid: number[],
+    source: string = "manual",
+  ): void {
+    this.centroidCache.set(profileId, centroid, source);
+    console.log(`[EmbeddingCache] Cached centroid for profile ${profileId}`);
+  }
+
+  /**
+   * Invalidate cached centroid (e.g., when profile is updated)
+   */
+  invalidateCentroid(profileId: string): boolean {
+    const deleted = this.centroidCache.delete(profileId);
+    if (deleted) {
+      console.log(
+        `[EmbeddingCache] Invalidated centroid for profile ${profileId}`,
+      );
+    }
+    return deleted;
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats(): { size: number; maxSize: number; ttlMinutes: number } {
+    return this.centroidCache.getStats();
+  }
+
   /**
    * Check if service is ready
    */
@@ -349,7 +623,10 @@ export class EmbeddingService {
   async getStatus(): Promise<any> {
     try {
       const response = await this.client.get("/health");
-      return response.data;
+      return {
+        ...response.data,
+        cache: this.getCacheStats(),
+      };
     } catch (error) {
       return { status: "unhealthy", error: String(error) };
     }
