@@ -132,6 +132,47 @@ export function injectProfileIntoPrompt(
 }
 
 /**
+ * Format available API keys for LLM context
+ * Only includes key names and display names (NOT the actual secret values)
+ * Safe to include in LLM prompts
+ */
+async function formatAvailableAPIKeysForPrompt(userId: string): Promise<string> {
+  try {
+    const { secretsService } = await import("./secrets.js");
+    const availableKeys = await secretsService.getAvailableKeysForContext(userId);
+    
+    if (!availableKeys || availableKeys.length === 0) {
+      return "";
+    }
+
+    // Group by category
+    const categorized = new Map<string, Array<{ key: string; displayName: string }>>();
+    for (const secret of availableKeys) {
+      const category = secret.category || "general";
+      if (!categorized.has(category)) {
+        categorized.set(category, []);
+      }
+      categorized.get(category)!.push({
+        key: secret.key,
+        displayName: secret.displayName,
+      });
+    }
+
+    const parts: string[] = [];
+    for (const [category, keys] of categorized.entries()) {
+      const keyList = keys.map((k) => `  - ${k.key} (${k.displayName})`).join("\n");
+      parts.push(`${category}:\n${keyList}`);
+    }
+
+    return `[Clés API disponibles]\nLes clés suivantes sont déjà configurées et prêtes à utiliser:\n${parts.join("\n\n")}`;
+  } catch (error) {
+    // Don't fail if we can't get API keys - just omit this section
+    console.warn("Failed to retrieve API keys for context:", error);
+    return "";
+  }
+}
+
+/**
  * Inject both date and user profile into system prompt
  */
 export async function injectContextIntoPrompt(
@@ -140,8 +181,11 @@ export async function injectContextIntoPrompt(
 ): Promise<string> {
   if (!systemPrompt) return systemPrompt;
 
-  // Get user profile
-  const profile = await getUserProfile(userId);
+  // Get user profile and available API keys in parallel
+  const [profile, apiKeysContext] = await Promise.all([
+    getUserProfile(userId),
+    formatAvailableAPIKeysForPrompt(userId),
+  ]);
 
   // Build context prefix
   const parts: string[] = [];
@@ -153,6 +197,11 @@ export async function injectContextIntoPrompt(
   const profileContext = formatProfileForPrompt(profile);
   if (profileContext) {
     parts.push(profileContext);
+  }
+
+  // Add available API keys if any
+  if (apiKeysContext) {
+    parts.push(apiKeysContext);
   }
 
   const contextPrefix = parts.join("\n\n");

@@ -351,6 +351,34 @@ class SecretsService {
       updatedAt: secret.updatedAt,
     };
   }
+
+  /**
+   * Get available API keys summary for context injection
+   * Returns non-expired keys with their display names (but NOT the actual values)
+   * This is safe to include in LLM prompts to inform the AI which keys are available
+   */
+  async getAvailableKeysForContext(
+    userId: string,
+  ): Promise<{ key: string; displayName: string; category: string }[]> {
+    const secrets = await prisma.userSecret.findMany({
+      where: {
+        userId,
+        // Exclude expired secrets
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
+      select: {
+        key: true,
+        displayName: true,
+        category: true,
+      },
+      orderBy: { category: "asc" },
+    });
+
+    return secrets;
+  }
 }
 
 export const secretsService = new SecretsService();
