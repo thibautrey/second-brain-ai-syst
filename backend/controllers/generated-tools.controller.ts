@@ -355,12 +355,15 @@ router.post(
         });
       }
 
-      const tasks: Array<{
-        task: string;
-        status: "pending" | "in-progress" | "completed" | "failed";
-        result?: string;
-        error?: string;
-      }> = [];
+      const tasksMap = new Map<
+        string,
+        {
+          task: string;
+          status: "pending" | "in-progress" | "completed" | "failed";
+          result?: string;
+          error?: string;
+        }
+      >();
 
       const addTask = (
         task: string,
@@ -368,7 +371,7 @@ router.post(
         result?: string,
         error?: string,
       ) => {
-        tasks.push({ task, status, result, error });
+        tasksMap.set(task, { task, status, result, error });
       };
 
       try {
@@ -454,7 +457,9 @@ router.post(
 
         // Task 7: Health check
         addTask("Vérification de santé globale", "in-progress");
-        const hasErrors = tasks.some((t) => t.status === "failed");
+        const hasErrors = Array.from(tasksMap.values()).some(
+          (t) => t.status === "failed",
+        );
         if (!hasErrors) {
           addTask(
             "Vérification de santé globale",
@@ -477,6 +482,7 @@ router.post(
         );
       }
 
+      const tasks = Array.from(tasksMap.values());
       res.json({
         success: true,
         toolId: id,
