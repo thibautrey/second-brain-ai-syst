@@ -29,6 +29,7 @@ import { NotificationTestPage } from "./NotificationTestPage";
 import { AnalyticsPage } from "../components/analytics";
 import { GoalsAchievementsPage } from "../components/goals-achievements";
 import { useIsMobile } from "../hooks/use-mobile";
+import { useDashboardStats } from "../hooks/useDashboardStats";
 import { fetchActiveTips, dismissTip, viewTip } from "../services/api";
 import type { Tip } from "../services/api";
 
@@ -40,6 +41,7 @@ export function DashboardPage() {
   const { tab } = useParams();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
+  const { totalInteractions } = useDashboardStats();
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -51,6 +53,18 @@ export function DashboardPage() {
 
   const userToggledSidebar = useRef(false);
   const activeTab = tab || "dashboard";
+  const [hasDetectedInteractions, setHasDetectedInteractions] = useState(() => {
+    // Initialize from localStorage
+    return localStorage.getItem("hasDetectedInteractions") === "true";
+  });
+
+  // Update localStorage when interactions are first detected
+  useEffect(() => {
+    if (totalInteractions > 0 && !hasDetectedInteractions) {
+      setHasDetectedInteractions(true);
+      localStorage.setItem("hasDetectedInteractions", "true");
+    }
+  }, [totalInteractions, hasDetectedInteractions]);
 
   const navItems = [
     {
@@ -70,6 +84,7 @@ export function DashboardPage() {
       label: t("navigation.interactions"),
       path: "/dashboard/interactions",
       matches: ["interactions"],
+      hidden: !hasDetectedInteractions, // Hide until interactions are detected
     },
     {
       icon: <Target className="w-5 h-5" />,
@@ -204,7 +219,9 @@ export function DashboardPage() {
           </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          {navItems.map((item) => (
+          {navItems
+            .filter((item) => !item.hidden)
+            .map((item) => (
             <NavItem
               key={item.path}
               icon={item.icon}
