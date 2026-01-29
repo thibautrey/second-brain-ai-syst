@@ -374,7 +374,49 @@
     "searchPlaceholder": "Rechercher dans vos souvenirs...",
     "memoryType": "Type de mémoire",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce souvenir?",
-    "noRecentActivity": "Aucune activité récente"
+    "noRecentActivity": "Aucune activité récente",
+    "search": {
+      "semanticEnabled": "Recherche sémantique activée",
+      "textSearch": "Recherche par texte",
+      "semanticShort": "Sémantique",
+      "textShort": "Texte"
+    },
+    "filters": {
+      "pinned": "Épinglés",
+      "archived": "Archivés",
+      "title": "Filtres",
+      "shortTerm": "Mémoire court terme",
+      "longTerm": "Mémoire long terme",
+      "minImportance": "Importance minimale",
+      "importance": {
+        "high": "Haute",
+        "medium": "Moyenne"
+      },
+      "reset": "Réinitialiser"
+    },
+    "timeline": {
+      "count": "{{count}} souvenir",
+      "count_plural": "{{count}} souvenirs",
+      "loadMore": "Charger plus"
+    },
+    "detail": {
+      "title": "Détails du souvenir",
+      "type": {
+        "longTerm": "Mémoire long terme",
+        "shortTerm": "Mémoire court terme"
+      },
+      "importance": "Importance : {{percent}}%",
+      "pinnedBadge": "Épinglé",
+      "archivedBadge": "Archivé",
+      "tags": "Étiquettes",
+      "entities": "Entités",
+      "metadata": "Métadonnées",
+      "sourceLabel": "Source",
+      "unpin": "Dépingler",
+      "pin": "Épingler",
+      "unarchive": "Désarchiver",
+      "archive": "Archiver"
+    }
   },
   "todos": {
     "createTodo": "Créer une tâche",

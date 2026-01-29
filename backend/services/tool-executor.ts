@@ -2746,94 +2746,173 @@ export class ToolExecutorService {
     action: string,
     params: Record<string, any>,
   ): Promise<any> {
-    switch (action) {
-      case "get": {
-        const profile = await userProfileService.getUserProfile(userId);
-        return {
-          action: "get",
-          profile,
-          isEmpty: Object.keys(profile).length === 0,
-        };
-      }
+    console.log(
+      `[ToolExecutor] [executeUserProfileAction] START: userId=${userId}, action=${action}`,
+    );
+    console.log(
+      `[ToolExecutor] [executeUserProfileAction] Received params:`,
+      JSON.stringify(params).substring(0, 200),
+    );
 
-      case "update": {
-        // Allow partial updates - merge with existing profile
-        const updates: Partial<UserProfile> = {};
-
-        // Map allowed fields from params to profile
-        const allowedFields = [
-          "name",
-          "firstName",
-          "lastName",
-          "nickname",
-          "age",
-          "birthdate",
-          "location",
-          "timezone",
-          "language",
-          "occupation",
-          "company",
-          "industry",
-          "skills",
-          "workStyle",
-          "communicationStyle",
-          "preferredName",
-          "interests",
-          "hobbies",
-          "currentGoals",
-          "longTermGoals",
-          "relationships",
-          "dietaryPreferences",
-          "exerciseHabits",
-          "sleepSchedule",
-          "custom",
-        ];
-
-        for (const field of allowedFields) {
-          if (params[field] !== undefined) {
-            (updates as any)[field] = params[field];
-          }
-        }
-
-        if (Object.keys(updates).length === 0) {
-          throw new Error(
-            "At least one profile field must be provided for update",
+    try {
+      switch (action) {
+        case "get": {
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Executing GET action`,
           );
+          const profile = await userProfileService.getUserProfile(userId);
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] GET returned profile with keys: ${Object.keys(profile).join(", ") || "empty"}`,
+          );
+          return {
+            action: "get",
+            profile,
+            isEmpty: Object.keys(profile).length === 0,
+          };
         }
 
-        const updatedProfile = await userProfileService.mergeUserProfile(
-          userId,
-          updates,
-        );
+        case "update": {
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Executing UPDATE action`,
+          );
+          // Allow partial updates - merge with existing profile
+          const updates: Partial<UserProfile> = {};
 
-        return {
-          action: "update",
-          updatedFields: Object.keys(updates),
-          profile: updatedProfile,
-          message: `Profile updated successfully with fields: ${Object.keys(updates).join(", ")}`,
-        };
-      }
+          // Map allowed fields from params to profile
+          const allowedFields = [
+            "name",
+            "firstName",
+            "lastName",
+            "nickname",
+            "age",
+            "birthdate",
+            "location",
+            "timezone",
+            "language",
+            "occupation",
+            "company",
+            "industry",
+            "skills",
+            "workStyle",
+            "communicationStyle",
+            "preferredName",
+            "interests",
+            "hobbies",
+            "currentGoals",
+            "longTermGoals",
+            "relationships",
+            "dietaryPreferences",
+            "exerciseHabits",
+            "sleepSchedule",
+            "custom",
+          ];
 
-      case "delete_fields": {
-        if (!params.fields || !Array.isArray(params.fields)) {
-          throw new Error("fields array is required for delete_fields");
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Allowed fields: ${allowedFields.join(", ")}`,
+          );
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Param keys received: ${Object.keys(params).join(", ")}`,
+          );
+
+          for (const field of allowedFields) {
+            if (params[field] !== undefined) {
+              console.log(
+                `[ToolExecutor] [executeUserProfileAction] Mapping param '${field}' = ${JSON.stringify(params[field])}`,
+              );
+              (updates as any)[field] = params[field];
+            }
+          }
+
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Total fields to update: ${Object.keys(updates).length}`,
+          );
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Update object keys: ${Object.keys(updates).join(", ") || "empty"}`,
+          );
+
+          if (Object.keys(updates).length === 0) {
+            console.error(
+              `[ToolExecutor] [executeUserProfileAction] ERROR: No valid profile fields in params`,
+            );
+            throw new Error(
+              "At least one profile field must be provided for update",
+            );
+          }
+
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Calling userProfileService.mergeUserProfile with userId=${userId}`,
+          );
+          const updatedProfile = await userProfileService.mergeUserProfile(
+            userId,
+            updates,
+          );
+
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] mergeUserProfile returned successfully`,
+          );
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Updated profile keys: ${Object.keys(updatedProfile).join(", ") || "empty"}`,
+          );
+
+          return {
+            action: "update",
+            updatedFields: Object.keys(updates),
+            profile: updatedProfile,
+            message: `Profile updated successfully with fields: ${Object.keys(updates).join(", ")}`,
+          };
         }
 
-        const updatedProfile = await userProfileService.deleteProfileFields(
-          userId,
-          params.fields as (keyof UserProfile)[],
-        );
+        case "delete_fields": {
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Executing DELETE_FIELDS action`,
+          );
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Fields to delete: ${JSON.stringify(params.fields)}`,
+          );
 
-        return {
-          action: "delete_fields",
-          deletedFields: params.fields,
-          profile: updatedProfile,
-          message: `Fields deleted: ${params.fields.join(", ")}`,
-        };
+          if (!params.fields || !Array.isArray(params.fields)) {
+            console.error(
+              `[ToolExecutor] [executeUserProfileAction] ERROR: fields array is required for delete_fields`,
+            );
+            throw new Error("fields array is required for delete_fields");
+          }
+
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Calling userProfileService.deleteProfileFields`,
+          );
+          const updatedProfile = await userProfileService.deleteProfileFields(
+            userId,
+            params.fields as (keyof UserProfile)[],
+          );
+
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] deleteProfileFields returned successfully`,
+          );
+
+          return {
+            action: "delete_fields",
+            deletedFields: params.fields,
+            profile: updatedProfile,
+            message: `Fields deleted: ${params.fields.join(", ")}`,
+          };
+        }
+
+        default:
+          console.error(
+            `[ToolExecutor] [executeUserProfileAction] ERROR: Unknown action: ${action}`,
+          );
+          throw new Error(`Unknown user_profile action: ${action}`);
       }
-
-      default:
-        throw new Error(`Unknown user_profile action: ${action}`);
+    } catch (error: any) {
+      console.error(
+        `[ToolExecutor] [executeUserProfileAction] CAUGHT ERROR:`,
+        error.message,
+      );
+      console.error(
+        `[ToolExecutor] [executeUserProfileAction] Error stack:`,
+        error.stack,
+      );
+      throw error;
     }
   }
 
