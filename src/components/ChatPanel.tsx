@@ -176,6 +176,15 @@ export function ChatPanel() {
           </div>
         )}
 
+        {/* Model name display */}
+        {messages.length > 0 && !isLoading && (
+          <div className="mt-4 text-xs text-center text-slate-400">
+            {messages[messages.length - 1]?.modelId
+              ? `${messages[messages.length - 1]!.modelId}`
+              : ""}
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 

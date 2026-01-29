@@ -499,6 +499,10 @@ function handleStreamEvent(
         const lastMsg = messages[messages.length - 1];
         if (lastMsg && lastMsg.role === "assistant") {
           lastMsg.isStreaming = false;
+          // Capture the model ID from the end event
+          if ((event as any).modelId) {
+            lastMsg.modelId = (event as any).modelId;
+          }
         }
         return {
           ...prev,

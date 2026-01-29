@@ -70,6 +70,8 @@ export interface ChatMessage {
     totalTokens: number;
     cost: number;
   };
+  // Model ID that generated this message (assistant messages only)
+  modelId?: string;
 }
 
 export interface ChatRequest {

@@ -180,6 +180,14 @@ export interface ErrorEvent extends EnhancedStreamEvent {
 }
 
 /**
+ * End event - sent when stream is complete, includes model information
+ */
+export interface EndEvent extends EnhancedStreamEvent {
+  type: "end";
+  modelId?: string;
+}
+
+/**
  * Union type of all events
  */
 export type StreamEvent =
@@ -198,7 +206,8 @@ export type StreamEvent =
   | ToolResultEvent
   | ToolErrorEvent
   | UsageEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | EndEvent;
 
 // ==================== SSE Writer ====================
 
@@ -217,7 +226,7 @@ export interface StreamWriter {
     parsedPreview?: Record<string, unknown>,
   ): void;
   error(error: string, code?: string, isRetryable?: boolean): void;
-  end(): void;
+  end(modelId?: string): void;
   isOpen(): boolean;
 }
 
@@ -311,9 +320,9 @@ export class SSEWriter implements StreamWriter {
   /**
    * End the stream
    */
-  end(): void {
+  end(modelId?: string): void {
     if (this.isClosed) return;
-    this.write({ type: "end" });
+    this.write({ type: "end", modelId } as EndEvent);
     this.res.end();
     this.isClosed = true;
   }

@@ -93,13 +93,13 @@ export async function chatStream(
         previousMessages: validPreviousMessages,
         activeSessionId,
         sessionTitle,
-        modelId: "unknown", // Model ID is handled internally by orchestrator
+        modelId: result.modelId || "unknown",
         provider: "openai",
       });
     }
 
-    // End the stream
-    writer.end();
+    // End the stream with model information
+    writer.end(result.modelId);
   } catch (error) {
     console.error("[ChatController] Chat stream error:", error);
 
@@ -164,8 +164,8 @@ export async function chatStreamEnhanced(
       writer,
     );
 
-    // End the stream
-    writer.end();
+    // End the stream with model information
+    writer.end(result.modelId);
   } catch (error) {
     console.error("[ChatController] Enhanced chat stream error:", error);
 

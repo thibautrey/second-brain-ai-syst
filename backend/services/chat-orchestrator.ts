@@ -78,6 +78,7 @@ export interface ChatOrchestratorResult {
     cost: number;
   };
   retryAttempts: number;
+  modelId?: string;
 }
 
 export interface ToolExecutionResult {
@@ -126,6 +127,7 @@ export async function orchestrateChat(
   let retryContext: RetryContext | undefined = undefined;
   let fullResponse = "";
   let usage: ChatOrchestratorResult["usage"] | undefined;
+  let modelId: string | undefined;
 
   try {
     // Initial status
@@ -168,6 +170,7 @@ export async function orchestrateChat(
         messageId,
         toolResults: [],
         retryAttempts: 0,
+        modelId: undefined,
       };
     }
 
@@ -344,6 +347,7 @@ export async function orchestrateChat(
           executionTime: r.executionTime,
         })),
         retryAttempts: orchestratorResult.reflections.length,
+        modelId,
       };
     }
 
@@ -601,6 +605,7 @@ export async function orchestrateChat(
       toolResults: allToolResults,
       usage,
       retryAttempts: retryAttempt,
+      modelId,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -624,6 +629,7 @@ export async function orchestrateChat(
       messageId,
       toolResults: allToolResults,
       retryAttempts: retryAttempt,
+      modelId,
     };
   }
 }
@@ -762,9 +768,8 @@ function schedulePostProcessing(
 
       if (valueAssessment.shouldStore) {
         const factToStore = valueAssessment.factToStore?.trim();
-        const memoryContent = factToStore && factToStore.length
-          ? factToStore
-          : message.trim();
+        const memoryContent =
+          factToStore && factToStore.length ? factToStore : message.trim();
         const memoryReason =
           valueAssessment.reason || "Marked for memory storage";
 
