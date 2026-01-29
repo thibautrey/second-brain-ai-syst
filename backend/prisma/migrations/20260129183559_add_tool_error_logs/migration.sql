@@ -16,15 +16,15 @@ CREATE TABLE "tool_error_logs" (
     "requestSize" INTEGER,
     "partialResult" TEXT,
     "responseSize" INTEGER,
-    "startedAt" DATETIME NOT NULL,
-    "endedAt" DATETIME NOT NULL,
+    "startedAt" TIMESTAMP NOT NULL,
+    "endedAt" TIMESTAMP NOT NULL,
     "executionTimeMs" INTEGER NOT NULL,
     "flowId" TEXT,
     "sessionId" TEXT,
     "iterationCount" INTEGER,
     "relatedToolId" TEXT,
     "metadata" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateIndex
