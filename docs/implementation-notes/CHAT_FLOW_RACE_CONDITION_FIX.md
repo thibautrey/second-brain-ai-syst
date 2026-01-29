@@ -7,6 +7,7 @@
 ## Key Discovery
 
 The issue **ONLY happened in Chat, not Telegram** because:
+
 - ✅ **Telegram** uses `getChatResponse()` service (non-agentic path)
 - ❌ **Chat** uses `orchestrateChat()` → `AgenticOrchestrator` → `ExecutionWatcher` with race condition
 
@@ -15,6 +16,7 @@ The issue **ONLY happened in Chat, not Telegram** because:
 `flowTracker.completeFlow()` was called inside `setImmediate()` block, too late.
 
 **Fix**: Moved completion event to execute before `schedulePostProcessing()` in both:
+
 - Agentic flow path (line ~331 of chat-orchestrator.ts)
 - Non-agentic flow path (line ~597 of chat-orchestrator.ts)
 
@@ -23,7 +25,9 @@ The issue **ONLY happened in Chat, not Telegram** because:
 The **real issue** preventing orchestrator from completing:
 
 ### Problem
+
 In `ExecutionWatcher.waitForAll()`:
+
 ```
 1. Agent completes execution quickly (< 50ms)
 2. Callback removes agent from this.agents map
@@ -33,7 +37,9 @@ In `ExecutionWatcher.waitForAll()`:
 ```
 
 ### Solution
+
 Added immediate check after setting up callbacks:
+
 ```typescript
 this.startMonitoring();
 // Check immediately for already-completed agents
