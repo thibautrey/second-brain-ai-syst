@@ -524,23 +524,29 @@ export async function createChatCompletion(
 
   try {
     // Non-streaming mode
+    // Note: Reasoning models (model.reasoning === true) don't support temperature
+    // pi-ai will handle this automatically, but we explicitly skip it for clarity
     const response = await complete(model, context, {
       apiKey,
-      temperature: options.temperature,
+      // Only pass temperature for non-reasoning models
+      temperature: model.reasoning ? undefined : options.temperature,
       signal: options.signal,
     });
 
     const result = formatResponse(response);
 
     // Check if we should retry due to empty response
-    // Don't retry if stopReason is "toolUse" (empty content is expected when calling tools)
+    // Don't retry if:
+    // - stopReason is "toolUse" (empty content is expected when calling tools)
+    // - stopReason is "error" or "aborted" (permanent errors, retry won't help)
     const hasContent = result.content && result.content.trim().length > 0;
     const hasToolCalls = result.toolCalls && result.toolCalls.length > 0;
     const isToolUseStop = result.stopReason === "toolUse";
     const isErrorStop =
       result.stopReason === "error" || result.stopReason === "aborted";
 
-    if (!hasContent && !hasToolCalls && !isToolUseStop) {
+    // Don't retry on error responses - they are permanent, not transient
+    if (!hasContent && !hasToolCalls && !isToolUseStop && !isErrorStop) {
       if (_retryCount < MAX_RETRIES) {
         console.warn(
           `[PiAiProvider] Model "${config.modelId}" returned empty response (stopReason: ${result.stopReason}), retrying (${_retryCount + 1}/${MAX_RETRIES})`,
@@ -561,6 +567,17 @@ export async function createChatCompletion(
           },
         );
       }
+    }
+
+    // Log error details if response ended with error
+    if (isErrorStop && result.raw?.errorMessage) {
+      console.error(
+        `[PiAiProvider] Model "${config.modelId}" returned error response`,
+        {
+          stopReason: result.stopReason,
+          errorMessage: result.raw.errorMessage,
+        },
+      );
     }
 
     return result;
@@ -701,9 +718,11 @@ export async function* createStreamingChatCompletion(
   }
 
   try {
+    // Note: Reasoning models (model.reasoning === true) don't support temperature
     const s = stream(model, context, {
       apiKey,
-      temperature: options.temperature,
+      // Only pass temperature for non-reasoning models
+      temperature: model.reasoning ? undefined : options.temperature,
       signal: options.signal,
     });
 
