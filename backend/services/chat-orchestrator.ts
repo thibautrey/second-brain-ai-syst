@@ -155,7 +155,7 @@ export async function orchestrateChat(
     // ==================== 2. CHECK PROVIDER ====================
     if (!providerResult) {
       writer.error(
-        "Aucun fournisseur LLM configuré. Allez dans Paramètres > IA pour en ajouter un.",
+        "No LLM provider configured. Go to Settings > AI to add one.",
         "NO_PROVIDER",
         false,
       );
@@ -422,7 +422,7 @@ export async function orchestrateChat(
       const attemptToolResults: ToolExecutionResult[] = [];
 
       // ==================== 10. EXECUTE STREAM ====================
-      writer.status("Génération de la réponse...", "generating");
+      writer.status("Generating response...", "generating");
 
       const streamOptions: EnhancedStreamOptions = {
         temperature: chatTemp,
@@ -534,7 +534,7 @@ export async function orchestrateChat(
     // Emergency fallback if still no response
     if (!fullResponse || fullResponse.trim().length === 0) {
       fullResponse =
-        "Je rencontre des difficultés techniques pour répondre à votre message. Veuillez réessayer dans quelques instants ou reformuler votre question.";
+        "I'm experiencing technical difficulties responding to your message. Please try again in a few moments or rephrase your question.";
 
       for (let i = 0; i < fullResponse.length; i += 5) {
         const chunk = fullResponse.slice(i, i + 5);

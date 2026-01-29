@@ -1112,6 +1112,8 @@
         "inactive": "Inactive"
       },
       "addProvider": "Add AI Provider",
+      "selectProviderPreset": "Select a Provider",
+      "orCustom": "or enter custom",
       "form": {
         "providerName": "Provider Name",
         "placeholderProvider": "OpenAI",
@@ -1125,6 +1127,7 @@
       "testResultSuccess": "Successfully connected to API!",
       "testResultFailure": "Connection failed",
       "addProviderButton": "Add Provider",
+      "addAnotherProvider": "Add Another Provider",
       "helpTitle": "Need an API Key?",
       "helpCopy": "You'll need an API key from an AI provider. Here are some popular options:",
       "apiLinks": {

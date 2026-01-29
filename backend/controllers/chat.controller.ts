@@ -16,12 +16,13 @@
  */
 
 import { NextFunction, Response } from "express";
+
 import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { SSEWriter } from "../services/enhanced-streaming.js";
-import { orchestrateChat } from "../services/chat-orchestrator.js";
 import { chatPollingService } from "../services/chat-polling.js";
-import { processTelegramMessage } from "../services/telegram-chat.js";
 import { handleSessionPersistence } from "../services/chat-session-persistence.js";
+import { orchestrateChat } from "../services/chat-orchestrator.js";
+import { processTelegramMessage } from "../services/telegram-chat.js";
 
 // ==================== POST /api/chat ====================
 
@@ -104,7 +105,7 @@ export async function chatStream(
 
     if (writer.isOpen()) {
       writer.error(
-        error instanceof Error ? error.message : "Une erreur est survenue",
+        error instanceof Error ? error.message : "An error occurred",
         "INTERNAL_ERROR",
         true,
       );

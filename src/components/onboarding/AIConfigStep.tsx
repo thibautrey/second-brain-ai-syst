@@ -21,6 +21,58 @@ interface AIConfigStepProps {
   onModelsDiscovered?: (models: Array<{ id: string; name: string }>) => void;
 }
 
+interface ProviderPreset {
+  name: string;
+  displayName: string;
+  baseUrl: string;
+  docsUrl: string;
+}
+
+const PROVIDER_PRESETS: ProviderPreset[] = [
+  {
+    name: "OpenAI",
+    displayName: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    docsUrl: "https://platform.openai.com/api-keys",
+  },
+  {
+    name: "Anthropic",
+    displayName: "Anthropic",
+    baseUrl: "https://api.anthropic.com",
+    docsUrl: "https://console.anthropic.com",
+  },
+  {
+    name: "Google Gemini",
+    displayName: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    docsUrl: "https://aistudio.google.com/app/apikey",
+  },
+  {
+    name: "DeepSeek",
+    displayName: "DeepSeek",
+    baseUrl: "https://api.deepseek.com",
+    docsUrl: "https://platform.deepseek.com/api-docs",
+  },
+  {
+    name: "xAI Grok",
+    displayName: "xAI Grok",
+    baseUrl: "https://api.x.ai/v1",
+    docsUrl: "https://console.x.ai/",
+  },
+  {
+    name: "Mistral",
+    displayName: "Mistral AI",
+    baseUrl: "https://api.mistral.ai/v1",
+    docsUrl: "https://console.mistral.ai/api-keys/",
+  },
+  {
+    name: "Alibaba Qwen",
+    displayName: "Alibaba Qwen",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    docsUrl: "https://bailian.console.aliyun.com/",
+  },
+];
+
 export function AIConfigStep({
   onNext,
   onModelsDiscovered,
@@ -104,8 +156,14 @@ export function AIConfigStep({
         isEnabled: true,
       });
 
-      setHasValidProvider(true);
+      // Reset form for adding another provider
+      setNewProvider({
+        name: "OpenAI",
+        apiKey: "",
+        baseUrl: "https://api.openai.com/v1",
+      });
       setTestResult({ success: true, message: "Provider added successfully!" });
+      setHasValidProvider(true);
     } catch (error) {
       setTestResult({
         success: false,
@@ -169,95 +227,154 @@ export function AIConfigStep({
       )}
 
       {/* Add New Provider */}
-      {!hasValidProvider && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-lg">
-              <Plus className="w-5 h-5" />
-              <span>{t("onboarding.aiConfigStep.addProvider")}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <Label htmlFor="provider-name">
-                  {t("onboarding.aiConfigStep.form.providerName")}
-                </Label>
-                <Input
-                  id="provider-name"
-                  value={newProvider.name}
-                  onChange={(e) =>
-                    setNewProvider({ ...newProvider, name: e.target.value })
-                  }
-                  placeholder="OpenAI"
-                />
-              </div>
-              <div>
-                <Label htmlFor="base-url">
-                  {t("onboarding.aiConfigStep.form.baseUrl")}
-                </Label>
-                <Input
-                  id="base-url"
-                  value={newProvider.baseUrl}
-                  onChange={(e) =>
-                    setNewProvider({ ...newProvider, baseUrl: e.target.value })
-                  }
-                  placeholder="https://api.openai.com/v1"
-                />
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2 text-lg">
+            <Plus className="w-5 h-5" />
+            <span>{t("onboarding.aiConfigStep.addProvider")}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Provider Presets */}
+          <div>
+            <Label className="text-base font-medium mb-3 block">
+              {t("onboarding.aiConfigStep.selectProviderPreset")}
+            </Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {PROVIDER_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  onClick={() => {
+                    setNewProvider({
+                      name: preset.name,
+                      apiKey: "",
+                      baseUrl: preset.baseUrl,
+                    });
+                    setTestResult(null);
+                  }}
+                  className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                    newProvider.name === preset.name
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-muted hover:border-primary/50 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {preset.displayName}
+                </button>
+              ))}
             </div>
+          </div>
 
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-muted"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                {t("onboarding.aiConfigStep.orCustom")}
+              </span>
+            </div>
+          </div>
+
+          {/* Custom Provider Form */}
             <div>
-              <Label htmlFor="api-key">
-                {t("onboarding.aiConfigStep.form.apiKey")}
+              <Label htmlFor="provider-name">
+                {t("onboarding.aiConfigStep.form.providerName")}
               </Label>
               <Input
-                id="api-key"
-                type="password"
-                value={newProvider.apiKey}
+                id="provider-name"
+                value={newProvider.name}
                 onChange={(e) =>
-                  setNewProvider({ ...newProvider, apiKey: e.target.value })
+                  setNewProvider({ ...newProvider, name: e.target.value })
                 }
-                placeholder="sk-..."
+                placeholder="OpenAI"
               />
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t("onboarding.aiConfigStep.securityCopy")}
-              </p>
             </div>
+            <div>
+              <Label htmlFor="base-url">
+                {t("onboarding.aiConfigStep.form.baseUrl")}
+              </Label>
+              <Input
+                id="base-url"
+                value={newProvider.baseUrl}
+                onChange={(e) =>
+                  setNewProvider({ ...newProvider, baseUrl: e.target.value })
+                }
+                placeholder="https://api.openai.com/v1"
+              />
+            </div>
+          </div>
 
-            <div className="flex items-center space-x-2">
-              <Button
-                onClick={handleTestProvider}
-                disabled={isTesting || !newProvider.apiKey}
-                variant="outline"
-              >
-                {isTesting ? (
+          <div>
+            <Label htmlFor="api-key">
+              {t("onboarding.aiConfigStep.form.apiKey")}
+            </Label>
+            <Input
+              id="api-key"
+              type="password"
+              value={newProvider.apiKey}
+              onChange={(e) =>
+                setNewProvider({ ...newProvider, apiKey: e.target.value })
+              }
+              placeholder="sk-..."
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("onboarding.aiConfigStep.securityCopy")}
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={handleTestProvider}
+              disabled={isTesting || !newProvider.apiKey}
+              variant="outline"
+            >
+              {isTesting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              {t("onboarding.aiConfigStep.testConnection")}
+            </Button>
+
+            {testResult?.success && (
+              <Button onClick={handleAddProvider} disabled={isSaving}>
+                {isSaving ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : null}
-                {t("onboarding.aiConfigStep.testConnection")}
+                {t("onboarding.aiConfigStep.addProviderButton")}
               </Button>
-
-              {testResult?.success && (
-                <Button onClick={handleAddProvider} disabled={isSaving}>
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : null}
-                  {t("onboarding.aiConfigStep.addProviderButton")}
-                </Button>
-              )}
-            </div>
-
-            {testResult && (
-              <Alert
-                className={
-                  testResult.success ? "border-green-500" : "border-red-500"
-                }
-              >
-                <AlertDescription>{testResult.message}</AlertDescription>
-              </Alert>
             )}
-          </CardContent>
-        </Card>
+          </div>
+
+          {testResult && (
+            <Alert
+              className={
+                testResult.success ? "border-green-500" : "border-red-500"
+              }
+            >
+              <AlertDescription>{testResult.message}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Another Provider Button (if at least one provider exists) */}
+      {hasValidProvider && (
+        <div className="text-center">
+          <Button
+            onClick={() => {
+              setTestResult(null);
+              setNewProvider({
+                name: "OpenAI",
+                apiKey: "",
+                baseUrl: "https://api.openai.com/v1",
+              });
+            }}
+            variant="outline"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {t("onboarding.aiConfigStep.addAnotherProvider")}
+          </Button>
+        </div>
       )}
 
       {/* Help Section */}

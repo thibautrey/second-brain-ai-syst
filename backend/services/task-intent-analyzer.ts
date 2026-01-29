@@ -165,13 +165,11 @@ const MONITORING_SUBJECTS: Record<string, MonitoringSubject> = {
     type: "news",
     keywords: [
       "news",
-      "actualités",
-      "nouvelles",
+      "current events",
+      "bulletin",
       "article",
-      "annonce",
       "announcement",
       "update",
-      "mise à jour",
     ],
     defaultInterval: 240, // 4 hours
   },

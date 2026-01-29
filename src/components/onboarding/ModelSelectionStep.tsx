@@ -29,10 +29,25 @@ export function ModelSelectionStep({
   const availableModels =
     discoveredModels.length > 0 ? discoveredModels : lastProvider?.models || [];
 
-  // Auto-select first model if available
+  // Auto-select well-known models if available
   useEffect(() => {
     if (availableModels.length > 0 && !selectedModel) {
-      setSelectedModel(availableModels[0].id);
+      // Prefer well-known models
+      const wellKnownModels = [
+        "gpt-4-mini", // Codex-mini-latest equivalent
+        "claude-3-5-haiku", // Anthropic Haiku
+        "claude-3-5-haiku-20241022",
+        "gpt-4",
+        "gpt-3.5-turbo",
+      ];
+
+      const selectedWellKnown = availableModels.find((model) =>
+        wellKnownModels.some((known) =>
+          model.id.toLowerCase().includes(known.toLowerCase()),
+        ),
+      );
+
+      setSelectedModel(selectedWellKnown?.id || availableModels[0].id);
     }
   }, [availableModels, selectedModel]);
 

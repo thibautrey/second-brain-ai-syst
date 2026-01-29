@@ -7,6 +7,11 @@
 // This service maintains backward compatibility for simple generation.
 
 import { GeneratedTool, PrismaClient } from "@prisma/client";
+import {
+  detectSecretsInCode,
+  mergeAndCompleteSecrets,
+  validateSecretsDeclaration,
+} from "./secret-detector.js";
 
 import { codeExecutorService } from "./code-executor-wrapper.js";
 import { llmRouterService } from "./llm-router.js";
@@ -14,7 +19,6 @@ import { secretsService } from "./secrets.js";
 import { toolGenerationWorkflowService } from "./tool-generation-workflow.js";
 import { toolHealerService } from "./tool-healer.js";
 import { wsBroadcastService } from "./websocket-broadcast.js";
-import { detectSecretsInCode, validateSecretsDeclaration, mergeAndCompleteSecrets } from "./secret-detector.js";
 
 const prisma = new PrismaClient();
 
@@ -548,17 +552,17 @@ Generate Python code that accomplishes this objective.`;
   ): Promise<GeneratedToolInput> {
     // Step 1: Detect all secrets actually used in the code
     const detectedSecrets = detectSecretsInCode(code);
-    
+
     // Step 2: Validate completeness
     const validation = validateSecretsDeclaration(code, requiredSecrets);
-    
+
     // Step 3: Log any issues
     if (validation.missingSecrets.length > 0) {
       console.warn(
         `⚠️  Missing secret declarations: ${validation.missingSecrets.join(", ")}`,
       );
     }
-    
+
     // Step 4: Get LLM schema with detected secrets as context
     const response = await llmRouterService.executeTask(
       userId,
@@ -577,7 +581,7 @@ Generate Python code that accomplishes this objective.`;
       }
 
       const schema = JSON.parse(jsonStr);
-      
+
       // Step 5: ENFORCE complete secret declarations
       // Merge LLM response with detected secrets
       const completeSecrets = mergeAndCompleteSecrets(
@@ -592,7 +596,10 @@ Generate Python code that accomplishes this objective.`;
           `❌ FATAL: Found secrets in code but not declared: ${finalValidation.missingSecrets.join(", ")}`,
         );
         // FORCE include missing secrets
-        const finalSecrets = [...completeSecrets, ...finalValidation.missingSecrets];
+        const finalSecrets = [
+          ...completeSecrets,
+          ...finalValidation.missingSecrets,
+        ];
         schema.requiredSecrets = finalSecrets;
       } else {
         schema.requiredSecrets = completeSecrets;
@@ -635,18 +642,24 @@ Generate Python code that accomplishes this objective.`;
     code: string,
   ): Promise<GeneratedTool> {
     // CRITICAL VALIDATION: Ensure all secrets in code are declared
-    const validation = validateSecretsDeclaration(code, input.requiredSecrets || []);
-    
+    const validation = validateSecretsDeclaration(
+      code,
+      input.requiredSecrets || [],
+    );
+
     if (!validation.valid) {
       // FORCE add missing secrets
-      const completedSecrets = [...(input.requiredSecrets || []), ...validation.missingSecrets];
+      const completedSecrets = [
+        ...(input.requiredSecrets || []),
+        ...validation.missingSecrets,
+      ];
       input.requiredSecrets = completedSecrets;
-      
+
       console.warn(
         `🔧 Auto-corrected tool: Added missing secrets ${validation.missingSecrets.join(", ")} to requiredSecrets`,
       );
     }
-    
+
     // Check if tool with same name exists
     const existing = await prisma.generatedTool.findUnique({
       where: {
@@ -901,7 +914,7 @@ Generate Python code that accomplishes this objective.`;
       ["traduction", "translate", "translation", "traduire", "translator"],
       ["calcul", "calculate", "calculator", "computation", "math", "compute"],
       ["email", "mail", "courriel", "message", "envoyer"],
-      ["actualités", "news", "actualites", "nouvelles", "info", "information"],
+      ["news", "current events", "bulletin", "articles", "info", "information"],
       ["prix", "price", "cost", "tarif", "cout", "coût"],
       [
         "bourse",

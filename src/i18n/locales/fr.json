@@ -1001,6 +1001,8 @@
         "inactive": "Inactif"
       },
       "addProvider": "Ajouter un provider IA",
+      "selectProviderPreset": "Sélectionnez un provider",
+      "orCustom": "ou entrez un provider personnalisé",
       "form": {
         "providerName": "Nom du provider",
         "placeholderProvider": "OpenAI",
@@ -1014,6 +1016,7 @@
       "testResultSuccess": "Connexion à l'API réussie !",
       "testResultFailure": "Connexion échouée",
       "addProviderButton": "Ajouter le provider",
+      "addAnotherProvider": "Ajouter un autre provider",
       "helpTitle": "Besoin d'une clé API ?",
       "helpCopy": "Vous aurez besoin d'une clé API d'un provider IA. Voici quelques options populaires :",
       "apiLinks": {

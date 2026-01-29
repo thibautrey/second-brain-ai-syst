@@ -235,7 +235,7 @@ export function generateToolExecutionSummary(
   sanitizationResults?: Map<string, SanitizationResult>,
 ): string {
   if (toolResults.length === 0) {
-    return "Aucun outil exécuté";
+    return "No tools executed";
   }
 
   const successCount = toolResults.filter((r) => r.success).length;
@@ -248,7 +248,7 @@ export function generateToolExecutionSummary(
       const time = `${result.executionTime}ms`;
       const suffix = result.success
         ? ""
-        : ` (Erreur: ${result.error || "Unknown"})`;
+        : ` (Error: ${result.error || "Unknown"})`;
       return `${status} ${result.toolUsed}: ${time}${suffix}`;
     })
     .join("\n");
@@ -256,10 +256,10 @@ export function generateToolExecutionSummary(
   const sensitivityWarning =
     sanitizationResults &&
     Array.from(sanitizationResults.values()).some((r) => r.hasSensitiveData)
-      ? "\n⚠️ [Note: Certaines données sensibles ont été supprimées avant le stockage]"
+      ? "\n⚠️ [Note: Some sensitive data was removed before storage]"
       : "";
 
-  return `Exécution des outils (${successCount}/${toolResults.length} réussi, ${totalTime}ms au total):\n${toolDetails}${sensitivityWarning}`;
+  return `Tool execution (${successCount}/${toolResults.length} successful, ${totalTime}ms total):\n${toolDetails}${sensitivityWarning}`;
 }
 
 /**

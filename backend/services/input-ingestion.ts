@@ -147,7 +147,7 @@ export class InputIngestionService extends EventEmitter {
         status: "failed",
         duration: Date.now() - startTime,
         error: error instanceof Error ? error.message : "Unknown error",
-        decision: `Erreur lors du traitement du texte: ${error instanceof Error ? error.message : "Unknown error"}`,
+        decision: `Error while processing text: ${error instanceof Error ? error.message : "Unknown error"}`,
       });
       flowTracker.completeFlow(flowId, "failed");
 

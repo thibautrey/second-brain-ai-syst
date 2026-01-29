@@ -2,9 +2,10 @@
 // Manages loading, caching, and execution of AI-generated tools
 // Provides tool schemas for LLM function calling
 
-import { PrismaClient, GeneratedTool } from "@prisma/client";
-import { secretsService } from "./secrets.js";
+import { GeneratedTool, PrismaClient } from "@prisma/client";
+
 import { codeExecutorService } from "./code-executor-wrapper.js";
+import { secretsService } from "./secrets.js";
 
 const prisma = new PrismaClient();
 
@@ -402,7 +403,7 @@ ${tool.code}
       ["traduction", "translate", "translation", "traduire"],
       ["calcul", "calculate", "calculator", "math", "compute"],
       ["email", "mail", "courriel", "message"],
-      ["actualités", "news", "actualites", "nouvelles", "info"],
+      ["news", "current events", "bulletin", "articles", "info"],
       ["prix", "price", "cost", "tarif"],
       ["bourse", "stock", "stocks", "finance", "market"],
       ["crypto", "bitcoin", "cryptocurrency"],

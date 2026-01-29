@@ -167,7 +167,7 @@ export class OrchestratorAgent {
         if (reflection.decision === "ask_user") {
           const response =
             reflection.clarificationQuestion ||
-            "Pouvez-vous préciser ce que vous attendez ?";
+            "Could you clarify what you're expecting?";
           return this.buildResult(true, response);
         }
 
@@ -340,7 +340,7 @@ export class OrchestratorAgent {
       },
     );
 
-    return completion.content || "Je n'ai pas pu générer de réponse finale.";
+    return completion.content || "I was unable to generate a final response.";
   }
 
   private summarizeAttempts(): string {

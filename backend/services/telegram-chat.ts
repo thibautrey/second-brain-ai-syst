@@ -75,18 +75,18 @@ export async function processTelegramMessage(
     if (!result.success) {
       console.error(`[Telegram] AI response failed: ${result.error}`);
 
-      // Telegram-specific error messages in French
+      // Telegram-specific error messages
       if (result.error?.includes("No LLM provider configured")) {
         finalResponse =
-          "❌ Fournisseur IA non configuré. Configure tes paramètres IA dans l'interface web.";
+          "❌ No AI provider configured. Please configure your AI settings in the web interface.";
       } else if (result.error?.includes("Invalid model")) {
         finalResponse =
-          "❌ La configuration du modèle IA semble corrompue. Reconfigure tes paramètres IA.";
+          "❌ The AI model configuration appears to be corrupted. Please reconfigure your AI settings.";
       } else {
-        finalResponse = `❌ Désolé, je n'ai pas pu traiter ton message: ${result.error}`;
+        finalResponse = `❌ Sorry, I couldn't process your message: ${result.error}`;
       }
     } else if (!result.response) {
-      finalResponse = "❌ Je n'ai pas pu générer de réponse pour le moment.";
+      finalResponse = "❌ I couldn't generate a response at the moment.";
     } else {
       finalResponse = result.response;
     }

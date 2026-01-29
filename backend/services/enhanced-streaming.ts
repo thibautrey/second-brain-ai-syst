@@ -364,7 +364,7 @@ export async function createEnhancedStream(
   } = options;
 
   writer.write({ type: "start" });
-  writer.status("Génération de la réponse...", "generating");
+  writer.status("Generating response...", "generating");
 
   let fullTextContent = "";
   let fullThinkingContent = "";
@@ -401,7 +401,7 @@ export async function createEnhancedStream(
         case "thinking_start":
           if (emitThinking) {
             writer.write({ type: "thinking_start" });
-            writer.status("Réflexion en cours...", "analyzing");
+            writer.status("Analyzing...", "analyzing");
           }
           break;
 
@@ -423,7 +423,7 @@ export async function createEnhancedStream(
 
         case "tool_call_start":
           currentToolArgs = "";
-          writer.status("Préparation d'un outil...", "executing");
+          writer.status("Preparing a tool...", "executing");
           break;
 
         case "tool_call_delta":
@@ -478,7 +478,7 @@ export async function createEnhancedStream(
                 toolName: name,
               } as ToolExecutingEvent);
 
-              writer.status(`Exécution de ${name}...`, "executing");
+              writer.status(`Executing ${name}...`, "executing");
 
               const startTime = Date.now();
               try {

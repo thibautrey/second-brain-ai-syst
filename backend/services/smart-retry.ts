@@ -358,28 +358,28 @@ export class SmartRetryService {
     const parts: string[] = [];
 
     parts.push(
-      "Je suis désolé, mais je n'ai pas pu compléter votre demande de manière satisfaisante.",
+      "I'm sorry, but I couldn't complete your request satisfactorily.",
     );
     parts.push("");
 
     if (toolFailures.length > 0) {
       const failedToolNames = [...new Set(toolFailures.map((t) => t.toolName))];
-      parts.push(`**Problèmes rencontrés:**`);
+      parts.push(`**Issues encountered:**`);
 
       for (const toolName of failedToolNames) {
         const failure = toolFailures.find((f) => f.toolName === toolName);
         const friendlyName = this.getFriendlyToolName(toolName);
-        parts.push(`- ${friendlyName} n'a pas pu être utilisé`);
+        parts.push(`- ${friendlyName} could not be used`);
       }
       parts.push("");
     }
 
-    parts.push("**Ce que vous pouvez faire:**");
-    parts.push("1. Reformuler votre question différemment");
-    parts.push("2. Essayer à nouveau dans quelques instants");
-    parts.push("3. Poser une question qui ne nécessite pas d'outils externes");
+    parts.push("**What you can do:**");
+    parts.push("1. Rephrase your question differently");
+    parts.push("2. Try again in a few moments");
+    parts.push("3. Ask a question that doesn't require external tools");
     parts.push("");
-    parts.push("Je suis toujours là pour vous aider avec d'autres questions!");
+    parts.push("I'm still here to help you with other questions!");
 
     return parts.join("\n");
   }
@@ -389,17 +389,17 @@ export class SmartRetryService {
    */
   private getFriendlyToolName(toolName: string): string {
     const friendlyNames: Record<string, string> = {
-      brave_search: "La recherche web",
-      browser: "Le navigateur web",
-      memory_search: "La recherche dans vos souvenirs",
-      http_request: "L'appel API",
-      curl: "L'appel HTTP",
-      scheduled_task: "La planification de tâche",
-      notification: "Le système de notification",
-      todo: "Le gestionnaire de tâches",
+      brave_search: "Web search",
+      browser: "Web browser",
+      memory_search: "Memory search",
+      http_request: "API call",
+      curl: "HTTP call",
+      scheduled_task: "Task scheduling",
+      notification: "Notification system",
+      todo: "Task manager",
     };
 
-    return friendlyNames[toolName] || `L'outil ${toolName}`;
+    return friendlyNames[toolName] || `The ${toolName} tool`;
   }
 
   /**

@@ -18,13 +18,19 @@
  * IMPORTANT: Run `npx prisma migrate dev` after adding the new models to schema.prisma
  */
 
-import { PrismaClient, GeneratedTool } from "@prisma/client";
-import { codeExecutorService } from "./code-executor-wrapper.js";
-import { secretsService } from "./secrets.js";
-import { llmRouterService } from "./llm-router.js";
-import { wsBroadcastService } from "./websocket-broadcast.js";
 import * as persistence from "./tool-workflow-persistence.js";
-import { detectSecretsInCode, validateSecretsDeclaration, mergeAndCompleteSecrets } from "./secret-detector.js";
+
+import { GeneratedTool, PrismaClient } from "@prisma/client";
+import {
+  detectSecretsInCode,
+  mergeAndCompleteSecrets,
+  validateSecretsDeclaration,
+} from "./secret-detector.js";
+
+import { codeExecutorService } from "./code-executor-wrapper.js";
+import { llmRouterService } from "./llm-router.js";
+import { secretsService } from "./secrets.js";
+import { wsBroadcastService } from "./websocket-broadcast.js";
 
 const prisma = new PrismaClient();
 
@@ -344,7 +350,7 @@ export class ToolGenerationWorkflowService {
         session.id,
         {
           phase: "specification",
-          message: "📋 Phase 1/6: Création du document de spécification...",
+          message: "📋 Phase 1/6: Creating specification document...",
           progress: 5,
         },
         onStep,
@@ -376,7 +382,7 @@ export class ToolGenerationWorkflowService {
         session.id,
         {
           phase: "planning",
-          message: "📝 Phase 2/6: Création du plan d'implémentation...",
+          message: "📝 Phase 2/6: Creating implementation plan...",
           progress: 20,
         },
         onStep,
@@ -413,7 +419,7 @@ export class ToolGenerationWorkflowService {
         session.id,
         {
           phase: "implementation",
-          message: "💻 Phase 3/6: Génération du code...",
+          message: "💻 Phase 3/6: Generating code...",
           progress: 35,
         },
         onStep,
@@ -446,7 +452,7 @@ export class ToolGenerationWorkflowService {
         session.id,
         {
           phase: "testing",
-          message: "🧪 Phase 4/6: Génération et exécution des tests...",
+          message: "🧪 Phase 4/6: Generating and executing tests...",
           progress: 50,
         },
         onStep,
@@ -857,7 +863,7 @@ Generate the complete Python code.`;
         sessionId,
         {
           phase: "testing",
-          message: "Exécution du code en cours...",
+          message: "Executing code...",
           subPhase: "execution",
         },
         onStep,
@@ -1039,7 +1045,7 @@ IMPORTANT: Make sure all detected secrets are included in requiredSecrets.`;
 
       // Step 4: Validate final completeness
       const validation = validateSecretsDeclaration(code, completeSecrets);
-      
+
       if (!validation.valid) {
         await this.log(
           sessionId,
@@ -1097,7 +1103,7 @@ IMPORTANT: Make sure all detected secrets are included in requiredSecrets.`;
     // CRITICAL: Validate all secrets are properly declared
     const schemaSecrets = schema?.requiredSecrets || [];
     const validation = validateSecretsDeclaration(code, schemaSecrets);
-    
+
     let finalSecrets = schemaSecrets;
     if (!validation.valid) {
       // Auto-correct: add missing secrets
@@ -1109,7 +1115,7 @@ IMPORTANT: Make sure all detected secrets are included in requiredSecrets.`;
         `Auto-corrected: Added missing secrets to requiredSecrets: ${validation.missingSecrets.join(", ")}`,
       );
     }
-    
+
     const toolName =
       schema?.name ||
       this.generateToolName(schema?.displayName || "custom_tool");
