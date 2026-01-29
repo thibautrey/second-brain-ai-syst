@@ -461,7 +461,7 @@ export class ToolErrorLogger {
   /**
    * Get error statistics
    */
-  static async getErrorStatistics(toolId?: string): Promise<{
+  async getErrorStatistics(toolId?: string): Promise<{
     totalErrors: number;
     byCategory: Record<string, number>;
     bySeverity: Record<string, number>;
