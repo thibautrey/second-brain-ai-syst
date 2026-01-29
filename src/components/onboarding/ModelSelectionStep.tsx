@@ -22,12 +22,33 @@ export function ModelSelectionStep({
   const { settings, updateTaskConfigsBatch, isSaving } = useAISettings();
   const { t } = useTranslation();
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [selectedProviderId, setSelectedProviderId] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Find the provider that was just added (the last one or the one with models)
-  const lastProvider = settings.providers[settings.providers.length - 1];
+  // Get all enabled providers with their models
+  const enabledProviders = settings.providers.filter((p) => p.isEnabled);
+
+  // Find the provider that was just added (the last one or the first one with models)
+  const lastProvider = enabledProviders[enabledProviders.length - 1];
+
+  // Collect all models from all providers
+  const allModels = enabledProviders.flatMap((provider) =>
+    (provider.models || []).map((model) => ({
+      ...model,
+      providerId: provider.id,
+      providerName: provider.name,
+    })),
+  );
+
+  // If discoveredModels are provided (from API test), use those for the last provider
   const availableModels =
-    discoveredModels.length > 0 ? discoveredModels : lastProvider?.models || [];
+    discoveredModels.length > 0
+      ? discoveredModels.map((m) => ({
+          ...m,
+          providerId: lastProvider?.id,
+          providerName: lastProvider?.name,
+        }))
+      : allModels;
 
   // Auto-select well-known models if available
   useEffect(() => {
@@ -47,42 +68,60 @@ export function ModelSelectionStep({
         ),
       );
 
-      setSelectedModel(selectedWellKnown?.id || availableModels[0].id);
+      if (selectedWellKnown) {
+        setSelectedModel(selectedWellKnown.id);
+        setSelectedProviderId(
+          selectedWellKnown.providerId || lastProvider?.id || "",
+        );
+      } else if (availableModels[0]) {
+        setSelectedModel(availableModels[0].id);
+        setSelectedProviderId(
+          availableModels[0].providerId || lastProvider?.id || "",
+        );
+      }
     }
-  }, [availableModels, selectedModel]);
+  }, [availableModels, selectedModel, lastProvider]);
 
   const handleSelectModel = async () => {
-    if (!selectedModel || !lastProvider) {
+    if (!selectedModel || !selectedProviderId) {
       return;
     }
 
     setIsUpdating(true);
     try {
+      // Find the selected provider
+      const selectedProvider = enabledProviders.find(
+        (p) => p.id === selectedProviderId,
+      );
+      if (!selectedProvider) {
+        throw new Error("Provider not found");
+      }
+
       // Set this model as the LLM for all chat-related tasks
       await updateTaskConfigsBatch([
         {
           taskType: "chat",
-          providerId: lastProvider.id,
+          providerId: selectedProviderId,
           modelId: selectedModel,
         },
         {
           taskType: "routing",
-          providerId: lastProvider.id,
+          providerId: selectedProviderId,
           modelId: selectedModel,
         },
         {
           taskType: "reflection",
-          providerId: lastProvider.id,
+          providerId: selectedProviderId,
           modelId: selectedModel,
         },
         {
           taskType: "summarization",
-          providerId: lastProvider.id,
+          providerId: selectedProviderId,
           modelId: selectedModel,
         },
         {
           taskType: "analysis",
-          providerId: lastProvider.id,
+          providerId: selectedProviderId,
           modelId: selectedModel,
         },
       ]);
@@ -127,12 +166,32 @@ export function ModelSelectionStep({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {t("onboarding.modelSelectionStep.providerTitle", {
-              provider: lastProvider.name,
-            })}
+            {t("onboarding.modelSelectionStep.selectModel")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Provider selector if multiple providers */}
+          {enabledProviders.length > 1 && (
+            <div>
+              <label className="block mb-2 text-sm font-medium">
+                {t("onboarding.modelSelectionStep.selectProvider") ||
+                  "Select Provider"}
+              </label>
+              <Select
+                options={enabledProviders.map((provider) => ({
+                  value: provider.id,
+                  label: `${provider.name} (${(provider.models || []).length} models)`,
+                }))}
+                value={selectedProviderId}
+                onChange={(e) => {
+                  setSelectedProviderId(e.target.value);
+                  setSelectedModel(""); // Reset model selection when provider changes
+                }}
+                placeholder="Choose a provider"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block mb-2 text-sm font-medium">
               {t("onboarding.modelSelectionStep.selectModel")}
@@ -140,7 +199,11 @@ export function ModelSelectionStep({
             <Select
               options={availableModels.map((model) => ({
                 value: model.id,
-                label: model.name || model.id,
+                label: `${model.name || model.id}${
+                  enabledProviders.length > 1 && model.providerName
+                    ? ` (${model.providerName})`
+                    : ""
+                }`,
               }))}
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}

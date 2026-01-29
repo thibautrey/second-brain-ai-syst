@@ -1,7 +1,8 @@
-import prisma from "../services/prisma.js";
-import { ProviderType, ModelCapability, Prisma } from "@prisma/client";
-import { modelDiscoveryService } from "../services/model-discovery.js";
+import { ModelCapability, Prisma, ProviderType } from "@prisma/client";
+
 import { chatGPTOAuthService } from "../services/chatgpt-oauth.js";
+import { modelDiscoveryService } from "../services/model-discovery.js";
+import prisma from "../services/prisma.js";
 
 // ==================== Types ====================
 
@@ -255,16 +256,42 @@ export async function createProvider(
     include: { models: true },
   });
 
+  // For openai-compatible providers (e.g., Anthropic, Google), automatically sync models
+  if (input.type === "openai-compatible") {
+    try {
+      console.log(
+        `[createProvider] Auto-syncing models for provider: ${provider.name}`,
+      );
+      await modelDiscoveryService.syncProviderModels(userId, provider.id);
+    } catch (error) {
+      console.error(
+        `[createProvider] Failed to auto-sync models for provider ${provider.id}:`,
+        error,
+      );
+      // Don't fail provider creation if sync fails - user can manually sync later
+    }
+  }
+
+  // Fetch updated provider with models
+  const updatedProvider = await prisma.aIProvider.findUnique({
+    where: { id: provider.id },
+    include: { models: true },
+  });
+
+  if (!updatedProvider) {
+    throw new Error("Failed to retrieve provider after creation");
+  }
+
   return {
-    id: provider.id,
-    name: provider.name,
-    type: mapProviderTypeToFrontend(provider.type),
-    apiKey: maskApiKey(provider.apiKey),
-    baseUrl: provider.baseUrl,
-    isEnabled: provider.isEnabled,
-    createdAt: provider.createdAt.toISOString(),
-    updatedAt: provider.updatedAt.toISOString(),
-    models: provider.models.map((m) => ({
+    id: updatedProvider.id,
+    name: updatedProvider.name,
+    type: mapProviderTypeToFrontend(updatedProvider.type),
+    apiKey: maskApiKey(updatedProvider.apiKey),
+    baseUrl: updatedProvider.baseUrl,
+    isEnabled: updatedProvider.isEnabled,
+    createdAt: updatedProvider.createdAt.toISOString(),
+    updatedAt: updatedProvider.updatedAt.toISOString(),
+    models: updatedProvider.models.map((m) => ({
       id: m.modelId,
       name: m.name,
       providerId: m.providerId,
