@@ -135,8 +135,8 @@ class MemorySearchService {
       return {
         apiKey: config.provider.apiKey,
         model: config.model.id,
-        baseUrl: baseUrl,
-      };
+        baseUrl,
+      } as { apiKey: string; model: string; baseUrl: string };
     } catch (error) {
       console.error("Failed to get embedding config:", error);
       return null;

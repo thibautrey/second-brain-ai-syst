@@ -24,16 +24,16 @@ const RETRIEVAL_CONFIG = {
   // Default limits
   DEFAULT_LIMIT: 10,
   MAX_LIMIT: 50,
-  
+
   // Certainty thresholds
   HIGH_CERTAINTY: 0.85,
   MEDIUM_CERTAINTY: 0.7,
   LOW_CERTAINTY: 0.5,
-  
+
   // Importance thresholds
   HIGH_IMPORTANCE: 0.7,
   MEDIUM_IMPORTANCE: 0.4,
-  
+
   // Time windows (in days)
   RECENT_WINDOW: 7,
   MEDIUM_WINDOW: 30,
@@ -48,16 +48,16 @@ interface OptimizedSearchOptions {
   // Relevance filters
   minCertainty?: number;
   minImportance?: number;
-  
+
   // Time filters
   daysBack?: number;
   startDate?: Date;
   endDate?: Date;
-  
+
   // Content filters
   tags?: string[];
   excludeTags?: string[];
-  
+
   // Result options
   limit?: number;
   includeContent?: boolean;
@@ -115,7 +115,10 @@ class OptimizedRetrievalService {
     try {
       const response = await this.weaviateClient.get("/v1/meta");
       this.isAvailable = true;
-      console.log("✓ OptimizedRetrieval connected to Weaviate:", response.data.version);
+      console.log(
+        "✓ OptimizedRetrieval connected to Weaviate:",
+        response.data.version,
+      );
     } catch (error) {
       console.warn("⚠ OptimizedRetrieval: Weaviate not available");
       this.isAvailable = false;
@@ -126,17 +129,17 @@ class OptimizedRetrievalService {
    * Get embedding config for user (with caching)
    */
   private async getEmbeddingConfig(
-    userId: string
+    userId: string,
   ): Promise<{ apiKey: string; model: string; baseUrl: string } | null> {
     try {
       const config = await getConfiguredModelForTask(userId, "embeddings");
       if (!config) return null;
-      
+
       return {
         apiKey: config.provider.apiKey,
         model: config.model.id,
         baseUrl: config.provider.baseUrl || "https://api.openai.com/v1",
-      };
+      } as { apiKey: string; model: string; baseUrl: string };
     } catch {
       return null;
     }
@@ -149,7 +152,7 @@ class OptimizedRetrievalService {
     text: string,
     apiKey: string,
     model: string,
-    baseUrl: string
+    baseUrl: string,
   ): Promise<number[]> {
     // Check cache first
     const cached = responseCacheService.getCachedEmbedding(text);
@@ -158,7 +161,9 @@ class OptimizedRetrievalService {
     }
 
     // Generate new embedding
-    const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
+    const normalizedBaseUrl = baseUrl.endsWith("/v1")
+      ? baseUrl
+      : `${baseUrl}/v1`;
     const response = await axios.post(
       `${normalizedBaseUrl}/embeddings`,
       { input: text, model },
@@ -167,14 +172,14 @@ class OptimizedRetrievalService {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-      }
+      },
     );
 
     const vector = response.data.data[0].embedding;
-    
+
     // Cache it
     responseCacheService.cacheEmbedding(text, vector);
-    
+
     return vector;
   }
 
@@ -185,7 +190,7 @@ class OptimizedRetrievalService {
   async fastSearch(
     userId: string,
     query: string,
-    limit: number = 5
+    limit: number = 5,
   ): Promise<SearchResult[]> {
     return this.search(userId, query, {
       minCertainty: RETRIEVAL_CONFIG.MEDIUM_CERTAINTY,
@@ -200,7 +205,7 @@ class OptimizedRetrievalService {
   async search(
     userId: string,
     query: string,
-    options: OptimizedSearchOptions = {}
+    options: OptimizedSearchOptions = {},
   ): Promise<SearchResult[]> {
     if (!this.weaviateClient || !this.isAvailable) {
       return this.fallbackSearch(userId, query, options);
@@ -217,22 +222,26 @@ class OptimizedRetrievalService {
         query,
         embeddingConfig.apiKey,
         embeddingConfig.model,
-        embeddingConfig.baseUrl
+        embeddingConfig.baseUrl,
       );
 
       // Build where filter
       const whereFilter = this.buildWhereFilter(userId, options);
-      
+
       // Build GraphQL query
       const graphqlQuery = this.buildGraphQLQuery(
         queryVector,
         whereFilter,
         options.minCertainty ?? RETRIEVAL_CONFIG.LOW_CERTAINTY,
-        options.limit ?? RETRIEVAL_CONFIG.DEFAULT_LIMIT
+        options.limit ?? RETRIEVAL_CONFIG.DEFAULT_LIMIT,
       );
 
-      const response = await this.weaviateClient.post("/v1/graphql", graphqlQuery);
-      const weaviateResults = response.data?.data?.Get?.[this.COLLECTION_NAME] || [];
+      const response = await this.weaviateClient.post(
+        "/v1/graphql",
+        graphqlQuery,
+      );
+      const weaviateResults =
+        response.data?.data?.Get?.[this.COLLECTION_NAME] || [];
 
       if (weaviateResults.length === 0) {
         return [];
@@ -253,7 +262,7 @@ class OptimizedRetrievalService {
     userId: string,
     query: string,
     daysBack: number,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<SearchResult[]> {
     return this.search(userId, query, {
       daysBack,
@@ -270,7 +279,7 @@ class OptimizedRetrievalService {
     query: string,
     startDate: Date,
     endDate: Date,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<SearchResult[]> {
     return this.search(userId, query, {
       startDate,
@@ -285,7 +294,7 @@ class OptimizedRetrievalService {
   async importantMemoriesSearch(
     userId: string,
     query: string,
-    limit: number = 5
+    limit: number = 5,
   ): Promise<SearchResult[]> {
     return this.search(userId, query, {
       minImportance: RETRIEVAL_CONFIG.HIGH_IMPORTANCE,
@@ -301,7 +310,7 @@ class OptimizedRetrievalService {
     userId: string,
     query: string,
     tags: string[],
-    limit: number = 10
+    limit: number = 10,
   ): Promise<SearchResult[]> {
     return this.search(userId, query, {
       tags,
@@ -314,7 +323,7 @@ class OptimizedRetrievalService {
    */
   async batchSearch(
     userId: string,
-    queries: BatchSearchQuery[]
+    queries: BatchSearchQuery[],
   ): Promise<BatchSearchResult[]> {
     const results = await Promise.all(
       queries.map(async ({ query, options }) => {
@@ -325,9 +334,9 @@ class OptimizedRetrievalService {
           results: searchResults,
           searchTime: Date.now() - startTime,
         };
-      })
+      }),
     );
-    
+
     return results;
   }
 
@@ -337,7 +346,7 @@ class OptimizedRetrievalService {
   async recentContextSearch(
     userId: string,
     query: string,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<SearchResult[]> {
     return this.search(userId, query, {
       daysBack: RETRIEVAL_CONFIG.RECENT_WINDOW,
@@ -355,7 +364,7 @@ class OptimizedRetrievalService {
    */
   private buildWhereFilter(
     userId: string,
-    options: OptimizedSearchOptions
+    options: OptimizedSearchOptions,
   ): string {
     const conditions: string[] = [];
 
@@ -368,7 +377,9 @@ class OptimizedRetrievalService {
 
     // Time filter
     if (options.daysBack) {
-      const cutoff = new Date(Date.now() - options.daysBack * 24 * 60 * 60 * 1000);
+      const cutoff = new Date(
+        Date.now() - options.daysBack * 24 * 60 * 60 * 1000,
+      );
       conditions.push(`{
         path: ["createdAt"],
         operator: GreaterThan,
@@ -421,7 +432,7 @@ class OptimizedRetrievalService {
     vector: number[],
     whereFilter: string,
     certainty: number,
-    limit: number
+    limit: number,
   ): { query: string } {
     return {
       query: `{
@@ -455,10 +466,10 @@ class OptimizedRetrievalService {
   private async enrichResults(
     userId: string,
     weaviateResults: any[],
-    options: OptimizedSearchOptions
+    options: OptimizedSearchOptions,
   ): Promise<SearchResult[]> {
     const memoryIds = weaviateResults.map((r: any) => r.memoryId);
-    
+
     // Build where clause for importance filter
     const whereClause: any = {
       id: { in: memoryIds },
@@ -481,7 +492,7 @@ class OptimizedRetrievalService {
       },
     });
 
-    const memoryMap = new Map(memories.map(m => [m.id, m]));
+    const memoryMap = new Map(memories.map((m) => [m.id, m]));
 
     // Build results preserving Weaviate ordering
     return weaviateResults
@@ -508,7 +519,7 @@ class OptimizedRetrievalService {
   private async fallbackSearch(
     userId: string,
     query: string,
-    options: OptimizedSearchOptions
+    options: OptimizedSearchOptions,
   ): Promise<SearchResult[]> {
     const whereClause: any = {
       userId,
@@ -542,14 +553,11 @@ class OptimizedRetrievalService {
 
     const memories = await prisma.memory.findMany({
       where: whereClause,
-      orderBy: [
-        { importanceScore: "desc" },
-        { createdAt: "desc" },
-      ],
+      orderBy: [{ importanceScore: "desc" }, { createdAt: "desc" }],
       take: options.limit ?? RETRIEVAL_CONFIG.DEFAULT_LIMIT,
     });
 
-    return memories.map(m => ({
+    return memories.map((m) => ({
       memoryId: m.id,
       content: m.content,
       certainty: 1.0,

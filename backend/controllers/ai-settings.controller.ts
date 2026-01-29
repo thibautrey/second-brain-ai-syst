@@ -238,7 +238,7 @@ export async function getProviders(userId: string) {
       apiKey: "****oauth****", // Masked indicator
       baseUrl: null,
       isEnabled: true,
-      createdAt: oauthStatus.connectedAt || new Date().toISOString(),
+      createdAt: oauthStatus.connectedAt!,
       updatedAt: oauthStatus.lastUsedAt || new Date().toISOString(),
       models: CHATGPT_OAUTH_MODELS.map((m) => ({
         id: m.modelId,

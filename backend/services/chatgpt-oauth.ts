@@ -565,7 +565,7 @@ export async function getOAuthStatus(userId: string): Promise<{
   isEnabled: boolean;
   accountId?: string;
   expiresAt?: Date;
-  lastUsedAt?: Date;
+  lastUsedAt?: string;
   connectedAt?: string;
 }> {
   const stored = await prisma.chatGPTOAuthCredentials.findUnique({
@@ -584,7 +584,7 @@ export async function getOAuthStatus(userId: string): Promise<{
     isEnabled: stored.isEnabled,
     accountId: stored.accountId || undefined,
     expiresAt: stored.expiresAt,
-    lastUsedAt: stored.lastUsedAt || undefined,
+    lastUsedAt: stored.lastUsedAt?.toISOString() || undefined,
     connectedAt: stored.createdAt.toISOString(),
   };
 }
