@@ -1146,7 +1146,7 @@
       "modelDescription": "This model will be used for conversations, analysis, and reasoning tasks.",
       "noModelsFound": "No models found. Please go back and verify your API key.",
       "tipTitle": "Model Selection",
-      "tipDescription": "Different models have different capabilities and speeds. For beginners, we recommend GPT-3.5 or similar. For advanced use cases, try GPT-4."
+      "tipDescription": "Different models have different capabilities and speeds. For beginners, we recommend Codex-mini or Haiku 4.5. For advanced use cases, try GPT-4."
     },
     "embeddingSelectionStep": {
       "title": "Select Embedding Model",

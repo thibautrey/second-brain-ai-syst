@@ -1035,7 +1035,7 @@
       "modelDescription": "Ce modèle sera utilisé pour les conversations, l'analyse et les tâches de raisonnement.",
       "noModelsFound": "Aucun modèle trouvé. Veuillez revenir en arrière et vérifier votre clé API.",
       "tipTitle": "Sélection du modèle",
-      "tipDescription": "Différents modèles ont des capacités et des vitesses différentes. Pour les débutants, nous recommandons GPT-3.5 ou équivalent. Pour les cas d'usage avancés, essayez GPT-4."
+      "tipDescription": "Différents modèles ont des capacités et des vitesses différentes. Pour les débutants, nous recommandons Codex-mini ou Haiku 4.5. Pour les cas d'usage avancés, essayez GPT-4."
     },
     "embeddingSelectionStep": {
       "title": "Sélectionnez le modèle d'intégration",
