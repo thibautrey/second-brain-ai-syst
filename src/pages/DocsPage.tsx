@@ -32,9 +32,14 @@ const navItems: NavItem[] = [
 ];
 
 const quickstartCommands = [
-  { label: "Install dependencies", code: "npm install" },
-  { label: "Start development", code: "npm run dev" },
-  { label: "Build for production", code: "npm run build" },
+  {
+    label: "Clone the repository",
+    code: "git clone https://github.com/thibautrey/second-brain-ai-syst && cd second-brain-ai-syst",
+  },
+  {
+    label: "Run the interactive setup (checks deps, configures env, launches)",
+    code: "./start.sh",
+  },
 ];
 
 function CodeBlock({ code }: { code: string }) {
@@ -81,9 +86,7 @@ export function DocsPage() {
   const filteredNavItems = useMemo(() => {
     if (!search.trim()) return navItems;
     const query = search.toLowerCase();
-    return navItems.filter((item) =>
-      item.label.toLowerCase().includes(query)
-    );
+    return navItems.filter((item) => item.label.toLowerCase().includes(query));
   }, [search]);
 
   useEffect(() => {
@@ -115,7 +118,7 @@ export function DocsPage() {
       {
         rootMargin: "-20% 0px -60% 0px",
         threshold: [0.1, 0.4, 0.7],
-      }
+      },
     );
 
     elements.forEach((el) => observer.observe(el));
@@ -179,7 +182,11 @@ export function DocsPage() {
               className="rounded-lg border border-zinc-200 p-2 text-zinc-600 transition-colors hover:bg-zinc-50 lg:hidden"
               aria-label="Toggle menu"
             >
-              {navOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {navOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </button>
           </div>
         </div>
@@ -244,7 +251,6 @@ export function DocsPage() {
 
           {/* Main Content */}
           <main className="min-w-0 flex-1 space-y-24 pb-24">
-
             {/* Overview Section */}
             <section id="overview" className="scroll-mt-24">
               <div className="space-y-6">
@@ -256,8 +262,10 @@ export function DocsPage() {
                   Second Brain Documentation
                 </h1>
                 <p className="max-w-2xl text-lg text-zinc-600">
-                  A local-first memory layer that captures, organizes, and summarizes your life.
-                  Built for privacy, fast retrieval, and calm autonomy.
+                  A local-first memory system with a React UI and an Express
+                  API. It captures chat (SSE), audio ingestion/continuous
+                  listening, and tool activity, stores memories in Postgres, and
+                  indexes embeddings in Weaviate when available.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <a
@@ -280,18 +288,21 @@ export function DocsPage() {
                 {[
                   {
                     icon: BookOpen,
-                    title: "Capture Everything",
-                    description: "Continuous ingestion from conversations, tools, and devices.",
+                    title: "Capture & Ingest",
+                    description:
+                      "Chat via /api/chat (SSE), audio uploads and streams via /api/audio + WebSocket, and tool results stored in memory metadata when valuable.",
                   },
                   {
                     icon: Layers,
-                    title: "Multi-Scale Summaries",
-                    description: "Daily to yearly rollups with full traceability.",
+                    title: "Recall & Summarize",
+                    description:
+                      "Semantic search in Weaviate with Postgres text fallback, plus LLM-backed summaries with caching and time-scale support.",
                   },
                   {
                     icon: Shield,
-                    title: "Privacy First",
-                    description: "Local-first architecture. Your data stays yours.",
+                    title: "Automate & Assist",
+                    description:
+                      "Built-in tools (todos, notifications, tasks) and scheduled agents for reflections, proactive coaching, and memory cleanup.",
                   },
                 ].map(({ icon: Icon, title, description }) => (
                   <div
@@ -301,7 +312,9 @@ export function DocsPage() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100">
                       <Icon className="h-5 w-5 text-violet-600" />
                     </div>
-                    <h3 className="mt-4 font-semibold text-zinc-900">{title}</h3>
+                    <h3 className="mt-4 font-semibold text-zinc-900">
+                      {title}
+                    </h3>
                     <p className="mt-1 text-sm text-zinc-600">{description}</p>
                   </div>
                 ))}
@@ -318,17 +331,24 @@ export function DocsPage() {
                 Get running in minutes
               </h2>
               <p className="mt-2 text-zinc-600">
-                Clone the repository and start the development server with these commands.
+                Configure your environment and run the backend + frontend
+                locally. For the full local stack (Postgres, Weaviate, embedding
+                service, code executor, backend, frontend), use Docker Compose.
               </p>
 
               <div className="mt-8 space-y-4">
                 {quickstartCommands.map((cmd, i) => (
-                  <div key={cmd.label} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div
+                    key={cmd.label}
+                    className="rounded-xl border border-zinc-200 bg-zinc-50 p-4"
+                  >
                     <div className="mb-3 flex items-center gap-3">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700">
                         {i + 1}
                       </span>
-                      <span className="text-sm font-medium text-zinc-700">{cmd.label}</span>
+                      <span className="text-sm font-medium text-zinc-700">
+                        {cmd.label}
+                      </span>
                     </div>
                     <CodeBlock code={cmd.code} />
                   </div>
@@ -338,8 +358,20 @@ export function DocsPage() {
               <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
                 <p className="text-sm font-medium text-blue-900">💡 Pro tip</p>
                 <p className="mt-1 text-sm text-blue-700">
-                  Use <code className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-xs">npm run dev:backend</code> and{" "}
-                  <code className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-xs">npm run dev:frontend</code> in separate terminals for faster iteration.
+                  The{" "}
+                  <code className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-xs">
+                    start.sh
+                  </code>{" "}
+                  script checks dependencies, generates secrets, and offers
+                  Docker or local mode. For manual control, run{" "}
+                  <code className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-xs">
+                    npm run backend:dev
+                  </code>{" "}
+                  and{" "}
+                  <code className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-xs">
+                    npm run dev
+                  </code>{" "}
+                  in separate terminals.
                 </p>
               </div>
             </section>
@@ -354,7 +386,10 @@ export function DocsPage() {
                 Modular services, fast recall
               </h2>
               <p className="mt-2 text-zinc-600">
-                The system is built around a hybrid memory store with intelligent routing.
+                The backend is an Express API with SSE chat streaming, a context
+                builder for skills + memory retrieval, WebSockets for audio and
+                notifications, and a cron-based scheduler for summaries and
+                background agents.
               </p>
 
               <div className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -362,13 +397,16 @@ export function DocsPage() {
                   <h3 className="font-semibold text-zinc-900">Request Flow</h3>
                   <ol className="mt-4 space-y-3">
                     {[
-                      "Intent Router classifies input and filters noise",
-                      "Memory Retrieval runs hybrid search with filters",
-                      "LLM Router selects optimal model",
-                      "Tool Execution runs safe external actions",
-                      "Memory Manager stores results",
+                      "API receives chat or ingestion requests (REST + SSE)",
+                      "Context builder loads skills, user profile, and memory search results",
+                      "LLM Router selects provider/model and streams the response",
+                      "Tool Executor runs built-in or generated tools when invoked",
+                      "Intent Router stores valuable exchanges and the embedding scheduler indexes them (if embeddings are configured)",
                     ].map((step, i) => (
-                      <li key={step} className="flex items-start gap-3 text-sm text-zinc-600">
+                      <li
+                        key={step}
+                        className="flex items-start gap-3 text-sm text-zinc-600"
+                      >
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-medium text-zinc-700">
                           {i + 1}
                         </span>
@@ -380,18 +418,31 @@ export function DocsPage() {
 
                 <div className="space-y-4">
                   <div className="rounded-xl border border-zinc-200 p-5">
-                    <h3 className="text-sm font-semibold text-zinc-900">Storage Layers</h3>
+                    <h3 className="text-sm font-semibold text-zinc-900">
+                      Storage Layers
+                    </h3>
                     <div className="mt-3 space-y-2">
                       {[
-                        { name: "PostgreSQL", role: "Metadata & audit logs" },
-                        { name: "Weaviate", role: "Vector embeddings" },
-                        { name: "Summaries", role: "Multi-scale rollups" },
+                        {
+                          name: "PostgreSQL",
+                          role: "Users, memories, summaries, todos, notifications, tools",
+                        },
+                        {
+                          name: "Weaviate",
+                          role: "Vector embeddings for semantic search (manual vectors)",
+                        },
+                        {
+                          name: "Local filesystem",
+                          role: "Audio samples, temp chunks, and model caches",
+                        },
                       ].map((item) => (
                         <div
                           key={item.name}
                           className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-sm"
                         >
-                          <span className="font-medium text-zinc-700">{item.name}</span>
+                          <span className="font-medium text-zinc-700">
+                            {item.name}
+                          </span>
                           <span className="text-zinc-500">{item.role}</span>
                         </div>
                       ))}
@@ -399,13 +450,11 @@ export function DocsPage() {
                   </div>
 
                   <div className="rounded-xl bg-zinc-900 p-5">
-                    <p className="text-xs font-medium text-zinc-400">API Example</p>
+                    <p className="text-xs font-medium text-zinc-400">
+                      API Example
+                    </p>
                     <pre className="mt-3 overflow-x-auto font-mono text-xs text-zinc-300">
-                      <code>{`POST /api/memory/retrieve
-{
-  "query": "Decisions from last week",
-  "timeRange": "week"
-}`}</code>
+                      <code>{`GET /api/memories/search/semantic?query=decisions%20last%20week&limit=5`}</code>
                     </pre>
                   </div>
                 </div>
@@ -416,24 +465,57 @@ export function DocsPage() {
             <section id="agents" className="scroll-mt-24">
               <h2 className="text-2xl font-bold text-zinc-900">Agents</h2>
               <p className="mt-2 text-zinc-600">
-                Specialized roles with a shared memory spine.
+                In this codebase an “agent” is usually a service plus a
+                scheduler job (or an on-demand endpoint) that reads memories and
+                writes results back to storage or notifications.
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {[
-                  { title: "Intent Router", description: "Classifies inputs, identifies noise, routes work" },
-                  { title: "Memory Manager", description: "Ingests interactions, runs embeddings, manages retention" },
-                  { title: "Memory Retrieval", description: "Hybrid search across semantic + temporal signals" },
-                  { title: "Summarization", description: "Daily to yearly rollups with traceability" },
-                  { title: "Proactive Agent", description: "Twice-daily insights with health check cadence" },
-                  { title: "Tool Execution", description: "Safely orchestrates external operations" },
+                  {
+                    title: "Intent Router",
+                    description:
+                      "Classifies exchanges, scores importance, and decides storage",
+                  },
+                  {
+                    title: "Memory Manager",
+                    description:
+                      "Stores memories, handles pin/archive, and promotes long-term",
+                  },
+                  {
+                    title: "Memory Retrieval",
+                    description:
+                      "Optimized Weaviate search with Postgres fallback",
+                  },
+                  {
+                    title: "Summarization & Scheduler",
+                    description:
+                      "Cron jobs for summaries, embedding processing, and cleanup",
+                  },
+                  {
+                    title: "Proactive Agent",
+                    description:
+                      "Twice-daily coaching + Mon/Thu health checks (notifications + AI instructions)",
+                  },
+                  {
+                    title: "Continuous Listening",
+                    description:
+                      "WebSocket audio, VAD filtering, speaker ID, transcription",
+                  },
+                  {
+                    title: "Tool Executor",
+                    description:
+                      "Runs built-in tools and generated tools through one runner",
+                  },
                 ].map((agent) => (
                   <div
                     key={agent.title}
                     className="rounded-lg border border-zinc-200 p-4 transition-colors hover:border-violet-200 hover:bg-violet-50/50"
                   >
                     <h3 className="font-medium text-zinc-900">{agent.title}</h3>
-                    <p className="mt-1 text-sm text-zinc-600">{agent.description}</p>
+                    <p className="mt-1 text-sm text-zinc-600">
+                      {agent.description}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -443,14 +525,30 @@ export function DocsPage() {
             <section id="memory" className="scroll-mt-24">
               <h2 className="text-2xl font-bold text-zinc-900">Memory</h2>
               <p className="mt-2 text-zinc-600">
-                Summaries at every time scale, from daily to multi-year.
+                Memories live in Postgres with embeddings in Weaviate (when
+                configured). Summaries are generated by the LLM and cached,
+                while cleanup jobs prune low-value short-term data. If Weaviate
+                or embeddings are unavailable, search falls back to Postgres
+                text queries.
               </p>
 
               <div className="mt-8 grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl border border-zinc-200 p-6">
-                  <h3 className="font-semibold text-zinc-900">Time-Scale Cascade</h3>
+                  <h3 className="font-semibold text-zinc-900">
+                    Time-Scale Cascade
+                  </h3>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {["Daily", "3-day", "Weekly", "Bi-weekly", "Monthly", "Quarterly", "6-month", "Yearly"].map((scale) => (
+                    {[
+                      "Daily",
+                      "3-day",
+                      "Weekly",
+                      "Bi-weekly",
+                      "Monthly",
+                      "Quarterly",
+                      "6-month",
+                      "Yearly",
+                      "Multi-year",
+                    ].map((scale) => (
                       <span
                         key={scale}
                         className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-700"
@@ -462,9 +560,17 @@ export function DocsPage() {
                 </div>
 
                 <div className="rounded-xl border border-zinc-200 p-6">
-                  <h3 className="font-semibold text-zinc-900">Memory Tags</h3>
+                  <h3 className="font-semibold text-zinc-900">
+                    Memory Metadata
+                  </h3>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {["Goals", "Health", "Decisions", "Projects", "Relationships"].map((tag) => (
+                    {[
+                      "Tags",
+                      "Entities",
+                      "Importance",
+                      "Pinned",
+                      "Archived",
+                    ].map((tag) => (
                       <span
                         key={tag}
                         className="rounded-full bg-violet-100 px-3 py-1 text-sm font-medium text-violet-700"
@@ -474,7 +580,8 @@ export function DocsPage() {
                     ))}
                   </div>
                   <p className="mt-4 text-sm text-zinc-600">
-                    Retention policies apply TTL and compression to keep only the most relevant context.
+                    Memories support tags, entities, importance scores, and
+                    pin/archive status. Summaries link back to source memories.
                   </p>
                 </div>
               </div>
@@ -484,19 +591,41 @@ export function DocsPage() {
             <section id="tools" className="scroll-mt-24">
               <h2 className="text-2xl font-bold text-zinc-900">Tools</h2>
               <p className="mt-2 text-zinc-600">
-                Safe automation with traceable results.
+                Centralized tool execution with schemas, validation, and
+                persisted results for built-in and generated tools.
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
                 {[
-                  { title: "Sandboxing", description: "Guardrails, capability checks, and logging before execution" },
-                  { title: "MCP Integrations", description: "Connect external services with secure adapters" },
-                  { title: "Browser Automation", description: "Structured actions with snapshot capture" },
-                  { title: "Command Orchestration", description: "Composable actions with strict schemas" },
+                  {
+                    title: "Productivity Tools",
+                    description:
+                      "Todos, goals, achievements, scheduled tasks, notifications",
+                  },
+                  {
+                    title: "Web & Data",
+                    description:
+                      "HTTP requests (curl) and Brave Search integration",
+                  },
+                  {
+                    title: "Execution Sandbox",
+                    description:
+                      "Python code executor service (network off by default)",
+                  },
+                  {
+                    title: "Extensibility",
+                    description:
+                      "Dynamic tool generation; MCP and browser automation are stubs",
+                  },
                 ].map((tool) => (
-                  <div key={tool.title} className="rounded-lg border border-zinc-200 p-4">
+                  <div
+                    key={tool.title}
+                    className="rounded-lg border border-zinc-200 p-4"
+                  >
                     <h3 className="font-medium text-zinc-900">{tool.title}</h3>
-                    <p className="mt-1 text-sm text-zinc-600">{tool.description}</p>
+                    <p className="mt-1 text-sm text-zinc-600">
+                      {tool.description}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -507,24 +636,30 @@ export function DocsPage() {
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl font-bold text-zinc-900">Security</h2>
                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                  Zero telemetry
+                  Local-first
                 </span>
               </div>
               <p className="mt-2 text-zinc-600">
-                Local-first with strong privacy guarantees.
+                JWT-authenticated access, encrypted secrets, and local-first
+                deployment with optional external LLM providers.
               </p>
 
               <div className="mt-8 grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl border border-zinc-200 p-6">
-                  <h3 className="font-semibold text-zinc-900">Privacy Principles</h3>
+                  <h3 className="font-semibold text-zinc-900">
+                    Privacy Principles
+                  </h3>
                   <ul className="mt-4 space-y-3">
                     {[
-                      "End-to-end encryption for memory payloads",
-                      "Audit log for every memory access",
-                      "Local mode keeps all data on device",
-                      "Role-based access controls for multi-user",
+                      "JWT auth for API + WebSocket connections",
+                      "Per-user scoping via auth middleware",
+                      "Secrets encrypted at rest (AES-256-GCM)",
+                      "Audio stored on local filesystem (Docker volume)",
                     ].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-zinc-600">
+                      <li
+                        key={item}
+                        className="flex items-start gap-2 text-sm text-zinc-600"
+                      >
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
                         {item}
                       </li>
@@ -533,14 +668,17 @@ export function DocsPage() {
                 </div>
 
                 <div className="rounded-xl bg-zinc-900 p-6 text-white">
-                  <h3 className="font-semibold">Compliance</h3>
+                  <h3 className="font-semibold">Operational Controls</h3>
                   <ul className="mt-4 space-y-3">
                     {[
-                      "Self-hosting by default, no external telemetry",
-                      "Granular memory deletion controls",
-                      "Configurable tool allow-lists",
+                      "Configurable LLM providers/models per task",
+                      "User-specific tool configs, secrets, and MCP entries",
+                      "CRUD endpoints for memories, summaries, todos, notifications",
                     ].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-zinc-300">
+                      <li
+                        key={item}
+                        className="flex items-start gap-2 text-sm text-zinc-300"
+                      >
                         <Shield className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
                         {item}
                       </li>
@@ -554,15 +692,62 @@ export function DocsPage() {
             <section id="roadmap" className="scroll-mt-24">
               <h2 className="text-2xl font-bold text-zinc-900">Roadmap</h2>
               <p className="mt-2 text-zinc-600">
-                What we're building next.
+                This is a planning view. See agents.md and implementation notes
+                for detailed milestones.
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
                 {[
-                  { phase: "Phase 1", title: "Foundation", items: ["API scaffolding", "CRUD memory", "Basic retrieval"], status: "current" },
-                  { phase: "Phase 2", title: "Memory Core", items: ["Embedding pipeline", "Summarization jobs", "Hybrid search"], status: "upcoming" },
-                  { phase: "Phase 3", title: "Autonomy", items: ["Daily reflection", "Goal tracking", "Habit analyzer"], status: "upcoming" },
-                  { phase: "Phase 4", title: "Tool Integration", items: ["Browser automation", "MCP integrations", "Safety policies"], status: "upcoming" },
+                  {
+                    phase: "Now",
+                    title: "Core Platform",
+                    items: [
+                      "Auth + user profiles",
+                      "Memory CRUD + summaries",
+                      "Tool execution + notifications",
+                    ],
+                    status: "current",
+                  },
+                  {
+                    phase: "Next",
+                    title: "Memory Intelligence",
+                    items: [
+                      "Hybrid search improvements",
+                      "Summarization quality",
+                      "Smarter retrieval ranking",
+                    ],
+                    status: "upcoming",
+                  },
+                  {
+                    phase: "After",
+                    title: "Autonomy",
+                    items: [
+                      "Expanded background agents",
+                      "Goal + habit depth",
+                      "Proactive coaching refinement",
+                    ],
+                    status: "upcoming",
+                  },
+                  {
+                    phase: "Later",
+                    title: "Integrations",
+                    items: [
+                      "Marketplace tools",
+                      "MCP execution layer",
+                      "External provider catalog",
+                    ],
+                    status: "upcoming",
+                  },
+                  {
+                    phase: "Ongoing",
+                    title: "Polish & Deployment",
+                    items: [
+                      "Performance tuning",
+                      "UI refinement",
+                      "Dockerization",
+                    ],
+                    status: "upcoming",
+                  },
                 ].map((phase) => (
                   <div
                     key={phase.phase}
@@ -573,17 +758,24 @@ export function DocsPage() {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-zinc-500">{phase.phase}</span>
+                      <span className="text-xs font-medium text-zinc-500">
+                        {phase.phase}
+                      </span>
                       {phase.status === "current" && (
                         <span className="rounded-full bg-violet-200 px-2 py-0.5 text-[10px] font-medium text-violet-700">
                           Current
                         </span>
                       )}
                     </div>
-                    <h3 className="mt-1 font-semibold text-zinc-900">{phase.title}</h3>
+                    <h3 className="mt-1 font-semibold text-zinc-900">
+                      {phase.title}
+                    </h3>
                     <ul className="mt-3 space-y-1">
                       {phase.items.map((item) => (
-                        <li key={item} className="flex items-center gap-2 text-sm text-zinc-600">
+                        <li
+                          key={item}
+                          className="flex items-center gap-2 text-sm text-zinc-600"
+                        >
                           <span className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
                           {item}
                         </li>
@@ -597,23 +789,21 @@ export function DocsPage() {
             {/* FAQ Section */}
             <section id="faq" className="scroll-mt-24">
               <h2 className="text-2xl font-bold text-zinc-900">FAQ</h2>
-              <p className="mt-2 text-zinc-600">
-                Common questions answered.
-              </p>
+              <p className="mt-2 text-zinc-600">Common questions answered.</p>
 
               <div className="mt-8 space-y-3">
                 {[
                   {
-                    q: "Does any data leave my machine?",
-                    a: "Not in local mode. You choose which providers run locally or in the cloud.",
+                    q: "Does it run fully locally?",
+                    a: "Docker Compose runs Postgres, Weaviate, the embedding service, the code executor, backend, and frontend locally. LLM calls go to the provider you configure (including OpenAI-compatible local endpoints).",
                   },
                   {
-                    q: "Can I delete or edit memories?",
-                    a: "Yes. Every memory is editable and deletable with full audit tracking.",
+                    q: "How are summaries and agents triggered?",
+                    a: "The scheduler runs cron jobs for daily/weekly/monthly summaries, reflections, embedding processing, memory cleanup, and proactive checks. You can also call /api/summaries and /api/proactive manually.",
                   },
                   {
-                    q: "How are summaries generated?",
-                    a: "Summaries are created on schedule with a traceable chain to source memories.",
+                    q: "Can I edit, archive, or delete memories?",
+                    a: "Yes. /api/memories supports CRUD plus pin/archive, and /api/summaries supports create/update/delete.",
                   },
                 ].map((item) => (
                   <details
@@ -651,7 +841,10 @@ export function DocsPage() {
               >
                 GitHub
               </a>
-              <Link to="/" className="text-sm text-zinc-500 hover:text-zinc-700">
+              <Link
+                to="/"
+                className="text-sm text-zinc-500 hover:text-zinc-700"
+              >
                 Home
               </Link>
             </div>

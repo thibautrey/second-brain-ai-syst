@@ -4,7 +4,21 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Bell, BellOff, CheckCircle, XCircle, Send, Loader2, AlertCircle, MessageCircle, ExternalLink, Copy, Trash2 } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  CheckCircle,
+  XCircle,
+  Send,
+  Loader2,
+  AlertCircle,
+  MessageCircle,
+  ExternalLink,
+  Copy,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+} from "lucide-react";
 import { apiGet, apiPost, apiPut, apiDelete } from "../services/api";
 import { useTranslation } from "react-i18next";
 
@@ -27,7 +41,9 @@ interface NotificationSettingsProps {
   selectedChannel: ChannelType | null;
 }
 
-export function NotificationSettings({ selectedChannel }: NotificationSettingsProps) {
+export function NotificationSettings({
+  selectedChannel,
+}: NotificationSettingsProps) {
   const { isConnected, permission, requestPermission, isSupported } =
     useNotificationListener();
   const { t } = useTranslation();
@@ -40,21 +56,31 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
   });
 
   const [isRequesting, setIsRequesting] = useState(false);
-  const [settings, setSettings] = useState<NotificationSettingsData | null>(null);
+  const [settings, setSettings] = useState<NotificationSettingsData | null>(
+    null,
+  );
   const [pushoverUserKey, setPushoverUserKey] = useState("");
   const [pushoverApiToken, setPushoverApiToken] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Telegram state
-  const [telegramSettings, setTelegramSettings] = useState<TelegramSettingsData | null>(null);
+  const [telegramSettings, setTelegramSettings] =
+    useState<TelegramSettingsData | null>(null);
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [isSavingTelegram, setIsSavingTelegram] = useState(false);
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
-  const [telegramTestResult, setTelegramTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [telegramTestResult, setTelegramTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const [isDisconnectingTelegram, setIsDisconnectingTelegram] = useState(false);
+  const [isTogglingTelegram, setIsTogglingTelegram] = useState(false);
   const [showBotToken, setShowBotToken] = useState(false);
 
   // Load settings on mount
@@ -66,7 +92,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
   const loadSettings = async () => {
     try {
       setIsLoading(true);
-      const data = await apiGet<NotificationSettingsData>("/settings/notifications");
+      const data = await apiGet<NotificationSettingsData>(
+        "/settings/notifications",
+      );
       setSettings(data);
       setPushoverUserKey(data.pushoverUserKey || "");
       setPushoverApiToken(data.pushoverApiToken || "");
@@ -99,10 +127,13 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
     setIsSaving(true);
     setTestResult(null);
     try {
-      const data = await apiPut<NotificationSettingsData>("/settings/notifications", {
-        pushoverUserKey: pushoverUserKey || null,
-        pushoverApiToken: pushoverApiToken || null,
-      });
+      const data = await apiPut<NotificationSettingsData>(
+        "/settings/notifications",
+        {
+          pushoverUserKey: pushoverUserKey || null,
+          pushoverApiToken: pushoverApiToken || null,
+        },
+      );
       setSettings(data);
     } catch (error: any) {
       alert(t("notificationSettings.alertError", { message: error.message }));
@@ -115,7 +146,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
     setIsTesting(true);
     setTestResult(null);
     try {
-      const data = await apiPost<{ success: boolean; message: string }>("/settings/notifications/test-pushover");
+      const data = await apiPost<{ success: boolean; message: string }>(
+        "/settings/notifications/test-pushover",
+      );
       setTestResult({
         success: true,
         message: data.message || t("notificationSettings.pushover.testSuccess"),
@@ -123,7 +156,8 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
     } catch (error: any) {
       setTestResult({
         success: false,
-        message: error.message || t("notificationSettings.pushover.testFailure"),
+        message:
+          error.message || t("notificationSettings.pushover.testFailure"),
       });
     } finally {
       setIsTesting(false);
@@ -156,7 +190,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
     setIsTestingTelegram(true);
     setTelegramTestResult(null);
     try {
-      const data = await apiPost<{ success: boolean; message: string }>("/settings/telegram/test");
+      const data = await apiPost<{ success: boolean; message: string }>(
+        "/settings/telegram/test",
+      );
       setTelegramTestResult({
         success: true,
         message: data.message || t("notificationSettings.telegram.testSuccess"),
@@ -189,6 +225,22 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
       alert(t("notificationSettings.alertError", { message: error.message }));
     } finally {
       setIsDisconnectingTelegram(false);
+    }
+  };
+
+  const handleToggleTelegram = async () => {
+    if (!telegramSettings) return;
+
+    setIsTogglingTelegram(true);
+    try {
+      const data = await apiPut<TelegramSettingsData>("/settings/telegram", {
+        telegramEnabled: !telegramSettings.telegramEnabled,
+      });
+      setTelegramSettings(data);
+    } catch (error: any) {
+      alert(t("notificationSettings.alertError", { message: error.message }));
+    } finally {
+      setIsTogglingTelegram(false);
     }
   };
 
@@ -350,7 +402,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
               <Input
                 id="pushoverUserKey"
                 type="password"
-                placeholder={t("notificationSettings.pushover.userKeyPlaceholder")}
+                placeholder={t(
+                  "notificationSettings.pushover.userKeyPlaceholder",
+                )}
                 value={pushoverUserKey}
                 onChange={(e) => setPushoverUserKey(e.target.value)}
                 className="mt-2"
@@ -375,7 +429,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
               <Input
                 id="pushoverApiToken"
                 type="password"
-                placeholder={t("notificationSettings.pushover.apiTokenPlaceholder")}
+                placeholder={t(
+                  "notificationSettings.pushover.apiTokenPlaceholder",
+                )}
                 value={pushoverApiToken}
                 onChange={(e) => setPushoverApiToken(e.target.value)}
                 className="mt-2"
@@ -448,14 +504,15 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 {t("notificationSettings.telegram.description")}
               </p>
             </div>
-            {telegramSettings?.hasBotToken && telegramSettings?.telegramChatId && (
-              <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="h-5 w-5" />
-                <span className="text-sm font-medium">
-                  {t("notificationSettings.connection.connected")}
-                </span>
-              </div>
-            )}
+            {telegramSettings?.hasBotToken &&
+              telegramSettings?.telegramChatId && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">
+                    {t("notificationSettings.connection.connected")}
+                  </span>
+                </div>
+              )}
           </div>
 
           {/* Connection Status */}
@@ -482,7 +539,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0"
-                      onClick={() => copyToClipboard(telegramSettings.telegramChatId!)}
+                      onClick={() =>
+                        copyToClipboard(telegramSettings.telegramChatId!)
+                      }
                     >
                       <Copy className="h-3 w-3" />
                     </Button>
@@ -497,17 +556,34 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 <span className="text-sm font-medium">
                   {t("notificationSettings.statusLabel")}
                 </span>
-                <span
-                  className={
-                    telegramSettings.telegramEnabled
-                      ? "text-green-600 text-sm"
-                      : "text-gray-500 text-sm"
-                  }
-                >
-                  {telegramSettings.telegramEnabled
-                    ? t("notificationSettings.status.enabled")
-                    : t("notificationSettings.status.disabled")}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      telegramSettings.telegramEnabled
+                        ? "text-green-600 text-sm"
+                        : "text-gray-500 text-sm"
+                    }
+                  >
+                    {telegramSettings.telegramEnabled
+                      ? t("notificationSettings.status.enabled")
+                      : t("notificationSettings.status.disabled")}
+                  </span>
+                  <Button
+                    onClick={handleToggleTelegram}
+                    disabled={isTogglingTelegram}
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0"
+                  >
+                    {isTogglingTelegram ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : telegramSettings.telegramEnabled ? (
+                      <ToggleRight className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <ToggleLeft className="h-4 w-4 text-gray-400" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -522,7 +598,9 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
                 <Input
                   id="telegramBotToken"
                   type={showBotToken ? "text" : "password"}
-                  placeholder={t("notificationSettings.telegram.botTokenPlaceholder")}
+                  placeholder={t(
+                    "notificationSettings.telegram.botTokenPlaceholder",
+                  )}
                   value={telegramBotToken}
                   onChange={(e) => setTelegramBotToken(e.target.value)}
                   className="mt-2 font-mono text-sm"
@@ -627,7 +705,7 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
             <h4 className="font-medium text-sm text-blue-900">
               {t("notificationSettings.setupTitle")}
             </h4>
-            
+
             <div className="space-y-2">
               <p className="text-xs text-blue-800 font-medium">
                 {t("notificationSettings.setupStep1Title")}
@@ -662,21 +740,22 @@ export function NotificationSettings({ selectedChannel }: NotificationSettingsPr
           </div>
 
           {/* Waiting for /start notice */}
-          {telegramSettings?.hasBotToken && !telegramSettings?.telegramChatId && (
-            <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">
-                    {t("notificationSettings.waitingTitle")}
-                  </p>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    {t("notificationSettings.waitingBody")}
-                  </p>
+          {telegramSettings?.hasBotToken &&
+            !telegramSettings?.telegramChatId && (
+              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">
+                      {t("notificationSettings.waitingTitle")}
+                    </p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      {t("notificationSettings.waitingBody")}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
         </Card>
       )}
     </div>

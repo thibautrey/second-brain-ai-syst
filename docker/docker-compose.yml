@@ -31,6 +31,40 @@ services:
     volumes:
       - weaviate_data:/var/lib/weaviate
 
+  browserless:
+    image: ghcr.io/browserless/chromium:latest
+    environment:
+      # Token for authentication (optional, leave empty for no auth)
+      TOKEN: ${BROWSERLESS_TOKEN:-}
+      # Maximum concurrent sessions
+      CONCURRENT: 5
+      # Queue length before rejecting
+      QUEUED: 10
+      # Timeout for page loads (ms)
+      TIMEOUT: 60000
+      # Enable /function, /scrape, /content endpoints
+      ENABLE_API_GET: "true"
+      # Health check endpoint
+      ENABLE_HEALTHCHECK: "true"
+      # Disable demo page in production
+      DEMO_MODE: "false"
+      # Chrome flags for better performance
+      CHROME_ARGS: "--disable-gpu --disable-dev-shm-usage --no-sandbox --disable-setuid-sandbox"
+    ports:
+      - "3001:3000"
+    healthcheck:
+      test:
+        ["CMD", "wget", "-q", "--spider", "http://localhost:3000/json/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
   backend:
     build:
       context: .
@@ -40,6 +74,8 @@ services:
       DATABASE_URL: postgresql://secondbrain:${DB_PASSWORD:-dev_password}@postgres:5432/second_brain
       WEAVIATE_URL: http://weaviate:8080
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      BROWSERLESS_URL: http://browserless:3000
+      BROWSERLESS_TOKEN: ${BROWSERLESS_TOKEN:-}
       PORT: 3000
     ports:
       - "3000:3000"
@@ -47,6 +83,8 @@ services:
       postgres:
         condition: service_healthy
       weaviate:
+        condition: service_healthy
+      browserless:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend

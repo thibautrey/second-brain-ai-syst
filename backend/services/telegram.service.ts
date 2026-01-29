@@ -99,7 +99,16 @@ class TelegramService {
   async sendChatAction(
     botToken: string,
     chatId: string,
-    action: "typing" | "upload_photo" | "record_video" | "record_voice" | "upload_video" | "upload_voice" | "upload_document" | "find_location" | "record_video_note",
+    action:
+      | "typing"
+      | "upload_photo"
+      | "record_video"
+      | "record_voice"
+      | "upload_video"
+      | "upload_voice"
+      | "upload_document"
+      | "find_location"
+      | "record_video_note",
   ): Promise<boolean> {
     try {
       const response = await axios.post(
@@ -150,9 +159,7 @@ class TelegramService {
       }
 
       if (!settings.telegramEnabled) {
-        console.log(
-          `[TelegramService] Telegram disabled for user ${userId}`,
-        );
+        console.log(`[TelegramService] Telegram disabled for user ${userId}`);
         return false;
       }
 
@@ -188,32 +195,31 @@ class TelegramService {
     error?: string;
   }> {
     // Basic validation of token format
-    if (!botToken || typeof botToken !== 'string') {
+    if (!botToken || typeof botToken !== "string") {
       return {
         valid: false,
-        error: 'Bot token is required and must be a string',
+        error: "Bot token is required and must be a string",
       };
     }
 
     if (botToken.trim().length === 0) {
       return {
         valid: false,
-        error: 'Bot token cannot be empty',
+        error: "Bot token cannot be empty",
       };
     }
 
     // Telegram bot tokens should contain a colon
-    if (!botToken.includes(':')) {
+    if (!botToken.includes(":")) {
       return {
         valid: false,
-        error: 'Invalid bot token format. Token should be in format: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+        error:
+          "Invalid bot token format. Token should be in format: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
       };
     }
 
     try {
-      const response = await axios.get(
-        `${TELEGRAM_API_BASE}${botToken}/getMe`,
-      );
+      const response = await axios.get(`${TELEGRAM_API_BASE}${botToken}/getMe`);
 
       if (response.data.ok) {
         return {
@@ -231,7 +237,8 @@ class TelegramService {
       if (error.response?.status === 404) {
         return {
           valid: false,
-          error: 'Invalid bot token. Token not found on Telegram servers. Please verify your bot token is correct.',
+          error:
+            "Invalid bot token. Token not found on Telegram servers. Please verify your bot token is correct.",
         };
       }
       return {
@@ -248,7 +255,7 @@ class TelegramService {
     botToken: string,
     offset?: number,
     timeout: number = 30,
-  ): Promise<TelegramUpdate[]> {
+  ): Promise<TelegramUpdate[] | { error: string; code?: number }> {
     try {
       const response = await axios.get(
         `${TELEGRAM_API_BASE}${botToken}/getUpdates`,
@@ -266,8 +273,16 @@ class TelegramService {
         return response.data.result;
       }
 
-      return [];
+      return { error: response.data.description, code: response.status };
     } catch (error: any) {
+      // Check for authorization errors
+      if (error.response?.status === 401) {
+        return {
+          error: "Unauthorized",
+          code: 401,
+        };
+      }
+
       // Don't log timeout errors as they're expected
       if (error.code !== "ECONNABORTED") {
         console.error(
@@ -275,7 +290,53 @@ class TelegramService {
           error.response?.data?.description || error.message,
         );
       }
-      return [];
+      return { error: error.message, code: error.response?.status };
+    }
+  }
+
+  /**
+   * Disable Telegram for a user and notify them
+   */
+  private async disableTelegramForUser(
+    userId: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      // Disable Telegram in user settings
+      await prisma.userSettings.update({
+        where: { userId },
+        data: {
+          telegramEnabled: false,
+        },
+      });
+
+      console.log(
+        `[TelegramService] Disabled Telegram for user ${userId}. Reason: ${reason}`,
+      );
+
+      // Send a notification to the user via the notification service
+      try {
+        const { notificationService } = await import("./notification.js");
+
+        await notificationService.createNotification({
+          userId,
+          title: "🔌 Telegram Bot Disconnected",
+          message: `Your Telegram bot has been disconnected due to: ${reason}\n\nTo reconnect, please go to your settings and re-enter your bot token.`,
+          type: "WARNING",
+          channels: ["IN_APP"],
+          skipSpamCheck: true, // This is critical, so skip spam check
+        });
+      } catch (notifError: any) {
+        console.error(
+          `[TelegramService] Failed to send notification about Telegram failure:`,
+          notifError.message,
+        );
+      }
+    } catch (error: any) {
+      console.error(
+        `[TelegramService] Error disabling Telegram for user:`,
+        error.message,
+      );
     }
   }
 
@@ -288,7 +349,9 @@ class TelegramService {
     });
 
     if (!settings?.telegramBotToken) {
-      console.log(`[TelegramService] No bot token configured for user ${userId}`);
+      console.log(
+        `[TelegramService] No bot token configured for user ${userId}`,
+      );
       return;
     }
 
@@ -343,14 +406,69 @@ class TelegramService {
     botToken: string,
     state: PollingState,
   ): Promise<void> {
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 3;
+
     while (state.isPolling) {
       try {
-        const updates = await this.getUpdates(
+        const result = await this.getUpdates(
           botToken,
           state.lastUpdateId ? state.lastUpdateId + 1 : undefined,
           30,
         );
 
+        // Check if result is an error object
+        if (
+          typeof result === "object" &&
+          "error" in result &&
+          !Array.isArray(result)
+        ) {
+          const errorResult = result as { error: string; code?: number };
+
+          // Handle authorization errors
+          if (errorResult.code === 401) {
+            console.error(
+              `[TelegramService] Authorization failed for user ${userId}. Disabling Telegram.`,
+            );
+
+            // Disable Telegram for this user
+            await this.disableTelegramForUser(
+              userId,
+              "Authorization failed - invalid bot token",
+            );
+
+            // Stop polling
+            state.isPolling = false;
+            pollingStates.delete(botToken);
+            return;
+          }
+
+          // For other errors, track consecutive errors
+          consecutiveErrors++;
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            console.error(
+              `[TelegramService] Too many consecutive errors for user ${userId}. Disabling Telegram.`,
+            );
+
+            await this.disableTelegramForUser(
+              userId,
+              `Connection failed: ${errorResult.error}`,
+            );
+            state.isPolling = false;
+            pollingStates.delete(botToken);
+            return;
+          }
+
+          // Wait before retrying
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          continue;
+        }
+
+        // Reset error counter on successful update fetch
+        consecutiveErrors = 0;
+
+        // Process updates
+        const updates = result as TelegramUpdate[];
         for (const update of updates) {
           state.lastUpdateId = update.update_id;
 
@@ -360,10 +478,23 @@ class TelegramService {
         }
       } catch (error: any) {
         if (state.isPolling) {
-          console.error(
-            `[TelegramService] Polling error:`,
-            error.message,
-          );
+          consecutiveErrors++;
+
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            console.error(
+              `[TelegramService] Unrecoverable polling error for user ${userId}. Disabling Telegram.`,
+            );
+
+            await this.disableTelegramForUser(
+              userId,
+              `Polling error: ${error.message}`,
+            );
+            state.isPolling = false;
+            pollingStates.delete(botToken);
+            return;
+          }
+
+          console.error(`[TelegramService] Polling error:`, error.message);
           // Wait before retrying
           await new Promise((resolve) => setTimeout(resolve, 5000));
         }
@@ -448,10 +579,7 @@ Your Chat ID: <code>${chatId}</code>`;
         `[TelegramService] Registered chat ID ${chatId} for user ${userId}`,
       );
     } catch (error: any) {
-      console.error(
-        `[TelegramService] Error handling /start:`,
-        error.message,
-      );
+      console.error(`[TelegramService] Error handling /start:`, error.message);
       await this.sendMessage(
         botToken,
         chatId,
@@ -482,10 +610,7 @@ Your Chat ID: <code>${chatId}</code>`;
         "🔕 Notifications have been disabled. Use /start to re-enable them.",
       );
     } catch (error: any) {
-      console.error(
-        `[TelegramService] Error handling /stop:`,
-        error.message,
-      );
+      console.error(`[TelegramService] Error handling /stop:`, error.message);
     }
   }
 
@@ -502,9 +627,7 @@ Your Chat ID: <code>${chatId}</code>`;
         where: { userId },
       });
 
-      const status = settings?.telegramEnabled
-        ? "✅ Enabled"
-        : "❌ Disabled";
+      const status = settings?.telegramEnabled ? "✅ Enabled" : "❌ Disabled";
 
       await this.sendMessage(
         botToken,
@@ -513,10 +636,7 @@ Your Chat ID: <code>${chatId}</code>`;
         { parse_mode: "HTML" },
       );
     } catch (error: any) {
-      console.error(
-        `[TelegramService] Error handling /status:`,
-        error.message,
-      );
+      console.error(`[TelegramService] Error handling /status:`, error.message);
     }
   }
 
@@ -532,9 +652,8 @@ Your Chat ID: <code>${chatId}</code>`;
   ): Promise<void> {
     try {
       // Import chat controller dynamically to avoid circular dependencies
-      const { processTelegramMessage } = await import(
-        "../controllers/chat.controller.js"
-      );
+      const { processTelegramMessage } =
+        await import("../controllers/chat.controller.js");
 
       // Signal typing status so user knows we're working
       await this.sendChatAction(botToken, chatId, "typing");
@@ -620,8 +739,7 @@ Your Chat ID: <code>${chatId}</code>`;
       if (!settings.telegramChatId) {
         return {
           success: false,
-          message:
-            "Chat ID not found. Please send /start to your bot first.",
+          message: "Chat ID not found. Please send /start to your bot first.",
         };
       }
 

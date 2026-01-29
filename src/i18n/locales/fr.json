@@ -1198,102 +1198,164 @@
   },
   "landing": {
     "brandName": "Second Brain",
-    "brandTagline": "Mémoire locale, tout-en-un",
+    "brandTagline": "Votre mémoire augmentée par l'IA",
     "github": "GitHub",
+    "docs": "Docs",
     "cta": {
       "openDashboard": "Ouvrir le tableau de bord",
-      "continueOnboarding": "Continuer l'onboarding",
+      "continueOnboarding": "Continuer la configuration",
       "getStarted": "Commencer"
     },
     "hero": {
-      "pill": "Privé, proactif, local-first",
-      "title": "Un système cognitif calme pour votre vie",
-      "subtitle": "Capturez vos interactions, structurez la connaissance et retrouvez les bons souvenirs au bon moment.",
-      "inspiredBy": "Inspiré par Clawd",
+      "pill": "Open source • Auto-hébergé • Privé",
+      "titleLine1": "L'IA qui se souvient",
+      "titleLine2": "vraiment de tout.",
+      "subtitle": "Capturez vos pensées, conversations et décisions. Laissez l'IA organiser, résumer et faire ressurgir les bons souvenirs au bon moment—le tout en local sur votre machine.",
+      "viewSource": "Voir le code source",
       "highlights": {
-        "summaries": "Synthèses du quotidien à l'annuel",
-        "privacy": "Confidentialité intégrée"
+        "privacy": "100% Privé",
+        "local": "Fonctionne en local",
+        "proactive": "Coaching proactif"
       }
     },
-    "metrics": {
-      "title": "Signaux système",
-      "badge": "Sync en direct",
-      "cards": {
-        "memories": "Souvenirs",
-        "tools": "Outils",
-        "summaries": "Synthèses",
-        "signals": "Précision"
-      },
-      "sampleQuote": "“Montre-moi les décisions de la semaine passée sur la roadmap.”"
-    },
-    "pillars": {
-      "kicker": "Piliers clés",
-      "title": "Une couche mémoire complète",
-      "subline": "Conçue pour un rappel rapide et une autonomie sereine"
-    },
-    "features": {
-      "intentRouter": {
-        "pill": "Routeur d'intentions",
-        "title": "Classifier chaque entrée",
-        "description": "Orientez questions, commandes et réflexions avec faible latence."
-      },
-      "memoryEngine": {
-        "pill": "Moteur mémoire",
-        "title": "Stocker avec contexte",
-        "description": "Stockage hybride avec embeddings, métadonnées et synthèses."
-      },
-      "proactiveCoach": {
-        "pill": "Agent proactif",
-        "title": "Coaching doux au quotidien",
-        "description": "Des suggestions non intrusives sur santé, objectifs et habitudes."
-      },
-      "toolExecutor": {
-        "pill": "Exécution d'outils",
-        "title": "Automatisation sûre",
-        "description": "Exécutez des outils avec garde-fous, logs et validations."
-      },
-      "noiseFilter": {
-        "pill": "Filtre de bruit",
-        "title": "Ignorer le bruit",
-        "description": "Filtrez les conversations de fond pour garder l'essentiel."
-      },
-      "privacyFirst": {
-        "pill": "Confidentialité",
-        "title": "Local-first par défaut",
-        "description": "Aucune donnée ne sort de votre infrastructure en mode local."
-      }
-    },
-    "timeline": {
-      "kicker": "Synthèses multi-échelles",
-      "title": "Des synthèses qui grandissent avec vous",
-      "subtitle": "Le quotidien devient vision long terme via une cascade de synthèses.",
-      "items": {
-        "daily": {
-          "label": "Quotidien",
-          "detail": "Capturez les moments clés et décisions."
+    "whatItDoes": {
+      "kicker": "Ce qu'il fait",
+      "title": "Votre système d'exploitation cognitif personnel",
+      "features": {
+        "memory": {
+          "title": "Mémoire Continue",
+          "description": "Capture automatiquement vos interactions et les structure avec compréhension sémantique. Tout est recherchable par sens, pas seulement par mots-clés."
         },
-        "weekly": {
-          "label": "Hebdo",
-          "detail": "Repérez les tendances et la dynamique."
+        "voice": {
+          "title": "Reconnaissance Vocale",
+          "description": "Entraînez des profils vocaux avec des réseaux neuronaux ECAPA-TDNN. Identifiez qui parle et filtrez automatiquement le bruit de fond."
         },
-        "monthly": {
-          "label": "Mensuel",
-          "detail": "Passez en revue projets et objectifs."
+        "search": {
+          "title": "Recherche Sémantique",
+          "description": "Posez des questions naturellement. Trouvez des souvenirs par leur sens grâce aux embeddings vectoriels. \"Qu'ai-je décidé concernant la roadmap la semaine dernière ?\""
         },
-        "quarterly": {
-          "label": "Trimestriel",
-          "detail": "Ajustez la stratégie."
+        "proactive": {
+          "title": "Coach Proactif",
+          "description": "Votre coach IA personnel analyse vos patterns pour vous aider avec la santé, la productivité et vos objectifs. Des suggestions douces, jamais intrusives."
         },
-        "yearly": {
-          "label": "Annuel",
-          "detail": "Réfléchissez à la progression sur le long terme."
+        "summaries": {
+          "title": "Résumés Multi-Échelles",
+          "description": "Les insights quotidiens deviennent des patterns hebdomadaires, des bilans mensuels et des réflexions annuelles. La connaissance se compose avec le temps."
+        },
+        "privacy": {
+          "title": "Vie Privée d'Abord",
+          "description": "Auto-hébergé avec stockage chiffré. Zéro télémétrie. Vos données ne quittent jamais votre infrastructure."
+        },
+        "aiModels": {
+          "title": "N'importe quel Modèle IA",
+          "description": "Utilisez les meilleurs fournisseurs IA comme OpenAI, Anthropic ou Google Gemini. Ou exécutez des modèles localement avec Ollama, LM Studio ou tout endpoint compatible OpenAI pour une confidentialité totale.",
+          "local": "Modèles Locaux"
+        },
+        "tools": {
+          "title": "Outils & Compétences",
+          "description": "Étendez votre IA avec des outils et compétences personnalisés. Naviguez sur le web, exécutez du code, appelez des APIs, automatisez des tâches—le tout avec des garde-fous de sécurité intégrés.",
+          "examples": "Navigation web, exécution de code, appels API, et plus"
         }
       }
     },
+    "howItWorks": {
+      "kicker": "Comment ça marche",
+      "title": "Du chaos à la clarté",
+      "subtitle": "Une boucle continue qui transforme les interactions brutes en connaissances actionnables.",
+      "steps": {
+        "capture": {
+          "title": "Capturer",
+          "description": "Voix, texte ou API. Enregistrez pensées, conversations et décisions en temps réel."
+        },
+        "understand": {
+          "title": "Comprendre",
+          "description": "L'IA classifie l'intention, filtre le bruit et extrait le sens de chaque input."
+        },
+        "remember": {
+          "title": "Mémoriser",
+          "description": "Vectorisé et indexé pour une recherche sémantique instantanée sur toutes les périodes."
+        },
+        "assist": {
+          "title": "Assister",
+          "description": "Insights proactifs, réponses contextuelles et tâches automatisées quand vous en avez besoin."
+        }
+      }
+    },
+    "proactive": {
+      "badge": "Agent Proactif",
+      "title": "Un coach IA qui aide vraiment",
+      "description": "S'exécute deux fois par jour pour analyser vos patterns et fournir des suggestions actionnables. Surveille votre bien-être, suit vos objectifs et aide à construire de meilleures habitudes—le tout sans être intrusif.",
+      "features": {
+        "health": "Suivi santé & bien-être",
+        "goals": "Suivi de progression des objectifs",
+        "habits": "Support formation d'habitudes",
+        "schedule": "Suggestions de planning intelligentes"
+      },
+      "sample1": {
+        "title": "Temps pour une pause",
+        "desc": "Vous travaillez depuis 4 heures. Pensez à une marche de 15 minutes."
+      },
+      "sample2": {
+        "title": "Objectif atteint",
+        "desc": "Vous avez complété 80% de votre objectif lecture Q1. Continuez !"
+      },
+      "sample3": {
+        "title": "Série d'habitude : 7 jours",
+        "desc": "Votre routine matinale devient régulière. Super progrès !"
+      }
+    },
+    "timeline": {
+      "kicker": "Résumés multi-échelles",
+      "title": "Une connaissance qui se compose",
+      "subtitle": "Le contexte quotidien devient insight long-terme grâce à une cascade de résumés intelligents.",
+      "items": {
+        "daily": {
+          "label": "Quotidien",
+          "detail": "Moments clés & décisions"
+        },
+        "weekly": {
+          "label": "Hebdomadaire",
+          "detail": "Patterns & momentum"
+        },
+        "monthly": {
+          "label": "Mensuel",
+          "detail": "Revue projets & objectifs"
+        },
+        "quarterly": {
+          "label": "Trimestriel",
+          "detail": "Ajustements stratégiques"
+        },
+        "yearly": {
+          "label": "Annuel",
+          "detail": "Croissance long-terme"
+        }
+      }
+    },
+    "quickStart": {
+      "kicker": "Démarrage rapide",
+      "title": "Opérationnel en 60 secondes",
+      "subtitle": "Clonez, configurez et lancez. Docker s'occupe du reste.",
+      "starRepo": "Star sur GitHub"
+    },
+    "features": {
+      "title": "Tout ce qu'il faut pour un second cerveau",
+      "subtitle": "Conçu pour les utilisateurs soucieux de leur vie privée qui veulent une assistance IA sans compromettre leurs données.",
+      "list": {
+        "voiceProfiles": "Profils vocaux avec reconnaissance du locuteur",
+        "semanticSearch": "Recherche sémantique sur tous les souvenirs",
+        "multiScaleSummaries": "Résumés multi-échelles (quotidien à annuel)",
+        "proactiveCoaching": "Coaching proactif santé & productivité",
+        "noiseFilter": "Filtrage intelligent du bruit",
+        "toolExecution": "Exécution d'outils en arrière-plan avec garde-fous",
+        "aiModelsFlexible": "OpenAI, Anthropic, Gemini ou modèles locaux",
+        "customTools": "Système d'outils & compétences extensible",
+        "encryptedStorage": "Stockage local chiffré",
+        "localFirst": "Architecture local-first, auto-hébergée"
+      }
+    },
     "footer": {
-      "title": "Prêt à construire votre second cerveau ?",
-      "subtitle": "Commencez à capturer la connaissance avec un système respectueux de votre vie privée.",
-      "star": "Mettre une étoile au dépôt"
+      "tagline": "Votre mémoire augmentée par l'IA",
+      "copyright": "Open source sous licence MIT. Conçu pour les humains qui valorisent leur vie privée."
     }
   }
 }

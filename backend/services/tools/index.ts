@@ -22,6 +22,7 @@ export {
   braveSearchService,
   BraveSearchService,
 } from "./brave-search.service.js";
+export { browserService, BrowserService } from "./browser.service.js";
 
 // Re-export types
 export type {

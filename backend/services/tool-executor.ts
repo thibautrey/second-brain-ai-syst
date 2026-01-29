@@ -2,30 +2,32 @@
 // Safely executes external operations and built-in tools
 
 import {
-  todoService,
-  notificationService,
-  scheduledTaskService,
-  curlService,
-  longRunningTaskService,
-  braveSearchService,
-} from "./tools/index.js";
-import { memorySearchService } from "./memory-search.js";
-import { userProfileService, UserProfile } from "./user-profile.js";
-import { codeExecutorService } from "./code-executor-wrapper.js";
-import { dynamicToolRegistry } from "./dynamic-tool-registry.js";
-import { dynamicToolGeneratorService } from "./dynamic-tool-generator.js";
-import { secretsService } from "./secrets.js";
-import { goalsService } from "./goals.service.js";
-import { achievementsService } from "./achievements.service.js";
-import { subAgentRunner, SUBAGENT_TEMPLATES } from "./subagent/index.js";
-import {
-  TodoStatus,
-  TodoPriority,
+  GoalStatus,
+  NotificationType,
   ScheduleType,
   TaskActionType,
-  NotificationType,
-  GoalStatus,
+  TodoPriority,
+  TodoStatus,
 } from "@prisma/client";
+import { SUBAGENT_TEMPLATES, subAgentRunner } from "./subagent/index.js";
+import { UserProfile, userProfileService } from "./user-profile.js";
+import {
+  braveSearchService,
+  browserService,
+  curlService,
+  longRunningTaskService,
+  notificationService,
+  scheduledTaskService,
+  todoService,
+} from "./tools/index.js";
+
+import { achievementsService } from "./achievements.service.js";
+import { codeExecutorService } from "./code-executor-wrapper.js";
+import { dynamicToolGeneratorService } from "./dynamic-tool-generator.js";
+import { dynamicToolRegistry } from "./dynamic-tool-registry.js";
+import { goalsService } from "./goals.service.js";
+import { memorySearchService } from "./memory-search.js";
+import { secretsService } from "./secrets.js";
 
 export interface ToolConfig {
   id: string;
@@ -325,6 +327,43 @@ const BUILTIN_TOOLS: ToolConfig[] = [
       actions: ["read"],
     },
   },
+  {
+    id: "read_tool_code",
+    name: "Read Tool Code",
+    emoji: "🔍",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 50,
+    timeout: 10000,
+    config: {
+      description:
+        "Read and analyze the source code of a generated tool to understand its implementation. Use this to inspect how a tool works, diagnose errors, or prepare fixes. Can also apply corrections to fix broken tools proactively and rollback if needed.",
+      actions: ["read", "analyze", "fix", "rollback"],
+    },
+  },
+  {
+    id: "browser",
+    name: "Web Browser",
+    emoji: "🌐",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 20,
+    timeout: 60000,
+    config: {
+      description:
+        "Interact with web pages through a headless browser. Navigate to URLs, extract content, take screenshots, generate PDFs, scrape data with selectors, and perform complex interactions like clicking, typing, and scrolling. Useful for accessing dynamic content that requires JavaScript, filling forms, or capturing visual snapshots of web pages.",
+      actions: [
+        "navigate",
+        "get_content",
+        "screenshot",
+        "pdf",
+        "scrape",
+        "interact",
+        "evaluate",
+        "health_check",
+      ],
+    },
+  },
 ];
 
 export class ToolExecutorService {
@@ -509,6 +548,10 @@ export class ToolExecutorService {
         return this.executeSubAgentAction(userId, action, params);
       case "read_skill":
         return this.executeReadSkillAction(userId, action, params);
+      case "read_tool_code":
+        return this.executeReadToolCodeAction(userId, action, params);
+      case "browser":
+        return this.executeBrowserAction(action, params);
       default:
         // Check if it's a generated tool
         if (dynamicToolRegistry.isGeneratedToolCall(toolId)) {
@@ -796,34 +839,59 @@ export class ToolExecutorService {
         };
       }
 
-      case "retrieve": {
+      case "update": {
         if (!params.key) {
           throw new Error(
-            "Missing 'key' parameter - specify which secret to retrieve",
+            "Missing 'key' parameter - specify which secret to update",
+          );
+        }
+        if (!params.value) {
+          throw new Error(
+            "Missing 'value' parameter - provide the new value for the secret",
           );
         }
 
-        const value = await secretsService.getSecretValue(userId, params.key);
-
-        if (value === null) {
+        // Check if the secret exists first
+        const exists = await secretsService.hasSecret(userId, params.key);
+        if (!exists) {
           return {
-            action: "retrieve",
+            action: "update",
             key: params.key,
             success: false,
-            error: `Secret '${params.key}' not found or expired`,
+            error: `Secret '${params.key}' not found. Use 'create' action to add a new secret.`,
           };
         }
 
-        // Log the access for audit purposes
+        const updates: {
+          value: string;
+          displayName?: string;
+          category?: string;
+          description?: string;
+        } = {
+          value: params.value,
+        };
+        if (params.displayName) updates.displayName = params.displayName;
+        if (params.category) updates.category = params.category;
+        if (params.description) updates.description = params.description;
+
+        const secret = await secretsService.updateSecret(
+          userId,
+          params.key,
+          updates,
+        );
+
+        // Log the update for audit purposes
         console.log(
-          `[SecretsAudit] User ${userId} retrieved secret: ${params.key}`,
+          `[SecretsAudit] User ${userId} updated secret: ${params.key}`,
         );
 
         return {
-          action: "retrieve",
-          key: params.key,
+          action: "update",
+          key: secret.key,
+          displayName: secret.displayName,
+          category: secret.category,
           success: true,
-          value,
+          message: `Secret '${params.key}' updated successfully`,
         };
       }
 
@@ -1415,6 +1483,327 @@ export class ToolExecutorService {
   }
 
   /**
+   * Execute read_tool_code actions
+   * Read, analyze, and optionally fix the source code of generated tools
+   */
+  private async executeReadToolCodeAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      switch (action) {
+        case "read": {
+          if (!params.tool_id && !params.tool_name) {
+            throw new Error(
+              "Missing required parameter: 'tool_id' or 'tool_name' - specify which tool to read",
+            );
+          }
+
+          const tool = await prisma.generatedTool.findFirst({
+            where: {
+              userId,
+              OR: [
+                { id: params.tool_id },
+                { name: params.tool_name },
+                { name: params.tool_id },
+              ],
+            },
+          });
+
+          if (!tool) {
+            throw new Error(
+              `Tool not found: ${params.tool_id || params.tool_name}. Use generate_tool with action 'list' to see available tools.`,
+            );
+          }
+
+          return {
+            action: "read",
+            success: true,
+            tool: {
+              id: tool.id,
+              name: tool.name,
+              displayName: tool.displayName,
+              description: tool.description,
+              code: tool.code,
+              inputSchema: tool.inputSchema,
+              requiredSecrets: tool.requiredSecrets,
+              version: tool.version,
+              usageCount: tool.usageCount,
+              lastError: tool.lastError,
+              lastErrorAt: tool.lastErrorAt,
+              enabled: tool.enabled,
+            },
+            message: `Successfully read tool code for '${tool.displayName}'. Review the code to understand its implementation.`,
+          };
+        }
+
+        case "analyze": {
+          if (!params.tool_id && !params.tool_name) {
+            throw new Error(
+              "Missing required parameter: 'tool_id' or 'tool_name' - specify which tool to analyze",
+            );
+          }
+
+          const tool = await prisma.generatedTool.findFirst({
+            where: {
+              userId,
+              OR: [
+                { id: params.tool_id },
+                { name: params.tool_name },
+                { name: params.tool_id },
+              ],
+            },
+          });
+
+          if (!tool) {
+            throw new Error(
+              `Tool not found: ${params.tool_id || params.tool_name}`,
+            );
+          }
+
+          // Get recent execution logs for error analysis
+          const recentLogs = await prisma.toolExecutionLog.findMany({
+            where: {
+              toolId: tool.id,
+              userId,
+            },
+            orderBy: { startedAt: "desc" },
+            take: 10,
+          });
+
+          const errorLogs = recentLogs.filter((log) => !log.success);
+          const successRate =
+            recentLogs.length > 0
+              ? ((recentLogs.length - errorLogs.length) / recentLogs.length) *
+                100
+              : 100;
+
+          // Extract common error patterns
+          const errorPatterns: Record<string, number> = {};
+          for (const log of errorLogs) {
+            const errorType = log.errorType || "unknown";
+            errorPatterns[errorType] = (errorPatterns[errorType] || 0) + 1;
+          }
+
+          return {
+            action: "analyze",
+            success: true,
+            tool: {
+              id: tool.id,
+              name: tool.name,
+              displayName: tool.displayName,
+              description: tool.description,
+              code: tool.code,
+            },
+            analysis: {
+              successRate: `${successRate.toFixed(1)}%`,
+              totalExecutions: recentLogs.length,
+              recentErrors: errorLogs.length,
+              errorPatterns: Object.entries(errorPatterns).map(
+                ([type, count]) => ({ type, count }),
+              ),
+              lastError: tool.lastError,
+              lastErrorAt: tool.lastErrorAt,
+              recentErrorMessages: errorLogs
+                .slice(0, 5)
+                .map((log) => log.error)
+                .filter(Boolean),
+            },
+            message:
+              successRate < 80
+                ? `Tool '${tool.displayName}' has a ${successRate.toFixed(1)}% success rate. Consider using 'fix' action to repair it.`
+                : `Tool '${tool.displayName}' is performing well with ${successRate.toFixed(1)}% success rate.`,
+          };
+        }
+
+        case "fix": {
+          if (!params.tool_id && !params.tool_name) {
+            throw new Error(
+              "Missing required parameter: 'tool_id' or 'tool_name' - specify which tool to fix",
+            );
+          }
+
+          if (!params.fixed_code) {
+            throw new Error(
+              "Missing required parameter: 'fixed_code' - provide the corrected Python code",
+            );
+          }
+
+          const tool = await prisma.generatedTool.findFirst({
+            where: {
+              userId,
+              OR: [
+                { id: params.tool_id },
+                { name: params.tool_name },
+                { name: params.tool_id },
+              ],
+            },
+          });
+
+          if (!tool) {
+            throw new Error(
+              `Tool not found: ${params.tool_id || params.tool_name}`,
+            );
+          }
+
+          // Store previous version for potential rollback
+          const previousCode = tool.code;
+          const previousVersion = tool.version;
+
+          // Validate the new code has basic Python structure
+          const newCode = params.fixed_code.trim();
+          if (!newCode.includes("def ") && !newCode.includes("result =")) {
+            throw new Error(
+              "Invalid fix: Code must define functions or set a 'result' variable",
+            );
+          }
+
+          // Update the tool with the fixed code
+          // Note: previousCode field stores the last version for immediate rollback
+          const updatedTool = await prisma.generatedTool.update({
+            where: { id: tool.id },
+            data: {
+              code: newCode,
+              version: tool.version + 1,
+              previousCode: previousCode, // Store for potential rollback
+              lastError: null,
+              lastErrorAt: null,
+            },
+          });
+
+          // Log the fix action for audit trail
+          await prisma.toolExecutionLog.create({
+            data: {
+              toolId: tool.id,
+              userId,
+              inputParams: {
+                action: "fix",
+                previousVersion,
+                newVersion: updatedTool.version,
+                fixReason: params.fix_reason || "Manual fix via read_tool_code",
+              },
+              success: true,
+              result: { fixed: true },
+              executionTimeMs: 0,
+              startedAt: new Date(),
+              completedAt: new Date(),
+              triggeredBy: "read_tool_code",
+            },
+          });
+
+          // Invalidate cache to use the new code
+          dynamicToolRegistry.invalidateCache(userId);
+
+          return {
+            action: "fix",
+            success: true,
+            tool: {
+              id: updatedTool.id,
+              name: updatedTool.name,
+              displayName: updatedTool.displayName,
+              newVersion: updatedTool.version,
+              previousVersion: previousVersion,
+            },
+            message: `Successfully updated tool '${updatedTool.displayName}' to version ${updatedTool.version}. Previous version saved for rollback if needed.`,
+            tip: "Test the tool to verify the fix works correctly.",
+          };
+        }
+
+        case "rollback": {
+          if (!params.tool_id && !params.tool_name) {
+            throw new Error(
+              "Missing required parameter: 'tool_id' or 'tool_name' - specify which tool to rollback",
+            );
+          }
+
+          const tool = await prisma.generatedTool.findFirst({
+            where: {
+              userId,
+              OR: [
+                { id: params.tool_id },
+                { name: params.tool_name },
+                { name: params.tool_id },
+              ],
+            },
+          });
+
+          if (!tool) {
+            throw new Error(
+              `Tool not found: ${params.tool_id || params.tool_name}`,
+            );
+          }
+
+          if (!tool.previousCode) {
+            throw new Error(
+              `No previous version available for tool '${tool.displayName}'. Rollback not possible.`,
+            );
+          }
+
+          const currentCode = tool.code;
+          const currentVersion = tool.version;
+
+          // Rollback to previous version
+          const updatedTool = await prisma.generatedTool.update({
+            where: { id: tool.id },
+            data: {
+              code: tool.previousCode,
+              version: tool.version + 1,
+              previousCode: currentCode, // Store current as new previous for potential re-rollback
+              lastError: null,
+              lastErrorAt: null,
+            },
+          });
+
+          // Log the rollback action
+          await prisma.toolExecutionLog.create({
+            data: {
+              toolId: tool.id,
+              userId,
+              inputParams: {
+                action: "rollback",
+                fromVersion: currentVersion,
+                toVersion: updatedTool.version,
+                reason: params.reason || "Manual rollback via read_tool_code",
+              },
+              success: true,
+              result: { rolledBack: true },
+              executionTimeMs: 0,
+              startedAt: new Date(),
+              completedAt: new Date(),
+              triggeredBy: "read_tool_code",
+            },
+          });
+
+          // Invalidate cache
+          dynamicToolRegistry.invalidateCache(userId);
+
+          return {
+            action: "rollback",
+            success: true,
+            tool: {
+              id: updatedTool.id,
+              name: updatedTool.name,
+              displayName: updatedTool.displayName,
+              newVersion: updatedTool.version,
+              rolledBackFromVersion: currentVersion,
+            },
+            message: `Successfully rolled back tool '${updatedTool.displayName}' to previous version.`,
+          };
+        }
+
+        default:
+          throw new Error(`Unknown read_tool_code action: ${action}`);
+      }
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  /**
    * Execute curl actions
    */
   private async executeCurlAction(
@@ -1504,6 +1893,196 @@ export class ToolExecutorService {
 
       default:
         throw new Error(`Unknown brave_search action: ${action}`);
+    }
+  }
+
+  /**
+   * Execute browser automation actions via Browserless
+   */
+  private async executeBrowserAction(
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "navigate": {
+        if (!params.url) {
+          throw new Error(
+            "Missing 'url' parameter. Provide the URL to navigate to.",
+          );
+        }
+        const result = await browserService.navigate({
+          url: params.url,
+          waitForSelector: params.wait_for_selector || params.waitForSelector,
+          waitForNavigation: params.wait_for_navigation ?? params.waitForNavigation ?? true,
+          timeout: params.timeout,
+          blockResources: params.block_resources ?? params.blockResources ?? false,
+          userAgent: params.user_agent || params.userAgent,
+        });
+        return {
+          action: "navigate",
+          ...result,
+        };
+      }
+
+      case "get_content": {
+        if (!params.url) {
+          throw new Error(
+            "Missing 'url' parameter. Provide the URL to fetch content from.",
+          );
+        }
+        const result = await browserService.getContent({
+          url: params.url,
+          selector: params.selector,
+          waitForSelector: params.wait_for_selector || params.waitForSelector,
+          includeHtml: params.include_html ?? params.includeHtml ?? false,
+          maxLength: params.max_length ?? params.maxLength ?? 50000,
+          timeout: params.timeout,
+        });
+        return {
+          action: "get_content",
+          ...result,
+        };
+      }
+
+      case "screenshot": {
+        if (!params.url) {
+          throw new Error(
+            "Missing 'url' parameter. Provide the URL to screenshot.",
+          );
+        }
+        const result = await browserService.screenshot({
+          url: params.url,
+          fullPage: params.full_page ?? params.fullPage ?? false,
+          format: params.format || "png",
+          quality: params.quality,
+          width: params.width || 1920,
+          height: params.height || 1080,
+          selector: params.selector,
+          waitForSelector: params.wait_for_selector || params.waitForSelector,
+          timeout: params.timeout,
+        });
+        return {
+          action: "screenshot",
+          ...result,
+          // Truncate base64 in response summary, full data is still available
+          screenshotPreview: result.screenshot
+            ? `[Base64 image, ${Math.round((result.screenshot.length * 3) / 4 / 1024)}KB]`
+            : undefined,
+        };
+      }
+
+      case "pdf": {
+        if (!params.url) {
+          throw new Error(
+            "Missing 'url' parameter. Provide the URL to convert to PDF.",
+          );
+        }
+        const result = await browserService.pdf({
+          url: params.url,
+          format: params.format || "A4",
+          printBackground: params.print_background ?? params.printBackground ?? true,
+          landscape: params.landscape ?? false,
+          margin: params.margin,
+          waitForSelector: params.wait_for_selector || params.waitForSelector,
+          timeout: params.timeout,
+        });
+        return {
+          action: "pdf",
+          ...result,
+          // Truncate base64 in response summary
+          pdfPreview: result.pdf
+            ? `[Base64 PDF, ${Math.round((result.pdf.length * 3) / 4 / 1024)}KB]`
+            : undefined,
+        };
+      }
+
+      case "scrape": {
+        if (!params.url) {
+          throw new Error(
+            "Missing 'url' parameter. Provide the URL to scrape.",
+          );
+        }
+        if (!params.selectors || typeof params.selectors !== "object") {
+          throw new Error(
+            "Missing or invalid 'selectors' parameter. Provide an object with named selectors, e.g., { title: { selector: 'h1' }, links: { selector: 'a', attribute: 'href', multiple: true } }",
+          );
+        }
+        const result = await browserService.scrape({
+          url: params.url,
+          selectors: params.selectors,
+          waitForSelector: params.wait_for_selector || params.waitForSelector,
+          timeout: params.timeout,
+        });
+        return {
+          action: "scrape",
+          ...result,
+        };
+      }
+
+      case "interact": {
+        if (!params.url) {
+          throw new Error(
+            "Missing 'url' parameter. Provide the URL to interact with.",
+          );
+        }
+        if (!params.actions || !Array.isArray(params.actions)) {
+          throw new Error(
+            "Missing or invalid 'actions' parameter. Provide an array of actions, e.g., [{ type: 'click', selector: '#button' }, { type: 'type', selector: '#input', value: 'hello' }]",
+          );
+        }
+        const result = await browserService.interact({
+          url: params.url,
+          actions: params.actions,
+          waitForSelector: params.wait_for_selector || params.waitForSelector,
+          returnContent: params.return_content ?? params.returnContent ?? true,
+          takeScreenshot: params.take_screenshot ?? params.takeScreenshot ?? false,
+          timeout: params.timeout,
+        });
+        return {
+          action: "interact",
+          ...result,
+        };
+      }
+
+      case "evaluate": {
+        if (!params.url) {
+          throw new Error(
+            "Missing 'url' parameter. Provide the URL to evaluate JavaScript on.",
+          );
+        }
+        if (!params.script) {
+          throw new Error(
+            "Missing 'script' parameter. Provide the JavaScript code to execute on the page.",
+          );
+        }
+        const result = await browserService.evaluate(
+          params.url,
+          params.script,
+          params.timeout,
+        );
+        return {
+          action: "evaluate",
+          ...result,
+        };
+      }
+
+      case "health_check": {
+        const result = await browserService.healthCheck();
+        return {
+          action: "health_check",
+          browserless_available: result.available,
+          version: result.version,
+          error: result.error,
+          message: result.available
+            ? "Browserless service is running and ready"
+            : "Browserless service is not available",
+        };
+      }
+
+      default:
+        throw new Error(
+          `Unknown browser action: ${action}. Valid actions are: navigate, get_content, screenshot, pdf, scrape, interact, evaluate, health_check`,
+        );
     }
   }
 
@@ -2427,11 +3006,14 @@ export class ToolExecutorService {
   }
 
   /**
-   * Execute browser automation task
+   * Execute browser automation task (category: browser)
+   * Routes to the browser service for tools with category "browser"
    */
   private async executeBrowserTask(params: any): Promise<any> {
-    // TODO: Implement browser automation via Browseruse
-    throw new Error("Browser automation not implemented yet");
+    // This is called for tools with category: "browser"
+    // Route to browser service based on action
+    const action = params.action || "get_content";
+    return this.executeBrowserAction(action, params);
   }
 
   /**
@@ -3304,16 +3886,16 @@ export class ToolExecutorService {
       {
         name: "secrets",
         description:
-          "Manage user API keys and secrets. Use to check, retrieve, or create secrets needed for generated tools. " +
-          "Use 'retrieve' to get the actual value of a secret for tool execution. Use 'create' to store new API keys.",
+          "Manage user API keys and secrets. Use to check, create, or update secrets needed for generated tools. " +
+          "IMPORTANT: You can NEVER read/retrieve the actual value of a secret - only list, check existence, create, or update.",
         parameters: {
           type: "object",
           properties: {
             action: {
               type: "string",
-              enum: ["list", "check", "has", "retrieve", "create"],
+              enum: ["list", "check", "has", "create", "update"],
               description:
-                "'list': show all configured secret names (grouped by category). 'check': verify if multiple keys exist. 'has': check single key existence. 'retrieve': get the actual value of a secret (for tool execution). 'create': store a new API key or secret.",
+                "'list': show all configured secret names (grouped by category). 'check': verify if multiple keys exist. 'has': check single key existence. 'create': store a new API key or secret. 'update': update the value of an existing secret.",
             },
             keys: {
               type: "array",
@@ -3324,12 +3906,12 @@ export class ToolExecutorService {
             key: {
               type: "string",
               description:
-                "For 'has', 'retrieve', 'create': the secret key name (e.g., 'openweathermap_api_key')",
+                "For 'has', 'create', 'update': the secret key name (e.g., 'openweathermap_api_key')",
             },
             value: {
               type: "string",
               description:
-                "For 'create': the actual secret value (API key, token, etc.)",
+                "For 'create' or 'update': the actual secret value (API key, token, etc.)",
             },
             displayName: {
               type: "string",
@@ -3578,6 +4160,51 @@ export class ToolExecutorService {
               items: { type: "string" },
               description:
                 "Additional tools to add to the template's default tools. (For spawn_template)",
+            },
+          },
+          required: ["action"],
+        },
+      },
+      {
+        name: "read_tool_code",
+        description:
+          "Read and analyze the source code of generated tools to understand their implementation, diagnose errors, or apply fixes. " +
+          "Use 'read' to see the full code. Use 'analyze' to get error statistics and patterns. Use 'fix' to update broken code proactively. " +
+          "Use 'rollback' to revert to the previous version if a fix made things worse. " +
+          "This tool helps you understand how generated tools work and repair them when they fail.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["read", "analyze", "fix", "rollback"],
+              description:
+                "'read': view full source code and metadata. 'analyze': get error statistics, success rate, and common failure patterns. 'fix': apply corrected code to repair the tool. 'rollback': revert to the previous code version.",
+            },
+            tool_id: {
+              type: "string",
+              description:
+                "The tool ID to read/analyze/fix/rollback (from 'generate_tool list' response)",
+            },
+            tool_name: {
+              type: "string",
+              description: "The tool name (alternative to tool_id)",
+            },
+            fixed_code: {
+              type: "string",
+              description:
+                "For 'fix' action: the corrected Python code. Must define functions or set a 'result' variable. " +
+                "Important: Keep the same structure and params as the original tool.",
+            },
+            fix_reason: {
+              type: "string",
+              description:
+                "For 'fix' action: explanation of what was fixed (stored for history)",
+            },
+            reason: {
+              type: "string",
+              description:
+                "For 'rollback' action: reason for the rollback (stored for audit)",
             },
           },
           required: ["action"],
