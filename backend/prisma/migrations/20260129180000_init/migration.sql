@@ -62,16 +62,13 @@ CREATE TYPE "TaskPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
 CREATE TYPE "TaskCompletionBehavior" AS ENUM ('SILENT', 'NOTIFY_USER', 'NOTIFY_AND_SUMMARIZE');
 
 -- CreateEnum
-CREATE TYPE "GenerationSessionStatus" AS ENUM ('PENDING', 'SPECIFICATION', 'PLANNING', 'IMPLEMENTING', 'TESTING', 'FIXING', 'VALIDATING', 'COMPLETED', 'FAILED', 'CANCELLED');
-
--- CreateEnum
-CREATE TYPE "HealthReportStatus" AS ENUM ('HEALTHY', 'DEGRADED', 'FAILING', 'HEALING', 'HEALED', 'REQUIRES_ATTENTION');
-
--- CreateEnum
 CREATE TYPE "GoalStatus" AS ENUM ('ACTIVE', 'COMPLETED', 'PAUSED', 'ARCHIVED', 'ABANDONED');
 
 -- CreateEnum
 CREATE TYPE "AIInstructionCategory" AS ENUM ('DATA_COHERENCE', 'USER_PATTERN', 'USER_PREFERENCE', 'TASK_OPTIMIZATION', 'GOAL_TRACKING', 'HEALTH_INSIGHT', 'COMMUNICATION_STYLE', 'SCHEDULING', 'SYSTEM_IMPROVEMENT', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "HealthReportStatus" AS ENUM ('HEALTHY', 'DEGRADED', 'FAILING', 'HEALING', 'HEALED', 'REQUIRES_ATTENTION');
 
 -- CreateEnum
 CREATE TYPE "FactCheckStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'PARTIAL');
@@ -81,6 +78,9 @@ CREATE TYPE "RecordingStatus" AS ENUM ('RECORDING', 'PAUSED', 'COMPLETED', 'PROC
 
 -- CreateEnum
 CREATE TYPE "TranscriptionStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'PARTIAL');
+
+-- CreateEnum
+CREATE TYPE "GenerationSessionStatus" AS ENUM ('PENDING', 'SPECIFICATION', 'PLANNING', 'IMPLEMENTING', 'TESTING', 'FIXING', 'VALIDATING', 'COMPLETED', 'FAILED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "SkillCategory" AS ENUM ('PRODUCTIVITY', 'DEVELOPMENT', 'WRITING', 'RESEARCH', 'AUTOMATION', 'ANALYSIS', 'COMMUNICATION', 'CREATIVITY', 'HEALTH', 'FINANCE', 'LEARNING', 'OTHER');
@@ -142,6 +142,20 @@ CREATE TABLE "user_settings" (
 );
 
 -- CreateTable
+CREATE TABLE "telegram_verifications" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "verificationCode" TEXT NOT NULL,
+    "encryptedBotToken" TEXT NOT NULL,
+    "isUsed" BOOLEAN NOT NULL DEFAULT false,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "telegram_verifications_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "memories" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -154,8 +168,8 @@ CREATE TABLE "memories" (
     "embeddingId" TEXT,
     "embedding" JSONB,
     "importanceScore" DOUBLE PRECISION NOT NULL DEFAULT 0.5,
-    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "entities" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "tags" TEXT[] DEFAULT ARRAY[]::text[],
+    "entities" TEXT[] DEFAULT ARRAY[]::text[],
     "metadata" JSONB NOT NULL DEFAULT '{}',
     "occurredAt" TIMESTAMP(3),
     "isArchived" BOOLEAN NOT NULL DEFAULT false,
@@ -176,10 +190,10 @@ CREATE TABLE "summaries" (
     "periodStart" TIMESTAMP(3) NOT NULL,
     "periodEnd" TIMESTAMP(3) NOT NULL,
     "sourceMemoryCount" INTEGER NOT NULL DEFAULT 0,
-    "keyInsights" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "topics" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "keyInsights" TEXT[] DEFAULT ARRAY[]::text[],
+    "topics" TEXT[] DEFAULT ARRAY[]::text[],
     "sentiment" TEXT,
-    "actionItems" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "actionItems" TEXT[] DEFAULT ARRAY[]::text[],
     "embeddingId" TEXT,
     "embedding" JSONB,
     "metadata" JSONB NOT NULL DEFAULT '{}',
@@ -210,9 +224,9 @@ CREATE TABLE "processed_inputs" (
     "errorMessage" TEXT,
     "retryCount" INTEGER NOT NULL DEFAULT 0,
     "processedAt" TIMESTAMP(3),
+    "audioStreamId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "audioStreamId" TEXT,
 
     CONSTRAINT "processed_inputs_pkey" PRIMARY KEY ("id")
 );
@@ -317,7 +331,7 @@ CREATE TABLE "negative_examples" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "clusterId" TEXT,
-    "embedding" DOUBLE PRECISION[],
+    "embedding" REAL[],
     "capturedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "sourceSessionId" TEXT,
     "confidence" DOUBLE PRECISION NOT NULL,
@@ -334,7 +348,7 @@ CREATE TABLE "profile_snapshots" (
     "id" TEXT NOT NULL,
     "speakerProfileId" TEXT NOT NULL,
     "centroid" JSONB NOT NULL,
-    "adaptiveSampleIds" TEXT[],
+    "adaptiveSampleIds" TEXT[] DEFAULT ARRAY[]::text[],
     "trainingSampleCount" INTEGER NOT NULL,
     "adaptiveSampleCount" INTEGER NOT NULL,
     "healthScore" DOUBLE PRECISION NOT NULL,
@@ -424,9 +438,9 @@ CREATE TABLE "universal_audio_sessions" (
     "chunksReceived" INTEGER NOT NULL DEFAULT 0,
     "bytesReceived" INTEGER NOT NULL DEFAULT 0,
     "lastChunkSeq" INTEGER NOT NULL DEFAULT 0,
-    "missingChunks" INTEGER[] DEFAULT ARRAY[]::INTEGER[],
+    "missingChunks" INTEGER[] DEFAULT ARRAY[]::integer[],
     "lastChunkAt" TIMESTAMP(3),
-    "pendingEvents" JSONB[] DEFAULT ARRAY[]::JSONB[],
+    "pendingEvents" JSONB[] DEFAULT ARRAY[]::jsonb[],
     "lastEventId" INTEGER NOT NULL DEFAULT 0,
     "lastEventDelivery" TIMESTAMP(3),
     "totalTranscripts" INTEGER NOT NULL DEFAULT 0,
@@ -517,7 +531,7 @@ CREATE TABLE "ai_models" (
     "providerId" TEXT NOT NULL,
     "modelId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "capabilities" "ModelCapability"[],
+    "capabilities" "ModelCapability"[] DEFAULT ARRAY[]::"ModelCapability"[],
     "isCustom" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -532,8 +546,12 @@ CREATE TABLE "ai_task_configs" (
     "taskType" "ModelCapability" NOT NULL,
     "providerId" TEXT,
     "modelId" TEXT,
+    "useChatGPTOAuth" BOOLEAN NOT NULL DEFAULT false,
+    "chatGPTOAuthModelId" TEXT,
     "fallbackProviderId" TEXT,
     "fallbackModelId" TEXT,
+    "useChatGPTOAuthFallback" BOOLEAN NOT NULL DEFAULT false,
+    "chatGPTOAuthFallbackModelId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -545,8 +563,8 @@ CREATE TABLE "model_compatibility_hints" (
     "id" TEXT NOT NULL,
     "providerId" TEXT NOT NULL,
     "modelId" TEXT NOT NULL,
-    "supportedEndpoints" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "unsupportedEndpoints" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "supportedEndpoints" TEXT[] DEFAULT ARRAY[]::text[],
+    "unsupportedEndpoints" TEXT[] DEFAULT ARRAY[]::text[],
     "preferredEndpoint" TEXT,
     "lastErrorType" TEXT,
     "lastErrorMessage" TEXT,
@@ -622,7 +640,7 @@ CREATE TABLE "chat_sessions" (
     "status" "ChatSessionStatus" NOT NULL DEFAULT 'ACTIVE',
     "isPinned" BOOLEAN NOT NULL DEFAULT false,
     "isStarred" BOOLEAN NOT NULL DEFAULT false,
-    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "tags" TEXT[] DEFAULT ARRAY[]::text[],
     "lastMessageAt" TIMESTAMP(3),
     "archivedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -640,7 +658,7 @@ CREATE TABLE "todos" (
     "status" "TodoStatus" NOT NULL DEFAULT 'PENDING',
     "priority" "TodoPriority" NOT NULL DEFAULT 'MEDIUM',
     "category" TEXT,
-    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "tags" TEXT[] DEFAULT ARRAY[]::text[],
     "dueDate" TIMESTAMP(3),
     "reminderAt" TIMESTAMP(3),
     "isRecurring" BOOLEAN NOT NULL DEFAULT false,
@@ -727,7 +745,7 @@ CREATE TABLE "notification_topic_trackers" (
     "topic" TEXT NOT NULL,
     "category" "NotificationCategory" NOT NULL DEFAULT 'GENERAL',
     "lastContentHash" TEXT NOT NULL,
-    "sampleMessages" TEXT[],
+    "sampleMessages" TEXT[] DEFAULT ARRAY[]::text[],
     "attemptCount" INTEGER NOT NULL DEFAULT 1,
     "cooldownMinutes" INTEGER NOT NULL DEFAULT 60,
     "nextAllowedAt" TIMESTAMP(3) NOT NULL,
@@ -787,7 +805,7 @@ CREATE TABLE "mcp_servers" (
     "description" TEXT,
     "transportType" "MCPTransportType" NOT NULL DEFAULT 'STDIO',
     "command" TEXT,
-    "args" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "args" TEXT[] DEFAULT ARRAY[]::text[],
     "env" JSONB NOT NULL DEFAULT '{}',
     "url" TEXT,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
@@ -913,9 +931,9 @@ CREATE TABLE "generated_tools" (
     "code" TEXT NOT NULL,
     "inputSchema" JSONB NOT NULL,
     "outputSchema" JSONB,
-    "requiredSecrets" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "requiredSecrets" TEXT[] DEFAULT ARRAY[]::text[],
     "category" TEXT NOT NULL DEFAULT 'custom',
-    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "tags" TEXT[] DEFAULT ARRAY[]::text[],
     "version" INTEGER NOT NULL DEFAULT 1,
     "previousCode" TEXT,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
@@ -938,7 +956,7 @@ CREATE TABLE "tool_generation_sessions" (
     "toolId" TEXT,
     "objective" TEXT NOT NULL,
     "context" TEXT,
-    "suggestedSecrets" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "suggestedSecrets" TEXT[] DEFAULT ARRAY[]::text[],
     "status" "GenerationSessionStatus" NOT NULL DEFAULT 'PENDING',
     "currentPhase" TEXT,
     "progress" INTEGER NOT NULL DEFAULT 0,
@@ -1040,8 +1058,8 @@ CREATE TABLE "goals" (
     "archivedAt" TIMESTAMP(3),
     "detectedFrom" TEXT,
     "confidence" DOUBLE PRECISION NOT NULL DEFAULT 0.8,
-    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "relatedMemoryIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "tags" TEXT[] DEFAULT ARRAY[]::text[],
+    "relatedMemoryIds" TEXT[] DEFAULT ARRAY[]::text[],
     "milestones" JSONB NOT NULL DEFAULT '[]',
     "metadata" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1068,9 +1086,9 @@ CREATE TABLE "ai_instructions" (
     "confidence" DOUBLE PRECISION NOT NULL DEFAULT 0.7,
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
     "verifiedAt" TIMESTAMP(3),
-    "relatedGoalIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "relatedTodoIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "relatedMemoryIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "relatedGoalIds" TEXT[] DEFAULT ARRAY[]::text[],
+    "relatedTodoIds" TEXT[] DEFAULT ARRAY[]::text[],
+    "relatedMemoryIds" TEXT[] DEFAULT ARRAY[]::text[],
     "metadata" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -1092,8 +1110,8 @@ CREATE TABLE "achievements" (
     "confidence" DOUBLE PRECISION NOT NULL DEFAULT 0.8,
     "criteria" JSONB NOT NULL DEFAULT '{}',
     "significance" TEXT NOT NULL DEFAULT 'normal',
-    "relatedGoalIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "relatedMemoryIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "relatedGoalIds" TEXT[] DEFAULT ARRAY[]::text[],
+    "relatedMemoryIds" TEXT[] DEFAULT ARRAY[]::text[],
     "displayOrder" INTEGER NOT NULL DEFAULT 0,
     "isHidden" BOOLEAN NOT NULL DEFAULT false,
     "metadata" JSONB NOT NULL DEFAULT '{}',
@@ -1123,7 +1141,7 @@ CREATE TABLE "fact_check_results" (
     "conversationId" TEXT NOT NULL,
     "messageId" TEXT NOT NULL,
     "originalAnswer" TEXT NOT NULL,
-    "claimsIdentified" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "claimsIdentified" TEXT[] DEFAULT ARRAY[]::text[],
     "claimsAnalyzed" INTEGER NOT NULL DEFAULT 0,
     "status" "FactCheckStatus" NOT NULL DEFAULT 'PENDING',
     "confidenceScore" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
@@ -1132,7 +1150,7 @@ CREATE TABLE "fact_check_results" (
     "correctionNeeded" TEXT,
     "suggestedCorrection" TEXT,
     "verificationMethod" TEXT,
-    "sources" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "sources" TEXT[] DEFAULT ARRAY[]::text[],
     "verificationNotes" TEXT,
     "notificationId" TEXT,
     "correctionSent" BOOLEAN NOT NULL DEFAULT false,
@@ -1149,7 +1167,7 @@ CREATE TABLE "fact_check_results" (
 CREATE TABLE "correction_notifications" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "factCheckId" TEXT NOT NULL,
+    "factCheckId" TEXT,
     "title" TEXT NOT NULL,
     "message" TEXT NOT NULL,
     "correction" TEXT NOT NULL,
@@ -1184,11 +1202,11 @@ CREATE TABLE "conversation_recordings" (
     "fullTranscript" TEXT,
     "summaryShort" TEXT,
     "summaryLong" TEXT,
-    "keyPoints" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "topics" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "keyPoints" TEXT[] DEFAULT ARRAY[]::text[],
+    "topics" TEXT[] DEFAULT ARRAY[]::text[],
     "sentiment" TEXT,
-    "emotions" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "emotions" TEXT[] DEFAULT ARRAY[]::text[],
+    "tags" TEXT[] DEFAULT ARRAY[]::text[],
     "metadata" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -1256,7 +1274,7 @@ CREATE TABLE "skill_hub_entries" (
     "version" TEXT NOT NULL DEFAULT '1.0.0',
     "author" TEXT NOT NULL DEFAULT 'community',
     "category" "SkillCategory" NOT NULL DEFAULT 'OTHER',
-    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "tags" TEXT[] DEFAULT ARRAY[]::text[],
     "icon" TEXT,
     "rating" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "installs" INTEGER NOT NULL DEFAULT 0,
@@ -1302,23 +1320,23 @@ CREATE TABLE "installed_skills" (
     CONSTRAINT "installed_skills_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "_SourceMemories" (
-    "A" TEXT NOT NULL,
-    "B" TEXT NOT NULL
-);
-
--- CreateTable
-CREATE TABLE "_ConversationMemories" (
-    "A" TEXT NOT NULL,
-    "B" TEXT NOT NULL
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "user_settings_userId_key" ON "user_settings"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "telegram_verifications_verificationCode_key" ON "telegram_verifications"("verificationCode");
+
+-- CreateIndex
+CREATE INDEX "telegram_verifications_userId_idx" ON "telegram_verifications"("userId");
+
+-- CreateIndex
+CREATE INDEX "telegram_verifications_verificationCode_idx" ON "telegram_verifications"("verificationCode");
+
+-- CreateIndex
+CREATE INDEX "telegram_verifications_expiresAt_idx" ON "telegram_verifications"("expiresAt");
 
 -- CreateIndex
 CREATE INDEX "memories_userId_idx" ON "memories"("userId");
@@ -1405,13 +1423,10 @@ CREATE INDEX "audio_batches_userId_idx" ON "audio_batches"("userId");
 CREATE INDEX "audio_batches_status_idx" ON "audio_batches"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "audio_devices_deviceToken_key" ON "audio_devices"("deviceToken");
-
--- CreateIndex
 CREATE INDEX "audio_devices_userId_idx" ON "audio_devices"("userId");
 
 -- CreateIndex
-CREATE INDEX "audio_devices_deviceToken_idx" ON "audio_devices"("deviceToken");
+CREATE UNIQUE INDEX "audio_devices_deviceToken_key" ON "audio_devices"("deviceToken");
 
 -- CreateIndex
 CREATE INDEX "audio_devices_isActive_idx" ON "audio_devices"("isActive");
@@ -1429,13 +1444,13 @@ CREATE INDEX "universal_audio_sessions_status_idx" ON "universal_audio_sessions"
 CREATE INDEX "universal_audio_sessions_startedAt_idx" ON "universal_audio_sessions"("startedAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "audio_chunks_sessionId_sequence_key" ON "audio_chunks"("sessionId", "sequence");
+
+-- CreateIndex
 CREATE INDEX "audio_chunks_sessionId_idx" ON "audio_chunks"("sessionId");
 
 -- CreateIndex
 CREATE INDEX "audio_chunks_status_idx" ON "audio_chunks"("status");
-
--- CreateIndex
-CREATE UNIQUE INDEX "audio_chunks_sessionId_sequence_key" ON "audio_chunks"("sessionId", "sequence");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "batch_processing_results_batchId_fileIndex_key" ON "batch_processing_results"("batchId", "fileIndex");
@@ -1457,9 +1472,6 @@ CREATE INDEX "ai_models_providerId_idx" ON "ai_models"("providerId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ai_models_providerId_modelId_key" ON "ai_models"("providerId", "modelId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "ai_task_configs_taskType_key" ON "ai_task_configs"("taskType");
 
 -- CreateIndex
 CREATE INDEX "ai_task_configs_userId_idx" ON "ai_task_configs"("userId");
@@ -1487,9 +1499,6 @@ CREATE INDEX "audit_logs_createdAt_idx" ON "audit_logs"("createdAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "chatgpt_oauth_credentials_userId_key" ON "chatgpt_oauth_credentials"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "chatgpt_oauth_sessions_state_key" ON "chatgpt_oauth_sessions"("state");
 
 -- CreateIndex
 CREATE INDEX "chatgpt_oauth_sessions_userId_idx" ON "chatgpt_oauth_sessions"("userId");
@@ -1615,13 +1624,13 @@ CREATE INDEX "long_running_tasks_priority_idx" ON "long_running_tasks"("priority
 CREATE INDEX "long_running_tasks_createdAt_idx" ON "long_running_tasks"("createdAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "task_steps_taskId_stepOrder_key" ON "task_steps"("taskId", "stepOrder");
+
+-- CreateIndex
 CREATE INDEX "task_steps_taskId_idx" ON "task_steps"("taskId");
 
 -- CreateIndex
 CREATE INDEX "task_steps_status_idx" ON "task_steps"("status");
-
--- CreateIndex
-CREATE UNIQUE INDEX "task_steps_taskId_stepOrder_key" ON "task_steps"("taskId", "stepOrder");
 
 -- CreateIndex
 CREATE INDEX "task_logs_taskId_idx" ON "task_logs"("taskId");
@@ -1633,22 +1642,22 @@ CREATE INDEX "task_logs_createdAt_idx" ON "task_logs"("createdAt");
 CREATE INDEX "user_secrets_userId_idx" ON "user_secrets"("userId");
 
 -- CreateIndex
-CREATE INDEX "user_secrets_category_idx" ON "user_secrets"("category");
-
--- CreateIndex
 CREATE UNIQUE INDEX "user_secrets_userId_key_key" ON "user_secrets"("userId", "key");
 
 -- CreateIndex
+CREATE INDEX "user_secrets_category_idx" ON "user_secrets"("category");
+
+-- CreateIndex
 CREATE INDEX "generated_tools_userId_idx" ON "generated_tools"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "generated_tools_userId_name_key" ON "generated_tools"("userId", "name");
 
 -- CreateIndex
 CREATE INDEX "generated_tools_category_idx" ON "generated_tools"("category");
 
 -- CreateIndex
 CREATE INDEX "generated_tools_enabled_idx" ON "generated_tools"("enabled");
-
--- CreateIndex
-CREATE UNIQUE INDEX "generated_tools_userId_name_key" ON "generated_tools"("userId", "name");
 
 -- CreateIndex
 CREATE INDEX "tool_generation_sessions_userId_idx" ON "tool_generation_sessions"("userId");
@@ -1765,13 +1774,10 @@ CREATE INDEX "correction_notifications_isRead_idx" ON "correction_notifications"
 CREATE INDEX "correction_notifications_createdAt_idx" ON "correction_notifications"("createdAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "conversation_recordings_conversationId_key" ON "conversation_recordings"("conversationId");
-
--- CreateIndex
 CREATE INDEX "conversation_recordings_userId_idx" ON "conversation_recordings"("userId");
 
 -- CreateIndex
-CREATE INDEX "conversation_recordings_conversationId_idx" ON "conversation_recordings"("conversationId");
+CREATE UNIQUE INDEX "conversation_recordings_conversationId_key" ON "conversation_recordings"("conversationId");
 
 -- CreateIndex
 CREATE INDEX "conversation_recordings_status_idx" ON "conversation_recordings"("status");
@@ -1786,10 +1792,10 @@ CREATE INDEX "conversation_recordings_startedAt_idx" ON "conversation_recordings
 CREATE INDEX "conversation_recordings_createdAt_idx" ON "conversation_recordings"("createdAt");
 
 -- CreateIndex
-CREATE INDEX "conversation_participants_recordingId_idx" ON "conversation_participants"("recordingId");
+CREATE UNIQUE INDEX "conversation_participants_recordingId_speakerId_key" ON "conversation_participants"("recordingId", "speakerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "conversation_participants_recordingId_speakerId_key" ON "conversation_participants"("recordingId", "speakerId");
+CREATE INDEX "conversation_participants_recordingId_idx" ON "conversation_participants"("recordingId");
 
 -- CreateIndex
 CREATE INDEX "conversation_audio_segments_recordingId_idx" ON "conversation_audio_segments"("recordingId");
@@ -1807,34 +1813,19 @@ CREATE INDEX "transcription_segments_speakerId_idx" ON "transcription_segments"(
 CREATE UNIQUE INDEX "skill_hub_entries_slug_key" ON "skill_hub_entries"("slug");
 
 -- CreateIndex
-CREATE INDEX "skill_hub_entries_category_idx" ON "skill_hub_entries"("category");
-
--- CreateIndex
-CREATE INDEX "skill_hub_entries_sourceType_idx" ON "skill_hub_entries"("sourceType");
-
--- CreateIndex
 CREATE INDEX "installed_skills_userId_idx" ON "installed_skills"("userId");
-
--- CreateIndex
-CREATE INDEX "installed_skills_enabled_idx" ON "installed_skills"("enabled");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "installed_skills_userId_skillSlug_key" ON "installed_skills"("userId", "skillSlug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "_SourceMemories_AB_unique" ON "_SourceMemories"("A", "B");
-
--- CreateIndex
-CREATE INDEX "_SourceMemories_B_index" ON "_SourceMemories"("B");
-
--- CreateIndex
-CREATE UNIQUE INDEX "_ConversationMemories_AB_unique" ON "_ConversationMemories"("A", "B");
-
--- CreateIndex
-CREATE INDEX "_ConversationMemories_B_index" ON "_ConversationMemories"("B");
+CREATE INDEX "installed_skills_enabled_idx" ON "installed_skills"("enabled");
 
 -- AddForeignKey
 ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "telegram_verifications" ADD CONSTRAINT "telegram_verifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "memories" ADD CONSTRAINT "memories_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2028,15 +2019,40 @@ ALTER TABLE "installed_skills" ADD CONSTRAINT "installed_skills_userId_fkey" FOR
 -- AddForeignKey
 ALTER TABLE "installed_skills" ADD CONSTRAINT "installed_skills_hubEntryId_fkey" FOREIGN KEY ("hubEntryId") REFERENCES "skill_hub_entries"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AddForeignKey
-ALTER TABLE "_SourceMemories" ADD CONSTRAINT "_SourceMemories_A_fkey" FOREIGN KEY ("A") REFERENCES "memories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- CreateMany-to-many tables
+
+-- CreateTable
+CREATE TABLE "_MemoriesSummaries" (
+    "A" TEXT NOT NULL,
+    "B" TEXT NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "_ConversationMemories" (
+    "A" TEXT NOT NULL,
+    "B" TEXT NOT NULL
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "_MemoriesSummaries_AB_unique" ON "_MemoriesSummaries"("A", "B");
+
+-- CreateIndex
+CREATE INDEX "_MemoriesSummaries_B_index" ON "_MemoriesSummaries"("B");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "_ConversationMemories_AB_unique" ON "_ConversationMemories"("A", "B");
+
+-- CreateIndex
+CREATE INDEX "_ConversationMemories_B_index" ON "_ConversationMemories"("B");
 
 -- AddForeignKey
-ALTER TABLE "_SourceMemories" ADD CONSTRAINT "_SourceMemories_B_fkey" FOREIGN KEY ("B") REFERENCES "summaries"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "_MemoriesSummaries" ADD CONSTRAINT "_MemoriesSummaries_A_fkey" FOREIGN KEY ("A") REFERENCES "summaries"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_MemoriesSummaries" ADD CONSTRAINT "_MemoriesSummaries_B_fkey" FOREIGN KEY ("B") REFERENCES "memories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_ConversationMemories" ADD CONSTRAINT "_ConversationMemories_A_fkey" FOREIGN KEY ("A") REFERENCES "conversation_recordings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_ConversationMemories" ADD CONSTRAINT "_ConversationMemories_B_fkey" FOREIGN KEY ("B") REFERENCES "memories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
