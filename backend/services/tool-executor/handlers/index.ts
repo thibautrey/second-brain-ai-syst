@@ -16,3 +16,6 @@ export { executeReadSkillAction } from "./read-skill.js";
 export { executeSkillsManagementAction } from "./skills-management.js";
 export { executeReadToolCodeAction } from "./read-tool-code.js";
 export { executeGeneratedTool } from "./generated-tool.js";
+export { executeWeatherAction } from "./weather.js";
+export { executeStockPriceAction } from "./stock-price.js";
+export { executeCryptoPriceAction } from "./crypto-price.js";

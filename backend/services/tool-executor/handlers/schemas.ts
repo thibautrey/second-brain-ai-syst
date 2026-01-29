@@ -1,6 +1,7 @@
 import { ACHIEVEMENTS_MANAGEMENT_TOOL_SCHEMA } from "./achievements-management.js";
 import { BROWSER_TOOL_SCHEMA } from "./browser.js";
 import { CODE_EXECUTOR_TOOL_SCHEMA } from "./code-executor.js";
+import { CRYPTO_PRICE_TOOL_SCHEMA } from "./crypto-price.js";
 import { CURL_TOOL_SCHEMA } from "./curl.js";
 import { GENERATE_TOOL_SCHEMA } from "./generate-tool.js";
 import { GOALS_MANAGEMENT_TOOL_SCHEMA } from "./goals-management.js";
@@ -12,9 +13,11 @@ import { SCHEDULED_TASK_TOOL_SCHEMA } from "./scheduled-task.js";
 import { SECRETS_TOOL_SCHEMA } from "./secrets.js";
 import { SKILLS_MANAGEMENT_TOOL_SCHEMA } from "./skills-management.js";
 import { SPAWN_SUBAGENT_TOOL_SCHEMA } from "./subagent.js";
+import { STOCK_PRICE_TOOL_SCHEMA } from "./stock-price.js";
 import { TODO_TOOL_SCHEMA } from "./todo.js";
 import { USER_CONTEXT_TOOL_SCHEMA } from "./user-context.js";
 import { USER_PROFILE_TOOL_SCHEMA } from "./user-profile.js";
+import { WEATHER_TOOL_SCHEMA } from "./weather.js";
 
 export const BUILTIN_TOOL_SCHEMAS = [
   TODO_TOOL_SCHEMA,
@@ -34,4 +37,7 @@ export const BUILTIN_TOOL_SCHEMAS = [
   BROWSER_TOOL_SCHEMA,
   READ_SKILL_TOOL_SCHEMA,
   SKILLS_MANAGEMENT_TOOL_SCHEMA,
+  WEATHER_TOOL_SCHEMA,
+  CRYPTO_PRICE_TOOL_SCHEMA,
+  STOCK_PRICE_TOOL_SCHEMA,
 ];

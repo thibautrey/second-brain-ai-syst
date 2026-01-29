@@ -7,6 +7,7 @@ import {
   executeAchievementsManagementAction,
   executeBrowserAction,
   executeCodeExecutorAction,
+  executeCryptoPriceAction,
   executeCurlAction,
   executeGenerateToolAction,
   executeGeneratedTool,
@@ -18,10 +19,12 @@ import {
   executeScheduledTaskAction,
   executeSecretsAction,
   executeSkillsManagementAction,
+  executeStockPriceAction,
   executeSubAgentAction,
   executeTodoAction,
   executeUserContextAction,
   executeUserProfileAction,
+  executeWeatherAction,
 } from "./tool-executor/handlers/index.js";
 import prisma from "./prisma.js";
 
@@ -657,6 +660,12 @@ export class ToolExecutorService {
         return executeReadToolCodeAction(userId, action, params);
       case "browser":
         return executeBrowserAction(action, params);
+      case "weather":
+        return executeWeatherAction(action, params);
+      case "stock_price":
+        return executeStockPriceAction(action, params);
+      case "crypto_price":
+        return executeCryptoPriceAction(action, params);
       default:
         // Check if it's a generated tool
         if (dynamicToolRegistry.isGeneratedToolCall(toolId)) {
