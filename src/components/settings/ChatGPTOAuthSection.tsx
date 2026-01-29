@@ -66,6 +66,7 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
     setIsConnecting(true);
     setTestResult(null);
     setConnectingMessage("Opening authentication window...");
+    setShowManualInput(true); // Show manual input as fallback
     try {
       await initiateOAuth();
       setConnectingMessage("Waiting for authentication to complete...");
@@ -76,11 +77,36 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
     }
   };
 
+  const handleSubmitManualCode = async () => {
+    if (!manualCode.trim()) return;
+
+    setIsSubmittingCode(true);
+    setTestResult(null);
+    try {
+      const result = await submitCodeManually(manualCode.trim());
+      if (result.success) {
+        setManualCode("");
+        setShowManualInput(false);
+        setIsConnecting(false);
+        setConnectingMessage(null);
+      } else {
+        setTestResult({
+          success: false,
+          message: result.error || "Failed to submit code",
+        });
+      }
+    } finally {
+      setIsSubmittingCode(false);
+    }
+  };
+
   // Reset connecting state when status changes to connected
   useEffect(() => {
     if (status?.isConnected && isConnecting) {
       setIsConnecting(false);
       setConnectingMessage(null);
+      setShowManualInput(false);
+      setManualCode("");
     }
   }, [status?.isConnected, isConnecting]);
 
@@ -239,6 +265,61 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
                   "Complete the authentication in the popup window. This page will update automatically.",
                 )}
               </p>
+            )}
+
+            {/* Manual code input fallback */}
+            {showManualInput && (
+              <div className="p-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <ClipboardPaste className="w-4 h-4" />
+                  {t(
+                    "settings.chatgptOAuth.manualInput.title",
+                    "Manual Code Entry (Fallback)",
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">
+                  {t(
+                    "settings.chatgptOAuth.manualInput.description",
+                    "If the automatic callback doesn't work, copy the URL or code from the browser after authenticating and paste it here.",
+                  )}
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder={t(
+                      "settings.chatgptOAuth.manualInput.placeholder",
+                      "Paste URL or authorization code...",
+                    )}
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    className="flex-1 text-sm"
+                  />
+                  <Button
+                    onClick={handleSubmitManualCode}
+                    disabled={isSubmittingCode || !manualCode.trim()}
+                    size="sm"
+                  >
+                    {isSubmittingCode ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      t("settings.chatgptOAuth.manualInput.submit", "Submit")
+                    )}
+                  </Button>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowManualInput(false);
+                    setIsConnecting(false);
+                    setConnectingMessage(null);
+                    setManualCode("");
+                  }}
+                  className="text-xs text-slate-500"
+                >
+                  {t("settings.chatgptOAuth.manualInput.cancel", "Cancel")}
+                </Button>
+              </div>
             )}
           </div>
         ) : (
