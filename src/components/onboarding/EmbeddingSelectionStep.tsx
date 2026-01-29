@@ -179,14 +179,20 @@ export function EmbeddingSelectionStep({
               {t("onboarding.embeddingSelectionStep.selectModel")}
             </label>
             <SearchSelect
-              options={modelsToShow.map((model) => ({
-                value: createModelKey(model.providerId, model.id),
-                label: `${model.name || model.id}${
-                  enabledProviders.length > 1 && model.providerName
-                    ? ` (${model.providerName})`
-                    : ""
-                }`,
-              }))}
+              options={modelsToShow
+                .filter((model) =>
+                  enabledProviders.length > 1
+                    ? model.providerId === selectedProviderId
+                    : true,
+                )
+                .map((model) => ({
+                  value: createModelKey(model.providerId, model.id),
+                  label: `${model.name || model.id}${
+                    enabledProviders.length > 1 && model.providerName
+                      ? ` (${model.providerName})`
+                      : ""
+                  }`,
+                }))}
               value={selectedModel}
               onChange={(value) => {
                 const parsed = parseModelKey(value);

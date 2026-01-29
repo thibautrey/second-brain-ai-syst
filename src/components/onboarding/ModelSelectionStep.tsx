@@ -206,14 +206,20 @@ export function ModelSelectionStep({
               {t("onboarding.modelSelectionStep.selectModel")}
             </label>
             <SearchSelect
-              options={availableModels.map((model) => ({
-                value: createModelKey(model.providerId, model.id),
-                label: `${model.name || model.id}${
-                  enabledProviders.length > 1 && model.providerName
-                    ? ` (${model.providerName})`
-                    : ""
-                }`,
-              }))}
+              options={availableModels
+                .filter((model) =>
+                  enabledProviders.length > 1
+                    ? model.providerId === selectedProviderId
+                    : true,
+                )
+                .map((model) => ({
+                  value: createModelKey(model.providerId, model.id),
+                  label: `${model.name || model.id}${
+                    enabledProviders.length > 1 && model.providerName
+                      ? ` (${model.providerName})`
+                      : ""
+                  }`,
+                }))}
               value={selectedModel}
               onChange={(value) => {
                 const parsed = parseModelKey(value);
