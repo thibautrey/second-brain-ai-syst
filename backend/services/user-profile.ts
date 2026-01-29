@@ -75,44 +75,64 @@ export interface UserProfile {
  * This is called on-the-fly when needed, so brand new users don't crash
  */
 export async function ensureUserSettings(userId: string): Promise<void> {
+  console.log(`[User Profile] [ensureUserSettings] START: userId=${userId}`);
   try {
     // Check if user exists first
+    console.log(
+      `[User Profile] [ensureUserSettings] Checking if user exists...`,
+    );
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },
     });
 
     if (!user) {
-      console.warn(`[User Profile] User not found: ${userId}`);
+      console.warn(
+        `[User Profile] [ensureUserSettings] User not found: ${userId}`,
+      );
       return;
     }
+    console.log(`[User Profile] [ensureUserSettings] User found: ${userId}`);
 
     // Check if settings exist
+    console.log(
+      `[User Profile] [ensureUserSettings] Checking if settings exist...`,
+    );
     const existingSettings = await prisma.userSettings.findUnique({
       where: { userId },
       select: { id: true },
     });
 
-    // If not, create them with defaults
-    if (!existingSettings) {
+    if (existingSettings) {
       console.log(
-        `[User Profile] Initializing UserSettings for new user: ${userId}`,
+        `[User Profile] [ensureUserSettings] Settings already exist for ${userId}`,
       );
-      await prisma.userSettings.create({
-        data: {
-          userId,
-          userProfile: {} as any,
-          metadata: {} as any,
-        },
-      });
+      return;
     }
+
+    // If not, create them with defaults
+    console.log(
+      `[User Profile] [ensureUserSettings] Creating new UserSettings for: ${userId}`,
+    );
+    const created = await prisma.userSettings.create({
+      data: {
+        userId,
+        userProfile: {} as any,
+        metadata: {} as any,
+      },
+    });
+    console.log(
+      `[User Profile] [ensureUserSettings] Successfully created UserSettings with id: ${created.id}`,
+    );
   } catch (error: any) {
     console.error(
-      `[User Profile] Failed to ensure UserSettings for ${userId}:`,
+      `[User Profile] [ensureUserSettings] ERROR for ${userId}:`,
       error.message,
+      error.stack,
     );
     // Don't throw - we want to continue gracefully
   }
+  console.log(`[User Profile] [ensureUserSettings] DONE`);
 }
 
 /**
@@ -120,30 +140,52 @@ export async function ensureUserSettings(userId: string): Promise<void> {
  * Auto-initializes UserSettings if missing (brand new users)
  */
 export async function getUserProfile(userId: string): Promise<UserProfile> {
+  console.log(`[User Profile] [getUserProfile] START: userId=${userId}`);
   try {
     // Ensure settings exist first (auto-create if needed)
+    console.log(
+      `[User Profile] [getUserProfile] Ensuring UserSettings exists...`,
+    );
     await ensureUserSettings(userId);
+    console.log(`[User Profile] [getUserProfile] UserSettings ensured`);
 
+    console.log(
+      `[User Profile] [getUserProfile] Fetching userSettings from DB...`,
+    );
     const settings = await prisma.userSettings.findUnique({
       where: { userId },
       select: { userProfile: true },
     });
+    console.log(
+      `[User Profile] [getUserProfile] Settings found: ${!!settings}, has userProfile: ${!!settings?.userProfile}`,
+    );
 
     if (!settings?.userProfile) {
+      console.log(
+        `[User Profile] [getUserProfile] No userProfile found, returning empty object`,
+      );
       return {};
     }
 
     // Handle the case where userProfile is stored as a Prisma JSON value
     const profile = settings.userProfile as unknown;
+    console.log(
+      `[User Profile] [getUserProfile] Profile type: ${typeof profile}, is object: ${typeof profile === "object" && profile !== null}`,
+    );
     if (typeof profile === "object" && profile !== null) {
+      console.log(`[User Profile] [getUserProfile] Returning profile`);
       return profile as UserProfile;
     }
 
+    console.log(
+      `[User Profile] [getUserProfile] Returning empty object (invalid profile type)`,
+    );
     return {};
   } catch (error: any) {
     console.error(
-      `[User Profile] Error getting profile for ${userId}:`,
+      `[User Profile] [getUserProfile] ERROR for ${userId}:`,
       error.message,
+      error.stack,
     );
     return {};
   }
@@ -185,11 +227,25 @@ export async function mergeUserProfile(
   userId: string,
   updates: Partial<UserProfile>,
 ): Promise<UserProfile> {
+  console.log(`[User Profile] [mergeUserProfile] START: userId=${userId}`);
+  console.log(
+    `[User Profile] [mergeUserProfile] Updates:`,
+    JSON.stringify(updates),
+  );
   try {
     // Ensure settings exist first (auto-create if brand new user)
+    console.log(
+      `[User Profile] [mergeUserProfile] Ensuring UserSettings exists...`,
+    );
     await ensureUserSettings(userId);
+    console.log(`[User Profile] [mergeUserProfile] UserSettings ensured`);
 
+    console.log(`[User Profile] [mergeUserProfile] Getting current profile...`);
     const currentProfile = await getUserProfile(userId);
+    console.log(
+      `[User Profile] [mergeUserProfile] Current profile:`,
+      JSON.stringify(currentProfile),
+    );
 
     // Deep merge for nested objects like relationships
     const mergedProfile: UserProfile = {
@@ -244,7 +300,12 @@ export async function mergeUserProfile(
       };
     }
 
-    await prisma.userSettings.upsert({
+    console.log(`[User Profile] [mergeUserProfile] Performing upsert...`);
+    console.log(
+      `[User Profile] [mergeUserProfile] Merged profile:`,
+      JSON.stringify(mergedProfile),
+    );
+    const result = await prisma.userSettings.upsert({
       where: { userId },
       create: {
         userId,
@@ -255,12 +316,17 @@ export async function mergeUserProfile(
         userProfile: mergedProfile as any,
       },
     });
+    console.log(
+      `[User Profile] [mergeUserProfile] Upsert successful. Settings id: ${result.id}`,
+    );
 
+    console.log(`[User Profile] [mergeUserProfile] Returning merged profile`);
     return mergedProfile;
   } catch (error: any) {
     console.error(
-      `[User Profile] Failed to merge profile for ${userId}:`,
+      `[User Profile] [mergeUserProfile] ERROR for ${userId}:`,
       error.message,
+      error.stack,
     );
     throw error;
   }
@@ -273,22 +339,53 @@ export async function deleteProfileFields(
   userId: string,
   fields: (keyof UserProfile)[],
 ): Promise<UserProfile> {
-  const currentProfile = await getUserProfile(userId);
+  console.log(
+    `[User Profile] [deleteProfileFields] START: userId=${userId}, fields=[${fields.join(",")}]`,
+  );
+  try {
+    console.log(
+      `[User Profile] [deleteProfileFields] Getting current profile...`,
+    );
+    const currentProfile = await getUserProfile(userId);
+    console.log(
+      `[User Profile] [deleteProfileFields] Current profile:`,
+      JSON.stringify(currentProfile),
+    );
 
-  for (const field of fields) {
-    delete currentProfile[field];
+    console.log(`[User Profile] [deleteProfileFields] Deleting fields...`);
+    for (const field of fields) {
+      console.log(
+        `[User Profile] [deleteProfileFields] Deleting field: ${String(field)}`,
+      );
+      delete currentProfile[field];
+    }
+
+    currentProfile.lastUpdated = new Date().toISOString();
+    console.log(
+      `[User Profile] [deleteProfileFields] Updated profile:`,
+      JSON.stringify(currentProfile),
+    );
+
+    console.log(`[User Profile] [deleteProfileFields] Updating in DB...`);
+    const result = await prisma.userSettings.update({
+      where: { userId },
+      data: {
+        userProfile: currentProfile as any,
+      },
+    });
+    console.log(
+      `[User Profile] [deleteProfileFields] Update successful. Settings id: ${result.id}`,
+    );
+
+    return currentProfile;
+  } catch (error: any) {
+    console.error(
+      `[User Profile] [deleteProfileFields] ERROR for ${userId}:`,
+      error.message,
+      error.stack,
+    );
+    throw error;
   }
-
-  currentProfile.lastUpdated = new Date().toISOString();
-
-  await prisma.userSettings.update({
-    where: { userId },
-    data: {
-      userProfile: currentProfile as any,
-    },
-  });
-
-  return currentProfile;
 }
 
 /**
