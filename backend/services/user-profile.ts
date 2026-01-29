@@ -71,25 +71,82 @@ export interface UserProfile {
 }
 
 /**
+ * Ensure UserSettings exists for a user (auto-create if missing)
+ * This is called on-the-fly when needed, so brand new users don't crash
+ */
+export async function ensureUserSettings(userId: string): Promise<void> {
+  try {
+    // Check if user exists first
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      console.warn(`[User Profile] User not found: ${userId}`);
+      return;
+    }
+
+    // Check if settings exist
+    const existingSettings = await prisma.userSettings.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    // If not, create them with defaults
+    if (!existingSettings) {
+      console.log(
+        `[User Profile] Initializing UserSettings for new user: ${userId}`,
+      );
+      await prisma.userSettings.create({
+        data: {
+          userId,
+          userProfile: {} as any,
+          metadata: {} as any,
+        },
+      });
+    }
+  } catch (error: any) {
+    console.error(
+      `[User Profile] Failed to ensure UserSettings for ${userId}:`,
+      error.message,
+    );
+    // Don't throw - we want to continue gracefully
+  }
+}
+
+/**
  * Get user profile
+ * Auto-initializes UserSettings if missing (brand new users)
  */
 export async function getUserProfile(userId: string): Promise<UserProfile> {
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId },
-    select: { userProfile: true },
-  });
+  try {
+    // Ensure settings exist first (auto-create if needed)
+    await ensureUserSettings(userId);
 
-  if (!settings?.userProfile) {
+    const settings = await prisma.userSettings.findUnique({
+      where: { userId },
+      select: { userProfile: true },
+    });
+
+    if (!settings?.userProfile) {
+      return {};
+    }
+
+    // Handle the case where userProfile is stored as a Prisma JSON value
+    const profile = settings.userProfile as unknown;
+    if (typeof profile === "object" && profile !== null) {
+      return profile as UserProfile;
+    }
+
+    return {};
+  } catch (error: any) {
+    console.error(
+      `[User Profile] Error getting profile for ${userId}:`,
+      error.message,
+    );
     return {};
   }
-
-  // Handle the case where userProfile is stored as a Prisma JSON value
-  const profile = settings.userProfile as unknown;
-  if (typeof profile === "object" && profile !== null) {
-    return profile as UserProfile;
-  }
-
-  return {};
 }
 
 /**
@@ -122,78 +179,91 @@ export async function updateUserProfile(
 /**
  * Merge updates into existing profile
  * This is the main method used by the LLM tool
+ * Automatically initializes UserSettings if missing
  */
 export async function mergeUserProfile(
   userId: string,
   updates: Partial<UserProfile>,
 ): Promise<UserProfile> {
-  const currentProfile = await getUserProfile(userId);
+  try {
+    // Ensure settings exist first (auto-create if brand new user)
+    await ensureUserSettings(userId);
 
-  // Deep merge for nested objects like relationships
-  const mergedProfile: UserProfile = {
-    ...currentProfile,
-    ...updates,
-    lastUpdated: new Date().toISOString(),
-  };
+    const currentProfile = await getUserProfile(userId);
 
-  // Handle relationships merging (add/update, don't replace all)
-  if (updates.relationships && currentProfile.relationships) {
-    const existingRelationships = currentProfile.relationships;
-    const newRelationships = updates.relationships;
-
-    // Merge by name - update existing or add new
-    const relationshipsMap = new Map(
-      existingRelationships.map((r) => [r.name.toLowerCase(), r]),
-    );
-
-    for (const rel of newRelationships) {
-      relationshipsMap.set(rel.name.toLowerCase(), rel);
-    }
-
-    mergedProfile.relationships = Array.from(relationshipsMap.values());
-  }
-
-  // Handle arrays merging (skills, interests, goals) - add unique values
-  const arrayFields: (keyof UserProfile)[] = [
-    "skills",
-    "interests",
-    "hobbies",
-    "currentGoals",
-    "longTermGoals",
-  ];
-
-  for (const field of arrayFields) {
-    const currentValues = currentProfile[field] as string[] | undefined;
-    const newValues = updates[field] as string[] | undefined;
-
-    if (newValues && Array.isArray(newValues)) {
-      const combined = [...(currentValues || []), ...newValues];
-      // Remove duplicates (case-insensitive)
-      const uniqueMap = new Map(combined.map((v) => [v.toLowerCase(), v]));
-      (mergedProfile as any)[field] = Array.from(uniqueMap.values());
-    }
-  }
-
-  // Handle custom fields merging
-  if (updates.custom && currentProfile.custom) {
-    mergedProfile.custom = {
-      ...currentProfile.custom,
-      ...updates.custom,
+    // Deep merge for nested objects like relationships
+    const mergedProfile: UserProfile = {
+      ...currentProfile,
+      ...updates,
+      lastUpdated: new Date().toISOString(),
     };
+
+    // Handle relationships merging (add/update, don't replace all)
+    if (updates.relationships && currentProfile.relationships) {
+      const existingRelationships = currentProfile.relationships;
+      const newRelationships = updates.relationships;
+
+      // Merge by name - update existing or add new
+      const relationshipsMap = new Map(
+        existingRelationships.map((r) => [r.name.toLowerCase(), r]),
+      );
+
+      for (const rel of newRelationships) {
+        relationshipsMap.set(rel.name.toLowerCase(), rel);
+      }
+
+      mergedProfile.relationships = Array.from(relationshipsMap.values());
+    }
+
+    // Handle arrays merging (skills, interests, goals) - add unique values
+    const arrayFields: (keyof UserProfile)[] = [
+      "skills",
+      "interests",
+      "hobbies",
+      "currentGoals",
+      "longTermGoals",
+    ];
+
+    for (const field of arrayFields) {
+      const currentValues = currentProfile[field] as string[] | undefined;
+      const newValues = updates[field] as string[] | undefined;
+
+      if (newValues && Array.isArray(newValues)) {
+        const combined = [...(currentValues || []), ...newValues];
+        // Remove duplicates (case-insensitive)
+        const uniqueMap = new Map(combined.map((v) => [v.toLowerCase(), v]));
+        (mergedProfile as any)[field] = Array.from(uniqueMap.values());
+      }
+    }
+
+    // Handle custom fields merging
+    if (updates.custom && currentProfile.custom) {
+      mergedProfile.custom = {
+        ...currentProfile.custom,
+        ...updates.custom,
+      };
+    }
+
+    await prisma.userSettings.upsert({
+      where: { userId },
+      create: {
+        userId,
+        userProfile: mergedProfile as any,
+        metadata: {} as any,
+      },
+      update: {
+        userProfile: mergedProfile as any,
+      },
+    });
+
+    return mergedProfile;
+  } catch (error: any) {
+    console.error(
+      `[User Profile] Failed to merge profile for ${userId}:`,
+      error.message,
+    );
+    throw error;
   }
-
-  await prisma.userSettings.upsert({
-    where: { userId },
-    create: {
-      userId,
-      userProfile: mergedProfile as any,
-    },
-    update: {
-      userProfile: mergedProfile as any,
-    },
-  });
-
-  return mergedProfile;
 }
 
 /**
@@ -333,6 +403,7 @@ export async function getTrainedLanguages(userId: string): Promise<string[]> {
 
 // Export singleton-style functions
 export const userProfileService = {
+  ensureUserSettings,
   getUserProfile,
   updateUserProfile,
   mergeUserProfile,
