@@ -326,6 +326,13 @@ export async function orchestrateChat(
         },
       });
 
+      // Mark flow as completed immediately before returning to client
+      // Post-processing happens asynchronously in background
+      flowTracker.completeFlow(
+        flowId,
+        orchestratorResult.success ? "completed" : "failed",
+      );
+
       schedulePostProcessing(
         userId,
         message,
@@ -585,6 +592,10 @@ export async function orchestrateChat(
     });
 
     // ==================== 14. ASYNC POST-PROCESSING ====================
+    // Mark flow as completed BEFORE post-processing starts
+    // Post-processing runs async in the background
+    flowTracker.completeFlow(flowId, "completed");
+
     schedulePostProcessing(userId, message, fullResponse, messageId, flowId);
 
     // Update conversation context cache
@@ -711,6 +722,7 @@ async function executeToolWithTracking(
 
 /**
  * Schedule async post-processing tasks
+ * NOTE: These run in the background; flow is already marked as completed
  */
 function schedulePostProcessing(
   userId: string,
@@ -740,7 +752,7 @@ function schedulePostProcessing(
     });
   }
 
-  // Analysis and memory storage
+  // Analysis and memory storage - tracks as post-response events only
   setImmediate(async () => {
     try {
       const analysisStart = Date.now();
@@ -835,9 +847,8 @@ function schedulePostProcessing(
       }
     } catch (error) {
       console.error("[ChatOrchestrator] Post-response analysis failed:", error);
-    } finally {
-      flowTracker.completeFlow(flowId, "completed");
     }
+    // Note: flow is already completed before post-processing started
   });
 }
 
