@@ -52,15 +52,9 @@ export function EmbeddingSelectionStep({
     })),
   );
 
-  // If discoveredModels are provided (from API test), use those for the last provider
-  const availableModels =
-    discoveredModels.length > 0
-      ? discoveredModels.map((m) => ({
-          ...m,
-          providerId: lastProvider?.id,
-          providerName: lastProvider?.name,
-        }))
-      : allModels;
+  // Always use allModels from database, not discoveredModels from API test preview
+  // discoveredModels is only used in AIConfigStep for preview before provider creation
+  const availableModels = allModels;
 
   // Filter models that are likely embeddings (contain 'embedding' in name or are certain known models)
   const embeddingModels = availableModels.filter((model) => {

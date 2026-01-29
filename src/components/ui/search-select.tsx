@@ -38,7 +38,7 @@ export const SearchSelect = React.forwardRef<HTMLDivElement, SearchSelectProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Filter options based on search
+    // Update filtered options when options or search value changes
     useEffect(() => {
       const filtered = options.filter(
         (option) =>
@@ -47,6 +47,9 @@ export const SearchSelect = React.forwardRef<HTMLDivElement, SearchSelectProps>(
       );
       setFilteredOptions(filtered);
     }, [searchValue, options]);
+
+    // Verify selected option exists in current options
+    const selectedOption = options.find((opt) => opt.value === value);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -59,11 +62,13 @@ export const SearchSelect = React.forwardRef<HTMLDivElement, SearchSelectProps>(
         }
       };
 
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }, []);
+      if (isOpen) {
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+          document.removeEventListener("mousedown", handleClickOutside);
+        };
+      }
+    }, [isOpen]);
 
     // Focus input when dropdown opens
     useEffect(() => {
@@ -71,8 +76,6 @@ export const SearchSelect = React.forwardRef<HTMLDivElement, SearchSelectProps>(
         inputRef.current.focus();
       }
     }, [isOpen]);
-
-    const selectedOption = options.find((opt) => opt.value === value);
 
     const handleSelect = (optionValue: string) => {
       onChange(optionValue);
@@ -87,7 +90,7 @@ export const SearchSelect = React.forwardRef<HTMLDivElement, SearchSelectProps>(
     };
 
     return (
-      <div ref={ref} className={cn("relative w-full", className)}>
+      <div ref={containerRef} className={cn("relative w-full", className)}>
         {/* Main Input/Display */}
         <div
           onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -98,24 +101,24 @@ export const SearchSelect = React.forwardRef<HTMLDivElement, SearchSelectProps>(
             isOpen && "ring-2 ring-blue-600 ring-offset-2",
           )}
         >
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <div className="flex items-center flex-1 min-w-0 gap-2">
+            <Search className="flex-shrink-0 w-4 h-4 text-slate-400" />
             {selectedOption ? (
-              <span className="text-slate-900 truncate">
+              <span className="truncate text-slate-900">
                 {selectedOption.label}
               </span>
             ) : (
               <span className="text-slate-500">{placeholder}</span>
             )}
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center flex-shrink-0 gap-1">
             {selectedOption && !disabled && (
               <button
                 onClick={handleClear}
-                className="p-1 hover:bg-slate-200 rounded"
+                className="p-1 rounded hover:bg-slate-200"
                 title="Clear selection"
               >
-                <X className="h-4 w-4 text-slate-400" />
+                <X className="w-4 h-4 text-slate-400" />
               </button>
             )}
             <ChevronDown
@@ -130,11 +133,11 @@ export const SearchSelect = React.forwardRef<HTMLDivElement, SearchSelectProps>(
         {/* Dropdown Menu */}
         {isOpen && (
           <div
-            className="absolute top-full left-0 right-0 mt-2 z-50 rounded-md border border-slate-200 bg-white shadow-lg"
+            className="absolute left-0 right-0 z-50 mt-2 bg-white border rounded-md shadow-lg top-full border-slate-200"
             style={{ maxHeight }}
           >
             {/* Search Input */}
-            <div className="sticky top-0 p-2 border-b border-slate-200 bg-white">
+            <div className="sticky top-0 p-2 bg-white border-b border-slate-200">
               <input
                 ref={inputRef}
                 type="text"

@@ -1030,6 +1030,7 @@
       "title": "Sélectionnez votre LLM",
       "subtitle": "Choisissez quel modèle de langage vous souhaitez utiliser pour votre Second Brain. Vous pouvez changer ce choix ultérieurement dans les paramètres.",
       "providerTitle": "Modèles disponibles de {{provider}}",
+      "selectProvider": "Sélectionner un provider",
       "selectModel": "Sélectionner un modèle",
       "chooseModel": "Choisir un modèle...",
       "modelDescription": "Ce modèle sera utilisé pour les conversations, l'analyse et les tâches de raisonnement.",
@@ -1040,7 +1041,8 @@
     "embeddingSelectionStep": {
       "title": "Sélectionnez le modèle d'intégration",
       "subtitle": "Choisissez un modèle d'intégration pour la recherche sémantique et l'organisation des mémoires. Ceci est obligatoire pour que le système fonctionne correctement.",
-      "providerTitle": "Modèles d'intégration disponibles de {{provider}}",
+      "providProvider": "Sélectionner un provider",
+      "selecterTitle": "Modèles d'intégration disponibles de {{provider}}",
       "selectModel": "Sélectionner le modèle d'intégration",
       "chooseModel": "Choisir un modèle d'intégration...",
       "modelDescription": "Ce modèle sera utilisé pour vectoriser le texte en vue de la recherche sémantique et de la récupération des mémoires.",
