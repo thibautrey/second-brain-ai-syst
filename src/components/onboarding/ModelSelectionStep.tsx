@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import React, { useEffect, useState } from "react";
 
 import { Button } from "../ui/button";
-import { Select } from "../ui/select";
+import { SearchSelect } from "../ui/search-select";
 import { useAISettings } from "../../hooks/useAISettings";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +24,18 @@ export function ModelSelectionStep({
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Create a unique composite key for each model (provider_id + model_id)
+  const createModelKey = (providerId: string | undefined, modelId: string) =>
+    providerId ? `${providerId}:${modelId}` : modelId;
+
+  const parseModelKey = (key: string) => {
+    const parts = key.split(":");
+    if (parts.length === 2) {
+      return { providerId: parts[0], modelId: parts[1] };
+    }
+    return { providerId: "", modelId: key };
+  };
 
   // Get all enabled providers with their models
   const enabledProviders = settings.providers.filter((p) => p.isEnabled);
@@ -69,15 +81,14 @@ export function ModelSelectionStep({
       );
 
       if (selectedWellKnown) {
-        setSelectedModel(selectedWellKnown.id);
-        setSelectedProviderId(
-          selectedWellKnown.providerId || lastProvider?.id || "",
-        );
+        const providerId =
+          selectedWellKnown.providerId || lastProvider?.id || "";
+        setSelectedModel(createModelKey(providerId, selectedWellKnown.id));
+        setSelectedProviderId(providerId);
       } else if (availableModels[0]) {
-        setSelectedModel(availableModels[0].id);
-        setSelectedProviderId(
-          availableModels[0].providerId || lastProvider?.id || "",
-        );
+        const providerId = availableModels[0].providerId || lastProvider?.id || "";
+        setSelectedModel(createModelKey(providerId, availableModels[0].id));
+        setSelectedProviderId(providerId);
       }
     }
   }, [availableModels, selectedModel, lastProvider]);
@@ -89,6 +100,9 @@ export function ModelSelectionStep({
 
     setIsUpdating(true);
     try {
+      // Parse the composite key to get modelId
+      const { modelId } = parseModelKey(selectedModel);
+
       // Find the selected provider
       const selectedProvider = enabledProviders.find(
         (p) => p.id === selectedProviderId,
@@ -102,27 +116,27 @@ export function ModelSelectionStep({
         {
           taskType: "chat",
           providerId: selectedProviderId,
-          modelId: selectedModel,
+          modelId: modelId,
         },
         {
           taskType: "routing",
           providerId: selectedProviderId,
-          modelId: selectedModel,
+          modelId: modelId,
         },
         {
           taskType: "reflection",
           providerId: selectedProviderId,
-          modelId: selectedModel,
+          modelId: modelId,
         },
         {
           taskType: "summarization",
           providerId: selectedProviderId,
-          modelId: selectedModel,
+          modelId: modelId,
         },
         {
           taskType: "analysis",
           providerId: selectedProviderId,
-          modelId: selectedModel,
+          modelId: modelId,
         },
       ]);
       onNext();
@@ -177,17 +191,17 @@ export function ModelSelectionStep({
                 {t("onboarding.modelSelectionStep.selectProvider") ||
                   "Select Provider"}
               </label>
-              <Select
+              <SearchSelect
                 options={enabledProviders.map((provider) => ({
                   value: provider.id,
                   label: `${provider.name} (${(provider.models || []).length} models)`,
                 }))}
                 value={selectedProviderId}
-                onChange={(e) => {
-                  setSelectedProviderId(e.target.value);
+                onChange={(value) => {
+                  setSelectedProviderId(value);
                   setSelectedModel(""); // Reset model selection when provider changes
                 }}
-                placeholder="Choose a provider"
+                placeholder="Search or select a provider..."
               />
             </div>
           )}
@@ -196,9 +210,9 @@ export function ModelSelectionStep({
             <label className="block mb-2 text-sm font-medium">
               {t("onboarding.modelSelectionStep.selectModel")}
             </label>
-            <Select
+            <SearchSelect
               options={availableModels.map((model) => ({
-                value: model.id,
+                value: createModelKey(model.providerId, model.id),
                 label: `${model.name || model.id}${
                   enabledProviders.length > 1 && model.providerName
                     ? ` (${model.providerName})`
@@ -206,8 +220,13 @@ export function ModelSelectionStep({
                 }`,
               }))}
               value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
+              onChange={(value) => {
+                const parsed = parseModelKey(value);
+                setSelectedModel(value);
+                setSelectedProviderId(parsed.providerId);
+              }}
               placeholder={t("onboarding.modelSelectionStep.chooseModel")}
+              maxHeight="400px"
             />
             <p className="mt-2 text-xs text-muted-foreground">
               {t("onboarding.modelSelectionStep.modelDescription")}

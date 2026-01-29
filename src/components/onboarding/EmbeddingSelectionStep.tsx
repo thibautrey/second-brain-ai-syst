@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import React, { useEffect, useState } from "react";
 
 import { Button } from "../ui/button";
-import { Select } from "../ui/select";
+import { SearchSelect } from "../ui/search-select";
 import { useAISettings } from "../../hooks/useAISettings";
 import { useTranslation } from "react-i18next";
 
@@ -22,12 +22,45 @@ export function EmbeddingSelectionStep({
   const { settings, updateTaskConfigsBatch, isSaving } = useAISettings();
   const { t } = useTranslation();
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [selectedProviderId, setSelectedProviderId] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Create a unique composite key for each model (provider_id + model_id)
+  const createModelKey = (providerId: string | undefined, modelId: string) =>
+    providerId ? `${providerId}:${modelId}` : modelId;
+
+  const parseModelKey = (key: string) => {
+    const parts = key.split(":");
+    if (parts.length === 2) {
+      return { providerId: parts[0], modelId: parts[1] };
+    }
+    return { providerId: "", modelId: key };
+  };
+
+  // Get all enabled providers with their models
+  const enabledProviders = settings.providers.filter((p) => p.isEnabled);
+
   // Find the provider that was just added (the last one or the one with models)
-  const lastProvider = settings.providers[settings.providers.length - 1];
+  const lastProvider = enabledProviders[enabledProviders.length - 1];
+
+  // Collect all models from all providers
+  const allModels = enabledProviders.flatMap((provider) =>
+    (provider.models || []).map((model) => ({
+      ...model,
+      providerId: provider.id,
+      providerName: provider.name,
+    })),
+  );
+
+  // If discoveredModels are provided (from API test), use those for the last provider
   const availableModels =
-    discoveredModels.length > 0 ? discoveredModels : lastProvider?.models || [];
+    discoveredModels.length > 0
+      ? discoveredModels.map((m) => ({
+          ...m,
+          providerId: lastProvider?.id,
+          providerName: lastProvider?.name,
+        }))
+      : allModels;
 
   // Filter models that are likely embeddings (contain 'embedding' in name or are certain known models)
   const embeddingModels = availableModels.filter((model) => {
@@ -55,23 +88,29 @@ export function EmbeddingSelectionStep({
           m.id.includes("small") ||
           m.id.includes("ada"),
       );
-      setSelectedModel(smallEmbedding?.id || modelsToShow[0].id);
+      const selected = smallEmbedding || modelsToShow[0];
+      const providerId = selected.providerId || lastProvider?.id || "";
+      setSelectedModel(createModelKey(providerId, selected.id));
+      setSelectedProviderId(providerId);
     }
-  }, [modelsToShow, selectedModel]);
+  }, [modelsToShow, selectedModel, lastProvider]);
 
   const handleSelectModel = async () => {
-    if (!selectedModel || !lastProvider) {
+    if (!selectedModel || !selectedProviderId) {
       return;
     }
 
     setIsUpdating(true);
     try {
+      // Parse the composite key to get modelId
+      const { modelId } = parseModelKey(selectedModel);
+
       // Set this model as the embedding model
       await updateTaskConfigsBatch([
         {
           taskType: "embeddings",
-          providerId: lastProvider.id,
-          modelId: selectedModel,
+          providerId: selectedProviderId,
+          modelId: modelId,
         },
       ]);
       onNext();
@@ -115,24 +154,53 @@ export function EmbeddingSelectionStep({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {t("onboarding.embeddingSelectionStep.providerTitle", {
-              provider: lastProvider.name,
-            })}
+            {t("onboarding.embeddingSelectionStep.selectModel")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Provider selector if multiple providers */}
+          {enabledProviders.length > 1 && (
+            <div>
+              <label className="block mb-2 text-sm font-medium">
+                {t("onboarding.modelSelectionStep.selectProvider") ||
+                  "Select Provider"}
+              </label>
+              <SearchSelect
+                options={enabledProviders.map((provider) => ({
+                  value: provider.id,
+                  label: `${provider.name} (${(provider.models || []).length} models)`,
+                }))}
+                value={selectedProviderId}
+                onChange={(value) => {
+                  setSelectedProviderId(value);
+                  setSelectedModel(""); // Reset model selection when provider changes
+                }}
+                placeholder="Search or select a provider..."
+              />
+            </div>
+          )}
+
           <div>
             <label className="block mb-2 text-sm font-medium">
               {t("onboarding.embeddingSelectionStep.selectModel")}
             </label>
-            <Select
+            <SearchSelect
               options={modelsToShow.map((model) => ({
-                value: model.id,
-                label: model.name || model.id,
+                value: createModelKey(model.providerId, model.id),
+                label: `${model.name || model.id}${
+                  enabledProviders.length > 1 && model.providerName
+                    ? ` (${model.providerName})`
+                    : ""
+                }`,
               }))}
               value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
+              onChange={(value) => {
+                const parsed = parseModelKey(value);
+                setSelectedModel(value);
+                setSelectedProviderId(parsed.providerId);
+              }}
               placeholder={t("onboarding.embeddingSelectionStep.chooseModel")}
+              maxHeight="400px"
             />
             <p className="mt-2 text-xs text-muted-foreground">
               {t("onboarding.embeddingSelectionStep.modelDescription")}
