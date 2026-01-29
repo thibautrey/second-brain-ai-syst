@@ -1,0 +1,159 @@
+{
+  "landing": {
+    "brandName": "Second Brain",
+    "brandTagline": "Your AI-powered memory",
+    "github": "GitHub",
+    "docs": "Docs",
+    "hero": {
+      "pill": "Open source • Self-hosted • Private",
+      "titleLine1": "The AI that actually",
+      "titleLine2": "remembers everything.",
+      "subtitle": "Capture your thoughts, conversations, and decisions. Let AI organize, summarize, and surface the right memories at the right time—all running locally on your machine.",
+      "viewSource": "View source",
+      "highlights": {
+        "privacy": "100% Private",
+        "local": "Runs locally",
+        "proactive": "Proactive coaching"
+      }
+    },
+    "whatItDoes": {
+      "kicker": "What it does",
+      "title": "Your personal cognitive operating system",
+      "features": {
+        "memory": {
+          "title": "Continuous Memory",
+          "description": "Automatically captures interactions and structures them with semantic understanding."
+        },
+        "aiModels": {
+          "title": "Any AI Model",
+          "description": "Use OpenAI, Anthropic, Gemini, or run models locally.",
+          "local": "Local Models"
+        },
+        "tools": {
+          "title": "Tools & Skills",
+          "description": "Extend your AI with custom tools and skills.",
+          "examples": "Web browsing, code execution, API calls"
+        },
+        "search": {
+          "title": "Semantic Search",
+          "description": "Find memories by meaning, not just keywords."
+        },
+        "voice": {
+          "title": "Speaker Recognition",
+          "description": "Voice profiles with speaker identification and filtering."
+        },
+        "proactive": {
+          "title": "Proactive Coach",
+          "description": "AI coach that helps with health, productivity, and goals."
+        },
+        "summaries": {
+          "title": "Time-Scale Summaries",
+          "description": "Daily insights become yearly reflections."
+        },
+        "privacy": {
+          "title": "Privacy First",
+          "description": "Self-hosted with encrypted storage and zero telemetry."
+        }
+      }
+    },
+    "howItWorks": {
+      "kicker": "How it works",
+      "title": "From chaos to clarity",
+      "subtitle": "A continuous loop that transforms raw interactions into actionable knowledge.",
+      "steps": {
+        "capture": {
+          "title": "Capture",
+          "description": "Record thoughts, conversations, and decisions as they happen."
+        },
+        "understand": {
+          "title": "Understand",
+          "description": "AI classifies intent, filters noise, and extracts meaning."
+        },
+        "remember": {
+          "title": "Remember",
+          "description": "Vectorized and indexed for instant semantic retrieval."
+        },
+        "assist": {
+          "title": "Assist",
+          "description": "Proactive insights and contextual answers when you need them."
+        }
+      }
+    },
+    "proactive": {
+      "badge": "Proactive Agent",
+      "title": "An AI coach that actually helps",
+      "description": "Runs twice daily to analyze patterns and provide suggestions.",
+      "features": {
+        "health": "Health & wellbeing monitoring",
+        "goals": "Goal progress tracking",
+        "habits": "Habit formation support",
+        "schedule": "Smart scheduling suggestions"
+      },
+      "sample1": {
+        "title": "Time for a break",
+        "desc": "You've been working for 4 hours straight. Consider a 15-minute walk."
+      },
+      "sample2": {
+        "title": "Goal milestone reached",
+        "desc": "You've completed 80% of your Q1 reading goal. Keep it up!"
+      },
+      "sample3": {
+        "title": "Habit streak: 7 days",
+        "desc": "Your morning routine is becoming consistent. Great progress!"
+      }
+    },
+    "timeline": {
+      "kicker": "Time-scale summaries",
+      "title": "Knowledge that compounds",
+      "subtitle": "Daily context becomes long-term insight through intelligent summaries.",
+      "items": {
+        "daily": {
+          "label": "Daily",
+          "detail": "Key moments & decisions"
+        },
+        "weekly": {
+          "label": "Weekly",
+          "detail": "Patterns & momentum"
+        },
+        "monthly": {
+          "label": "Monthly",
+          "detail": "Projects & goals review"
+        },
+        "quarterly": {
+          "label": "Quarterly",
+          "detail": "Strategic adjustments"
+        },
+        "yearly": {
+          "label": "Yearly",
+          "detail": "Long-term growth"
+        }
+      }
+    },
+    "quickStart": {
+      "kicker": "Quick start",
+      "title": "Up and running in 60 seconds",
+      "subtitle": "Clone, setup, and launch. Docker handles the rest.",
+      "starRepo": "Star on GitHub"
+    },
+    "features": {
+      "title": "Everything you need for a second brain",
+      "subtitle": "Built for privacy-conscious users who want AI assistance without compromising their data.",
+      "list": {
+        "voiceProfiles": "Voice profiles with speaker recognition",
+        "semanticSearch": "Semantic search across all memories",
+        "multiScaleSummaries": "Multi-scale summaries (daily to yearly)",
+        "proactiveCoaching": "Proactive health & productivity coaching",
+        "noiseFilter": "Intelligent noise filtering",
+        "toolExecution": "Background tool execution with guardrails",
+        "aiModelsFlexible": "OpenAI, Anthropic, Gemini, or local models",
+        "customTools": "Extensible tools & skills system",
+        "encryptedStorage": "Encrypted local storage",
+        "localFirst": "Local-first, self-hosted architecture"
+      }
+    },
+    "footer": {
+      "tagline": "Your AI-powered memory",
+      "copyright": "Open source under MIT License. Built for humans who value their privacy."
+    }
+  }
+}
