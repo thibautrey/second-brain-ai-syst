@@ -862,8 +862,9 @@ main() {
             ;;
         setup)
             print_banner
-            run_dependency_checks || exit 1
             create_env_file
+            echo
+            run_dependency_checks || exit 1
             ;;
         clean)
             print_banner
@@ -876,18 +877,12 @@ main() {
             # No arguments - run interactive mode
             print_banner
 
-            # First time setup check
+            # Always ensure .env exists before anything else
             if ! check_env_file; then
                 print_color "$YELLOW" "  $ICON_INFO First time setup detected!"
                 echo
-                if prompt_yn "  Run quick start setup?" "y"; then
-                    quick_start
-                    echo
-                    if prompt_yn "  Continue to interactive menu?" "y"; then
-                        run_interactive
-                    fi
-                    exit 0
-                fi
+                create_env_file
+                echo
             fi
 
             run_dependency_checks || exit 1
