@@ -10,8 +10,10 @@
 
 import axios from "axios";
 import prisma from "./prisma.js";
+import crypto from "crypto";
 
 const TELEGRAM_API_BASE = "https://api.telegram.org/bot";
+const VERIFICATION_CODE_EXPIRY_MINUTES = 10;
 
 // Polling state per bot token
 interface PollingState {
