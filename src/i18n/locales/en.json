@@ -515,14 +515,79 @@
   },
   "toolsConfig": {
     "title": "Tools Configuration",
-    "subtitle": "Manage built-in tools, generated tools, and MCP servers",
+    "subtitle": "Manage and configure your tools, integrations, and MCP servers",
+    "placeholder": {
+      "title": "No tools available",
+      "subtitle": "Get started by adding your first tool or MCP server"
+    },
+    "errors": {
+      "bannerTitle": "Configuration Error",
+      "nonJsonHint": "The server response was not valid JSON. Please check the server configuration.",
+      "authRequired": "Authentication required. Please check your credentials.",
+      "requestFailed": "Failed to process your request. Please try again.",
+      "nonJsonResponse": "Invalid response format. Expected JSON."
+    },
+    "tabs": {
+      "builtin": "Built-in Tools",
+      "generated": "Generated Tools"
+    },
     "generated": {
+      "emptyTitle": "No generated tools yet",
+      "emptySubtitle": "Create your first custom tool to get started",
+      "actionsLabel": "Actions",
       "versionLabel": "Version",
-      "usageLabel": "Usage",
+      "usageLabel": "Used",
       "createdAtLabel": "Created",
+      "lastUsedLabel": "Last Used",
+      "requiredSecretsLabel": "Required Secrets",
       "copyId": "Copy ID",
-      "selfHeal": "Self-heal",
-      "requiredSecretsLabel": "Required secrets"
+      "selfHeal": "Self-Heal"
+    },
+    "confirm": {
+      "deleteMcpServer": "Are you sure you want to delete this MCP server? This action cannot be undone.",
+      "uninstallTool": "Are you sure you want to uninstall this tool? This action cannot be undone.",
+      "deleteGeneratedTool": "Are you sure you want to delete this generated tool? This action cannot be undone."
+    },
+    "mcp": {
+      "editTitle": "Edit MCP Server",
+      "addTitle": "Add MCP Server",
+      "description": "Configure your Model Context Protocol (MCP) servers",
+      "fields": {
+        "name": "Name",
+        "namePlaceholder": "Enter server name",
+        "description": "Description",
+        "descriptionPlaceholder": "Describe what this server does",
+        "transportType": "Transport Type",
+        "command": "Command",
+        "commandPlaceholder": "e.g., python -m mcp_server",
+        "args": "Arguments",
+        "argsPlaceholder": "Enter command arguments",
+        "url": "URL",
+        "urlPlaceholder": "e.g., http://localhost:3000",
+        "env": "Environment Variables",
+        "envPlaceholder": "KEY=value (one per line)",
+        "envHint": "Enter environment variables as KEY=value pairs, one per line"
+      }
+    },
+    "selfHeal": {
+      "title": "Self-Heal Tool",
+      "description": "Automatically detect and fix issues with your tools",
+      "status": {
+        "completed": "Completed",
+        "failed": "Failed",
+        "inProgress": "In Progress",
+        "pending": "Pending"
+      },
+      "summary": {
+        "completed": "Completed: {{count}} checks",
+        "inProgress": "In Progress: {{count}} checks",
+        "failed": "Failed: {{count}} checks"
+      },
+      "success": "All checks passed successfully!",
+      "empty": "No self-heal operations available",
+      "loading": "Loading self-heal data...",
+      "inProgress": "Running self-heal checks...",
+      "start": "Start Self-Heal"
     }
   },
   "chat": {

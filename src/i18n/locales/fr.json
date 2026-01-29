@@ -1357,5 +1357,82 @@
       "tagline": "Votre mémoire augmentée par l'IA",
       "copyright": "Open source sous licence MIT. Conçu pour les humains qui valorisent leur vie privée."
     }
+  },
+  "toolsConfig": {
+    "title": "Configuration des outils",
+    "subtitle": "Gérez et configurez vos outils, intégrations et serveurs MCP",
+    "placeholder": {
+      "title": "Aucun outil disponible",
+      "subtitle": "Commencez par ajouter votre premier outil ou serveur MCP"
+    },
+    "errors": {
+      "bannerTitle": "Erreur de configuration",
+      "nonJsonHint": "La réponse du serveur n'était pas un JSON valide. Veuillez vérifier la configuration du serveur.",
+      "authRequired": "Authentification requise. Veuillez vérifier vos identifiants.",
+      "requestFailed": "Impossible de traiter votre demande. Veuillez réessayer.",
+      "nonJsonResponse": "Format de réponse invalide. JSON attendu."
+    },
+    "tabs": {
+      "builtin": "Outils intégrés",
+      "generated": "Outils générés"
+    },
+    "generated": {
+      "emptyTitle": "Aucun outil généré pour le moment",
+      "emptySubtitle": "Créez votre premier outil personnalisé pour commencer",
+      "actionsLabel": "Actions",
+      "versionLabel": "Version",
+      "usageLabel": "Utilisé",
+      "createdAtLabel": "Créé",
+      "lastUsedLabel": "Dernière utilisation",
+      "requiredSecretsLabel": "Secrets requis",
+      "copyId": "Copier l'ID",
+      "selfHeal": "Auto-réparation"
+    },
+    "confirm": {
+      "deleteMcpServer": "Êtes-vous sûr de vouloir supprimer ce serveur MCP ? Cette action ne peut pas être annulée.",
+      "uninstallTool": "Êtes-vous sûr de vouloir désinstaller cet outil ? Cette action ne peut pas être annulée.",
+      "deleteGeneratedTool": "Êtes-vous sûr de vouloir supprimer cet outil généré ? Cette action ne peut pas être annulée."
+    },
+    "mcp": {
+      "editTitle": "Modifier le serveur MCP",
+      "addTitle": "Ajouter un serveur MCP",
+      "description": "Configurez vos serveurs Model Context Protocol (MCP)",
+      "fields": {
+        "name": "Nom",
+        "namePlaceholder": "Entrez le nom du serveur",
+        "description": "Description",
+        "descriptionPlaceholder": "Décrivez ce que fait ce serveur",
+        "transportType": "Type de transport",
+        "command": "Commande",
+        "commandPlaceholder": "ex. : python -m mcp_server",
+        "args": "Arguments",
+        "argsPlaceholder": "Entrez les arguments de la commande",
+        "url": "URL",
+        "urlPlaceholder": "ex. : http://localhost:3000",
+        "env": "Variables d'environnement",
+        "envPlaceholder": "CLÉ=valeur (une par ligne)",
+        "envHint": "Entrez les variables d'environnement au format CLÉ=valeur, une par ligne"
+      }
+    },
+    "selfHeal": {
+      "title": "Outil d'auto-réparation",
+      "description": "Détectez et corrigez automatiquement les problèmes avec vos outils",
+      "status": {
+        "completed": "Terminé",
+        "failed": "Échoué",
+        "inProgress": "En cours",
+        "pending": "En attente"
+      },
+      "summary": {
+        "completed": "Terminé : {{count}} vérifications",
+        "inProgress": "En cours : {{count}} vérifications",
+        "failed": "Échoué : {{count}} vérifications"
+      },
+      "success": "Tous les tests sont passés avec succès !",
+      "empty": "Aucune opération d'auto-réparation disponible",
+      "loading": "Chargement des données d'auto-réparation...",
+      "inProgress": "Exécution des vérifications d'auto-réparation...",
+      "start": "Démarrer l'auto-réparation"
+    }
   }
 }
