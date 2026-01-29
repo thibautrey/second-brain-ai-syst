@@ -305,6 +305,93 @@ export async function getOAuthConfig(): Promise<{
   return chatGPTOAuthService.getOAuthConfig();
 }
 
+/**
+ * Submit OAuth code manually (fallback when callback doesn't work)
+ * User can paste the authorization code or full redirect URL
+ */
+export async function submitOAuthCodeManually(
+  userId: string,
+  input: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  // Parse the input - can be just the code, or a full URL
+  let code: string | undefined;
+  let state: string | undefined;
+
+  const trimmedInput = input.trim();
+
+  // Try to parse as URL first
+  try {
+    const url = new URL(trimmedInput);
+    code = url.searchParams.get("code") ?? undefined;
+    state = url.searchParams.get("state") ?? undefined;
+  } catch {
+    // Not a URL - check if it contains code= format
+    if (trimmedInput.includes("code=")) {
+      const params = new URLSearchParams(trimmedInput);
+      code = params.get("code") ?? undefined;
+      state = params.get("state") ?? undefined;
+    } else if (trimmedInput.includes("#")) {
+      // Format: code#state
+      const [c, s] = trimmedInput.split("#", 2);
+      code = c;
+      state = s;
+    } else {
+      // Assume it's just the code
+      code = trimmedInput;
+    }
+  }
+
+  if (!code) {
+    return {
+      success: false,
+      error: "Could not extract authorization code from input",
+    };
+  }
+
+  // If we have a state, use handleOAuthCallback
+  if (state) {
+    return handleOAuthCallback(state, code);
+  }
+
+  // Without state, we need to find the active session for this user
+  // This is a fallback - try to get the most recent session
+  const session = await chatGPTOAuthService.getActiveSessionForUser(userId);
+
+  if (!session) {
+    return {
+      success: false,
+      error:
+        "No active OAuth session found. Please start the OAuth flow again.",
+    };
+  }
+
+  try {
+    const credentials = await chatGPTOAuthService.exchangeCodeForTokens(
+      code,
+      session.codeVerifier,
+    );
+
+    await chatGPTOAuthService.storeOAuthCredentials(userId, credentials);
+
+    // Clean up the session
+    await chatGPTOAuthService.deleteSession(session.state);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Manual OAuth code submission error:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to exchange code for tokens",
+    };
+  }
+}
+
 // Export controller functions
 export const chatGPTOAuthController = {
   initiateOAuthFlow,
@@ -312,6 +399,7 @@ export const chatGPTOAuthController = {
   initiatePiAiOAuthFlow, // RECOMMENDED: Uses pi-ai library
   checkOAuthFlowStatus,
   handleOAuthCallback,
+  submitOAuthCodeManually,
   getOAuthStatus,
   disconnectOAuth,
   setOAuthEnabled,

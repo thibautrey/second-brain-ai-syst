@@ -204,11 +204,30 @@ function parseValidationErrors(errorMessage: string): string[] {
 
   // Handle "additional properties" errors
   if (errorMessage.includes("must NOT have additional properties")) {
-    const propMatch = errorMessage.match(/additional properties: (\w+)/);
-    if (propMatch) {
-      errors.push(`Unknown property: "${propMatch[1]}"`);
+    // Try multiple patterns to extract property names
+    const propMatches = errorMessage.match(
+      /additional properties?: ['"]?(\w+)['"]?/gi,
+    );
+    if (propMatches && propMatches.length > 0) {
+      propMatches.forEach((m) => {
+        const prop = m.match(/additional properties?: ['"]?(\w+)['"]?/i)?.[1];
+        if (prop) errors.push(`Unknown property: "${prop}"`);
+      });
     } else {
-      errors.push("Contains unknown/additional properties");
+      // Try to extract from the raw error with more patterns
+      const altMatch = errorMessage.match(
+        /property ['"]?(\w+)['"]? is not allowed/gi,
+      );
+      if (altMatch) {
+        altMatch.forEach((m) => {
+          const prop = m.match(/property ['"]?(\w+)['"]?/i)?.[1];
+          if (prop) errors.push(`Unknown property: "${prop}"`);
+        });
+      } else {
+        errors.push(
+          `Contains unknown/additional properties. Raw error: ${errorMessage}`,
+        );
+      }
     }
   }
 

@@ -242,6 +242,7 @@ export class OrchestratorAgent {
             agentId: result.agentId,
             status: result.status,
             ...(result.error && { error: result.error }),
+            ...(result.status !== "success" && { params: toolCall.arguments }),
           },
         });
       });

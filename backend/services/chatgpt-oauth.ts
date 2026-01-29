@@ -17,14 +17,23 @@ import {
 
 // ==================== Configuration ====================
 
-// Build redirect URI - uses localhost callback server for OAuth flow
+// Build redirect URI - prefers backend API callback, falls back to localhost for pi-ai compatibility
 function getRedirectUri(): string {
-  // OAuth flow requires a localhost callback server
-  // The callback server captures the authorization code
-  return (
-    process.env.CHATGPT_OAUTH_REDIRECT_URI ||
-    "http://127.0.0.1:1455/auth/callback"
-  );
+  // Check for explicit override first
+  if (process.env.CHATGPT_OAUTH_REDIRECT_URI) {
+    return process.env.CHATGPT_OAUTH_REDIRECT_URI;
+  }
+
+  // Use backend API URL if available (recommended for web apps)
+  const apiUrl = process.env.API_URL || process.env.BACKEND_URL;
+  if (apiUrl) {
+    return `${apiUrl}/api/auth/chatgpt/callback`;
+  }
+
+  // Fallback to localhost for pi-ai CLI-style flow
+  // Note: pi-ai's loginOpenAICodex hardcodes localhost:1455, so this is only
+  // used by our custom OAuth flow (initiateOAuthFlow, startOAuthFlowWithLocalServer)
+  return "http://127.0.0.1:1455/auth/callback";
 }
 
 const OAUTH_CONFIG = {
@@ -372,6 +381,40 @@ export async function validateOAuthCallback(
     userId: session.userId,
     codeVerifier: session.codeVerifier,
   };
+}
+
+/**
+ * Get active OAuth session for a user (for manual code submission)
+ * Returns the most recent non-expired session
+ */
+export async function getActiveSessionForUser(
+  userId: string,
+): Promise<{ state: string; codeVerifier: string } | null> {
+  const session = await prisma.chatGPTOAuthSession.findFirst({
+    where: {
+      userId,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  return {
+    state: session.state,
+    codeVerifier: session.codeVerifier,
+  };
+}
+
+/**
+ * Delete an OAuth session by state
+ */
+export async function deleteSession(state: string): Promise<void> {
+  await prisma.chatGPTOAuthSession.deleteMany({
+    where: { state },
+  });
 }
 
 // ==================== Credentials Storage ====================
@@ -821,6 +864,8 @@ export const chatGPTOAuthService = {
   refreshAccessToken,
   createOAuthSession,
   validateOAuthCallback,
+  getActiveSessionForUser,
+  deleteSession,
   storeOAuthCredentials,
   getOAuthCredentials,
   getValidOAuthCredentials,

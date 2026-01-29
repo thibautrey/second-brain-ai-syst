@@ -63,6 +63,7 @@ import {
   checkOAuthFlowStatus,
   getOAuthConfig as getChatGPTOAuthConfig,
   initiatePiAiOAuthFlow,
+  submitOAuthCodeManually,
 } from "../controllers/chatgpt-oauth.controller.js";
 import { audioUploadService } from "./audio-upload.js";
 import { speakerRecognitionService } from "./speaker-recognition.js";
@@ -1419,6 +1420,31 @@ app.post(
         return res.status(401).json({ error: "Unauthorized" });
       }
       const result = await disconnectOAuth(req.userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/auth/chatgpt/submit-code
+ * Submit OAuth authorization code manually (fallback when callback doesn't work)
+ * User can paste the code or full redirect URL
+ */
+app.post(
+  "/api/auth/chatgpt/submit-code",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { code } = req.body;
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ error: "code is required" });
+      }
+      const result = await submitOAuthCodeManually(req.userId, code);
       res.json(result);
     } catch (error) {
       next(error);

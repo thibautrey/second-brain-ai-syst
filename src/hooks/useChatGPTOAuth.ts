@@ -3,7 +3,8 @@
  * Handles OAuth flow initiation, status checking, and connection management
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+
 import { ChatGPTOAuthStatus } from "../types/ai-settings";
 
 const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
@@ -58,6 +59,10 @@ export interface ChatGPTOAuthHookResult {
     message: string;
     accountId?: string;
   }>;
+  submitCodeManually: (code: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
   refreshStatus: () => Promise<void>;
 }
 
@@ -82,21 +87,18 @@ export function useChatGPTOAuth(): ChatGPTOAuthHookResult {
     }
   }, []);
 
-  // Initiate OAuth flow using pi-ai backend method
+  // Initiate OAuth flow - uses backend callback URL (configurable via API_URL/BACKEND_URL env vars)
   const initiateOAuth = useCallback(async () => {
     setError(null);
     try {
-      // First try the pi-ai method which handles OAuth correctly
+      // Use the standard initiate endpoint which redirects callback to our backend
+      // The backend callback will redirect back to frontend with success/error params
       const result = await apiRequest<{
         authUrl: string;
         state?: string;
-        method?: string;
-        callbackPort?: number;
-        message?: string;
-      }>("/auth/chatgpt/initiate-pi-ai", { method: "POST" });
+      }>("/auth/chatgpt/initiate", { method: "POST" });
 
       // Open the auth URL in a new popup window for better UX
-      // The callback will be captured by pi-ai's local server on port 1455
       const width = 500;
       const height = 700;
       const left = (window.screen.width - width) / 2;
@@ -230,6 +232,45 @@ export function useChatGPTOAuth(): ChatGPTOAuthHookResult {
     }
   }, []);
 
+  // Submit OAuth code manually (fallback when callback doesn't work)
+  const submitCodeManually = useCallback(
+    async (
+      code: string,
+    ): Promise<{
+      success: boolean;
+      error?: string;
+    }> => {
+      setError(null);
+      try {
+        const result = await apiRequest<{
+          success: boolean;
+          error?: string;
+        }>("/auth/chatgpt/submit-code", {
+          method: "POST",
+          body: JSON.stringify({ code }),
+        });
+
+        if (result.success) {
+          await refreshStatus();
+        } else if (result.error) {
+          setError(result.error);
+        }
+
+        return result;
+      } catch (err) {
+        console.error("Failed to submit OAuth code:", err);
+        const message =
+          err instanceof Error ? err.message : "Failed to submit code";
+        setError(message);
+        return {
+          success: false,
+          error: message,
+        };
+      }
+    },
+    [refreshStatus],
+  );
+
   // Load status on mount
   useEffect(() => {
     refreshStatus();
@@ -266,6 +307,7 @@ export function useChatGPTOAuth(): ChatGPTOAuthHookResult {
     toggleEnabled,
     checkUsage,
     testConnection,
+    submitCodeManually,
     refreshStatus,
   };
 }

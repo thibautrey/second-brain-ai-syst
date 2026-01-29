@@ -77,8 +77,10 @@ services:
       BROWSERLESS_URL: http://browserless:3000
       BROWSERLESS_TOKEN: ${BROWSERLESS_TOKEN:-}
       PORT: 3000
+      OAUTH_CALLBACK_PORT: 1455
     ports:
       - "3000:3000"
+      - "1455:1455"
     depends_on:
       postgres:
         condition: service_healthy
