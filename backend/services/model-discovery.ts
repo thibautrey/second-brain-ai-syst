@@ -456,35 +456,27 @@ export class ModelDiscoveryService {
         `[ModelDiscovery] Fetching models from ${baseUrl || "OpenAI API"}...`,
       );
 
-      const response = await client.models.list();
+      // Fetch ALL models by paginating through results
+      // The OpenAI SDK paginator returns results in chunks, we need to collect all
+      const allModels: any[] = [];
+      const paginator = await client.models.list();
+
+      for await (const model of paginator) {
+        allModels.push(model);
+      }
 
       console.log(
-        `[ModelDiscovery] Raw API response received, data array length: ${response.data?.length || 0}`,
+        `[ModelDiscovery] Raw API response received, fetched ${allModels.length} models across all pages`,
       );
 
       // Handle different response formats
-      let modelsList: any[] = response.data || [];
+      let modelsList: any[] = allModels;
 
-      // If data is empty but we have body.items (GPUStack format), use that
+      // Log warning if we got no models
       if (modelsList.length === 0) {
-        const responseWithBody = response as any;
-        if (
-          responseWithBody.body?.items &&
-          Array.isArray(responseWithBody.body.items)
-        ) {
-          console.log(
-            `[ModelDiscovery] Data array empty, falling back to body.items (${responseWithBody.body.items.length} models)`,
-          );
-          modelsList = responseWithBody.body.items;
-        } else {
-          console.warn(
-            `[ModelDiscovery] WARNING: API returned empty models list`,
-          );
-          console.log(
-            `[ModelDiscovery] Response structure:`,
-            JSON.stringify(response, null, 2),
-          );
-        }
+        console.warn(
+          `[ModelDiscovery] WARNING: API returned empty models list`,
+        );
       }
 
       const models: DiscoveredModel[] = [];
