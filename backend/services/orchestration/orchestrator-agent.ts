@@ -140,7 +140,27 @@ export class OrchestratorAgent {
           `Reviewing results (${this.attemptNumber + 1}/${this.maxAttempts})`,
           "analyzing",
         );
-        const reflection = await this.reflect();
+
+        let reflection: ReflectionResponse;
+        try {
+          reflection = await this.reflect();
+        } catch (reflectionError: any) {
+          console.error(
+            "[OrchestratorAgent] Reflection failed:",
+            reflectionError,
+          );
+          flowTracker.trackEvent({
+            flowId: this.config.flowId,
+            stage: `reflection_${this.attemptNumber}`,
+            service: "ReflectionLLM",
+            status: "failed",
+            data: {
+              error: reflectionError?.message || String(reflectionError),
+            },
+          });
+          // If reflection fails, try to answer with what we have
+          break;
+        }
         this.reflections.push(reflection);
 
         flowTracker.trackEvent({
@@ -193,8 +213,25 @@ export class OrchestratorAgent {
         break;
       }
 
-      const fallbackResponse = `I tried multiple approaches to answer your question but encountered difficulties.\n\n${this.summarizeAttempts()}`;
-      return this.buildResult(false, fallbackResponse);
+      // If we exit the loop without returning, generate a fallback response
+      this.sendFriendlyStatus("Writing the answer…", "generating");
+      const fallbackResponse =
+        this.allToolResults.length > 0
+          ? await this.generateFinalResponseFromToolResults()
+          : `I tried multiple approaches to answer your question but encountered difficulties.\n\n${this.summarizeAttempts()}`;
+
+      flowTracker.trackEvent({
+        flowId: this.config.flowId,
+        stage: "final_response",
+        service: "OrchestratorAgent",
+        status: "success",
+        data: {
+          type: "fallback",
+          toolResultsCount: this.allToolResults.length,
+        },
+      });
+
+      return this.buildResult(true, fallbackResponse);
     } catch (error: any) {
       console.error("[OrchestratorAgent] Error:", error);
       return this.buildResult(
@@ -345,6 +382,58 @@ export class OrchestratorAgent {
     return completion.content || "I was unable to generate a final response.";
   }
 
+  /**
+   * Generate final response directly from tool results when reflection is unavailable
+   */
+  private async generateFinalResponseFromToolResults(): Promise<string> {
+    const messages: ChatMessage[] = [];
+
+    if (this.config.systemPrompt) {
+      messages.push({ role: "system", content: this.config.systemPrompt });
+    }
+
+    if (
+      this.config.previousMessages &&
+      this.config.previousMessages.length > 0
+    ) {
+      messages.push(
+        ...this.config.previousMessages.filter((m) => m.role !== "system"),
+      );
+    }
+
+    messages.push({
+      role: "user",
+      content: this.config.userQuestion,
+    });
+
+    const toolSummary = this.allToolResults
+      .map((r) => {
+        const statusLabel =
+          r.status === "success"
+            ? "✅ success"
+            : r.status === "timeout"
+              ? "⏱️ timeout"
+              : "❌ failed";
+        return `${statusLabel} - ${r.toolName}: ${r.error || JSON.stringify(r.data)}`;
+      })
+      .join("\n");
+
+    messages.push({
+      role: "assistant",
+      content: `Tool execution results:\n${toolSummary}\n\nPlease provide a helpful response to the user based on these results.`,
+    });
+
+    const completion = await piAiProviderService.createChatCompletion(
+      this.config.providerConfig,
+      messages,
+      {
+        temperature: 0.6,
+        maxTokens: 800,
+      },
+    );
+
+    return completion.content || "I was unable to generate a response.";
+  }
   private summarizeAttempts(): string {
     return this.reflections
       .map((r, i) => `Attempt ${i + 1}: ${r.decision} - ${r.reasoning}`)

@@ -109,16 +109,9 @@ Your role:
 Decision types:
 - "answer": We have enough information to respond.
 - "alternative": Try different tools/approaches.
-- "retry": Retry a tool with CORRECTED parameters (not same params that failed).
+- "retry": Retry a tool with better parameters (only if parameters will change).
 - "ask_user": Ask the user a clarifying question.
 - "give_up": Explain transparently that we could not complete the task.
-
-VALIDATION ERROR HANDLING:
-When a tool fails with "Validation failed" or "unknown/additional properties":
-1. Look at the "Params sent" to see what was wrong
-2. Use "retry" decision with CORRECTED suggestedTools
-3. Map parameters to valid field names (e.g., "name" → "firstName" if needed)
-4. Check tool documentation if available
 
 Current attempt ${request.attemptNumber + 1} of ${request.maxAttempts}.`;
   }
