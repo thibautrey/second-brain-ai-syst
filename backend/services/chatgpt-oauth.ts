@@ -28,25 +28,20 @@ function getRedirectUri(): string {
 }
 
 const OAUTH_CONFIG = {
-  // OpenAI OAuth endpoints - CORRECTED URLs
+  // OpenAI OAuth endpoints - matches pi-ai implementation
   authorizeEndpoint: "https://auth.openai.com/oauth/authorize",
   tokenEndpoint: "https://auth.openai.com/oauth/token",
-  // Client ID - official OpenAI Codex/ChatGPT client ID
+  // Client ID - official OpenAI Codex client ID from pi-ai
   clientId:
-    process.env.CHATGPT_OAUTH_CLIENT_ID || "pdlLIX2Y72MIl2rhLhTE9VV9bN905kBh",
+    process.env.CHATGPT_OAUTH_CLIENT_ID || "app_EMoamEEZ73f0CkXaXp7hrann",
   // Redirect URI - localhost callback for OAuth flow
   get redirectUri() {
     return getRedirectUri();
   },
-  // Scopes for ChatGPT access - includes model access scopes
-  scopes: [
-    "openid",
-    "profile",
-    "email",
-    "offline_access",
-    "model.read",
-    "model.request",
-  ],
+  // Scopes for ChatGPT access - matches pi-ai (simplified)
+  scopes: ["openid", "profile", "email", "offline_access"],
+  // JWT claim path for extracting account ID
+  jwtClaimPath: "https://api.openai.com/auth",
   // API base URL for authenticated requests
   apiBaseUrl: "https://chatgpt.com/backend-api",
 };
@@ -164,20 +159,25 @@ export interface OAuthCredentials {
 
 /**
  * Build the authorization URL for the OAuth flow
+ * Uses the same parameters as pi-ai for compatibility
  */
 export function buildAuthorizationUrl(
   challenge: string,
   state: string,
+  originator: string = "pi",
 ): string {
   const params = new URLSearchParams({
-    client_id: OAUTH_CONFIG.clientId,
     response_type: "code",
+    client_id: OAUTH_CONFIG.clientId,
     redirect_uri: OAUTH_CONFIG.redirectUri,
     scope: OAUTH_CONFIG.scopes.join(" "),
-    state: state,
     code_challenge: challenge,
     code_challenge_method: "S256",
-    // Note: audience parameter removed - not needed for OpenAI OAuth
+    state: state,
+    // Additional parameters required by OpenAI Codex OAuth (from pi-ai)
+    id_token_add_organizations: "true",
+    codex_cli_simplified_flow: "true",
+    originator: originator,
   });
 
   return `${OAUTH_CONFIG.authorizeEndpoint}?${params.toString()}`;
@@ -185,6 +185,7 @@ export function buildAuthorizationUrl(
 
 /**
  * Extract account ID from JWT access token
+ * Uses the JWT claim path from pi-ai: "https://api.openai.com/auth"
  */
 function extractAccountId(accessToken: string): string | undefined {
   try {
@@ -196,7 +197,15 @@ function extractAccountId(accessToken: string): string | undefined {
       Buffer.from(parts[1], "base64url").toString("utf-8"),
     );
 
-    // OpenAI may store account ID in different fields
+    // Pi-ai uses this claim path for the account ID
+    const auth = payload[OAUTH_CONFIG.jwtClaimPath];
+    const chatgptAccountId = auth?.chatgpt_account_id;
+
+    if (typeof chatgptAccountId === "string" && chatgptAccountId.length > 0) {
+      return chatgptAccountId;
+    }
+
+    // Fallback to other fields
     return (
       payload.account_id ||
       payload.sub ||

@@ -3,7 +3,7 @@
  * Allows users to connect their ChatGPT account for API access
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link2,
@@ -51,17 +51,31 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
     success: boolean;
     message: string;
   } | null>(null);
+  const [connectingMessage, setConnectingMessage] = useState<string | null>(
+    null,
+  );
 
   const handleConnect = async () => {
     setIsConnecting(true);
     setTestResult(null);
+    setConnectingMessage("Opening authentication window...");
     try {
       await initiateOAuth();
-      // User will be redirected to OpenAI
+      setConnectingMessage("Waiting for authentication to complete...");
+      // The hook will handle polling and refreshing
     } catch (err) {
       setIsConnecting(false);
+      setConnectingMessage(null);
     }
   };
+
+  // Reset connecting state when status changes to connected
+  useEffect(() => {
+    if (status?.isConnected && isConnecting) {
+      setIsConnecting(false);
+      setConnectingMessage(null);
+    }
+  }, [status?.isConnected, isConnecting]);
 
   const handleDisconnect = async () => {
     setIsDisconnecting(true);
@@ -134,7 +148,9 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
             onClick={refreshStatus}
             disabled={isLoading}
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+            />
           </Button>
         </div>
       </CardHeader>
@@ -194,16 +210,29 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
               {isConnecting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {t("settings.chatgptOAuth.connecting", "Connecting...")}
+                  {connectingMessage ||
+                    t("settings.chatgptOAuth.connecting", "Connecting...")}
                 </>
               ) : (
                 <>
                   <Link2 className="w-4 h-4 mr-2" />
-                  {t("settings.chatgptOAuth.connect", "Connect ChatGPT Account")}
+                  {t(
+                    "settings.chatgptOAuth.connect",
+                    "Connect ChatGPT Account",
+                  )}
                   <ExternalLink className="w-3 h-3 ml-2" />
                 </>
               )}
             </Button>
+
+            {isConnecting && (
+              <p className="text-sm text-slate-500 text-center">
+                {t(
+                  "settings.chatgptOAuth.waitingForAuth",
+                  "Complete the authentication in the popup window. This page will update automatically.",
+                )}
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -217,7 +246,8 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
                   </p>
                   {status.accountId && (
                     <p className="text-sm text-green-700">
-                      {t("settings.chatgptOAuth.accountId", "Account")}: {status.accountId.slice(0, 8)}...
+                      {t("settings.chatgptOAuth.accountId", "Account")}:{" "}
+                      {status.accountId.slice(0, 8)}...
                     </p>
                   )}
                 </div>
@@ -258,7 +288,7 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
                 )}
                 {t("settings.chatgptOAuth.testConnection", "Test Connection")}
               </Button>
-              
+
               <Button
                 variant="outline"
                 onClick={handleDisconnect}

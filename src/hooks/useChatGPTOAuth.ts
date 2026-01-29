@@ -29,7 +29,9 @@ async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || error.message || "Request failed");
   }
 
@@ -41,7 +43,7 @@ export interface ChatGPTOAuthHookResult {
   status: ChatGPTOAuthStatus | null;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   initiateOAuth: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -80,23 +82,75 @@ export function useChatGPTOAuth(): ChatGPTOAuthHookResult {
     }
   }, []);
 
-  // Initiate OAuth flow
+  // Initiate OAuth flow using pi-ai backend method
   const initiateOAuth = useCallback(async () => {
     setError(null);
     try {
-      const result = await apiRequest<{ authUrl: string; state: string }>(
-        "/auth/chatgpt/initiate",
-        { method: "POST" },
+      // First try the pi-ai method which handles OAuth correctly
+      const result = await apiRequest<{
+        authUrl: string;
+        state?: string;
+        method?: string;
+        callbackPort?: number;
+        message?: string;
+      }>("/auth/chatgpt/initiate-pi-ai", { method: "POST" });
+
+      // Open the auth URL in a new popup window for better UX
+      // The callback will be captured by pi-ai's local server on port 1455
+      const width = 500;
+      const height = 700;
+      const left = (window.screen.width - width) / 2;
+      const top = (window.screen.height - height) / 2;
+
+      const popup = window.open(
+        result.authUrl,
+        "ChatGPT OAuth",
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`,
       );
-      
-      // Redirect to OpenAI authorization page
-      window.location.href = result.authUrl;
+
+      // Start polling for completion
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await apiRequest<{
+            isConnected: boolean;
+            isEnabled: boolean;
+          }>("/auth/chatgpt/status");
+
+          if (status.isConnected) {
+            clearInterval(pollInterval);
+            if (popup && !popup.closed) {
+              popup.close();
+            }
+            await refreshStatus();
+          }
+        } catch {
+          // Ignore polling errors
+        }
+      }, 2000);
+
+      // Stop polling after 5 minutes
+      setTimeout(
+        () => {
+          clearInterval(pollInterval);
+        },
+        5 * 60 * 1000,
+      );
+
+      // Also handle popup being closed manually
+      const popupCheckInterval = setInterval(() => {
+        if (popup && popup.closed) {
+          clearInterval(popupCheckInterval);
+          clearInterval(pollInterval);
+          // Give a moment for the callback to process, then refresh
+          setTimeout(() => refreshStatus(), 1000);
+        }
+      }, 500);
     } catch (err) {
       console.error("Failed to initiate OAuth:", err);
       setError(err instanceof Error ? err.message : "Failed to initiate OAuth");
       throw err;
     }
-  }, []);
+  }, [refreshStatus]);
 
   // Disconnect OAuth
   const disconnect = useCallback(async () => {
@@ -122,9 +176,7 @@ export function useChatGPTOAuth(): ChatGPTOAuthHookResult {
         method: "POST",
         body: JSON.stringify({ enabled }),
       });
-      setStatus((prev) =>
-        prev ? { ...prev, isEnabled: enabled } : null,
-      );
+      setStatus((prev) => (prev ? { ...prev, isEnabled: enabled } : null));
     } catch (err) {
       console.error("Failed to toggle OAuth enabled:", err);
       setError(err instanceof Error ? err.message : "Failed to toggle");
@@ -142,12 +194,12 @@ export function useChatGPTOAuth(): ChatGPTOAuthHookResult {
         resetAt?: string;
         error?: string;
       }>("/auth/chatgpt/usage");
-      
+
       if (result.error) {
         setError(result.error);
         return null;
       }
-      
+
       return result;
     } catch (err) {
       console.error("Failed to check usage:", err);
@@ -168,7 +220,8 @@ export function useChatGPTOAuth(): ChatGPTOAuthHookResult {
       return result;
     } catch (err) {
       console.error("Failed to test connection:", err);
-      const message = err instanceof Error ? err.message : "Connection test failed";
+      const message =
+        err instanceof Error ? err.message : "Connection test failed";
       setError(message);
       return {
         success: false,
