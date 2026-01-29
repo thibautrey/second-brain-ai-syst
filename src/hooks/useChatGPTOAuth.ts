@@ -87,16 +87,17 @@ export function useChatGPTOAuth(): ChatGPTOAuthHookResult {
     }
   }, []);
 
-  // Initiate OAuth flow - uses backend callback URL (configurable via API_URL/BACKEND_URL env vars)
+  // Initiate OAuth flow - uses local callback server on port 1455 (pi-ai compatible)
   const initiateOAuth = useCallback(async () => {
     setError(null);
     try {
-      // Use the standard initiate endpoint which redirects callback to our backend
-      // The backend callback will redirect back to frontend with success/error params
+      // Use the initiate-local endpoint which starts a callback server on port 1455
+      // This is required because the OAuth client ID is registered with localhost:1455
       const result = await apiRequest<{
         authUrl: string;
         state?: string;
-      }>("/auth/chatgpt/initiate", { method: "POST" });
+        callbackUrl?: string;
+      }>("/auth/chatgpt/initiate-local", { method: "POST" });
 
       // Open the auth URL in a new popup window for better UX
       const width = 500;

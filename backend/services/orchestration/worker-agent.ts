@@ -31,6 +31,7 @@ export interface WorkerAgentResult {
   status: AgentStatus;
   data?: any;
   error?: string;
+  params?: Record<string, any>; // Parameters used - included on failure for debugging
   executionTime: number;
   timestamp: Date;
 }
@@ -56,7 +57,9 @@ export class WorkerAgent {
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
         this.timeoutHandle = setTimeout(() => {
-          reject(new Error(`Tool execution timeout after ${this.config.timeout}ms`));
+          reject(
+            new Error(`Tool execution timeout after ${this.config.timeout}ms`),
+          );
         }, this.config.timeout);
       });
 
@@ -67,7 +70,11 @@ export class WorkerAgent {
     } catch (error: any) {
       const isTimeout = error?.message?.includes("timeout");
       this.status = isTimeout ? "timeout" : "failed";
-      this.result = this.buildResult(this.status, undefined, error?.message || String(error));
+      this.result = this.buildResult(
+        this.status,
+        undefined,
+        error?.message || String(error),
+      );
     } finally {
       if (this.timeoutHandle) {
         clearTimeout(this.timeoutHandle);
@@ -112,6 +119,8 @@ export class WorkerAgent {
       status,
       data,
       error,
+      // Include params on failure so LLM can see what went wrong and correct it
+      ...(status !== "success" && { params: this.config.params }),
       executionTime,
       timestamp: new Date(),
     };

@@ -532,6 +532,12 @@ export const UserProfileActionSchema = StringEnum(
 export const UserProfileParamsSchema = Type.Object(
   {
     action: UserProfileActionSchema,
+    name: Type.Optional(
+      Type.String({
+        description:
+          "User's name (alias for firstName - use this for simple name updates)",
+      }),
+    ),
     firstName: Type.Optional(Type.String({ description: "User's first name" })),
     lastName: Type.Optional(Type.String({ description: "User's last name" })),
     nickname: Type.Optional(Type.String({ description: "User's nickname" })),

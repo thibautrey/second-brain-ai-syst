@@ -17,37 +17,21 @@ import {
 
 // ==================== Configuration ====================
 
-// Build redirect URI - prefers backend API callback, falls back to localhost for pi-ai compatibility
-function getRedirectUri(): string {
-  // Check for explicit override first
-  if (process.env.CHATGPT_OAUTH_REDIRECT_URI) {
-    return process.env.CHATGPT_OAUTH_REDIRECT_URI;
-  }
-
-  // Use backend API URL if available (recommended for web apps)
-  const apiUrl = process.env.API_URL || process.env.BACKEND_URL;
-  if (apiUrl) {
-    return `${apiUrl}/api/auth/chatgpt/callback`;
-  }
-
-  // Fallback to localhost for pi-ai CLI-style flow
-  // Note: pi-ai's loginOpenAICodex hardcodes localhost:1455, so this is only
-  // used by our custom OAuth flow (initiateOAuthFlow, startOAuthFlowWithLocalServer)
-  return "http://127.0.0.1:1455/auth/callback";
-}
+// Pi-ai's OAuth redirect URI - MUST match exactly what's registered with OpenAI
+// The client ID app_EMoamEEZ73f0CkXaXp7hrann is registered with this exact URI
+const PI_AI_REDIRECT_URI = "http://localhost:1455/auth/callback";
 
 const OAUTH_CONFIG = {
   // OpenAI OAuth endpoints - matches pi-ai implementation
   authorizeEndpoint: "https://auth.openai.com/oauth/authorize",
   tokenEndpoint: "https://auth.openai.com/oauth/token",
   // Client ID - official OpenAI Codex client ID from pi-ai
-  clientId:
-    process.env.CHATGPT_OAUTH_CLIENT_ID || "app_EMoamEEZ73f0CkXaXp7hrann",
-  // Redirect URI - localhost callback for OAuth flow
-  get redirectUri() {
-    return getRedirectUri();
-  },
-  // Scopes for ChatGPT access - matches pi-ai (simplified)
+  // DO NOT CHANGE - this ID is registered with the specific redirect URI below
+  clientId: "app_EMoamEEZ73f0CkXaXp7hrann",
+  // Redirect URI - MUST be exactly http://localhost:1455/auth/callback
+  // This is hardcoded because the client ID is registered with this exact URI
+  redirectUri: PI_AI_REDIRECT_URI,
+  // Scopes for ChatGPT access - matches pi-ai exactly
   scopes: ["openid", "profile", "email", "offline_access"],
   // JWT claim path for extracting account ID
   jwtClaimPath: "https://api.openai.com/auth",
@@ -127,17 +111,35 @@ function decryptToken(encryptedJson: string): string {
 // ==================== PKCE Helpers ====================
 
 /**
- * Generate PKCE code verifier and challenge
+ * Encode bytes as base64url string (matches pi-ai implementation)
  */
-export function generatePKCE(): { verifier: string; challenge: string } {
-  // Generate 32 random bytes, encode as base64url
-  const verifier = crypto.randomBytes(32).toString("base64url");
+function base64urlEncode(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return Buffer.from(binary, "binary")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
 
-  // Create SHA-256 hash of verifier, encode as base64url
-  const challenge = crypto
-    .createHash("sha256")
-    .update(verifier)
-    .digest("base64url");
+/**
+ * Generate PKCE code verifier and challenge
+ * Uses the same algorithm as pi-ai for compatibility
+ */
+export async function generatePKCE(): Promise<{
+  verifier: string;
+  challenge: string;
+}> {
+  // Generate 32 random bytes
+  const verifierBytes = crypto.randomBytes(32);
+  const verifier = base64urlEncode(verifierBytes);
+
+  // Compute SHA-256 challenge
+  const hashBuffer = crypto.createHash("sha256").update(verifier).digest();
+  const challenge = base64urlEncode(hashBuffer);
 
   return { verifier, challenge };
 }
@@ -189,7 +191,16 @@ export function buildAuthorizationUrl(
     originator: originator,
   });
 
-  return `${OAUTH_CONFIG.authorizeEndpoint}?${params.toString()}`;
+  const url = `${OAUTH_CONFIG.authorizeEndpoint}?${params.toString()}`;
+
+  // Debug logging
+  console.log("🔐 OAuth Authorization URL generated:");
+  console.log("  - client_id:", OAUTH_CONFIG.clientId);
+  console.log("  - redirect_uri:", OAUTH_CONFIG.redirectUri);
+  console.log("  - scope:", OAUTH_CONFIG.scopes.join(" "));
+  console.log("  - Full URL:", url);
+
+  return url;
 }
 
 /**
@@ -335,7 +346,7 @@ export async function createOAuthSession(
   });
 
   // Generate PKCE values
-  const { verifier, challenge } = generatePKCE();
+  const { verifier, challenge } = await generatePKCE();
   const state = generateState();
 
   // Store session (expires in 10 minutes)
@@ -680,7 +691,7 @@ export async function startOAuthFlowWithLocalServer(userId: string): Promise<{
     await import("./oauth-callback-server.js");
 
   // Generate PKCE values
-  const { verifier, challenge } = generatePKCE();
+  const { verifier, challenge } = await generatePKCE();
   const state = generateState();
 
   // Clean up any existing sessions for this user

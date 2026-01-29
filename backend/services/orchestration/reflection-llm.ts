@@ -109,12 +109,18 @@ Your role:
 Decision types:
 - "answer": We have enough information to respond.
 - "alternative": Try different tools/approaches.
-- "retry": Retry a tool with better parameters (only if parameters will change).
+- "retry": Retry a tool with CORRECTED parameters (not same params that failed).
 - "ask_user": Ask the user a clarifying question.
 - "give_up": Explain transparently that we could not complete the task.
 
+VALIDATION ERROR HANDLING:
+When a tool fails with "Validation failed" or "unknown/additional properties":
+1. Look at the "Params sent" to see what was wrong
+2. Use "retry" decision with CORRECTED suggestedTools
+3. Map parameters to valid field names (e.g., "name" → "firstName" if needed)
+4. Check tool documentation if available
+
 Current attempt ${request.attemptNumber + 1} of ${request.maxAttempts}.`;
-  }
 
   private buildUserPrompt(request: ReflectionRequest): string {
     const successfulTools = request.toolResults.filter(
@@ -133,7 +139,20 @@ Current attempt ${request.attemptNumber + 1} of ${request.maxAttempts}.`;
         .join("\n"),
       "",
       `Failed/timeout tools (${failedTools.length}):`,
-      failedTools.map((t) => `- ${t.toolName}: ${t.error}`).join("\n"),
+      failedTools
+        .map((t) => {
+          let errorInfo = `- ${t.toolName}: ${t.error}`;
+          // Include params that were sent so LLM can correct them
+          if (t.params) {
+            errorInfo += `\n  Params sent: ${JSON.stringify(t.params)}`;
+          }
+          // Add hint for validation errors
+          if (t.error?.includes("Validation failed") || t.error?.includes("unknown/additional properties")) {
+            errorInfo += `\n  → HINT: Check the tool schema - use list_fields or get action to see valid parameters.`;
+          }
+          return errorInfo;
+        })
+        .join("\n"),
       "",
       "Previous reflections:",
       request.previousReflections
