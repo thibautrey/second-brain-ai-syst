@@ -45,6 +45,7 @@ import { sanitizeToolResult } from "./sanitize-tool-results.js";
 import { responseCacheService } from "./response-cache.js";
 import { speculativeExecutor } from "./speculative-executor.js";
 import { IntentRouterService } from "./intent-router.js";
+import { memoryManagerService } from "./memory-manager.js";
 import { validateAndAdjustMaxTokens } from "./chat-token-recovery.js";
 import { getDefaultMaxTokens } from "../controllers/ai-settings.controller.js";
 import { AgenticOrchestrator } from "./orchestration/orchestrator-agent.js";
@@ -759,9 +760,77 @@ function schedulePostProcessing(
         },
       });
 
-      flowTracker.completeFlow(flowId, "completed");
+      if (valueAssessment.shouldStore) {
+        const factToStore = valueAssessment.factToStore?.trim();
+        const memoryContent = factToStore && factToStore.length
+          ? factToStore
+          : message.trim();
+        const memoryReason =
+          valueAssessment.reason || "Marked for memory storage";
+
+        try {
+          const memory = await memoryManagerService.ingestInteraction(
+            userId,
+            memoryContent,
+            {
+              sourceType: "chat",
+              sourceId: messageId,
+              entities: classification.entities || [],
+              occurredAt: new Date(),
+              metadata: {
+                classification: {
+                  inputType: classification.inputType,
+                  confidence: classification.confidence,
+                  topic: classification.topic,
+                  timeBucket: classification.timeBucket,
+                },
+                valueAssessment: {
+                  reason: memoryReason,
+                  adjustedImportanceScore:
+                    valueAssessment.adjustedImportanceScore,
+                  isFactualDeclaration: valueAssessment.isFactualDeclaration,
+                },
+              },
+            },
+          );
+
+          flowTracker.trackEvent({
+            flowId,
+            stage: "memory_storage",
+            service: "MemoryManager",
+            status: "success",
+            data: {
+              memoryId: memory.id,
+              factStored: Boolean(valueAssessment.factToStore),
+              importance: valueAssessment.adjustedImportanceScore,
+              inputType: classification.inputType,
+            },
+            decision: memoryReason,
+          });
+        } catch (memoryError) {
+          console.error(
+            "[ChatOrchestrator] Memory ingestion failed:",
+            memoryError,
+          );
+          flowTracker.trackEvent({
+            flowId,
+            stage: "memory_storage",
+            service: "MemoryManager",
+            status: "failed",
+            data: {
+              error:
+                memoryError instanceof Error
+                  ? memoryError.message
+                  : String(memoryError),
+              inputType: classification.inputType,
+              shouldStore: valueAssessment.shouldStore,
+            },
+          });
+        }
+      }
     } catch (error) {
       console.error("[ChatOrchestrator] Post-response analysis failed:", error);
+    } finally {
       flowTracker.completeFlow(flowId, "completed");
     }
   });
