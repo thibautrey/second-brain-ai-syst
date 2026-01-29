@@ -231,9 +231,28 @@ private async executeReadSkillAction(params: { location: string }): Promise<any>
 
 ---
 
-### Phase 3: Sub-Agent Architecture (1-2 semaines) 🚀
+### Phase 3: Sub-Agent Architecture (1-2 semaines) ✅ IMPLÉMENTÉ
 
 **Impact majeur**: Permet de gérer des tâches complexes sans surcharger le contexte principal.
+
+**Fichiers créés:**
+
+- `backend/services/subagent/types.ts` - Types et interfaces pour les sub-agents
+- `backend/services/subagent/runner.ts` - Runner qui exécute les sub-agents
+- `backend/services/subagent/index.ts` - Export du module
+
+**Modifications:**
+
+- `backend/services/tool-executor.ts` - Ajout de l'outil `spawn_subagent`
+- `backend/services/flow-tracker.ts` - Support du type "subagent"
+
+**Fonctionnalités:**
+
+- Spawn de sub-agents avec outils limités
+- Templates prédéfinis (research, scheduler, data_processor, task_manager)
+- Timeout et limite d'itérations configurables
+- Isolation du contexte (sub-agents ne peuvent pas spawner d'autres sub-agents)
+- Tracking via flowTracker
 
 #### 3.1 Interface SubAgent
 

@@ -14,6 +14,7 @@ import { SignupPage } from "./pages/SignupPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TrainingPage } from "./pages/TrainingPage";
 import { LandingPage } from "./pages/LandingPage";
+import { DocsPage } from "./pages/DocsPage";
 import { FloatingActionButtons } from "./components/FloatingActionButtons";
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard";
 import { useUserPresence } from "./hooks/useUserPresence";
@@ -52,6 +53,9 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+
+        {/* Docs */}
+        <Route path="/docs" element={<DocsPage />} />
 
         {/* Redirect */}
         <Route path="/" element={<LandingPage />} />

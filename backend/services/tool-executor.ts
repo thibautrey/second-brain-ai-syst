@@ -17,6 +17,7 @@ import { dynamicToolGeneratorService } from "./dynamic-tool-generator.js";
 import { secretsService } from "./secrets.js";
 import { goalsService } from "./goals.service.js";
 import { achievementsService } from "./achievements.service.js";
+import { subAgentRunner, SUBAGENT_TEMPLATES } from "./subagent/index.js";
 import {
   TodoStatus,
   TodoPriority,
@@ -296,6 +297,34 @@ const BUILTIN_TOOLS: ToolConfig[] = [
       ],
     },
   },
+  {
+    id: "spawn_subagent",
+    name: "Spawn Sub-Agent",
+    emoji: "🤖",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 5,
+    timeout: 120000, // 2 minutes max
+    config: {
+      description:
+        "Spawn a focused sub-agent for complex subtasks. Use when a task requires isolated context, specialized focus, or when you want to delegate a specific subtask without polluting your main conversation context. Sub-agents have limited tools and cannot spawn other sub-agents.",
+      actions: ["spawn", "spawn_template", "list_templates", "get_status"],
+    },
+  },
+  {
+    id: "read_skill",
+    name: "Read Skill",
+    emoji: "📖",
+    category: "builtin",
+    enabled: true,
+    rateLimit: 100,
+    timeout: 2000,
+    config: {
+      description:
+        "Read skill instructions for specialized workflows. Use when a skill from the available_skills list applies to the user's request. Read the skill's instructions BEFORE proceeding with the task to ensure you follow the correct workflow.",
+      actions: ["read"],
+    },
+  },
 ];
 
 export class ToolExecutorService {
@@ -476,6 +505,10 @@ export class ToolExecutorService {
         return this.executeGoalsManagementAction(userId, action, params);
       case "achievements_management":
         return this.executeAchievementsManagementAction(userId, action, params);
+      case "spawn_subagent":
+        return this.executeSubAgentAction(userId, action, params);
+      case "read_skill":
+        return this.executeReadSkillAction(userId, action, params);
       default:
         // Check if it's a generated tool
         if (dynamicToolRegistry.isGeneratedToolCall(toolId)) {
@@ -1185,6 +1218,199 @@ export class ToolExecutorService {
 
       default:
         throw new Error(`Unknown achievements_management action: ${action}`);
+    }
+  }
+
+  /**
+   * Execute sub-agent actions
+   * Spawns isolated sub-agents for complex subtasks
+   */
+  private async executeSubAgentAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    switch (action) {
+      case "spawn": {
+        // Validate required parameters
+        if (!params.task) {
+          throw new Error(
+            "Missing required parameter: 'task' - describe what the sub-agent should accomplish",
+          );
+        }
+
+        if (!params.task_description) {
+          throw new Error(
+            "Missing required parameter: 'task_description' - explain the sub-agent's mission",
+          );
+        }
+
+        if (!params.tools || params.tools.length === 0) {
+          throw new Error(
+            "Missing required parameter: 'tools' - array of tool names the sub-agent can use (e.g., ['brave_search', 'curl'])",
+          );
+        }
+
+        // Spawn the sub-agent
+        const result = await subAgentRunner.spawn(userId, {
+          task: params.task,
+          taskDescription: params.task_description,
+          tools: params.tools,
+          maxIterations: params.max_iterations || 10,
+          promptMode: params.prompt_mode || "minimal",
+          timeout: params.timeout,
+          parentContext: params.context,
+          parentFlowId: params.parent_flow_id,
+        });
+
+        return {
+          action: "spawn",
+          success: result.success,
+          result: result.result,
+          toolsUsed: result.toolsUsed,
+          iterations: result.iterations,
+          executionTime: result.executionTime,
+          flowId: result.flowId,
+          error: result.error,
+          message: result.success
+            ? `Sub-agent completed task successfully in ${result.iterations} iteration(s)`
+            : `Sub-agent failed: ${result.error}`,
+        };
+      }
+
+      case "spawn_template": {
+        // Spawn from a predefined template
+        if (!params.template_id) {
+          throw new Error(
+            "Missing required parameter: 'template_id' - use 'list_templates' to see available templates",
+          );
+        }
+
+        if (!params.task) {
+          throw new Error(
+            "Missing required parameter: 'task' - describe what the sub-agent should accomplish",
+          );
+        }
+
+        const result = await subAgentRunner.spawnFromTemplate(
+          userId,
+          params.template_id,
+          params.task,
+          {
+            parentFlowId: params.parent_flow_id,
+            parentContext: params.context,
+            additionalTools: params.additional_tools,
+          },
+        );
+
+        return {
+          action: "spawn_template",
+          template: params.template_id,
+          success: result.success,
+          result: result.result,
+          toolsUsed: result.toolsUsed,
+          iterations: result.iterations,
+          executionTime: result.executionTime,
+          flowId: result.flowId,
+          error: result.error,
+          message: result.success
+            ? `Sub-agent (${params.template_id}) completed task successfully`
+            : `Sub-agent failed: ${result.error}`,
+        };
+      }
+
+      case "list_templates": {
+        // List available sub-agent templates
+        return {
+          action: "list_templates",
+          templates: SUBAGENT_TEMPLATES.map((t) => ({
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            defaultTools: t.defaultTools,
+            maxIterations: t.maxIterations,
+          })),
+          count: SUBAGENT_TEMPLATES.length,
+          message:
+            "Use spawn_template with a template_id to quickly spawn a pre-configured sub-agent",
+        };
+      }
+
+      case "get_status": {
+        // Get status of active sub-agents
+        const activeSubAgents = subAgentRunner.getActiveSubAgents();
+
+        return {
+          action: "get_status",
+          activeSubAgents: activeSubAgents.map((s) => ({
+            id: s.id,
+            parentFlowId: s.parentFlowId,
+            status: s.status,
+            currentIteration: s.currentIteration,
+            maxIterations: s.maxIterations,
+            toolsUsed: s.toolsUsed,
+            startTime: s.startTime,
+            runningFor: Date.now() - s.startTime.getTime(),
+          })),
+          count: activeSubAgents.length,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown spawn_subagent action: ${action}`);
+    }
+  }
+
+  /**
+   * Execute read_skill actions
+   * Read skill instructions for specialized workflows
+   */
+  private async executeReadSkillAction(
+    userId: string,
+    action: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    // Import skill manager dynamically to avoid circular dependency
+    const { skillManager } = await import("./skill-manager.js");
+
+    switch (action) {
+      case "read": {
+        if (!params.skill_id && !params.location) {
+          throw new Error(
+            "Missing required parameter: 'skill_id' or 'location' - specify which skill to read",
+          );
+        }
+
+        // Extract skill slug from location (format: "skill:slug") or use skill_id directly
+        let skillSlug = params.skill_id;
+        if (params.location) {
+          if (params.location.startsWith("skill:")) {
+            skillSlug = params.location.replace("skill:", "");
+          } else {
+            skillSlug = params.location;
+          }
+        }
+
+        // Get skill body (instructions only, without frontmatter)
+        const body = await skillManager.getSkillBody(userId, skillSlug);
+
+        if (!body) {
+          throw new Error(
+            `Skill not found: ${skillSlug}. Use the skills listed in available_skills.`,
+          );
+        }
+
+        return {
+          action: "read",
+          skill_id: skillSlug,
+          success: true,
+          instructions: body,
+          message: `Successfully read skill instructions for '${skillSlug}'. Follow these instructions for the current task.`,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown read_skill action: ${action}`);
     }
   }
 
@@ -3288,6 +3514,70 @@ export class ToolExecutorService {
               type: "boolean",
               description:
                 "Include hidden achievements (for list, default false)",
+            },
+          },
+          required: ["action"],
+        },
+      },
+      {
+        name: "spawn_subagent",
+        description:
+          "Spawn a focused sub-agent for complex subtasks. Sub-agents run in isolated contexts with limited tools and iterations. " +
+          "Use when: (1) A task requires multiple tool calls that don't need main context, (2) You want to delegate research or data gathering, " +
+          "(3) A subtask is complex enough to benefit from focused attention. " +
+          "Sub-agents CANNOT spawn other sub-agents and have a maximum of 15 iterations.",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["spawn", "spawn_template", "list_templates", "get_status"],
+              description:
+                "'spawn': spawn a custom sub-agent with specific tools. 'spawn_template': use a predefined template. 'list_templates': see available templates. 'get_status': check active sub-agents.",
+            },
+            // For spawn action
+            task: {
+              type: "string",
+              description:
+                "The specific task for the sub-agent to accomplish. Be clear and detailed. (Required for spawn/spawn_template)",
+            },
+            task_description: {
+              type: "string",
+              description:
+                "Human-readable description of the sub-agent's mission. Explains the purpose and expected outcome. (Required for spawn)",
+            },
+            tools: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Array of tool names the sub-agent can use (e.g., ['brave_search', 'curl', 'code_executor']). (Required for spawn)",
+            },
+            max_iterations: {
+              type: "number",
+              description:
+                "Maximum LLM iterations for the sub-agent (default: 10, max: 15). Lower for simple tasks.",
+            },
+            timeout: {
+              type: "number",
+              description:
+                "Timeout in milliseconds (default: 120000 = 2 minutes). Increase for complex tasks.",
+            },
+            context: {
+              type: "string",
+              description:
+                "Optional context from the main conversation to provide to the sub-agent.",
+            },
+            // For spawn_template action
+            template_id: {
+              type: "string",
+              description:
+                "Template ID to use (e.g., 'research', 'scheduler', 'data_processor', 'task_manager'). Use list_templates to see all.",
+            },
+            additional_tools: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Additional tools to add to the template's default tools. (For spawn_template)",
             },
           },
           required: ["action"],

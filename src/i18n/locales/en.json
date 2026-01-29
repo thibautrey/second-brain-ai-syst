@@ -484,6 +484,35 @@
     "endpointNotAvailable": "Tools configuration endpoints are not yet",
     "apiTip": "💡 Tip: API endpoints for tools"
   },
+  "skills": {
+    "tabs": {
+      "skills": "Skills"
+    },
+    "installed": {
+      "title": "Installed Skills",
+      "empty": "No skills installed",
+      "emptyHint": "Browse the Skill Hub below to add some",
+      "badge": "Installed"
+    },
+    "hub": {
+      "title": "Skill Hub",
+      "searchPlaceholder": "Search skills...",
+      "allCategories": "All Categories",
+      "noResults": "No skills found"
+    },
+    "confirm": {
+      "uninstall": "Are you sure you want to uninstall this skill?"
+    },
+    "usageCount": "{{count}} usage",
+    "usageCount_plural": "{{count}} usages",
+    "lastUsed": "Last used: {{date}}",
+    "uninstall": "Uninstall",
+    "install": "Install",
+    "installing": "Installing...",
+    "builtin": "Built-in",
+    "byAuthor": "by {{author}}",
+    "requiresEnv": "Requires"
+  },
   "toolsConfig": {
     "title": "Tools Configuration",
     "subtitle": "Manage built-in tools, generated tools, and MCP servers",
@@ -1211,6 +1240,106 @@
     "errors": {
       "todoLoad": "Error loading tasks: {{error}}",
       "scheduleLoad": "Error loading schedules: {{error}}"
+    }
+  },
+  "landing": {
+    "brandName": "Second Brain",
+    "brandTagline": "Local-first memory OS",
+    "github": "GitHub",
+    "cta": {
+      "openDashboard": "Open dashboard",
+      "continueOnboarding": "Continue onboarding",
+      "getStarted": "Get started"
+    },
+    "hero": {
+      "pill": "Private, proactive, local-first",
+      "title": "A calm cognitive operating system for your life",
+      "subtitle": "Capture interactions, structure knowledge, and surface the right memories at the right time.",
+      "inspiredBy": "Inspired by Clawd",
+      "highlights": {
+        "summaries": "Daily to yearly summaries",
+        "privacy": "Privacy built-in"
+      }
+    },
+    "metrics": {
+      "title": "System signals",
+      "badge": "Live sync",
+      "cards": {
+        "memories": "Memories",
+        "tools": "Tools",
+        "summaries": "Summaries",
+        "signals": "Accuracy"
+      },
+      "sampleQuote": "“Show me decisions from the past week about the roadmap.”"
+    },
+    "pillars": {
+      "kicker": "Core pillars",
+      "title": "A full-stack memory layer",
+      "subline": "Designed for fast recall and calm autonomy"
+    },
+    "features": {
+      "intentRouter": {
+        "pill": "Intent Router",
+        "title": "Classify every input",
+        "description": "Route questions, commands, and reflections with low latency."
+      },
+      "memoryEngine": {
+        "pill": "Memory Engine",
+        "title": "Store with context",
+        "description": "Hybrid storage with embeddings, metadata, and summaries."
+      },
+      "proactiveCoach": {
+        "pill": "Proactive Agent",
+        "title": "Gentle daily coaching",
+        "description": "Non-invasive nudges across health, goals, and habits."
+      },
+      "toolExecutor": {
+        "pill": "Tool Executor",
+        "title": "Safe automation",
+        "description": "Run tools with guardrails, logs, and approvals."
+      },
+      "noiseFilter": {
+        "pill": "Noise Filter",
+        "title": "Ignore the noise",
+        "description": "Filter background chatter and keep only meaningful data."
+      },
+      "privacyFirst": {
+        "pill": "Privacy First",
+        "title": "Local-first by default",
+        "description": "Nothing leaves your infrastructure in local mode."
+      }
+    },
+    "timeline": {
+      "kicker": "Time-scale summaries",
+      "title": "Summaries that grow with you",
+      "subtitle": "Daily context becomes long-term insight through a cascade of rollups.",
+      "items": {
+        "daily": {
+          "label": "Daily",
+          "detail": "Capture key moments and decisions."
+        },
+        "weekly": {
+          "label": "Weekly",
+          "detail": "Spot patterns and momentum."
+        },
+        "monthly": {
+          "label": "Monthly",
+          "detail": "Review projects and goals."
+        },
+        "quarterly": {
+          "label": "Quarterly",
+          "detail": "Make strategic adjustments."
+        },
+        "yearly": {
+          "label": "Yearly",
+          "detail": "Reflect on long-term growth."
+        }
+      }
+    },
+    "footer": {
+      "title": "Ready to build your second brain?",
+      "subtitle": "Start capturing knowledge with a system that respects your privacy.",
+      "star": "Star the repo"
     }
   }
 }

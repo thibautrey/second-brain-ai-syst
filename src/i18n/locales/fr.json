@@ -471,6 +471,35 @@
     "endpointNotAvailable": "Les endpoints de configuration des outils ne sont pas encore",
     "apiTip": "💡 Conseil: Les endpoints API pour les outils ne"
   },
+  "skills": {
+    "tabs": {
+      "skills": "Skills"
+    },
+    "installed": {
+      "title": "Skills installés",
+      "empty": "Aucun skill installé",
+      "emptyHint": "Parcourez le Skill Hub ci-dessous pour en ajouter",
+      "badge": "Installé"
+    },
+    "hub": {
+      "title": "Skill Hub",
+      "searchPlaceholder": "Rechercher des skills...",
+      "allCategories": "Toutes les catégories",
+      "noResults": "Aucun skill trouvé"
+    },
+    "confirm": {
+      "uninstall": "Voulez-vous vraiment désinstaller ce skill ?"
+    },
+    "usageCount": "{{count}} utilisation",
+    "usageCount_plural": "{{count}} utilisations",
+    "lastUsed": "Dernière utilisation : {{date}}",
+    "uninstall": "Désinstaller",
+    "install": "Installer",
+    "installing": "Installation...",
+    "builtin": "Intégré",
+    "byAuthor": "par {{author}}",
+    "requiresEnv": "Nécessite"
+  },
   "chat": {
     "accessMemories": "Je peux accéder à vos mémoires pour des réponses personnalisées",
     "connecting": "Connexion...",
@@ -1165,6 +1194,106 @@
     "errors": {
       "todoLoad": "Erreur lors du chargement des tâches : {{error}}",
       "scheduleLoad": "Erreur lors du chargement des planifications : {{error}}"
+    }
+  },
+  "landing": {
+    "brandName": "Second Brain",
+    "brandTagline": "Mémoire locale, tout-en-un",
+    "github": "GitHub",
+    "cta": {
+      "openDashboard": "Ouvrir le tableau de bord",
+      "continueOnboarding": "Continuer l'onboarding",
+      "getStarted": "Commencer"
+    },
+    "hero": {
+      "pill": "Privé, proactif, local-first",
+      "title": "Un système cognitif calme pour votre vie",
+      "subtitle": "Capturez vos interactions, structurez la connaissance et retrouvez les bons souvenirs au bon moment.",
+      "inspiredBy": "Inspiré par Clawd",
+      "highlights": {
+        "summaries": "Synthèses du quotidien à l'annuel",
+        "privacy": "Confidentialité intégrée"
+      }
+    },
+    "metrics": {
+      "title": "Signaux système",
+      "badge": "Sync en direct",
+      "cards": {
+        "memories": "Souvenirs",
+        "tools": "Outils",
+        "summaries": "Synthèses",
+        "signals": "Précision"
+      },
+      "sampleQuote": "“Montre-moi les décisions de la semaine passée sur la roadmap.”"
+    },
+    "pillars": {
+      "kicker": "Piliers clés",
+      "title": "Une couche mémoire complète",
+      "subline": "Conçue pour un rappel rapide et une autonomie sereine"
+    },
+    "features": {
+      "intentRouter": {
+        "pill": "Routeur d'intentions",
+        "title": "Classifier chaque entrée",
+        "description": "Orientez questions, commandes et réflexions avec faible latence."
+      },
+      "memoryEngine": {
+        "pill": "Moteur mémoire",
+        "title": "Stocker avec contexte",
+        "description": "Stockage hybride avec embeddings, métadonnées et synthèses."
+      },
+      "proactiveCoach": {
+        "pill": "Agent proactif",
+        "title": "Coaching doux au quotidien",
+        "description": "Des suggestions non intrusives sur santé, objectifs et habitudes."
+      },
+      "toolExecutor": {
+        "pill": "Exécution d'outils",
+        "title": "Automatisation sûre",
+        "description": "Exécutez des outils avec garde-fous, logs et validations."
+      },
+      "noiseFilter": {
+        "pill": "Filtre de bruit",
+        "title": "Ignorer le bruit",
+        "description": "Filtrez les conversations de fond pour garder l'essentiel."
+      },
+      "privacyFirst": {
+        "pill": "Confidentialité",
+        "title": "Local-first par défaut",
+        "description": "Aucune donnée ne sort de votre infrastructure en mode local."
+      }
+    },
+    "timeline": {
+      "kicker": "Synthèses multi-échelles",
+      "title": "Des synthèses qui grandissent avec vous",
+      "subtitle": "Le quotidien devient vision long terme via une cascade de synthèses.",
+      "items": {
+        "daily": {
+          "label": "Quotidien",
+          "detail": "Capturez les moments clés et décisions."
+        },
+        "weekly": {
+          "label": "Hebdo",
+          "detail": "Repérez les tendances et la dynamique."
+        },
+        "monthly": {
+          "label": "Mensuel",
+          "detail": "Passez en revue projets et objectifs."
+        },
+        "quarterly": {
+          "label": "Trimestriel",
+          "detail": "Ajustez la stratégie."
+        },
+        "yearly": {
+          "label": "Annuel",
+          "detail": "Réfléchissez à la progression sur le long terme."
+        }
+      }
+    },
+    "footer": {
+      "title": "Prêt à construire votre second cerveau ?",
+      "subtitle": "Commencez à capturer la connaissance avec un système respectueux de votre vie privée.",
+      "star": "Mettre une étoile au dépôt"
     }
   }
 }

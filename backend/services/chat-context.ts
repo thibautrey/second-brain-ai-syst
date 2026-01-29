@@ -6,6 +6,7 @@
  * - User context loading
  * - System prompt injection with memory context
  * - Task intent analysis and smart clarification
+ * - Skills system integration (Moltbot-style)
  */
 
 import {
@@ -18,6 +19,7 @@ import { memorySearchService } from "./memory-search.js";
 import { optimizedRetrieval } from "./optimized-retrieval.js";
 import { precomputedMemoryIndex } from "./precomputed-memory-index.js";
 import { responseCacheService } from "./response-cache.js";
+import { skillManager } from "./skill-manager.js";
 
 /**
  * Build runtime metadata section for system prompt
@@ -223,6 +225,22 @@ export function buildCompleteSystemPrompt(): string {
   return `${CHAT_SYSTEM_PROMPT}
 
 ${buildRuntimeMetadata()}`;
+}
+
+/**
+ * Build the complete system prompt with skills section
+ */
+export async function buildCompleteSystemPromptWithSkills(
+  userId: string,
+): Promise<string> {
+  const skillsSection = await skillManager
+    .buildSkillsPromptSection(userId)
+    .catch(() => "");
+
+  return `${CHAT_SYSTEM_PROMPT}
+
+${buildRuntimeMetadata()}
+${skillsSection}`;
 }
 
 export interface MemorySearchResult {

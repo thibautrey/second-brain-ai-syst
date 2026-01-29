@@ -36,3 +36,22 @@ body {
     );
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+.docs-grid {
+  background-image: radial-gradient(circle at 20% 20%, rgba(251, 191, 36, 0.14), transparent 40%),
+    radial-gradient(circle at 80% 10%, rgba(244, 114, 182, 0.12), transparent 38%),
+    linear-gradient(120deg, rgba(15, 23, 42, 0.04) 0%, rgba(15, 23, 42, 0) 35%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(148, 163, 184, 0.12) 0px,
+      rgba(148, 163, 184, 0.12) 1px,
+      transparent 1px,
+      transparent 80px
+    );
+}
+
+.docs-glow {
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(253, 186, 116, 0.35), transparent 70%);
+  filter: blur(10px);
+}

@@ -1327,6 +1327,12 @@ console.log("🧹 Data cleanup routes enabled at /api/cleanup");
 app.use("/api/tools", toolsController);
 console.log("🔧 Built-in tools routes enabled at /api/tools");
 
+// ==================== Skills System Routes ====================
+
+import skillsController from "../controllers/skills.controller.js";
+app.use("/api/skills", skillsController);
+console.log("🎯 Skills routes enabled at /api/skills");
+
 // ==================== User Secrets Routes ====================
 
 app.use("/api/secrets", secretsController);

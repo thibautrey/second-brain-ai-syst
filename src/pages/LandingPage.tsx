@@ -88,8 +88,8 @@ export function LandingPage() {
               <span>{t("landing.github")}</span>
               <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </a>
-            <Link to="/login" className="hidden text-sm font-medium text-slate-200 hover:text-white md:inline">
-              {t("landing.login")}
+            <Link to="/docs" className="hidden text-sm font-medium text-slate-200 hover:text-white md:inline">
+              Docs
             </Link>
             <Link to={primaryCta.to}>
               <Button className="bg-white text-slate-950 hover:bg-slate-200">{primaryCta.label}</Button>
@@ -115,11 +115,6 @@ export function LandingPage() {
               <Link to={primaryCta.to}>
                 <Button size="lg" className="bg-emerald-400 text-slate-950 hover:bg-emerald-300">
                   {primaryCta.label}
-                </Button>
-              </Link>
-              <Link to="/login">
-                <Button size="lg" variant="outline" className="border-white/20 bg-transparent text-white hover:border-white/40 hover:bg-white/5">
-                  {t("landing.login")}
                 </Button>
               </Link>
               <a

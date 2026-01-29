@@ -87,6 +87,9 @@ model User {
   // ChatGPT OAuth Integration
   chatGPTOAuthCredentials ChatGPTOAuthCredentials?
 
+  // Skills System (Moltbot-style)
+  installedSkills InstalledSkill[]
+
   @@map("users")
 }
 
@@ -2214,4 +2217,136 @@ enum TranscriptionStatus {
   COMPLETED // Transcription complete
   FAILED // Transcription failed
   PARTIAL // Partially transcribed
+}
+
+// ==================== Skills System (Moltbot-style) ====================
+
+// Skill Hub - Registry of available skills (similar to ClawdHub)
+model SkillHubEntry {
+  id   String @id @default(cuid())
+  slug String @unique // Unique identifier e.g. "pdf-editor", "weather-monitor"
+
+  // Basic info (from SKILL.md frontmatter)
+  name        String // Human readable name
+  description String @db.Text // Description from frontmatter
+  version     String @default("1.0.0")
+  author      String @default("community")
+
+  // Discovery metadata
+  category SkillCategory @default(OTHER)
+  tags     String[]      @default([])
+  icon     String? // Emoji or icon URL
+
+  // Statistics
+  rating      Float    @default(0)
+  installs    Int      @default(0)
+  lastUpdated DateTime @default(now())
+
+  // Source information
+  sourceType  SkillSourceType @default(BUILTIN)
+  sourceUrl   String? // GitHub URL or external source
+  downloadUrl String? // Direct download URL for .skill file
+
+  // Moltbot-style metadata (requirements)
+  metadata Json @default("{}") // { moltbot: { requires: { bins: [], env: [], config: [] }, primaryEnv: "..." } }
+
+  // Content (for builtin skills)
+  skillContent String? @db.Text // Full SKILL.md content for builtin skills
+
+  // Bundled resources paths (relative to skill folder)
+  hasScripts    Boolean @default(false)
+  hasReferences Boolean @default(false)
+  hasAssets     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  installedSkills InstalledSkill[]
+
+  @@index([category])
+  @@index([sourceType])
+  @@map("skill_hub_entries")
+}
+
+// Installed Skills per User
+model InstalledSkill {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Link to hub entry (if from hub)
+  hubEntryId String?
+  hubEntry   SkillHubEntry? @relation(fields: [hubEntryId], references: [id], onDelete: SetNull)
+
+  // Skill identification
+  skillSlug   String // Unique identifier for this user's skill
+  name        String
+  description String @db.Text
+
+  // Version tracking
+  version          String  @default("1.0.0")
+  installedVersion String  @default("1.0.0")
+  updateAvailable  Boolean @default(false)
+
+  // Configuration
+  enabled Boolean @default(true)
+  config  Json    @default("{}") // User-specific configuration
+  env     Json    @default("{}") // Environment variables for this skill
+  apiKey  String? // Convenience for skills with primaryEnv
+
+  // Location on disk (for custom skills)
+  localPath String? // Path to skill folder if custom/workspace skill
+
+  // Content cache
+  skillMdContent String? @db.Text // Cached SKILL.md content
+  frontmatter    Json    @default("{}") // Parsed YAML frontmatter
+
+  // Priority for conflict resolution
+  priority SkillPriority @default(MANAGED)
+
+  // Usage tracking
+  usageCount Int       @default(0)
+  lastUsedAt DateTime?
+
+  installedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, skillSlug])
+  @@index([userId])
+  @@index([enabled])
+  @@map("installed_skills")
+}
+
+enum SkillCategory {
+  PRODUCTIVITY
+  DEVELOPMENT
+  WRITING
+  RESEARCH
+  AUTOMATION
+  ANALYSIS
+  COMMUNICATION
+  CREATIVITY
+  HEALTH
+  FINANCE
+  LEARNING
+  OTHER
+}
+
+enum SkillSourceType {
+  BUILTIN // Shipped with the system
+  HUB // From skill hub/registry
+  MARKETPLACE // From external marketplace
+  GITHUB // From GitHub repo
+  LOCAL // Local file
+}
+
+enum SkillPriority {
+  WORKSPACE // Highest - user's workspace skills
+  MANAGED // Medium - installed from hub
+  BUILTIN // Lowest - shipped with system
+  CRITICAL
+  HIGH
+  NORMAL
+  LOW
 }

@@ -17,7 +17,7 @@ export interface FlowEvent {
 
 export interface InputFlow {
   flowId: string;
-  inputType: "text" | "audio_stream" | "audio_batch" | "chat";
+  inputType: "text" | "audio_stream" | "audio_batch" | "chat" | "subagent";
   startTime: Date;
   endTime?: Date;
   totalDuration?: number;

@@ -9,13 +9,16 @@ import {
   Check,
   Download,
   ExternalLink,
+  Package,
   Plus,
   Power,
   PowerOff,
   RefreshCw,
+  Search,
   Server,
   Settings,
   ShoppingBag,
+  Sparkles,
   Star,
   Trash2,
   Wrench,
@@ -30,6 +33,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import {
   Tabs,
   TabsContent,
@@ -55,6 +65,53 @@ import { useAuth } from "../contexts/AuthContext";
 import i18n from "../i18n/config";
 
 // ==================== Types ====================
+
+// Skills (Moltbot-style)
+interface SkillHubEntry {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  version: string;
+  author: string;
+  category: string;
+  tags: string[];
+  icon?: string;
+  sourceType: "BUILTIN" | "HUB" | "WORKSPACE" | "CUSTOM";
+  rating: number;
+  installs: number;
+  metadata?: {
+    moltbot?: {
+      emoji?: string;
+      requires?: {
+        env?: string[];
+        bins?: string[];
+      };
+      primaryEnv?: string;
+    };
+  };
+}
+
+interface InstalledSkill {
+  id: string;
+  skillSlug: string;
+  name: string;
+  description: string;
+  version: string;
+  enabled: boolean;
+  config: Record<string, any>;
+  usageCount: number;
+  lastUsedAt?: string;
+  installedAt: string;
+  frontmatter?: any;
+  hubEntry?: SkillHubEntry;
+}
+
+interface SkillCategory {
+  id: string;
+  name: string;
+  icon: string;
+}
 
 interface BuiltinTool {
   id: string;
@@ -190,7 +247,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 export function ToolsConfigPage() {
   const { user } = useAuth();
   const { t, i18n: i18nContext } = useTranslation();
-  const [activeTab, setActiveTab] = useState("builtin");
+  const [activeTab, setActiveTab] = useState("skills");
 
   // State for built-in tools
   const [builtinTools, setBuiltinTools] = useState<BuiltinTool[]>([]);
@@ -213,6 +270,14 @@ export function ToolsConfigPage() {
 
   // State for generated tools
   const [generatedTools, setGeneratedTools] = useState<GeneratedTool[]>([]);
+
+  // State for skills (Moltbot-style)
+  const [skillHubCatalog, setSkillHubCatalog] = useState<SkillHubEntry[]>([]);
+  const [installedSkills, setInstalledSkills] = useState<InstalledSkill[]>([]);
+  const [skillCategories, setSkillCategories] = useState<SkillCategory[]>([]);
+  const [installingSkill, setInstallingSkill] = useState<string | null>(null);
+  const [skillSearchQuery, setSkillSearchQuery] = useState("");
+  const [skillCategoryFilter, setSkillCategoryFilter] = useState<string>("all");
 
   // State for self-heal dialog
   const [selfHealOpen, setSelfHealOpen] = useState(false);
@@ -241,6 +306,9 @@ export function ToolsConfigPage() {
         catalogRes,
         installedRes,
         generatedRes,
+        skillHubRes,
+        skillInstalledRes,
+        skillCategoriesRes,
       ] = await Promise.all([
         fetchWithAuth("/tools"),
         fetchWithAuth("/tools/config"),
@@ -248,6 +316,9 @@ export function ToolsConfigPage() {
         fetchWithAuth("/tools/marketplace"),
         fetchWithAuth("/tools/marketplace-installed"),
         fetchWithAuth("/generated-tools"),
+        fetchWithAuth("/skills/hub").catch(() => ({ catalog: [] })),
+        fetchWithAuth("/skills/installed").catch(() => ({ skills: [] })),
+        fetchWithAuth("/skills/categories").catch(() => ({ categories: [] })),
       ]);
 
       setBuiltinTools(toolsRes.tools || []);
@@ -256,12 +327,79 @@ export function ToolsConfigPage() {
       setMarketplaceCatalog(catalogRes.catalog || []);
       setInstalledTools(installedRes.installed || []);
       setGeneratedTools(generatedRes.tools || []);
+      setSkillHubCatalog(skillHubRes.catalog || []);
+      setInstalledSkills(skillInstalledRes.skills || []);
+      setSkillCategories(skillCategoriesRes.categories || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }
+
+  // ==================== Skills Handlers ====================
+
+  function isSkillInstalled(slug: string): boolean {
+    return installedSkills.some((s) => s.skillSlug === slug);
+  }
+
+  function getInstalledSkill(slug: string): InstalledSkill | undefined {
+    return installedSkills.find((s) => s.skillSlug === slug);
+  }
+
+  async function installSkill(slug: string) {
+    setInstallingSkill(slug);
+    try {
+      await fetchWithAuth(`/skills/install/${slug}`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      await loadData();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setInstallingSkill(null);
+    }
+  }
+
+  async function uninstallSkill(slug: string) {
+    if (!confirm(t("skills.confirm.uninstall"))) return;
+    try {
+      await fetchWithAuth(`/skills/installed/${slug}`, { method: "DELETE" });
+      setInstalledSkills((prev) => prev.filter((s) => s.skillSlug !== slug));
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  async function toggleSkill(slug: string, enabled: boolean) {
+    try {
+      await fetchWithAuth(`/skills/installed/${slug}/toggle`, {
+        method: "POST",
+        body: JSON.stringify({ enabled }),
+      });
+      setInstalledSkills((prev) =>
+        prev.map((s) => (s.skillSlug === slug ? { ...s, enabled } : s)),
+      );
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  const filteredSkillsCatalog = skillHubCatalog.filter((skill) => {
+    const matchesSearch =
+      !skillSearchQuery ||
+      skill.name.toLowerCase().includes(skillSearchQuery.toLowerCase()) ||
+      skill.description
+        .toLowerCase()
+        .includes(skillSearchQuery.toLowerCase()) ||
+      skill.tags.some((tag) =>
+        tag.toLowerCase().includes(skillSearchQuery.toLowerCase()),
+      );
+    const matchesCategory =
+      skillCategoryFilter === "all" || skill.category === skillCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   // ==================== Built-in Tools Handlers ====================
 
@@ -425,8 +563,7 @@ export function ToolsConfigPage() {
   }
 
   async function deleteGeneratedTool(toolId: string) {
-    if (!confirm(t("toolsConfig.confirm.deleteGeneratedTool")))
-      return;
+    if (!confirm(t("toolsConfig.confirm.deleteGeneratedTool"))) return;
 
     try {
       await fetchWithAuth(`/generated-tools/${toolId}`, { method: "DELETE" });
@@ -466,9 +603,7 @@ export function ToolsConfigPage() {
             <h2 className="text-3xl font-bold text-slate-900">
               {t("toolsConfig.title")}
             </h2>
-            <p className="mt-1 text-slate-600">
-              {t("toolsConfig.subtitle")}
-            </p>
+            <p className="mt-1 text-slate-600">{t("toolsConfig.subtitle")}</p>
           </div>
         </div>
 
@@ -504,9 +639,7 @@ export function ToolsConfigPage() {
           <h2 className="text-3xl font-bold text-slate-900">
             {t("toolsConfig.title")}
           </h2>
-          <p className="mt-1 text-slate-600">
-            {t("toolsConfig.subtitle")}
-          </p>
+          <p className="mt-1 text-slate-600">{t("toolsConfig.subtitle")}</p>
         </div>
         <Button
           onClick={loadData}
@@ -546,6 +679,14 @@ export function ToolsConfigPage() {
         <div className="w-full overflow-x-auto overflow-y-hidden">
           <TabsList className="inline-flex gap-1">
             <TabsTrigger
+              value="skills"
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>{t("skills.tabs.skills")}</span>
+            </TabsTrigger>
+
+            <TabsTrigger
               value="builtin"
               className="flex items-center gap-2 whitespace-nowrap"
             >
@@ -562,6 +703,255 @@ export function ToolsConfigPage() {
             </TabsTrigger>
           </TabsList>
         </div>
+
+        {/* Skills Tab (Moltbot-style) */}
+        <TabsContent value="skills">
+          <div className="space-y-6">
+            {/* Installed Skills Section */}
+            <div>
+              <h3 className="mb-4 text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                {t("skills.installed.title")} ({installedSkills.length})
+              </h3>
+              {installedSkills.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <Package className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                    <p className="text-slate-500">
+                      {t("skills.installed.empty")}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {t("skills.installed.emptyHint")}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {installedSkills.map((skill) => (
+                    <Card
+                      key={skill.id}
+                      className={!skill.enabled ? "opacity-60" : ""}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">
+                              {skill.frontmatter?.metadata?.moltbot?.emoji ||
+                                "📦"}
+                            </span>
+                            <div>
+                              <CardTitle className="text-base">
+                                {skill.name}
+                              </CardTitle>
+                              <p className="text-xs text-slate-500">
+                                v{skill.version}
+                              </p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={skill.enabled}
+                            onCheckedChange={(checked) =>
+                              toggleSkill(skill.skillSlug, checked)
+                            }
+                          />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <p className="text-sm text-slate-600 line-clamp-2">
+                          {skill.description}
+                        </p>
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>
+                            {t("skills.usageCount", {
+                              count: skill.usageCount,
+                            })}
+                          </span>
+                          {skill.lastUsedAt && (
+                            <span>
+                              {t("skills.lastUsed", {
+                                date: new Date(
+                                  skill.lastUsedAt,
+                                ).toLocaleDateString(i18nContext.language),
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => uninstallSkill(skill.skillSlug)}
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          {t("skills.uninstall")}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Skill Hub Section */}
+            <div>
+              <h3 className="mb-4 text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5" />
+                {t("skills.hub.title")}
+              </h3>
+
+              {/* Search and Filter */}
+              <div className="flex flex-col gap-4 mb-4 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute w-4 h-4 text-slate-400 left-3 top-3" />
+                  <Input
+                    placeholder={t("skills.hub.searchPlaceholder")}
+                    value={skillSearchQuery}
+                    onChange={(e) => setSkillSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select
+                  value={skillCategoryFilter}
+                  onValueChange={setSkillCategoryFilter}
+                >
+                  <SelectTrigger className="w-full sm:w-48">
+                    <SelectValue placeholder={t("skills.hub.allCategories")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      {t("skills.hub.allCategories")}
+                    </SelectItem>
+                    {skillCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Skill Cards */}
+              {filteredSkillsCatalog.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <Search className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                    <p className="text-slate-500">
+                      {t("skills.hub.noResults")}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredSkillsCatalog.map((skill) => {
+                    const installed = isSkillInstalled(skill.slug);
+                    const installing = installingSkill === skill.slug;
+                    return (
+                      <Card key={skill.id} className="flex flex-col">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start gap-3">
+                            <span className="text-3xl">
+                              {skill.metadata?.moltbot?.emoji ||
+                                skill.icon ||
+                                "📦"}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                {skill.name}
+                                {skill.sourceType === "BUILTIN" && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {t("skills.builtin")}
+                                  </Badge>
+                                )}
+                              </CardTitle>
+                              <p className="text-xs text-slate-500">
+                                {t("skills.byAuthor", { author: skill.author })}{" "}
+                                · v{skill.version}
+                              </p>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="flex-1 space-y-3">
+                          <p className="text-sm text-slate-600 line-clamp-3">
+                            {skill.description}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {skill.tags.slice(0, 3).map((tag) => (
+                              <Badge
+                                key={tag}
+                                variant="outline"
+                                className="text-xs"
+                              >
+                                {tag}
+                              </Badge>
+                            ))}
+                            {skill.tags.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{skill.tags.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <Download className="w-3 h-3" />
+                              {skill.installs}
+                            </span>
+                            {skill.rating > 0 && (
+                              <span className="flex items-center gap-1">
+                                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                {skill.rating.toFixed(1)}
+                              </span>
+                            )}
+                          </div>
+                          {skill.metadata?.moltbot?.requires?.env && (
+                            <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                              {t("skills.requiresEnv")}:{" "}
+                              {skill.metadata.moltbot.requires.env.join(", ")}
+                            </div>
+                          )}
+                        </CardContent>
+                        <div className="p-4 pt-0">
+                          {installed ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              disabled
+                            >
+                              <Check className="w-4 h-4 mr-2" />
+                              {t("skills.installed.badge")}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              onClick={() => installSkill(skill.slug)}
+                              disabled={installing}
+                            >
+                              {installing ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                  {t("skills.installing")}
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4 mr-2" />
+                                  {t("skills.install")}
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
 
         {/* Built-in Tools Tab */}
         <TabsContent value="builtin">
@@ -717,8 +1107,7 @@ export function ToolsConfigPage() {
                           <span className="font-medium">
                             {t("toolsConfig.generated.versionLabel")}
                           </span>{" "}
-                          v
-                          {tool.version}
+                          v{tool.version}
                         </div>
                         <div>
                           <span className="font-medium">
