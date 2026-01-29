@@ -1134,7 +1134,7 @@
         "openai": "OpenAI API Keys",
         "anthropic": "Anthropic Console"
       },
-      "continueButton": "Continue to Channels",
+      "continueButton": "Continue to Model Selection",
       "loading": "Loading AI settings..."
     },
     "modelSelectionStep": {

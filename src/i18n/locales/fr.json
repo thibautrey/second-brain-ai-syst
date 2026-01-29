@@ -1023,7 +1023,7 @@
         "openai": "Clés API OpenAI",
         "anthropic": "Console Anthropic"
       },
-      "continueButton": "Continuer vers Canaux",
+      "continueButton": "Continuer vers la sélection du modèle",
       "loading": "Chargement des paramètres IA..."
     },
     "modelSelectionStep": {
