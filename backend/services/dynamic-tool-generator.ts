@@ -16,6 +16,7 @@ import {
 import { codeExecutorService } from "./code-executor-wrapper.js";
 import { llmRouterService } from "./llm-router.js";
 import { secretsService } from "./secrets.js";
+import { toolErrorLogger } from "./tool-error-logger.js";
 import { toolGenerationWorkflowService } from "./tool-generation-workflow.js";
 import { toolHealerService } from "./tool-healer.js";
 import { wsBroadcastService } from "./websocket-broadcast.js";
@@ -1157,6 +1158,29 @@ ${tool.code}
         return { success: true, result: result.result };
       }
 
+      // Log detailed error for failed executions
+      try {
+        await toolErrorLogger.logError({
+          toolId,
+          userId,
+          errorMessage: result.error || "Execution failed",
+          requestParams: params,
+          requestSize: JSON.stringify(params).length,
+          startedAt: new Date(startTime),
+          endedAt: new Date(),
+          executionTimeMs,
+          metadata: {
+            triggeredBy,
+            executorType: "generated-tool",
+          },
+        });
+      } catch (logError) {
+        console.error(
+          "[DynamicToolGenerator] Failed to log tool error:",
+          logError,
+        );
+      }
+
       return { success: false, error: result.error || "Execution failed" };
     } catch (error: any) {
       const executionTimeMs = Date.now() - startTime;
@@ -1172,6 +1196,30 @@ ${tool.code}
         triggeredBy,
         params,
       );
+
+      // Log detailed error
+      try {
+        await toolErrorLogger.logError({
+          toolId,
+          userId,
+          errorMessage: error.message || String(error),
+          errorStack: error.stack,
+          requestParams: params,
+          requestSize: JSON.stringify(params).length,
+          startedAt: new Date(startTime),
+          endedAt: new Date(),
+          executionTimeMs,
+          metadata: {
+            triggeredBy,
+            executorType: "generated-tool",
+          },
+        });
+      } catch (logError) {
+        console.error(
+          "[DynamicToolGenerator] Failed to log tool error:",
+          logError,
+        );
+      }
 
       return { success: false, error: error.message };
     }

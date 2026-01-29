@@ -1870,6 +1870,56 @@ model ToolExecutionLog {
   @@map("tool_execution_logs")
 }
 
+// Detailed error logging for tool execution failures
+model ToolErrorLog {
+  id     String @id @default(cuid())
+  toolId String
+  userId String
+
+  // Error details
+  action            String? // The action being performed
+  errorMessage      String  @db.Text // Full error message
+  errorStack        String? @db.Text // Stack trace
+  errorType         String? // 'schema_validation_error', 'undefined_reference', etc.
+  errorCode         String? // Optional error code
+  category          String? // 'validation', 'execution', 'timeout', 'system', 'permission', 'unknown'
+  severity          String? // 'low', 'medium', 'high', 'critical'
+  isRecoverable     Boolean @default(false)
+  suggestedRecovery String? @db.Text
+
+  // Request context
+  requestParams String? @db.Text // JSON stringified
+  requestSize   Int? // Size in bytes
+
+  // Response context
+  partialResult String? @db.Text // JSON stringified - any partial result before error
+  responseSize  Int? // Size in bytes
+
+  // Timing
+  startedAt       DateTime
+  endedAt         DateTime
+  executionTimeMs Int
+
+  // Execution context
+  flowId         String?
+  sessionId      String?
+  iterationCount Int?
+
+  // Related info
+  relatedToolId String? // If error was triggered by another tool
+  metadata      String? @db.Text // Additional metadata
+
+  createdAt DateTime @default(now())
+
+  @@index([toolId])
+  @@index([userId])
+  @@index([category])
+  @@index([severity])
+  @@index([isRecoverable])
+  @@index([createdAt])
+  @@map("tool_error_logs")
+}
+
 // ==================== Goals and Achievements ====================
 
 // User goals tracked by the system

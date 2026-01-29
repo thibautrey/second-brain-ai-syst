@@ -27,6 +27,7 @@ import {
   executeWeatherAction,
 } from "./tool-executor/handlers/index.js";
 import prisma from "./prisma.js";
+import { toolErrorLogger } from "./tool-error-logger.js";
 
 // TypeBox validation imports
 import {
@@ -601,10 +602,37 @@ export class ToolExecutorService {
         toolUsed: request.toolId,
       };
     } catch (error: any) {
+      const executionTime = Date.now() - startTime;
+      const errorMessage = error.message || String(error);
+      const errorStack = error.stack;
+
+      // Log detailed error information
+      try {
+        await toolErrorLogger.logError({
+          toolId: request.toolId,
+          userId,
+          action: request.action,
+          errorMessage,
+          errorStack,
+          requestParams: request.params,
+          requestSize: JSON.stringify(request.params).length,
+          startedAt: new Date(startTime),
+          endedAt: new Date(),
+          executionTimeMs: executionTime,
+          metadata: {
+            validationError: validatedParams !== request.params,
+            toolCategory: tool?.category,
+            toolEnabled: tool?.enabled,
+          },
+        });
+      } catch (logError) {
+        console.error("[ToolExecutor] Failed to log tool error:", logError);
+      }
+
       return {
         success: false,
         error: error.message,
-        executionTime: Date.now() - startTime,
+        executionTime,
         toolUsed: request.toolId,
       };
     }
