@@ -17,8 +17,8 @@ import {
   ToolFunctionDefinition,
 } from "../config/chat-config.js";
 import {
-  CHAT_SYSTEM_PROMPT,
   analyzeTaskIntent,
+  buildCompleteSystemPrompt,
   buildMemoryContext,
   buildSystemPromptWithIntent,
   getUserContextData,
@@ -213,9 +213,10 @@ export async function chatStream(
       });
     }
 
-    // 5. Build system prompt with memory AND intent analysis
+    // 5. Build system prompt with runtime metadata, memory AND intent analysis
+    const baseSystemPrompt = buildCompleteSystemPrompt();
     const systemPrompt = buildSystemPromptWithIntent(
-      CHAT_SYSTEM_PROMPT,
+      baseSystemPrompt,
       memoryResult.memoryContext,
       taskIntentAnalysis,
     );

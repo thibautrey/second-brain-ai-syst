@@ -19,6 +19,58 @@ import { optimizedRetrieval } from "./optimized-retrieval.js";
 import { precomputedMemoryIndex } from "./precomputed-memory-index.js";
 import { responseCacheService } from "./response-cache.js";
 
+/**
+ * Build runtime metadata section for system prompt
+ * Provides context about current time, date, and system capabilities
+ */
+export function buildRuntimeMetadata(): string {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const timeStr = now.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `## RUNTIME CONTEXT
+- Current date: ${dateStr}
+- Current time: ${timeStr}
+- Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
+- Platform: Second Brain AI System
+- Capabilities: Memory search, Task management, Notifications, Scheduled tasks, HTTP requests, Web search, Code execution, Goal tracking`;
+}
+
+/**
+ * Tool call style instructions to reduce hallucination and improve execution
+ */
+const TOOL_CALL_STYLE_INSTRUCTIONS = `
+## TOOL CALL STYLE - VERY IMPORTANT
+Default behavior: do NOT narrate routine, low-risk tool calls. Just call the tool silently.
+
+Narrate ONLY when it genuinely helps:
+- Multi-step work requiring user awareness
+- Complex or challenging problems where explanation adds value
+- Sensitive actions (deletions, modifications of important data)
+- When the user explicitly asks for explanation
+
+FORBIDDEN patterns (never say these):
+- "Let me check that for you..."
+- "I'll now create a task..."
+- "I'm going to search for..."
+- "First, I'll..."
+- "Allow me to..."
+
+CORRECT behavior:
+- User: "Create a task to buy milk" → [call todo tool] → "Done, task created for tomorrow."
+- User: "What's the weather?" → [call curl tool] → "It's 15°C and sunny in Paris."
+- User: "Remind me at 5pm" → [call notification tool] → "Reminder set for 5pm."
+
+Keep narration brief and value-dense. Never repeat obvious steps. Act, then report results.`;
+
 export const CHAT_SYSTEM_PROMPT = `You are Second Brain, a concise and intelligent personal assistant.
 You help the user organize their thoughts, recall memories, and answer their questions.
 You have access to the user's memories to personalize your responses.
@@ -161,7 +213,17 @@ IMPORTANT INSTRUCTIONS:
 - Use memory context when relevant, but do so subtly.
 - When the user requests something, answer directly without unnecessary steps.
 - Be natural: a friend does not ask a question after every statement.
-- NEVER show JSON or curl to the user—use the tools, then give a natural response.`;
+- NEVER show JSON or curl to the user—use the tools, then give a natural response.
+${TOOL_CALL_STYLE_INSTRUCTIONS}`;
+
+/**
+ * Build the complete system prompt with runtime metadata
+ */
+export function buildCompleteSystemPrompt(): string {
+  return `${CHAT_SYSTEM_PROMPT}
+
+${buildRuntimeMetadata()}`;
+}
 
 export interface MemorySearchResult {
   results: Array<{

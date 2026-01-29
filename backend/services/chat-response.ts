@@ -13,7 +13,7 @@
  */
 
 import {
-  CHAT_SYSTEM_PROMPT,
+  buildCompleteSystemPrompt,
   buildMemoryContext,
   prepareSystemPrompt,
 } from "./chat-context.js";
@@ -42,7 +42,7 @@ export interface ChatResponseOptions {
   includeMemorySearch?: boolean;
   /** Number of memories to retrieve (default: 3) */
   memoryCount?: number;
-  /** Custom system prompt override (uses CHAT_SYSTEM_PROMPT if not provided) */
+  /** Custom system prompt override (uses buildCompleteSystemPrompt() if not provided) */
   customSystemPrompt?: string;
   /** Previous messages for conversation context */
   previousMessages?: Array<{ role: "user" | "assistant"; content: string }>;
@@ -147,8 +147,8 @@ export async function getChatResponse(
       }
     }
 
-    // 3. Build system prompt
-    const basePrompt = customSystemPrompt || CHAT_SYSTEM_PROMPT;
+    // 3. Build system prompt with runtime metadata
+    const basePrompt = customSystemPrompt || buildCompleteSystemPrompt();
     const fullContext = `${memoryContext}${additionalContext ? `\n\n${additionalContext}` : ""}`;
     const systemPromptWithMemory = basePrompt + fullContext;
     const systemPrompt = await prepareSystemPrompt(

@@ -5,6 +5,7 @@
  * - Text-based tool extraction and parsing
  * - Tool execution orchestration
  * - Result sanitization
+ * - Error classification for smart retry handling
  */
 
 import {
@@ -12,6 +13,12 @@ import {
   generateToolExecutionSummary,
   sanitizeToolResult,
 } from "./sanitize-tool-results.js";
+import {
+  classifyToolError,
+  formatErrorForModel,
+  getUserFriendlyError,
+  type ToolErrorClassification,
+} from "./tool-error-classifier.js";
 
 import { Response } from "express";
 import { toolExecutorService } from "./tool-executor.js";
@@ -29,6 +36,12 @@ export interface ToolExecutionResult {
   success: boolean;
   data: any;
   error?: string;
+  /** Error classification for smart handling */
+  errorClassification?: ToolErrorClassification;
+  /** Formatted error message for the model */
+  errorForModel?: string;
+  /** User-friendly error message (only if should surface) */
+  userFriendlyError?: string;
 }
 
 /**
@@ -184,6 +197,29 @@ export async function executeTextToolCalls(
 
       allToolResults.push(sanitizedToolResult);
 
+      // Classify error if tool failed
+      let errorClassification: ToolErrorClassification | undefined;
+      let errorForModel: string | undefined;
+      let userFriendlyError: string | undefined;
+
+      if (!toolResult.success && toolResult.error) {
+        errorClassification = classifyToolError(toolResult.error, toolId);
+        errorForModel = formatErrorForModel(
+          toolResult.error,
+          errorClassification,
+          toolId,
+        );
+
+        // Only generate user-friendly error if it should be surfaced
+        if (errorClassification.surfaceToUser) {
+          userFriendlyError = getUserFriendlyError(
+            toolResult.error,
+            errorClassification,
+            toolId,
+          );
+        }
+      }
+
       // Track this result for message building
       toolCallResults.push({
         toolCallId,
@@ -191,6 +227,9 @@ export async function executeTextToolCalls(
         success: toolResult.success,
         data: toolResult.data,
         error: toolResult.error,
+        errorClassification,
+        errorForModel,
+        userFriendlyError,
       });
 
       // Send tool_call event to frontend (success/error status)
@@ -206,6 +245,9 @@ export async function executeTextToolCalls(
             endTime: Date.now(),
             result: toolResult.success ? toolResult.data : undefined,
             error: toolResult.error,
+            // Include classification info for frontend
+            errorRecoverable: errorClassification?.isRecoverable,
+            errorCategory: errorClassification?.errorCategory,
           },
         })}\n\n`,
       );
@@ -216,12 +258,28 @@ export async function executeTextToolCalls(
         service: "ToolExecutor",
         status: toolResult.success ? "success" : "failed",
         duration: Date.now() - toolExecutionStart,
-        data: { toolId, success: toolResult.success, toolIndex: i },
+        data: {
+          toolId,
+          success: toolResult.success,
+          toolIndex: i,
+          errorCategory: errorClassification?.errorCategory,
+          isRecoverable: errorClassification?.isRecoverable,
+        },
       });
     } catch (toolError) {
+      const errorMessage =
+        toolError instanceof Error ? toolError.message : String(toolError);
       console.error(
         `[ToolExecutor] Error executing text tool ${toolId}:`,
         toolError,
+      );
+
+      // Classify the caught exception
+      const caughtErrorClassification = classifyToolError(errorMessage, toolId);
+      const caughtErrorForModel = formatErrorForModel(
+        errorMessage,
+        caughtErrorClassification,
+        toolId,
       );
 
       toolCallResults.push({
@@ -229,8 +287,16 @@ export async function executeTextToolCalls(
         toolId,
         success: false,
         data: null,
-        error:
-          toolError instanceof Error ? toolError.message : String(toolError),
+        error: errorMessage,
+        errorClassification: caughtErrorClassification,
+        errorForModel: caughtErrorForModel,
+        userFriendlyError: caughtErrorClassification.surfaceToUser
+          ? getUserFriendlyError(
+              errorMessage,
+              caughtErrorClassification,
+              toolId,
+            )
+          : undefined,
       });
 
       // Send tool_call event to frontend (error status)
@@ -244,10 +310,9 @@ export async function executeTextToolCalls(
             status: "error",
             startTime: toolExecutionStart,
             endTime: Date.now(),
-            error:
-              toolError instanceof Error
-                ? toolError.message
-                : String(toolError),
+            error: errorMessage,
+            errorRecoverable: caughtErrorClassification.isRecoverable,
+            errorCategory: caughtErrorClassification.errorCategory,
           },
         })}\n\n`,
       );
