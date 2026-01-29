@@ -1,6 +1,6 @@
 /**
  * Goals & Achievements Agent
- * 
+ *
  * Autonomous agent that regularly analyzes user memories and interactions to:
  * - Detect new goals and achievements automatically
  * - Track progress on existing goals
@@ -9,11 +9,11 @@
  * - Create and manage categories dynamically
  */
 
-import prisma from "./prisma.js";
-import { llmRouterService } from "./llm-router.js";
-import { goalsService } from "./goals.service.js";
-import { achievementsService } from "./achievements.service.js";
 import { GoalStatus } from "@prisma/client";
+import { achievementsService } from "./achievements.service.js";
+import { goalsService } from "./goals.service.js";
+import { llmRouterService } from "./llm-router.js";
+import prisma from "./prisma.js";
 
 // Configuration constants
 const MIN_CONFIDENCE_THRESHOLD = 0.7; // Minimum confidence for auto-detected goals/achievements
@@ -143,9 +143,12 @@ export class GoalsAchievementsAgent {
   /**
    * Run full analysis (goals + achievements + cleanup)
    */
-  async runFullAnalysis(userId: string, lookbackDays: number = 7): Promise<AgentResult> {
+  async runFullAnalysis(
+    userId: string,
+    lookbackDays: number = 7,
+  ): Promise<AgentResult> {
     console.log(`🎯 Running goals & achievements analysis for user ${userId}`);
-    
+
     const result: AgentResult = {
       success: true,
       goalsDetected: 0,
@@ -160,22 +163,25 @@ export class GoalsAchievementsAgent {
       // Step 1: Detect new goals
       const goalsResult = await this.detectNewGoals(userId, lookbackDays);
       result.goalsDetected = goalsResult.detected;
-      
+
       // Step 2: Track progress on existing goals
       const progressResult = await this.trackProgress(userId, lookbackDays);
       result.goalsUpdated = progressResult.updated;
-      
+
       // Step 3: Detect and unlock achievements
-      const achievementsResult = await this.detectAchievements(userId, lookbackDays);
+      const achievementsResult = await this.detectAchievements(
+        userId,
+        lookbackDays,
+      );
       result.achievementsDetected = achievementsResult.detected;
       result.achievementsUnlocked = achievementsResult.unlocked;
-      
+
       // Step 4: Cleanup (run based on last cleanup date)
       const shouldCleanup = await this.shouldRunCleanup(userId);
       if (shouldCleanup) {
         const cleanupResult = await this.cleanupGoalsAndAchievements(userId);
         result.cleanupActions = cleanupResult.actions;
-        
+
         // Store last cleanup date in user metadata
         await this.updateLastCleanupDate(userId);
       }
@@ -186,8 +192,10 @@ export class GoalsAchievementsAgent {
         achievements: achievementsResult,
       };
 
-      console.log(`✓ Analysis complete: ${result.goalsDetected} goals, ${result.achievementsUnlocked} achievements unlocked`);
-      
+      console.log(
+        `✓ Analysis complete: ${result.goalsDetected} goals, ${result.achievementsUnlocked} achievements unlocked`,
+      );
+
       return result;
     } catch (error: any) {
       console.error("Goals & achievements analysis failed:", error);
@@ -229,8 +237,10 @@ export class GoalsAchievementsAgent {
     const existingGoals = await goalsService.getUserGoals(userId);
 
     const context = this.formatMemoriesForPrompt(memories);
-    const existingGoalsText = existingGoals.map(g => `- ${g.title} (${g.category})`).join("\n");
-    
+    const existingGoalsText = existingGoals
+      .map((g) => `- ${g.title} (${g.category})`)
+      .join("\n");
+
     const userPrompt = `Recent memories:\n\n${context}\n\nExisting goals:\n${existingGoalsText}\n\nDetect new goals not already tracked.`;
 
     try {
@@ -239,10 +249,16 @@ export class GoalsAchievementsAgent {
         "analysis",
         userPrompt,
         GOALS_DETECTION_PROMPT,
-        { responseFormat: "json" }
+        { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      // Extract JSON from markdown code blocks if present
+      let contentToParse = response.trim();
+      const jsonMatch = contentToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        contentToParse = jsonMatch[1].trim();
+      }
+      const result = JSON.parse(contentToParse);
       let detectedCount = 0;
 
       for (const goalData of result.newGoals || []) {
@@ -251,7 +267,9 @@ export class GoalsAchievementsAgent {
             title: goalData.title,
             description: goalData.description,
             category: goalData.category,
-            targetDate: goalData.targetDate ? new Date(goalData.targetDate) : undefined,
+            targetDate: goalData.targetDate
+              ? new Date(goalData.targetDate)
+              : undefined,
             detectedFrom: "agent:pattern_detection",
             confidence: goalData.confidence,
             tags: goalData.tags || [],
@@ -295,9 +313,12 @@ export class GoalsAchievementsAgent {
       return { updated: 0 };
     }
 
-    const goalsContext = goals.map(g => 
-      `Goal ID: ${g.id}\nTitle: ${g.title}\nCategory: ${g.category}\nCurrent Progress: ${g.progress}%\nDescription: ${g.description || 'N/A'}`
-    ).join("\n\n");
+    const goalsContext = goals
+      .map(
+        (g) =>
+          `Goal ID: ${g.id}\nTitle: ${g.title}\nCategory: ${g.category}\nCurrent Progress: ${g.progress}%\nDescription: ${g.description || "N/A"}`,
+      )
+      .join("\n\n");
 
     const memoriesContext = this.formatMemoriesForPrompt(memories);
     const userPrompt = `Goals:\n\n${goalsContext}\n\nRecent activities:\n\n${memoriesContext}\n\nUpdate progress based on recent actions.`;
@@ -308,10 +329,16 @@ export class GoalsAchievementsAgent {
         "analysis",
         userPrompt,
         PROGRESS_TRACKING_PROMPT,
-        { responseFormat: "json" }
+        { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      // Extract JSON from markdown code blocks if present
+      let contentToParse = response.trim();
+      const jsonMatch = contentToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        contentToParse = jsonMatch[1].trim();
+      }
+      const result = JSON.parse(contentToParse);
       let updatedCount = 0;
 
       for (const update of result.goalUpdates || []) {
@@ -357,8 +384,12 @@ export class GoalsAchievementsAgent {
     ]);
 
     const memoriesContext = this.formatMemoriesForPrompt(memories);
-    const goalsContext = goals.map(g => `${g.title} (${g.status}, ${g.progress}%)`).join("\n");
-    const existingContext = existingAchievements.map(a => `${a.title} (${a.category})`).join("\n");
+    const goalsContext = goals
+      .map((g) => `${g.title} (${g.status}, ${g.progress}%)`)
+      .join("\n");
+    const existingContext = existingAchievements
+      .map((a) => `${a.title} (${a.category})`)
+      .join("\n");
 
     const userPrompt = `Memories:\n\n${memoriesContext}\n\nGoals:\n${goalsContext}\n\nExisting achievements:\n${existingContext}\n\nDetect new achievements.`;
 
@@ -368,30 +399,39 @@ export class GoalsAchievementsAgent {
         "analysis",
         userPrompt,
         ACHIEVEMENTS_DETECTION_PROMPT,
-        { responseFormat: "json" }
+        { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      // Extract JSON from markdown code blocks if present
+      let contentToParse = response.trim();
+      const jsonMatch = contentToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        contentToParse = jsonMatch[1].trim();
+      }
+      const result = JSON.parse(contentToParse);
       let detectedCount = 0;
       let unlockedCount = 0;
 
       for (const achData of result.newAchievements || []) {
         if (achData.confidence >= MIN_CONFIDENCE_THRESHOLD) {
-          const achievement = await achievementsService.createAchievement(userId, {
-            title: achData.title,
-            description: achData.description,
-            category: achData.category,
-            icon: achData.icon,
-            significance: achData.significance,
-            detectedFrom: "agent:pattern_detection",
-            confidence: achData.confidence,
-            criteria: achData.criteria,
-            isHidden: false, // Immediately visible since we detected it as unlocked
-            metadata: {
-              relatedGoalIds: achData.relatedGoalIds || [],
-              relatedMemoryIds: achData.relatedMemoryIds || [],
+          const achievement = await achievementsService.createAchievement(
+            userId,
+            {
+              title: achData.title,
+              description: achData.description,
+              category: achData.category,
+              icon: achData.icon,
+              significance: achData.significance,
+              detectedFrom: "agent:pattern_detection",
+              confidence: achData.confidence,
+              criteria: achData.criteria,
+              isHidden: false, // Immediately visible since we detected it as unlocked
+              metadata: {
+                relatedGoalIds: achData.relatedGoalIds || [],
+                relatedMemoryIds: achData.relatedMemoryIds || [],
+              },
             },
-          });
+          );
 
           // Immediately unlock it
           await achievementsService.unlockAchievement(achievement.id, userId);
@@ -416,13 +456,19 @@ export class GoalsAchievementsAgent {
       achievementsService.getUserAchievements(userId, { includeHidden: true }),
     ]);
 
-    const goalsContext = goals.map(g => 
-      `ID: ${g.id}, Title: ${g.title}, Category: ${g.category}, Status: ${g.status}, Created: ${g.createdAt}`
-    ).join("\n");
+    const goalsContext = goals
+      .map(
+        (g) =>
+          `ID: ${g.id}, Title: ${g.title}, Category: ${g.category}, Status: ${g.status}, Created: ${g.createdAt}`,
+      )
+      .join("\n");
 
-    const achievementsContext = achievements.map(a =>
-      `ID: ${a.id}, Title: ${a.title}, Category: ${a.category}, Unlocked: ${a.isUnlocked}`
-    ).join("\n");
+    const achievementsContext = achievements
+      .map(
+        (a) =>
+          `ID: ${a.id}, Title: ${a.title}, Category: ${a.category}, Unlocked: ${a.isUnlocked}`,
+      )
+      .join("\n");
 
     const userPrompt = `Goals:\n${goalsContext}\n\nAchievements:\n${achievementsContext}\n\nSuggest cleanup for coherence.`;
 
@@ -432,16 +478,24 @@ export class GoalsAchievementsAgent {
         "analysis",
         userPrompt,
         CLEANUP_PROMPT,
-        { responseFormat: "json" }
+        { responseFormat: "json" },
       );
 
-      const result = JSON.parse(response);
+      // Extract JSON from markdown code blocks if present
+      let contentToParse = response.trim();
+      const jsonMatch = contentToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        contentToParse = jsonMatch[1].trim();
+      }
+      const result = JSON.parse(contentToParse);
       let actions = 0;
 
       // Archive goals
       for (const goalId of result.goalsToArchive || []) {
         try {
-          await goalsService.updateGoal(goalId, userId, { status: GoalStatus.ARCHIVED });
+          await goalsService.updateGoal(goalId, userId, {
+            status: GoalStatus.ARCHIVED,
+          });
           actions++;
         } catch (error) {
           console.warn(`Failed to archive goal ${goalId}`);
@@ -482,7 +536,7 @@ export class GoalsAchievementsAgent {
       const lastCleanup = (settings.metadata as any)?.lastGoalsCleanup;
       if (!lastCleanup) return true; // No previous cleanup
 
-      const daysSinceLastCleanup = 
+      const daysSinceLastCleanup =
         (Date.now() - new Date(lastCleanup).getTime()) / (1000 * 60 * 60 * 24);
 
       return daysSinceLastCleanup >= CLEANUP_INTERVAL_DAYS;
@@ -502,7 +556,7 @@ export class GoalsAchievementsAgent {
       });
 
       if (settings) {
-        const metadata = settings.metadata as any || {};
+        const metadata = (settings.metadata as any) || {};
         metadata.lastGoalsCleanup = new Date().toISOString();
 
         await prisma.userSettings.update({

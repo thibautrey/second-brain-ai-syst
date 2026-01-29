@@ -2098,24 +2098,44 @@ app.put(
 
       // Start or stop polling based on configuration
       if (settings.telegramBotToken && settings.telegramEnabled) {
+        // Generate verification code
+        const verificationCode = await telegramService.generateVerificationCode(
+          userId,
+          settings.telegramBotToken,
+        );
+
         await telegramService.startPolling(userId);
         console.log(
-          `[API] Telegram enabled for user ${userId} - will become primary notification channel once /start is sent`,
+          `[API] Telegram configured for user ${userId} - verification code: ${verificationCode}`,
         );
+
+        // Return verification code to frontend
+        res.json({
+          hasBotToken: true,
+          telegramChatId: settings.telegramChatId,
+          telegramEnabled: settings.telegramEnabled,
+          verificationCode, // User must send /start <code> to bot
+        });
       } else if (settings.telegramBotToken) {
         telegramService.stopPolling(settings.telegramBotToken);
         console.log(
           `[API] Telegram disabled for user ${userId} - reverting to default notification channels`,
         );
+
+        res.json({
+          hasBotToken: !!settings.telegramBotToken,
+          telegramChatId: settings.telegramChatId,
+          telegramEnabled: settings.telegramEnabled,
+        });
       } else {
         console.log(`[API] Telegram removed for user ${userId}`);
-      }
 
-      res.json({
-        hasBotToken: !!settings.telegramBotToken,
-        telegramChatId: settings.telegramChatId,
-        telegramEnabled: settings.telegramEnabled,
-      });
+        res.json({
+          hasBotToken: false,
+          telegramChatId: null,
+          telegramEnabled: false,
+        });
+      }
     } catch (error: any) {
       console.error("Error updating Telegram settings:", error);
       res.status(500).json({ error: error.message });

@@ -281,6 +281,19 @@ export class SchedulerService {
         await this.runToolHealthCheck();
       },
     });
+
+    // Telegram verification cleanup - runs every hour
+    this.registerTask({
+      id: "telegram-verification-cleanup",
+      name: "Cleanup Expired Telegram Verification Codes",
+      cronExpression: "0 * * * *", // Every hour
+      lastRun: null,
+      nextRun: null,
+      isEnabled: true,
+      handler: async () => {
+        await this.runTelegramVerificationCleanup();
+      },
+    });
   }
 
   /**
@@ -868,6 +881,22 @@ export class SchedulerService {
   }
 
   // ==================== Utilities ====================
+
+  /**
+   * Run Telegram verification cleanup
+   */
+  private async runTelegramVerificationCleanup(): Promise<void> {
+    try {
+      const { telegramService } = await import("./telegram.service.js");
+      const cleanedCount = await telegramService.cleanupExpiredCodes();
+      console.log(
+        `✓ Telegram verification cleanup completed: ${cleanedCount} expired codes removed`,
+      );
+    } catch (error) {
+      console.error("✗ Telegram verification cleanup failed:", error);
+      throw error;
+    }
+  }
 
   /**
    * Log task execution

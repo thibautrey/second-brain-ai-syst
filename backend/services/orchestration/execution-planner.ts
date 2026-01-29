@@ -81,7 +81,7 @@ Never repeat the same tool with identical parameters across reflections. Prefer 
       }
 
       // Check for empty content (common with some models like codex-mini-latest)
-      const trimmedContent = completion.content.trim();
+      let trimmedContent = completion.content.trim();
       if (trimmedContent.length === 0) {
         console.warn(
           "[ExecutionPlanner] LLM returned empty content - using fallback plan",
@@ -94,6 +94,12 @@ Never repeat the same tool with identical parameters across reflections. Prefer 
           estimatedDuration: 3000,
           confidence: 30,
         };
+      }
+
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = trimmedContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        trimmedContent = jsonMatch[1].trim();
       }
 
       // Try parsing JSON with better error handling

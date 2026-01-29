@@ -33,6 +33,7 @@ interface TelegramSettingsData {
   hasBotToken: boolean;
   telegramChatId: string | null;
   telegramEnabled: boolean;
+  verificationCode?: string; // Code to send to bot via /start
 }
 
 type ChannelType = "browser" | "pushover" | "telegram";
@@ -82,6 +83,7 @@ export function NotificationSettings({
   const [isDisconnectingTelegram, setIsDisconnectingTelegram] = useState(false);
   const [isTogglingTelegram, setIsTogglingTelegram] = useState(false);
   const [showBotToken, setShowBotToken] = useState(false);
+  const [verificationCode, setVerificationCode] = useState<string | null>(null);
 
   // Load settings on mount
   useEffect(() => {
@@ -168,6 +170,7 @@ export function NotificationSettings({
   const handleSaveTelegram = async () => {
     setIsSavingTelegram(true);
     setTelegramTestResult(null);
+    setVerificationCode(null); // Clear old code
     try {
       const data = await apiPut<TelegramSettingsData>("/settings/telegram", {
         telegramBotToken: telegramBotToken || null,
@@ -176,6 +179,15 @@ export function NotificationSettings({
       setTelegramSettings(data);
       setTelegramBotToken(""); // Clear the input after saving
       setShowBotToken(false);
+
+      // Store verification code
+      if (data.verificationCode) {
+        setVerificationCode(data.verificationCode);
+        setTelegramTestResult({
+          success: true,
+          message: `✅ Bot configuré ! Envoyez le code de vérification à votre bot.`,
+        });
+      }
     } catch (error: any) {
       setTelegramTestResult({
         success: false,
@@ -700,6 +712,45 @@ export function NotificationSettings({
             </div>
           )}
 
+          {/* Verification Code Display */}
+          {verificationCode && !telegramSettings?.telegramChatId && (
+            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <h4 className="font-semibold text-sm text-amber-900">
+                    📱 Code de vérification
+                  </h4>
+                  <p className="text-xs text-amber-800">
+                    Envoyez ce code à votre bot Telegram pour terminer la
+                    configuration :
+                  </p>
+                  <div className="bg-white rounded-md p-3 border border-amber-300 flex items-center justify-between">
+                    <code className="text-lg font-mono font-bold text-amber-900 tracking-wider">
+                      /start {verificationCode}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `/start ${verificationCode}`,
+                        );
+                        alert("Code copié dans le presse-papiers !");
+                      }}
+                      className="ml-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-amber-700">
+                    ⏱️ Ce code expire dans 10 minutes
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Setup Instructions */}
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 space-y-3">
             <h4 className="font-medium text-sm text-blue-900">
@@ -745,13 +796,42 @@ export function NotificationSettings({
               <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <div>
+                  <div className="space-y-2 flex-1">
                     <p className="text-sm font-medium text-yellow-800">
                       {t("notificationSettings.waitingTitle")}
                     </p>
-                    <p className="text-xs text-yellow-700 mt-1">
+                    <p className="text-xs text-yellow-700">
                       {t("notificationSettings.waitingBody")}
                     </p>
+
+                    {/* Verification Code Display */}
+                    {telegramSettings?.verificationCode && (
+                      <div className="mt-3 p-3 bg-white rounded border border-yellow-300">
+                        <p className="text-xs font-medium text-gray-700 mb-2">
+                          Code de vérification :
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-lg font-mono font-bold text-blue-600 bg-blue-50 px-3 py-2 rounded border border-blue-200">
+                            /start {telegramSettings.verificationCode}
+                          </code>
+                          <Button
+                            onClick={() =>
+                              copyToClipboard(
+                                `/start ${telegramSettings.verificationCode}`,
+                              )
+                            }
+                            size="sm"
+                            variant="outline"
+                            className="flex-shrink-0"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          ⏰ Ce code expire dans 10 minutes
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

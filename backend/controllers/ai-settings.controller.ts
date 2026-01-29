@@ -1010,7 +1010,38 @@ export async function getConfiguredModelForTask(
  * Fetches available models and updates the database
  */
 export async function syncProviderModels(userId: string, providerId: string) {
-  // Verify ownership
+  // Handle ChatGPT OAuth provider specially (virtual provider)
+  if (providerId === CHATGPT_OAUTH_PROVIDER_ID) {
+    // ChatGPT OAuth models are fixed and don't need syncing
+    // Return success with the predefined models
+    return {
+      success: true,
+      added: 0,
+      updated: 0,
+      removed: 0,
+      configsCleared: 0,
+      total: CHATGPT_OAUTH_MODELS.length,
+      provider: {
+        id: CHATGPT_OAUTH_PROVIDER_ID,
+        name: "ChatGPT (OAuth)",
+        type: "openai" as const,
+        apiKey: "****oauth****",
+        baseUrl: null,
+        isEnabled: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        models: CHATGPT_OAUTH_MODELS.map((m) => ({
+          id: m.modelId,
+          name: m.name,
+          providerId: CHATGPT_OAUTH_PROVIDER_ID,
+          capabilities: m.capabilities.map(mapCapabilityToFrontend),
+          isCustom: false,
+        })),
+      },
+    };
+  }
+
+  // Verify ownership for regular providers
   const provider = await prisma.aIProvider.findFirst({
     where: { id: providerId, userId },
   });

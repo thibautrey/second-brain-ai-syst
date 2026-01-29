@@ -184,7 +184,10 @@ export async function getOAuthStatus(userId: string): Promise<{
     isConnected: status.isConnected,
     isEnabled: status.isEnabled,
     accountId: status.accountId,
-    expiresAt: status.expiresAt instanceof Date ? status.expiresAt.toISOString() : status.expiresAt,
+    expiresAt:
+      status.expiresAt instanceof Date
+        ? status.expiresAt.toISOString()
+        : status.expiresAt,
     lastUsedAt: status.lastUsedAt,
   };
 }

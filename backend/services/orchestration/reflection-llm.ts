@@ -78,7 +78,13 @@ class ReflectionLLMService {
     // Try to parse JSON from model response, fallback to default structure
     let parsed: any;
     try {
-      parsed = JSON.parse(response.content);
+      // Extract JSON from markdown code blocks if present
+      let contentToParse = response.content.trim();
+      const jsonMatch = contentToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        contentToParse = jsonMatch[1].trim();
+      }
+      parsed = JSON.parse(contentToParse);
     } catch (parseError: any) {
       console.warn(
         "[ReflectionLLM] Failed to parse JSON, using response as reasoning",

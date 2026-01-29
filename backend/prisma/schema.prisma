@@ -161,16 +161,16 @@ model UserSettings {
 // ==================== Telegram Verification Model ====================
 
 model TelegramVerification {
-  id               String   @id @default(cuid())
-  userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  verificationCode String   @unique // Format: XXXX-XXXX (8 caractères)
-  botToken         String   // Stocké pour validation (devrait être chiffré en production)
-  isUsed           Boolean  @default(false)
-  usedAt           DateTime?
-  
-  createdAt        DateTime @default(now())
-  expiresAt        DateTime // Expire après 10 minutes
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationCode  String    @unique // Format: XXXX-XXXX (8 caractères)
+  encryptedBotToken String // Token chiffré avec AES-256-GCM
+  isUsed            Boolean   @default(false)
+  usedAt            DateTime?
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime // Expire après 10 minutes
 
   @@index([userId])
   @@index([verificationCode])

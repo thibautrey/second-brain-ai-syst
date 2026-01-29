@@ -10,7 +10,12 @@
 
 import axios from "axios";
 import prisma from "./prisma.js";
-import crypto from "crypto";
+import {
+  encrypt,
+  decrypt,
+  generateSecureCode,
+  formatVerificationCode,
+} from "../utils/encryption.js";
 
 const TELEGRAM_API_BASE = "https://api.telegram.org/bot";
 const VERIFICATION_CODE_EXPIRY_MINUTES = 10;
@@ -185,6 +190,175 @@ class TelegramService {
         error.message,
       );
       return false;
+    }
+  }
+
+  /**
+   * Generate a unique verification code for Telegram setup
+   * Format: XXXX-XXXX-XXXX (12 alphanumeric characters)
+   */
+  async generateVerificationCode(
+    userId: string,
+    botToken: string,
+  ): Promise<string> {
+    // Generate random 12-character code
+    const code = generateSecureCode(12);
+    const formattedCode = formatVerificationCode(code);
+
+    // Delete any existing unused verification codes for this user
+    await prisma.telegramVerification.deleteMany({
+      where: {
+        userId,
+        isUsed: false,
+      },
+    });
+
+    // Encrypt bot token before storing
+    const encryptedBotToken = encrypt(botToken);
+
+    // Create new verification code
+    const expiresAt = new Date();
+    expiresAt.setMinutes(
+      expiresAt.getMinutes() + VERIFICATION_CODE_EXPIRY_MINUTES,
+    );
+
+    await prisma.telegramVerification.create({
+      data: {
+        userId,
+        verificationCode: code,
+        encryptedBotToken,
+        expiresAt,
+      },
+    });
+
+    console.log(
+      `[TelegramService] Generated verification code ${formattedCode} for user ${userId}, expires at ${expiresAt.toISOString()}`,
+    );
+
+    return formattedCode;
+  }
+
+  /**
+   * Verify a code from /start command
+   * Returns userId if valid, null if invalid/expired
+   */
+  async verifyStartCode(
+    code: string,
+    botToken: string,
+  ): Promise<{ valid: boolean; userId?: string; error?: string }> {
+    try {
+      // Remove any dashes from the code (user might type with or without)
+      const cleanCode = code.replace(/-/g, "");
+
+      const verification = await prisma.telegramVerification.findUnique({
+        where: { verificationCode: cleanCode },
+      });
+
+      if (!verification) {
+        console.warn(
+          `[TelegramService] Verification failed: code ${code} not found`,
+        );
+        return {
+          valid: false,
+          error: "Code de vérification invalide",
+        };
+      }
+
+      // Check if already used
+      if (verification.isUsed) {
+        console.warn(
+          `[TelegramService] Verification failed: code ${code} already used`,
+        );
+        return {
+          valid: false,
+          error: "Ce code a déjà été utilisé",
+        };
+      }
+
+      // Check if expired
+      if (new Date() > verification.expiresAt) {
+        console.warn(
+          `[TelegramService] Verification failed: code ${code} expired at ${verification.expiresAt.toISOString()}`,
+        );
+        return {
+          valid: false,
+          error:
+            "Ce code a expiré. Veuillez générer un nouveau code dans les paramètres.",
+        };
+      }
+
+      // Decrypt and check if bot token matches
+      try {
+        const decryptedToken = decrypt(verification.encryptedBotToken);
+        if (decryptedToken !== botToken) {
+          console.warn(
+            `[TelegramService] Verification failed: bot token mismatch for code ${code}`,
+          );
+          return {
+            valid: false,
+            error: "Token du bot incorrect",
+          };
+        }
+      } catch (error) {
+        console.error(
+          `[TelegramService] Error decrypting bot token for code ${code}:`,
+          error,
+        );
+        return {
+          valid: false,
+          error: "Erreur de vérification - clé de chiffrement invalide",
+        };
+      }
+
+      // Mark as used
+      await prisma.telegramVerification.update({
+        where: { verificationCode: cleanCode },
+        data: {
+          isUsed: true,
+          usedAt: new Date(),
+        },
+      });
+
+      console.log(
+        `[TelegramService] Verification successful for code ${code}, user ${verification.userId}`,
+      );
+
+      return {
+        valid: true,
+        userId: verification.userId,
+      };
+    } catch (error: any) {
+      console.error(`[TelegramService] Error verifying code:`, error);
+      return {
+        valid: false,
+        error: "Erreur lors de la vérification du code",
+      };
+    }
+  }
+
+  /**
+   * Cleanup expired verification codes
+   */
+  async cleanupExpiredCodes(): Promise<number> {
+    try {
+      const result = await prisma.telegramVerification.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+      });
+
+      if (result.count > 0) {
+        console.log(
+          `[TelegramService] Cleaned up ${result.count} expired verification codes`,
+        );
+      }
+
+      return result.count;
+    } catch (error: any) {
+      console.error(`[TelegramService] Error cleaning up codes:`, error);
+      return 0;
     }
   }
 
@@ -542,7 +716,7 @@ class TelegramService {
   }
 
   /**
-   * Handle /start command - register chat ID
+   * Handle /start command - register chat ID with verification
    */
   private async handleStartCommand(
     userId: string,
@@ -551,41 +725,96 @@ class TelegramService {
     message: TelegramMessage,
   ): Promise<void> {
     try {
-      // Update user settings with chat ID
-      await prisma.userSettings.update({
-        where: { userId },
-        data: {
-          telegramChatId: chatId,
-          telegramEnabled: true,
-        },
-      });
+      const text = message.text || "";
+      const parts = text.split(" ");
 
-      const welcomeMessage = `🎉 <b>Welcome to Second Brain AI!</b>
+      // Check if verification code was provided: /start XXXX-XXXX
+      if (parts.length > 1) {
+        const providedCode = parts[1].toUpperCase();
 
-Your Telegram is now connected and ready to receive notifications.
+        console.log(
+          `[TelegramService] Attempting to verify code ${providedCode} for chat ${chatId}`,
+        );
 
-<b>Available Commands:</b>
-• /start - Connect/reconnect your account
-• /stop - Disable notifications
-• /status - Check connection status
+        // Verify the code
+        const verification = await this.verifyStartCode(providedCode, botToken);
 
-You can also send me messages to chat with your AI assistant!
+        if (!verification.valid) {
+          await this.sendMessage(
+            botToken,
+            chatId,
+            `❌ <b>Vérification échouée</b>\n\n${verification.error}\n\n` +
+              `Pour configurer Telegram :\n` +
+              `1. Allez dans vos paramètres Second Brain AI\n` +
+              `2. Configurez votre bot Telegram\n` +
+              `3. Copiez le code de vérification\n` +
+              `4. Envoyez : <code>/start VOTRE-CODE</code>`,
+            { parse_mode: "HTML" },
+          );
+          return;
+        }
 
-Your Chat ID: <code>${chatId}</code>`;
+        // Code is valid! Associate this chat with the verified user
+        await prisma.userSettings.update({
+          where: { userId: verification.userId },
+          data: {
+            telegramChatId: chatId,
+            telegramEnabled: true,
+          },
+        });
 
-      await this.sendMessage(botToken, chatId, welcomeMessage, {
-        parse_mode: "HTML",
-      });
+        const welcomeMessage = `🎉 <b>Bienvenue sur Second Brain AI!</b>
 
-      console.log(
-        `[TelegramService] Registered chat ID ${chatId} for user ${userId}`,
-      );
+Votre compte Telegram est maintenant connecté et prêt à recevoir des notifications.
+
+<b>Commandes disponibles :</b>
+• /start CODE - Connecter/reconnecter votre compte
+• /stop - Désactiver les notifications
+• /status - Vérifier l'état de la connexion
+
+Vous pouvez aussi m'envoyer des messages pour discuter avec votre assistant IA !
+
+Votre Chat ID : <code>${chatId}</code>`;
+
+        await this.sendMessage(botToken, chatId, welcomeMessage, {
+          parse_mode: "HTML",
+        });
+
+        console.log(
+          `[TelegramService] ✅ Successfully registered chat ID ${chatId} for user ${verification.userId}`,
+        );
+      } else {
+        // No code provided - send instructions
+        await this.sendMessage(
+          botToken,
+          chatId,
+          `👋 <b>Bienvenue !</b>
+
+Pour connecter votre compte Second Brain AI :
+
+1. Allez dans vos <b>paramètres</b> sur le site web
+2. Configurez votre <b>bot Telegram</b>
+3. Copiez le <b>code de vérification</b> affiché
+4. Revenez ici et envoyez :
+
+<code>/start VOTRE-CODE-ICI</code>
+
+Exemple : <code>/start AB12-CD34</code>
+
+Le code expire après ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.`,
+          { parse_mode: "HTML" },
+        );
+
+        console.log(
+          `[TelegramService] Sent verification instructions to chat ${chatId}`,
+        );
+      }
     } catch (error: any) {
       console.error(`[TelegramService] Error handling /start:`, error.message);
       await this.sendMessage(
         botToken,
         chatId,
-        "❌ Sorry, there was an error connecting your account. Please try again.",
+        "❌ Désolé, une erreur s'est produite. Veuillez réessayer.",
       );
     }
   }
