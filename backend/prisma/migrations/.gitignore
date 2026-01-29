@@ -1,0 +1,3 @@
+# Backup migrations - to be removed
+*.backup.*
+migrations.backup.*
