@@ -73,16 +73,33 @@ Never repeat the same tool with identical parameters across reflections. Prefer 
           hasContent: !!completion.content,
           contentType: typeof completion.content,
           contentLength: completion.content?.length,
+          stopReason: completion.stopReason,
         });
         throw new Error(
           `Invalid LLM response: expected string content, got ${typeof completion.content}`,
         );
       }
 
+      // Check for empty content (common with some models like codex-mini-latest)
+      const trimmedContent = completion.content.trim();
+      if (trimmedContent.length === 0) {
+        console.warn(
+          "[ExecutionPlanner] LLM returned empty content - using fallback plan",
+          { stopReason: completion.stopReason },
+        );
+        return {
+          toolCalls: [],
+          priority: "medium" as const,
+          parallelizable: true,
+          estimatedDuration: 3000,
+          confidence: 30,
+        };
+      }
+
       // Try parsing JSON with better error handling
       let parsed: any;
       try {
-        parsed = JSON.parse(completion.content);
+        parsed = JSON.parse(trimmedContent);
       } catch (parseError: any) {
         console.error(
           "[ExecutionPlanner] Failed to parse LLM response as JSON",

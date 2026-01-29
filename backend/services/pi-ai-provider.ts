@@ -472,12 +472,23 @@ export function classifyLLMError(error: any): LLMErrorInfo {
  *
  * This is the main entry point for all LLM calls.
  * Supports both OpenAI-style tool schemas and native pi-ai tools.
+ *
+ * Includes retry logic for empty responses which can occur with certain models.
+ * According to pi-ai docs, stopReason indicates why generation ended:
+ * - "stop" = normal completion
+ * - "length" = hit token limit
+ * - "toolUse" = model wants to call tools
+ * - "error" = error occurred
+ * - "aborted" = request cancelled
  */
 export async function createChatCompletion(
   config: PiAiProviderConfig,
   messages: ChatMessage[],
   options: ChatCompletionOptions = {},
+  _retryCount: number = 0,
 ): Promise<ChatCompletionResult> {
+  const MAX_RETRIES = 2;
+
   // Get the model
   const model = resolveModel(config.provider, config.modelId, config.baseUrl);
 
@@ -519,7 +530,40 @@ export async function createChatCompletion(
       signal: options.signal,
     });
 
-    return formatResponse(response);
+    const result = formatResponse(response);
+
+    // Check if we should retry due to empty response
+    // Don't retry if stopReason is "toolUse" (empty content is expected when calling tools)
+    const hasContent = result.content && result.content.trim().length > 0;
+    const hasToolCalls = result.toolCalls && result.toolCalls.length > 0;
+    const isToolUseStop = result.stopReason === "toolUse";
+    const isErrorStop =
+      result.stopReason === "error" || result.stopReason === "aborted";
+
+    if (!hasContent && !hasToolCalls && !isToolUseStop) {
+      if (_retryCount < MAX_RETRIES) {
+        console.warn(
+          `[PiAiProvider] Model "${config.modelId}" returned empty response (stopReason: ${result.stopReason}), retrying (${_retryCount + 1}/${MAX_RETRIES})`,
+        );
+
+        // Add delay before retry
+        await new Promise((resolve) =>
+          setTimeout(resolve, 500 * (_retryCount + 1)),
+        );
+
+        return createChatCompletion(config, messages, options, _retryCount + 1);
+      } else {
+        console.warn(
+          `[PiAiProvider] Model "${config.modelId}" returned empty response after ${MAX_RETRIES} retries`,
+          {
+            stopReason: result.stopReason,
+            isErrorStop,
+          },
+        );
+      }
+    }
+
+    return result;
   } catch (error) {
     // Enhance error with classification
     const errorInfo = classifyLLMError(error);
@@ -754,10 +798,25 @@ function resolveModel(
 
 /**
  * Format pi-ai response to our standard format
+ *
+ * According to pi-ai documentation:
+ * - stopReason can be: "stop", "length", "toolUse", "error", "aborted"
+ * - When stopReason is "error" or "aborted", errorMessage contains details
+ * - content is an array of blocks (text, toolCall, thinking)
  */
 function formatResponse(response: AssistantMessage): ChatCompletionResult {
   let content = "";
   const toolCalls: ChatCompletionResult["toolCalls"] = [];
+
+  // Check for error responses first
+  if (response?.stopReason === "error" || response?.stopReason === "aborted") {
+    console.warn("[PiAiProvider] Response ended with error/abort", {
+      stopReason: response.stopReason,
+      errorMessage: response.errorMessage,
+      hasPartialContent: response.content?.length > 0,
+    });
+    // We still process partial content below
+  }
 
   // Handle empty or undefined content
   if (!response || !response.content) {
@@ -765,6 +824,8 @@ function formatResponse(response: AssistantMessage): ChatCompletionResult {
       hasResponse: !!response,
       hasContent: !!response?.content,
       contentLength: response?.content?.length,
+      stopReason: response?.stopReason,
+      errorMessage: response?.errorMessage,
     });
     content = "";
   } else {
@@ -784,11 +845,19 @@ function formatResponse(response: AssistantMessage): ChatCompletionResult {
   }
 
   // Validate we got at least some content or tool calls
+  // Empty content is OK if stopReason is "toolUse" (model wants to call tools)
   if (!content && toolCalls.length === 0) {
-    console.warn(
-      "[PiAiProvider] Empty content and no tool calls in response - model may not have responded correctly",
-      { responseKeys: response ? Object.keys(response) : "null" },
-    );
+    const isToolUseStop = response?.stopReason === "toolUse";
+    if (!isToolUseStop) {
+      console.warn(
+        "[PiAiProvider] Empty content and no tool calls in response - model may not have responded correctly",
+        {
+          stopReason: response?.stopReason ?? "unknown",
+          errorMessage: response?.errorMessage,
+          responseKeys: response ? Object.keys(response) : "null",
+        },
+      );
+    }
   }
 
   return {
