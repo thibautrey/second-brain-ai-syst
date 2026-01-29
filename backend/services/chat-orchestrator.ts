@@ -658,6 +658,9 @@ async function executeToolWithTracking(
 ): Promise<{ success: boolean; result?: unknown; error?: string }> {
   const toolStartTime = Date.now();
 
+  // Log tool call for visibility (like in Telegram service)
+  console.log(`[Chat UI] Tool call ${results.length + 1}: ${toolCall.name}`);
+
   try {
     const executionResult = await toolExecutorService.executeTool(
       userId,
