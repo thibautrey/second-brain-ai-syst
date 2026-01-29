@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -15,6 +14,8 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
 import { Link } from "react-router-dom";
 
 type NavItem = { id: string; label: string; icon?: React.ReactNode };
@@ -25,7 +26,7 @@ const navItems: NavItem[] = [
   { id: "architecture", label: "Architecture" },
   { id: "agents", label: "Agents" },
   { id: "memory", label: "Memory" },
-  { id: "tools", label: "Tools" },
+  { id: "tools-skills", label: "Tools & Skills" },
   { id: "security", label: "Security" },
   { id: "roadmap", label: "Roadmap" },
   { id: "faq", label: "FAQ" },
@@ -61,8 +62,8 @@ function CodeBlock({ code }: { code: string }) {
   };
 
   return (
-    <div className="group relative">
-      <pre className="overflow-x-auto rounded-lg bg-zinc-900 px-4 py-3 font-mono text-sm text-zinc-100">
+    <div className="relative group">
+      <pre className="px-4 py-3 overflow-x-auto font-mono text-sm rounded-lg bg-zinc-900 text-zinc-100">
         <code>{code}</code>
       </pre>
       <button
@@ -71,7 +72,7 @@ function CodeBlock({ code }: { code: string }) {
         className="absolute right-2 top-2 rounded-md bg-zinc-800 p-1.5 text-zinc-400 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-200 group-hover:opacity-100"
         aria-label="Copy code"
       >
-        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
       </button>
     </div>
   );
@@ -129,10 +130,10 @@ export function DocsPage() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/80 backdrop-blur-lg">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-violet-500 to-purple-600 font-semibold text-white">
+              <div className="flex items-center justify-center w-8 h-8 font-semibold text-white rounded-lg bg-linear-to-br from-violet-500 to-purple-600">
                 SB
               </div>
               <span className="hidden font-semibold text-zinc-900 sm:block">
@@ -144,15 +145,15 @@ export function DocsPage() {
             </span>
           </div>
 
-          <div className="hidden flex-1 justify-center px-8 md:flex">
+          <div className="justify-center flex-1 hidden px-8 md:flex">
             <div className="relative w-full max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <Search className="absolute w-4 h-4 -translate-y-1/2 left-3 top-1/2 text-zinc-400" />
               <input
                 ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search documentation..."
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-10 pr-12 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-violet-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
+                className="w-full py-2 pl-10 pr-12 text-sm border rounded-lg border-zinc-200 bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
               />
               <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
                 ⌘K
@@ -179,13 +180,13 @@ export function DocsPage() {
             <button
               type="button"
               onClick={() => setNavOpen(!navOpen)}
-              className="rounded-lg border border-zinc-200 p-2 text-zinc-600 transition-colors hover:bg-zinc-50 lg:hidden"
+              className="p-2 transition-colors border rounded-lg border-zinc-200 text-zinc-600 hover:bg-zinc-50 lg:hidden"
               aria-label="Toggle menu"
             >
               {navOpen ? (
-                <X className="h-5 w-5" />
+                <X className="w-5 h-5" />
               ) : (
-                <Menu className="h-5 w-5" />
+                <Menu className="w-5 h-5" />
               )}
             </button>
           </div>
@@ -194,15 +195,15 @@ export function DocsPage() {
 
       {/* Mobile Navigation */}
       {navOpen && (
-        <div className="fixed inset-0 top-16 z-40 bg-white p-4 lg:hidden">
+        <div className="fixed inset-0 z-40 p-4 bg-white top-16 lg:hidden">
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <Search className="absolute w-4 h-4 -translate-y-1/2 left-3 top-1/2 text-zinc-400" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search..."
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-10 pr-4 text-sm"
+                className="w-full py-2 pl-10 pr-4 text-sm border rounded-lg border-zinc-200 bg-zinc-50"
               />
             </div>
           </div>
@@ -225,11 +226,11 @@ export function DocsPage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
         <div className="flex gap-12 py-8">
           {/* Sidebar */}
           <aside className="hidden w-56 shrink-0 lg:block">
-            <nav className="sticky top-24 space-y-1">
+            <nav className="sticky space-y-1 top-24">
               {filteredNavItems.map((item) => (
                 <a
                   key={item.id}
@@ -242,7 +243,7 @@ export function DocsPage() {
                 >
                   {item.label}
                   {activeSection === item.id && (
-                    <ChevronRight className="ml-auto h-4 w-4" />
+                    <ChevronRight className="w-4 h-4 ml-auto" />
                   )}
                 </a>
               ))}
@@ -250,11 +251,11 @@ export function DocsPage() {
           </aside>
 
           {/* Main Content */}
-          <main className="min-w-0 flex-1 space-y-24 pb-24">
+          <main className="flex-1 min-w-0 pb-24 space-y-24">
             {/* Overview Section */}
             <section id="overview" className="scroll-mt-24">
               <div className="space-y-6">
-                <div className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700">
+                <div className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full bg-violet-100 text-violet-700">
                   <Brain className="h-3.5 w-3.5" />
                   Personal AI Memory System
                 </div>
@@ -270,21 +271,21 @@ export function DocsPage() {
                 <div className="flex flex-wrap gap-3">
                   <a
                     href="#quickstart"
-                    className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors rounded-lg bg-zinc-900 hover:bg-zinc-800"
                   >
                     Get Started
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="w-4 h-4" />
                   </a>
                   <a
                     href="#architecture"
-                    className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors bg-white border rounded-lg border-zinc-200 text-zinc-700 hover:bg-zinc-50"
                   >
                     View Architecture
                   </a>
                 </div>
               </div>
 
-              <div className="mt-12 grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 mt-12 sm:grid-cols-3">
                 {[
                   {
                     icon: BookOpen,
@@ -307,10 +308,10 @@ export function DocsPage() {
                 ].map(({ icon: Icon, title, description }) => (
                   <div
                     key={title}
-                    className="rounded-xl border border-zinc-200 bg-white p-5 transition-shadow hover:shadow-md"
+                    className="p-5 transition-shadow bg-white border rounded-xl border-zinc-200 hover:shadow-md"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100">
-                      <Icon className="h-5 w-5 text-violet-600" />
+                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-100">
+                      <Icon className="w-5 h-5 text-violet-600" />
                     </div>
                     <h3 className="mt-4 font-semibold text-zinc-900">
                       {title}
@@ -324,7 +325,7 @@ export function DocsPage() {
             {/* Quickstart Section */}
             <section id="quickstart" className="scroll-mt-24">
               <div className="flex items-center gap-2 text-sm font-medium text-violet-600">
-                <Terminal className="h-4 w-4" />
+                <Terminal className="w-4 h-4" />
                 Quickstart
               </div>
               <h2 className="mt-2 text-2xl font-bold text-zinc-900">
@@ -340,10 +341,10 @@ export function DocsPage() {
                 {quickstartCommands.map((cmd, i) => (
                   <div
                     key={cmd.label}
-                    className="rounded-xl border border-zinc-200 bg-zinc-50 p-4"
+                    className="p-4 border rounded-xl border-zinc-200 bg-zinc-50"
                   >
-                    <div className="mb-3 flex items-center gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-violet-100 text-violet-700">
                         {i + 1}
                       </span>
                       <span className="text-sm font-medium text-zinc-700">
@@ -355,7 +356,7 @@ export function DocsPage() {
                 ))}
               </div>
 
-              <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <div className="p-4 mt-6 border border-blue-200 rounded-xl bg-blue-50">
                 <p className="text-sm font-medium text-blue-900">💡 Pro tip</p>
                 <p className="mt-1 text-sm text-blue-700">
                   The{" "}
@@ -379,7 +380,7 @@ export function DocsPage() {
             {/* Architecture Section */}
             <section id="architecture" className="scroll-mt-24">
               <div className="flex items-center gap-2 text-sm font-medium text-violet-600">
-                <Zap className="h-4 w-4" />
+                <Zap className="w-4 h-4" />
                 Architecture
               </div>
               <h2 className="mt-2 text-2xl font-bold text-zinc-900">
@@ -392,8 +393,8 @@ export function DocsPage() {
                 background agents.
               </p>
 
-              <div className="mt-8 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border border-zinc-200 p-6">
+              <div className="grid gap-6 mt-8 lg:grid-cols-2">
+                <div className="p-6 border rounded-xl border-zinc-200">
                   <h3 className="font-semibold text-zinc-900">Request Flow</h3>
                   <ol className="mt-4 space-y-3">
                     {[
@@ -407,7 +408,7 @@ export function DocsPage() {
                         key={step}
                         className="flex items-start gap-3 text-sm text-zinc-600"
                       >
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-medium text-zinc-700">
+                        <span className="flex items-center justify-center w-5 h-5 text-xs font-medium rounded-full shrink-0 bg-zinc-100 text-zinc-700">
                           {i + 1}
                         </span>
                         {step}
@@ -417,7 +418,7 @@ export function DocsPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-xl border border-zinc-200 p-5">
+                  <div className="p-5 border rounded-xl border-zinc-200">
                     <h3 className="text-sm font-semibold text-zinc-900">
                       Storage Layers
                     </h3>
@@ -438,7 +439,7 @@ export function DocsPage() {
                       ].map((item) => (
                         <div
                           key={item.name}
-                          className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-sm"
+                          className="flex items-center justify-between px-3 py-2 text-sm rounded-lg bg-zinc-50"
                         >
                           <span className="font-medium text-zinc-700">
                             {item.name}
@@ -449,7 +450,7 @@ export function DocsPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl bg-zinc-900 p-5">
+                  <div className="p-5 rounded-xl bg-zinc-900">
                     <p className="text-xs font-medium text-zinc-400">
                       API Example
                     </p>
@@ -470,7 +471,7 @@ export function DocsPage() {
                 writes results back to storage or notifications.
               </p>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 mt-8 sm:grid-cols-2 lg:grid-cols-3">
                 {[
                   {
                     title: "Intent Router",
@@ -510,7 +511,7 @@ export function DocsPage() {
                 ].map((agent) => (
                   <div
                     key={agent.title}
-                    className="rounded-lg border border-zinc-200 p-4 transition-colors hover:border-violet-200 hover:bg-violet-50/50"
+                    className="p-4 transition-colors border rounded-lg border-zinc-200 hover:border-violet-200 hover:bg-violet-50/50"
                   >
                     <h3 className="font-medium text-zinc-900">{agent.title}</h3>
                     <p className="mt-1 text-sm text-zinc-600">
@@ -532,12 +533,12 @@ export function DocsPage() {
                 text queries.
               </p>
 
-              <div className="mt-8 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border border-zinc-200 p-6">
+              <div className="grid gap-6 mt-8 lg:grid-cols-2">
+                <div className="p-6 border rounded-xl border-zinc-200">
                   <h3 className="font-semibold text-zinc-900">
                     Time-Scale Cascade
                   </h3>
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mt-4">
                     {[
                       "Daily",
                       "3-day",
@@ -551,7 +552,7 @@ export function DocsPage() {
                     ].map((scale) => (
                       <span
                         key={scale}
-                        className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-700"
+                        className="px-3 py-1 text-sm border rounded-full border-zinc-200 bg-zinc-50 text-zinc-700"
                       >
                         {scale}
                       </span>
@@ -559,11 +560,11 @@ export function DocsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-zinc-200 p-6">
+                <div className="p-6 border rounded-xl border-zinc-200">
                   <h3 className="font-semibold text-zinc-900">
                     Memory Metadata
                   </h3>
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mt-4">
                     {[
                       "Tags",
                       "Entities",
@@ -573,7 +574,7 @@ export function DocsPage() {
                     ].map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-full bg-violet-100 px-3 py-1 text-sm font-medium text-violet-700"
+                        className="px-3 py-1 text-sm font-medium rounded-full bg-violet-100 text-violet-700"
                       >
                         {tag}
                       </span>
@@ -587,47 +588,934 @@ export function DocsPage() {
               </div>
             </section>
 
-            {/* Tools Section */}
-            <section id="tools" className="scroll-mt-24">
-              <h2 className="text-2xl font-bold text-zinc-900">Tools</h2>
+            {/* Tools & Skills Section */}
+            <section id="tools-skills" className="scroll-mt-24">
+              <h2 className="text-2xl font-bold text-zinc-900">
+                Tools & Skills
+              </h2>
               <p className="mt-2 text-zinc-600">
-                Centralized tool execution with schemas, validation, and
-                persisted results for built-in and generated tools.
+                Understanding the difference between <strong>Tools</strong> and{" "}
+                <strong>Skills</strong> is fundamental to the system
+                architecture. Together, they form a powerful two-layer system:
+                Tools provide the atomic capabilities, while Skills orchestrate
+                them into intelligent workflows.
               </p>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {[
-                  {
-                    title: "Productivity Tools",
-                    description:
-                      "Todos, goals, achievements, scheduled tasks, notifications",
-                  },
-                  {
-                    title: "Web & Data",
-                    description:
-                      "HTTP requests (curl) and Brave Search integration",
-                  },
-                  {
-                    title: "Execution Sandbox",
-                    description:
-                      "Python code executor service (network off by default)",
-                  },
-                  {
-                    title: "Extensibility",
-                    description:
-                      "Dynamic tool generation; MCP and browser automation are stubs",
-                  },
-                ].map((tool) => (
-                  <div
-                    key={tool.title}
-                    className="rounded-lg border border-zinc-200 p-4"
-                  >
-                    <h3 className="font-medium text-zinc-900">{tool.title}</h3>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      {tool.description}
+              {/* Key Insight Box */}
+              <div className="p-4 mt-6 border rounded-xl border-amber-200 bg-amber-50">
+                <p className="text-sm font-medium text-amber-900">
+                  💡 Key Insight
+                </p>
+                <p className="mt-1 text-sm text-amber-800">
+                  Think of it like cooking: <strong>Tools</strong> are your
+                  kitchen appliances (oven, mixer, knife) — each does one thing
+                  well. <strong>Skills</strong> are your recipes — they tell you
+                  which appliances to use, in what order, and how to combine
+                  them to create a dish.
+                </p>
+              </div>
+
+              {/* Comparison Table */}
+              <div className="mt-8 overflow-hidden border rounded-xl border-zinc-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-zinc-50">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold text-left text-zinc-900">
+                        Aspect
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-left text-violet-700">
+                        🔧 Tools
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-left text-emerald-700">
+                        📚 Skills
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    <tr>
+                      <td className="px-4 py-3 font-medium text-zinc-700">
+                        Nature
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Stateless Python functions
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Human-readable instructions (Markdown)
+                      </td>
+                    </tr>
+                    <tr className="bg-zinc-50/50">
+                      <td className="px-4 py-3 font-medium text-zinc-700">
+                        Purpose
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Execute a single, atomic action
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Orchestrate complex multi-step workflows
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-3 font-medium text-zinc-700">
+                        State
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Stateless — no memory of previous calls
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Context-aware — can reference memories & user data
+                      </td>
+                    </tr>
+                    <tr className="bg-zinc-50/50">
+                      <td className="px-4 py-3 font-medium text-zinc-700">
+                        Execution
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Direct code execution in Python sandbox (~100ms)
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        AI interprets instructions and decides actions
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-3 font-medium text-zinc-700">
+                        Output
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Structured JSON data
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        AI-generated response + tool results
+                      </td>
+                    </tr>
+                    <tr className="bg-zinc-50/50">
+                      <td className="px-4 py-3 font-medium text-zinc-700">
+                        Creation
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        Built-in or AI-generated Python code
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        User-written or installed from hub
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-3 font-medium text-zinc-700">
+                        Analogy
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        A hammer, a screwdriver, a thermometer
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        A recipe, a checklist, a procedure manual
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ==================== TOOLS DEEP DIVE ==================== */}
+              <div className="mt-12">
+                <h3 className="flex items-center gap-3 text-xl font-bold text-zinc-900">
+                  <span className="flex items-center justify-center w-10 h-10 text-xl rounded-xl bg-violet-100">
+                    🔧
+                  </span>
+                  Tools — Deep Dive
+                </h3>
+                <p className="mt-3 text-zinc-600">
+                  Tools are the foundational layer of the system. Each tool is a
+                  self-contained Python function that performs exactly one
+                  action. Tools are designed to be:
+                </p>
+
+                {/* Tool Characteristics */}
+                <div className="grid gap-4 mt-6 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    {
+                      title: "Stateless",
+                      description:
+                        "No memory between calls. Same input always produces same output.",
+                      icon: "🔄",
+                    },
+                    {
+                      title: "Atomic",
+                      description:
+                        "Performs exactly one well-defined operation. No side workflows.",
+                      icon: "⚛️",
+                    },
+                    {
+                      title: "Sandboxed",
+                      description:
+                        "Runs in isolated Python environment for security. Limited modules.",
+                      icon: "🔒",
+                    },
+                    {
+                      title: "Fast",
+                      description:
+                        "Direct code execution, typically completes in 50-500ms.",
+                      icon: "⚡",
+                    },
+                  ].map((char) => (
+                    <div
+                      key={char.title}
+                      className="p-4 border rounded-xl border-violet-100 bg-violet-50/50"
+                    >
+                      <div className="text-2xl">{char.icon}</div>
+                      <h4 className="mt-2 font-semibold text-zinc-900">
+                        {char.title}
+                      </h4>
+                      <p className="mt-1 text-xs text-zinc-600">
+                        {char.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Built-in Tools */}
+                <div className="mt-8">
+                  <h4 className="font-semibold text-zinc-900">
+                    Built-in Tools
+                  </h4>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    The system ships with these ready-to-use tools:
+                  </p>
+                  <div className="grid gap-3 mt-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      {
+                        name: "todo",
+                        emoji: "✅",
+                        desc: "Create, update, complete, and list tasks",
+                        actions: "create, list, complete, delete, stats",
+                      },
+                      {
+                        name: "notification",
+                        emoji: "🔔",
+                        desc: "Send alerts via browser or Pushover mobile",
+                        actions: "send, schedule, dismiss, mark_read",
+                      },
+                      {
+                        name: "scheduled_task",
+                        emoji: "⏰",
+                        desc: "Schedule future actions (cron-like)",
+                        actions: "create, update, delete, execute_now",
+                      },
+                      {
+                        name: "curl",
+                        emoji: "🌐",
+                        desc: "Make HTTP requests to any API",
+                        actions: "GET, POST, PUT, DELETE, PATCH",
+                      },
+                      {
+                        name: "brave_search",
+                        emoji: "🔍",
+                        desc: "Search the web using Brave Search API",
+                        actions: "search (requires API key)",
+                      },
+                      {
+                        name: "memory_search",
+                        emoji: "🧠",
+                        desc: "Query user's stored memories",
+                        actions: "search, get_context, get_facts",
+                      },
+                      {
+                        name: "user_profile",
+                        emoji: "👤",
+                        desc: "Read/update permanent user profile",
+                        actions: "get, update, delete_fields",
+                      },
+                      {
+                        name: "goals",
+                        emoji: "🎯",
+                        desc: "Track long-term goals and progress",
+                        actions: "create, update, get, list",
+                      },
+                      {
+                        name: "achievements",
+                        emoji: "🏆",
+                        desc: "Track user achievements and milestones",
+                        actions: "get, list, unlock",
+                      },
+                    ].map((tool) => (
+                      <div
+                        key={tool.name}
+                        className="p-3 border rounded-lg border-zinc-200"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{tool.emoji}</span>
+                          <code className="font-mono text-sm font-semibold text-violet-700">
+                            {tool.name}
+                          </code>
+                        </div>
+                        <p className="mt-1 text-xs text-zinc-600">
+                          {tool.desc}
+                        </p>
+                        <p className="mt-2 text-[10px] text-zinc-400">
+                          Actions: {tool.actions}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tool Execution Flow */}
+                <div className="p-6 mt-8 border rounded-xl border-zinc-200">
+                  <h4 className="font-semibold text-zinc-900">
+                    Tool Execution Flow
+                  </h4>
+                  <div className="flex flex-wrap items-center gap-2 mt-4 text-sm">
+                    <span className="rounded-lg bg-blue-100 px-3 py-1.5 font-medium text-blue-700">
+                      AI identifies need
+                    </span>
+                    <span className="text-zinc-400">→</span>
+                    <span className="rounded-lg bg-violet-100 px-3 py-1.5 font-medium text-violet-700">
+                      Tool Executor validates
+                    </span>
+                    <span className="text-zinc-400">→</span>
+                    <span className="rounded-lg bg-amber-100 px-3 py-1.5 font-medium text-amber-700">
+                      Python Sandbox runs code
+                    </span>
+                    <span className="text-zinc-400">→</span>
+                    <span className="rounded-lg bg-emerald-100 px-3 py-1.5 font-medium text-emerald-700">
+                      JSON result returned
+                    </span>
+                  </div>
+                  <p className="mt-4 text-xs text-zinc-500">
+                    The Code Executor Service runs Python in an isolated Docker
+                    container with network disabled by default. Only whitelisted
+                    modules (requests, json, datetime, etc.) are available.
+                  </p>
+                </div>
+
+                {/* Custom Tool Generation */}
+                <div className="mt-8">
+                  <h4 className="font-semibold text-zinc-900">
+                    Custom Tool Generation
+                  </h4>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    The AI can automatically generate new tools when needed. You
+                    describe what you want, and the system creates Python code:
+                  </p>
+                  <div className="grid gap-4 mt-4 lg:grid-cols-2">
+                    <div className="p-4 rounded-xl bg-zinc-900">
+                      <p className="text-xs font-medium text-zinc-400">
+                        You say:
+                      </p>
+                      <p className="mt-2 text-sm italic text-zinc-300">
+                        "I need a tool to check if a website is online"
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-zinc-900">
+                      <p className="text-xs font-medium text-zinc-400">
+                        AI generates:
+                      </p>
+                      <pre className="mt-2 overflow-x-auto font-mono text-xs text-zinc-300">
+                        {`import requests
+
+def check_website(url: str) -> dict:
+    try:
+        r = requests.get(url, timeout=10)
+        return {
+            "online": True,
+            "status": r.status_code,
+            "response_time_ms": r.elapsed.total_seconds() * 1000
+        }
+    except Exception as e:
+        return {"online": False, "error": str(e)}`}
+                      </pre>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-xs text-zinc-500">
+                    Generated tools are tested automatically before being saved.
+                    They can require API keys (stored as encrypted secrets) and
+                    support input/output JSON schemas for validation.
+                  </p>
+                </div>
+              </div>
+
+              {/* ==================== SKILLS DEEP DIVE ==================== */}
+              <div className="mt-16">
+                <h3 className="flex items-center gap-3 text-xl font-bold text-zinc-900">
+                  <span className="flex items-center justify-center w-10 h-10 text-xl rounded-xl bg-emerald-100">
+                    📚
+                  </span>
+                  Skills — Deep Dive
+                </h3>
+                <p className="mt-3 text-zinc-600">
+                  Skills are the intelligence layer. They're written in natural
+                  language (Markdown) and describe <em>how</em> to accomplish
+                  goals by combining tools, memory, and AI reasoning. Skills are
+                  designed to be:
+                </p>
+
+                {/* Skill Characteristics */}
+                <div className="grid gap-4 mt-6 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    {
+                      title: "Human-Readable",
+                      description:
+                        "Written in plain Markdown. Anyone can read, write, or modify them.",
+                      icon: "📝",
+                    },
+                    {
+                      title: "Context-Aware",
+                      description:
+                        "Can reference user preferences, memories, time, and situational data.",
+                      icon: "🎯",
+                    },
+                    {
+                      title: "Composable",
+                      description:
+                        "Combine multiple tools and even other skills into complex workflows.",
+                      icon: "🧩",
+                    },
+                    {
+                      title: "Adaptive",
+                      description:
+                        "AI interprets and adapts execution based on current situation.",
+                      icon: "🔀",
+                    },
+                  ].map((char) => (
+                    <div
+                      key={char.title}
+                      className="p-4 border rounded-xl border-emerald-100 bg-emerald-50/50"
+                    >
+                      <div className="text-2xl">{char.icon}</div>
+                      <h4 className="mt-2 font-semibold text-zinc-900">
+                        {char.title}
+                      </h4>
+                      <p className="mt-1 text-xs text-zinc-600">
+                        {char.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Skill Structure */}
+                <div className="mt-8">
+                  <h4 className="font-semibold text-zinc-900">
+                    Skill Structure
+                  </h4>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Skills follow a consistent Markdown format with YAML
+                    frontmatter:
+                  </p>
+                  <div className="p-4 mt-4 rounded-xl bg-zinc-900">
+                    <pre className="overflow-x-auto font-mono text-xs text-zinc-300">
+                      {`---
+name: Order Status Monitor
+description: Track package deliveries and notify on changes
+version: 1.0.0
+author: User
+category: PRODUCTIVITY
+---
+
+# Order Status Monitor
+
+## Purpose
+Monitor pending orders and notify the user when delivery status changes.
+
+## When to Activate
+- User asks about order status
+- Scheduled check every 6 hours
+- User says "track my packages"
+
+## Workflow
+
+1. **Get pending orders** from memory
+   - Search for memories tagged with "order" or "purchase"
+   - Filter to orders without "delivered" status
+
+2. **For each order**, check current status:
+   - Use \`curl\` tool to call courier tracking API
+   - Parse the response for status and ETA
+
+3. **Compare with last known status**:
+   - If status changed → Send notification with update
+   - If ETA changed significantly → Alert user
+
+4. **Update memory** with new status
+   - Store current status for next comparison
+   - Add timestamp of check
+
+## Tools Used
+- \`memory_search\` - Find order information
+- \`curl\` - Call tracking APIs
+- \`notification\` - Alert user of changes
+
+## Notes
+- Don't notify if status unchanged
+- Batch multiple order updates into one notification
+- Respect quiet hours (10 PM - 8 AM)`}
+                    </pre>
+                  </div>
+                </div>
+
+                {/* Skill Categories */}
+                <div className="mt-8">
+                  <h4 className="font-semibold text-zinc-900">
+                    Skill Categories
+                  </h4>
+                  <div className="grid gap-3 mt-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      {
+                        name: "Productivity",
+                        emoji: "📋",
+                        examples:
+                          "Task automation, scheduling, reminders, meeting prep",
+                      },
+                      {
+                        name: "Development",
+                        emoji: "💻",
+                        examples:
+                          "Code review, deployment checks, documentation",
+                      },
+                      {
+                        name: "Research",
+                        emoji: "🔬",
+                        examples:
+                          "Information gathering, summarization, fact-checking",
+                      },
+                      {
+                        name: "Communication",
+                        emoji: "💬",
+                        examples:
+                          "Email drafting, message templates, notification rules",
+                      },
+                      {
+                        name: "Health",
+                        emoji: "❤️",
+                        examples:
+                          "Medication reminders, habit tracking, wellness checks",
+                      },
+                      {
+                        name: "Finance",
+                        emoji: "💰",
+                        examples:
+                          "Budget alerts, bill reminders, spending analysis",
+                      },
+                    ].map((cat) => (
+                      <div
+                        key={cat.name}
+                        className="p-3 border rounded-lg border-zinc-200"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{cat.emoji}</span>
+                          <span className="font-semibold text-emerald-700">
+                            {cat.name}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {cat.examples}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Example Skills */}
+                <div className="mt-8">
+                  <h4 className="font-semibold text-zinc-900">
+                    Real-World Skill Examples
+                  </h4>
+                  <div className="mt-4 space-y-4">
+                    {/* Example 1 */}
+                    <div className="p-5 border rounded-xl border-zinc-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🌤️</span>
+                        <h5 className="font-semibold text-zinc-900">
+                          Weather Alert Skill
+                        </h5>
+                      </div>
+                      <div className="p-3 mt-3 rounded-lg bg-zinc-50">
+                        <pre className="font-mono text-xs text-zinc-700">
+                          {`Check the weather every day at 7 AM using the get_weather tool.
+
+Only notify the user if:
+• Snow is expected → Immediate alert
+• Temperature below 0°C → Morning warning
+• Rain probability > 70% → Umbrella reminder
+
+Otherwise, stay completely silent. Don't disturb for nice weather.`}
+                        </pre>
+                      </div>
+                      <p className="mt-3 text-xs text-zinc-500">
+                        <strong>Tools used:</strong> get_weather,
+                        scheduled_task, notification
+                      </p>
+                    </div>
+
+                    {/* Example 2 */}
+                    <div className="p-5 border rounded-xl border-zinc-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">📅</span>
+                        <h5 className="font-semibold text-zinc-900">
+                          Meeting Preparation Skill
+                        </h5>
+                      </div>
+                      <div className="p-3 mt-3 rounded-lg bg-zinc-50">
+                        <pre className="font-mono text-xs text-zinc-700">
+                          {`When I have a meeting in the next 30 minutes:
+
+1. Get meeting details from calendar
+2. Search my memories for:
+   - Previous meetings with same participants
+   - Related projects or topics mentioned
+   - Any pending action items with attendees
+3. Create a brief summary with:
+   - Context from previous interactions
+   - Suggested talking points
+   - Open questions to address
+4. Send notification 15 minutes before with the brief`}
+                        </pre>
+                      </div>
+                      <p className="mt-3 text-xs text-zinc-500">
+                        <strong>Tools used:</strong> calendar_events,
+                        memory_search, notification, todo
+                      </p>
+                    </div>
+
+                    {/* Example 3 */}
+                    <div className="p-5 border rounded-xl border-zinc-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">💊</span>
+                        <h5 className="font-semibold text-zinc-900">
+                          Health Check-In Skill
+                        </h5>
+                      </div>
+                      <div className="p-3 mt-3 rounded-lg bg-zinc-50">
+                        <pre className="font-mono text-xs text-zinc-700">
+                          {`Every Monday and Thursday at 10 AM, do a gentle health check:
+
+1. Review my recent memories for health-related mentions:
+   - Sleep quality complaints
+   - Stress or anxiety mentions
+   - Exercise or lack thereof
+   - Eating habits
+
+2. If concerning patterns detected:
+   - Gently suggest specific actions
+   - Reference what I mentioned before
+   - Keep tone supportive, never demanding
+
+3. Track positive patterns too:
+   - Acknowledge good habits
+   - Note improvements over time
+
+Never be pushy. I can ignore these if I want.`}
+                        </pre>
+                      </div>
+                      <p className="mt-3 text-xs text-zinc-500">
+                        <strong>Tools used:</strong> memory_search,
+                        scheduled_task, notification, user_profile
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ==================== HOW THEY WORK TOGETHER ==================== */}
+              <div className="mt-16">
+                <h3 className="flex items-center gap-3 text-xl font-bold text-zinc-900">
+                  <span className="flex items-center justify-center w-10 h-10 text-xl rounded-xl bg-linear-to-br from-violet-100 to-emerald-100">
+                    🔄
+                  </span>
+                  How They Work Together
+                </h3>
+                <p className="mt-3 text-zinc-600">
+                  The real power comes from combining Skills and Tools. Here's a
+                  detailed walkthrough:
+                </p>
+
+                <div className="p-6 mt-6 border rounded-xl border-zinc-200">
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-full">
+                      User Request
+                    </span>
+                    <p className="text-sm italic text-zinc-600">
+                      "Let me know if it's going to snow this week"
                     </p>
                   </div>
-                ))}
+
+                  <div className="mt-6 space-y-4">
+                    {/* Step 1 */}
+                    <div className="flex gap-4">
+                      <div className="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full shrink-0 bg-violet-200 text-violet-700">
+                        1
+                      </div>
+                      <div>
+                        <p className="font-medium text-zinc-900">
+                          AI Identifies Relevant Skill
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-600">
+                          The system matches the request to the{" "}
+                          <strong>Weather Alert Skill</strong> based on keywords
+                          and intent. The skill's instructions are loaded into
+                          context.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="flex gap-4">
+                      <div className="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full shrink-0 bg-violet-200 text-violet-700">
+                        2
+                      </div>
+                      <div>
+                        <p className="font-medium text-zinc-900">
+                          Skill Interprets the Goal
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-600">
+                          AI reads the skill instructions and understands: user
+                          wants snow alerts, scope is "this week", action is
+                          notify only when snow is expected.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="flex gap-4">
+                      <div className="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full shrink-0 bg-amber-200 text-amber-700">
+                        3
+                      </div>
+                      <div>
+                        <p className="font-medium text-zinc-900">
+                          AI Orchestrates Tools
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <code className="px-2 py-1 text-xs font-medium rounded bg-violet-100 text-violet-700">
+                            get_weather(city, days=7)
+                          </code>
+                          <span className="text-zinc-400">→</span>
+                          <code className="px-2 py-1 text-xs font-medium rounded bg-violet-100 text-violet-700">
+                            analyze snow probability
+                          </code>
+                          <span className="text-zinc-400">→</span>
+                          <code className="px-2 py-1 text-xs font-medium rounded bg-violet-100 text-violet-700">
+                            scheduled_task.create()
+                          </code>
+                        </div>
+                        <p className="mt-2 text-sm text-zinc-600">
+                          Each tool executes in the Python sandbox and returns
+                          structured data for the next step.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="flex gap-4">
+                      <div className="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full shrink-0 bg-emerald-200 text-emerald-700">
+                        ✓
+                      </div>
+                      <div>
+                        <p className="font-medium text-zinc-900">
+                          Result Delivered
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-600">
+                          "I've set up a daily weather check. You'll only
+                          receive a notification if snow is expected. The check
+                          runs at 7 AM and covers the next 7 days."
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visual Flow Diagram */}
+                <div className="p-6 mt-8 rounded-xl bg-zinc-900">
+                  <p className="text-xs font-medium text-zinc-400">
+                    Execution Flow
+                  </p>
+                  <pre className="mt-4 overflow-x-auto font-mono text-xs text-zinc-300">
+                    {`┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   User Input    │────▶│  Skill Matcher   │────▶│  Skill Loaded   │
+└─────────────────┘     └──────────────────┘     └────────┬────────┘
+                                                          │
+                        ┌─────────────────────────────────┘
+                        ▼
+              ┌──────────────────┐
+              │  AI Interprets   │
+              │  Instructions    │
+              └────────┬─────────┘
+                       │
+     ┌─────────────────┼─────────────────┐
+     ▼                 ▼                 ▼
+┌─────────┐     ┌─────────────┐    ┌────────────┐
+│ Tool 1  │     │   Tool 2    │    │   Tool 3   │
+│ Weather │────▶│  Analyze    │───▶│  Schedule  │
+└─────────┘     └─────────────┘    └────────────┘
+     │                 │                 │
+     └─────────────────┴─────────────────┘
+                       │
+                       ▼
+              ┌──────────────────┐
+              │  Final Response  │
+              │  to User         │
+              └──────────────────┘`}
+                  </pre>
+                </div>
+              </div>
+
+              {/* ==================== WHEN TO USE WHAT ==================== */}
+              <div className="mt-16">
+                <h3 className="text-xl font-bold text-zinc-900">
+                  When to Use What
+                </h3>
+
+                <div className="grid gap-6 mt-6 lg:grid-cols-2">
+                  {/* Create a Tool */}
+                  <div className="p-6 border-2 rounded-xl border-violet-200 bg-violet-50/30">
+                    <h4 className="flex items-center gap-2 font-semibold text-violet-900">
+                      <span>🔧</span> Create a Tool when:
+                    </h4>
+                    <ul className="mt-4 space-y-3 text-sm text-zinc-700">
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+                        <span>
+                          You need to interact with an{" "}
+                          <strong>external API</strong> (weather, stocks,
+                          tracking)
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+                        <span>
+                          The operation is{" "}
+                          <strong>stateless and deterministic</strong>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+                        <span>
+                          You need <strong>sandboxed execution</strong> for
+                          security
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+                        <span>
+                          <strong>Performance is critical</strong> — direct code
+                          is faster
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+                        <span>
+                          You want a <strong>reusable building block</strong>{" "}
+                          for multiple skills
+                        </span>
+                      </li>
+                    </ul>
+                    <div className="p-3 mt-4 rounded-lg bg-violet-100">
+                      <p className="text-xs font-medium text-violet-800">
+                        Example: "Fetch current Bitcoin price" → Create a tool
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Create a Skill */}
+                  <div className="p-6 border-2 rounded-xl border-emerald-200 bg-emerald-50/30">
+                    <h4 className="flex items-center gap-2 font-semibold text-emerald-900">
+                      <span>📚</span> Create a Skill when:
+                    </h4>
+                    <ul className="mt-4 space-y-3 text-sm text-zinc-700">
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <span>
+                          You need to{" "}
+                          <strong>orchestrate multiple tools</strong> in
+                          sequence
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <span>
+                          The workflow requires{" "}
+                          <strong>context, memory, or user data</strong>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <span>
+                          Steps need <strong>AI interpretation</strong> and
+                          decision-making
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <span>
+                          The procedure should be{" "}
+                          <strong>human-readable and editable</strong>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <span>
+                          You want to teach the AI{" "}
+                          <strong>"how to do X" your way</strong>
+                        </span>
+                      </li>
+                    </ul>
+                    <div className="p-3 mt-4 rounded-lg bg-emerald-100">
+                      <p className="text-xs font-medium text-emerald-800">
+                        Example: "Alert me only if Bitcoin drops 10% in a day" →
+                        Create a skill
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Decision Flowchart */}
+                <div className="p-6 mt-8 border rounded-xl border-zinc-200">
+                  <h4 className="font-semibold text-zinc-900">
+                    Quick Decision Guide
+                  </h4>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-center gap-4">
+                      <span className="text-zinc-500">
+                        Is it a single API call or computation?
+                      </span>
+                      <span className="text-zinc-400">→</span>
+                      <span className="px-2 py-1 font-medium rounded bg-violet-100 text-violet-700">
+                        Tool
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-zinc-500">
+                        Does it need to combine multiple actions?
+                      </span>
+                      <span className="text-zinc-400">→</span>
+                      <span className="px-2 py-1 font-medium rounded bg-emerald-100 text-emerald-700">
+                        Skill
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-zinc-500">
+                        Should it adapt based on context/memory?
+                      </span>
+                      <span className="text-zinc-400">→</span>
+                      <span className="px-2 py-1 font-medium rounded bg-emerald-100 text-emerald-700">
+                        Skill
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-zinc-500">
+                        Do you need custom Python code?
+                      </span>
+                      <span className="text-zinc-400">→</span>
+                      <span className="px-2 py-1 font-medium rounded bg-violet-100 text-violet-700">
+                        Tool
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-zinc-500">
+                        Should non-developers be able to edit it?
+                      </span>
+                      <span className="text-zinc-400">→</span>
+                      <span className="px-2 py-1 font-medium rounded bg-emerald-100 text-emerald-700">
+                        Skill
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -644,8 +1532,8 @@ export function DocsPage() {
                 deployment with optional external LLM providers.
               </p>
 
-              <div className="mt-8 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border border-zinc-200 p-6">
+              <div className="grid gap-6 mt-8 lg:grid-cols-2">
+                <div className="p-6 border rounded-xl border-zinc-200">
                   <h3 className="font-semibold text-zinc-900">
                     Privacy Principles
                   </h3>
@@ -667,7 +1555,7 @@ export function DocsPage() {
                   </ul>
                 </div>
 
-                <div className="rounded-xl bg-zinc-900 p-6 text-white">
+                <div className="p-6 text-white rounded-xl bg-zinc-900">
                   <h3 className="font-semibold">Operational Controls</h3>
                   <ul className="mt-4 space-y-3">
                     {[
@@ -696,7 +1584,7 @@ export function DocsPage() {
                 for detailed milestones.
               </p>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 mt-8 sm:grid-cols-2">
                 {[
                   {
                     phase: "Now",
@@ -808,13 +1696,13 @@ export function DocsPage() {
                 ].map((item) => (
                   <details
                     key={item.q}
-                    className="group rounded-lg border border-zinc-200 bg-white"
+                    className="bg-white border rounded-lg group border-zinc-200"
                   >
-                    <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-900">
+                    <summary className="flex items-center justify-between px-4 py-3 text-sm font-medium cursor-pointer text-zinc-900">
                       {item.q}
-                      <ChevronRight className="h-4 w-4 text-zinc-400 transition-transform group-open:rotate-90" />
+                      <ChevronRight className="w-4 h-4 transition-transform text-zinc-400 group-open:rotate-90" />
                     </summary>
-                    <p className="border-t border-zinc-100 px-4 py-3 text-sm text-zinc-600">
+                    <p className="px-4 py-3 text-sm border-t border-zinc-100 text-zinc-600">
                       {item.a}
                     </p>
                   </details>
@@ -827,7 +1715,7 @@ export function DocsPage() {
 
       {/* Footer */}
       <footer className="border-t border-zinc-200 bg-zinc-50">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-sm text-zinc-500">
               © 2026 Second Brain AI System. All rights reserved.

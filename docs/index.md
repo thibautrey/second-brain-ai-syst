@@ -146,6 +146,289 @@ Each agent has:
 
 See [agents.md](./agents.md#-core-agents) for full details.
 
+## 🔧 Tools vs Skills
+
+Understanding the difference between **Tools** and **Skills** is fundamental to the Second Brain AI System architecture.
+
+### Quick Summary
+
+| Aspect        | Tools                      | Skills                           |
+| ------------- | -------------------------- | -------------------------------- |
+| **Nature**    | Stateless Python functions | Human-readable instructions      |
+| **Format**    | Code (Python)              | Natural language (Markdown)      |
+| **Purpose**   | Execute atomic actions     | Orchestrate complex workflows    |
+| **Analogy**   | A hammer, a screwdriver    | A recipe, a procedure            |
+| **State**     | Stateless                  | Can reference context and memory |
+| **Execution** | Direct code execution      | AI interprets and follows steps  |
+
+---
+
+### 🔧 Tools
+
+#### Definition
+
+A **Tool** is a **stateless Python function** that executes a specific, atomic action. Tools are the building blocks—the low-level primitives that interact with external systems, APIs, or perform computations.
+
+#### Characteristics
+
+- **Stateless**: No memory of previous executions
+- **Atomic**: Performs a single, well-defined operation
+- **Programmatic**: Written in Python code
+- **Deterministic**: Same inputs produce same outputs
+- **Sandboxed**: Runs in an isolated environment for security
+
+#### Built-in Tools
+
+The system includes several built-in tools:
+
+| Tool                    | Description                         | Actions                         |
+| ----------------------- | ----------------------------------- | ------------------------------- |
+| `todo`                  | Manage tasks and to-do items        | create, list, complete, delete  |
+| `notification`          | Send notifications to user          | send, schedule, dismiss         |
+| `scheduled_task`        | Schedule tasks for future execution | create, update, delete, execute |
+| `curl` / `http_request` | Make HTTP API calls                 | GET, POST, PUT, DELETE          |
+| `brave_search`          | Search the web                      | search                          |
+| `browser`               | Automated web browsing              | navigate, click, extract        |
+| `memory_search`         | Search user's memories              | search, get_context             |
+
+#### Custom Tools (Generated)
+
+Users and the AI can create **custom tools** dynamically using the Tool Generator:
+
+```python
+# Example: A weather tool
+import requests
+import os
+
+def get_weather(city: str) -> dict:
+    """Get current weather for a city."""
+    api_key = os.environ.get('OPENWEATHERMAP_API_KEY')
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+
+    response = requests.get(url, timeout=10)
+    data = response.json()
+
+    result = {
+        "city": city,
+        "temperature": data["main"]["temp"],
+        "description": data["weather"][0]["description"],
+        "humidity": data["main"]["humidity"]
+    }
+    return result
+```
+
+#### Tool Execution Flow
+
+```
+User Request → AI identifies tool needed → Tool Executor
+                                              ↓
+                                    Code Executor Service (Python sandbox)
+                                              ↓
+                                    Execute code with env vars
+                                              ↓
+                                    Return structured result
+```
+
+---
+
+### 📚 Skills
+
+#### Definition
+
+A **Skill** is a **set of human-readable instructions** written in natural language (Markdown) that describes how to accomplish a goal. Think of it as a recipe or a procedure that the AI follows.
+
+#### Characteristics
+
+- **Declarative**: Describes _what_ to do, not _how_ (in code)
+- **Human-readable**: Written in natural language (Markdown)
+- **Context-aware**: Can reference user preferences, memories, and context
+- **Composable**: Can combine multiple tools in a workflow
+- **Adaptable**: AI interprets and adapts execution based on situation
+
+#### Skill Structure
+
+Skills are stored as Markdown files with YAML frontmatter:
+
+```markdown
+---
+name: Weather Alert Monitor
+description: Monitor weather and notify about important changes
+version: 1.0.0
+author: User
+---
+
+# Weather Alert Monitor
+
+## Purpose
+
+Check the weather regularly and alert the user about significant conditions.
+
+## Workflow
+
+1. **Get current location** using the user's configured home location
+2. **Check weather** using the `get_weather` tool for that location
+3. **Analyze conditions**:
+   - If snow is expected → Notify immediately
+   - If temperature drops below 0°C → Send morning alert
+   - If heavy rain expected → Remind to take umbrella
+4. **Send notification** only if relevant conditions are detected
+
+## When to Run
+
+- Daily at 7:00 AM
+- Can be invoked manually by asking about weather alerts
+```
+
+---
+
+### Examples: Tool vs Skill
+
+#### Example 1: Weather Notification
+
+**Tool** (`get_weather`):
+
+```python
+# Stateless function that fetches weather data
+result = requests.get(f"api.weather.com/{city}").json()
+```
+
+**Skill** (`daily-weather-alert`):
+
+```markdown
+Check the weather every day at 7 AM using the `get_weather` tool.
+Only notify the user if:
+
+- There will be snow today
+- Temperature will be below freezing
+- Severe weather warnings exist
+  Otherwise, stay silent.
+```
+
+#### Example 2: Package Tracking
+
+**Tool** (`track_package`):
+
+```python
+# Fetches package status from courier API
+result = requests.get(f"api.courier.com/track/{tracking_number}").json()
+```
+
+**Skill** (`order-status-monitor`):
+
+```markdown
+Monitor my recent orders:
+
+1. Get the list of pending orders from memory
+2. For each order, check the delivery status using `track_package`
+3. Compare with the last known status
+4. If status changed → Send notification with the update
+5. Store the new status in memory for next check
+
+Run this check every 6 hours.
+```
+
+#### Example 3: Meeting Preparation
+
+**Tools used**: `calendar_get_events`, `memory_search`, `notification`, `todo`
+
+**Skill** (`meeting-prep`):
+
+```markdown
+When I have a meeting in the next 30 minutes:
+
+1. Get meeting details from calendar
+2. Search my memories for:
+   - Previous meetings with same participants
+   - Related projects or topics
+   - Any pending action items
+3. Create a brief summary of relevant context
+4. Send me a notification with:
+   - Meeting reminder
+   - Key points from previous interactions
+   - Suggested talking points
+```
+
+---
+
+### 🔄 How They Work Together
+
+```
+User: "Let me know if it's going to snow this week"
+
+    ↓
+
+AI activates skill: "Weather Alert Monitor"
+
+    ↓
+
+Skill interprets request:
+  1. User wants snow alerts
+  2. Time scope: this week
+  3. Action: notify only on snow
+
+    ↓
+
+Skill orchestrates tools:
+  - get_weather(city, days=7)     ← Tool execution
+  - analyze snow probability       ← AI reasoning
+  - notification.schedule(...)     ← Tool execution
+  - scheduled_task.create(...)     ← Tool execution
+
+    ↓
+
+Result: Monitoring set up, user will be notified if snow expected
+```
+
+---
+
+### 📋 When to Use What
+
+#### Create a Tool When:
+
+- You need to interact with an external API
+- You need a reusable, atomic function
+- The operation is stateless and deterministic
+- You need sandboxed execution for security
+- Performance is critical (direct code execution)
+
+#### Create a Skill When:
+
+- You need to orchestrate multiple tools
+- The workflow requires context or memory
+- Steps need AI interpretation and adaptation
+- The procedure should be human-readable
+- You want to share knowledge with the AI about "how to do X"
+
+---
+
+### 🏗️ Implementation Details
+
+#### Tools Storage
+
+Tools are stored in the database with:
+
+- Python code
+- Input/output JSON schemas
+- Required secrets/API keys
+- Execution statistics
+
+#### Skills Storage
+
+Skills are stored as:
+
+- Markdown content (SKILL.md)
+- YAML frontmatter for metadata
+- Optional bundled resources (scripts, references)
+
+#### Execution Model
+
+| Tools                             | Skills                 |
+| --------------------------------- | ---------------------- |
+| Executed by Code Executor Service | Interpreted by LLM     |
+| Returns structured JSON           | Returns AI response    |
+| ~100ms execution                  | ~seconds (LLM + tools) |
+| Sandboxed Python                  | Full AI reasoning      |
+
 ## 📊 Memory Model
 
 **Short-term Memory**:
@@ -283,6 +566,9 @@ Concepts implemented:
 
 **"What agents exist?"**
 → [agents.md](./agents.md#-core-agents)
+
+**"What's the difference between Tools and Skills?"**
+→ See [Tools vs Skills](#-tools-vs-skills) section above
 
 **"Quick overview?"**
 → [QUICK_REFERENCE.md](./QUICK_REFERENCE.md)

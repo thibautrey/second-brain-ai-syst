@@ -90,7 +90,14 @@ Daily → 3-day → Weekly → Bi-weekly → Monthly → Quarterly → 6-month �
 
 ### 4. **Tool Execution Engine**
 
-**Purpose**: Safely execute external operations
+**Purpose**: Safely execute external operations (Tools)
+
+> ⚠️ **Important**: This engine executes **Tools**, not **Skills**.
+>
+> - **Tools** = Stateless Python functions (atomic actions)
+> - **Skills** = Human-readable instructions (workflows)
+>
+> See [/docs/index.md#-tools-vs-skills](/docs/index.md#-tools-vs-skills) for the complete distinction.
 
 **Responsibilities**:
 
@@ -101,13 +108,84 @@ Daily → 3-day → Weekly → Bi-weekly → Monthly → Quarterly → 6-month �
 - Sandboxing & safety constraints
 - Result capture and logging
 
-**Tool Categories**:
+**Tool Categories** (Built-in):
 
-- Web browsing & scraping
-- API integrations (GitHub, Twitter, etc.)
-- Document generation
-- Code execution (sandboxed)
-- File operations
+- `todo` - Task management
+- `notification` - Send alerts to user
+- `scheduled_task` - Cron-like scheduling
+- `curl` / `http_request` - API calls
+- `brave_search` - Web search
+- `browser` - Web automation
+- `memory_search` - Query memories
+
+**Custom Tools**:
+
+Generated dynamically via AI - Python code executed in sandbox.
+
+Example tool:
+
+```python
+# get_weather tool - stateless, atomic
+result = requests.get(f"api.weather.com/{city}").json()
+```
+
+---
+
+### 4b. **Skills System**
+
+**Purpose**: Provide high-level workflow orchestration through natural language instructions
+
+> 📚 **Skills** complement **Tools** by providing the "how" rather than the "what".
+> See [/docs/index.md#-tools-vs-skills](/docs/index.md#-tools-vs-skills) for detailed documentation.
+
+**What is a Skill?**
+
+A skill is a set of human-readable instructions (like a recipe) that tell the AI how to accomplish a goal by orchestrating tools and reasoning.
+
+**Example Skills**:
+
+1. **Weather Alert Skill**:
+
+```markdown
+Check the weather every day at 7 AM using the `get_weather` tool.
+Only notify the user if there will be snow today or temperatures below freezing.
+```
+
+2. **Order Tracking Skill**:
+
+```markdown
+Verify the status of my pending orders using the `track_package` tool.
+Notify me only if the status has changed since the last check.
+```
+
+3. **Meeting Prep Skill**:
+
+```markdown
+Before each meeting:
+
+1. Get meeting details from calendar
+2. Search memories for previous interactions with attendees
+3. Create a brief summary with context and suggested talking points
+4. Send a notification 15 minutes before
+```
+
+**Skill vs Tool Comparison**:
+
+| Aspect    | Tool                   | Skill                      |
+| --------- | ---------------------- | -------------------------- |
+| Format    | Python code            | Markdown instructions      |
+| Nature    | Stateless function     | Contextual workflow        |
+| Execution | Direct code execution  | AI interprets and follows  |
+| Example   | `get_weather("Paris")` | "Alert me if it will snow" |
+
+**Skill Categories**:
+
+- `PRODUCTIVITY` - Task automation, scheduling
+- `DEVELOPMENT` - Code assistance, deployments
+- `RESEARCH` - Information gathering, analysis
+- `COMMUNICATION` - Email, notifications, messaging
+- `HEALTH` - Health tracking, reminders
+- `FINANCE` - Budget tracking, alerts
 
 ---
 

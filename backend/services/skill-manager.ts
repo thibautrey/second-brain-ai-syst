@@ -20,6 +20,7 @@
 
 import * as fs from "fs/promises";
 import * as path from "path";
+
 import prisma from "./prisma.js";
 
 // ==================== Local Enums (will be replaced by Prisma after migration) ====================
@@ -1465,6 +1466,228 @@ ${skillsXml}
       met: missing.length === 0,
       missing,
     };
+  }
+
+  // ==================== Custom Skills (User-created) ====================
+
+  /**
+   * Create a custom skill for a user
+   * Allows the agent to create new skills with markdown instructions
+   */
+  async createCustomSkill(
+    userId: string,
+    data: {
+      slug: string;
+      name: string;
+      description: string;
+      instructions: string;
+      category?: SkillCategory;
+      tags?: string[];
+      icon?: string;
+    },
+  ): Promise<InstalledSkillRecord> {
+    // Validate slug (lowercase, alphanumeric, dashes only)
+    const slugRegex = /^[a-z0-9-]+$/;
+    if (!slugRegex.test(data.slug)) {
+      throw new Error(
+        "Invalid slug format. Use lowercase letters, numbers, and dashes only.",
+      );
+    }
+
+    // Check if skill with this slug already exists
+    const existing = await this.getInstalledSkill(userId, data.slug);
+    if (existing) {
+      throw new Error(
+        `Skill with slug '${data.slug}' already exists. Use update instead.`,
+      );
+    }
+
+    // Build skill content in SKILL.md format
+    const skillContent = `---
+name: ${data.name}
+description: ${data.description}
+---
+
+${data.instructions}`;
+
+    // Create the custom skill
+    const skill = await (prisma as any).installedSkill.create({
+      data: {
+        userId,
+        skillSlug: data.slug,
+        name: data.name,
+        description: data.description,
+        version: "1.0.0",
+        installedVersion: "1.0.0",
+        enabled: true,
+        config: {},
+        skillMdContent: skillContent,
+        frontmatter: {
+          name: data.name,
+          description: data.description,
+          metadata: {
+            moltbot: {
+              emoji: data.icon || "📝",
+            },
+          },
+        },
+        priority: SkillPriority.WORKSPACE, // Custom skills have highest priority
+      },
+    });
+
+    console.log(
+      `[SkillManager] Created custom skill '${data.slug}' for user ${userId}`,
+    );
+    return skill as InstalledSkillRecord;
+  }
+
+  /**
+   * Update a custom skill
+   * Only updates skills that are not from the hub (custom skills)
+   */
+  async updateCustomSkill(
+    userId: string,
+    skillSlug: string,
+    data: {
+      name?: string;
+      description?: string;
+      instructions?: string;
+      category?: SkillCategory;
+      tags?: string[];
+      icon?: string;
+      enabled?: boolean;
+    },
+  ): Promise<InstalledSkillRecord> {
+    const skill = await this.getInstalledSkill(userId, skillSlug);
+
+    if (!skill) {
+      throw new Error(`Skill '${skillSlug}' not found.`);
+    }
+
+    // Check if it's a custom skill (no hubEntryId)
+    if (skill.hubEntryId) {
+      throw new Error(
+        `Cannot modify '${skillSlug}' - it was installed from the hub. Use uninstall/reinstall instead.`,
+      );
+    }
+
+    // Build updated values
+    const updates: any = {
+      updatedAt: new Date(),
+    };
+
+    if (data.name !== undefined) {
+      updates.name = data.name;
+    }
+    if (data.description !== undefined) {
+      updates.description = data.description;
+    }
+    if (data.enabled !== undefined) {
+      updates.enabled = data.enabled;
+    }
+
+    // Rebuild skill content if instructions changed
+    if (
+      data.instructions !== undefined ||
+      data.name !== undefined ||
+      data.description !== undefined
+    ) {
+      const name = data.name || skill.name;
+      const description = data.description || skill.description;
+
+      // If instructions provided, use them; otherwise try to extract from existing content
+      let instructions = data.instructions;
+      if (instructions === undefined && skill.skillMdContent) {
+        try {
+          const parsed = this.parseSkillMd(skill.skillMdContent);
+          instructions = parsed.body;
+        } catch {
+          instructions = skill.skillMdContent;
+        }
+      }
+
+      updates.skillMdContent = `---
+name: ${name}
+description: ${description}
+---
+
+${instructions || ""}`;
+    }
+
+    // Update frontmatter
+    const currentFrontmatter = (skill.frontmatter as any) || {};
+    const updatedFrontmatter = {
+      ...currentFrontmatter,
+      name: data.name || currentFrontmatter.name,
+      description: data.description || currentFrontmatter.description,
+    };
+
+    if (data.icon) {
+      updatedFrontmatter.metadata = updatedFrontmatter.metadata || {};
+      updatedFrontmatter.metadata.moltbot =
+        updatedFrontmatter.metadata.moltbot || {};
+      updatedFrontmatter.metadata.moltbot.emoji = data.icon;
+    }
+
+    updates.frontmatter = updatedFrontmatter;
+
+    const updated = await (prisma as any).installedSkill.update({
+      where: { userId_skillSlug: { userId, skillSlug } },
+      data: updates,
+    });
+
+    console.log(
+      `[SkillManager] Updated custom skill '${skillSlug}' for user ${userId}`,
+    );
+    return updated as InstalledSkillRecord;
+  }
+
+  /**
+   * Delete a custom skill
+   * Custom skills are directly deleted, hub skills use uninstallSkill
+   */
+  async deleteCustomSkill(userId: string, skillSlug: string): Promise<void> {
+    const skill = await this.getInstalledSkill(userId, skillSlug);
+
+    if (!skill) {
+      throw new Error(`Skill '${skillSlug}' not found.`);
+    }
+
+    // Check if it's a custom skill (no hubEntryId)
+    if (skill.hubEntryId) {
+      throw new Error(
+        `Cannot delete '${skillSlug}' - it was installed from the hub. Use uninstall instead.`,
+      );
+    }
+
+    await (prisma as any).installedSkill.delete({
+      where: { userId_skillSlug: { userId, skillSlug } },
+    });
+
+    console.log(
+      `[SkillManager] Deleted custom skill '${skillSlug}' for user ${userId}`,
+    );
+  }
+
+  /**
+   * Check if a skill is custom (not from hub)
+   */
+  async isCustomSkill(userId: string, skillSlug: string): Promise<boolean> {
+    const skill = await this.getInstalledSkill(userId, skillSlug);
+    return skill !== null && skill.hubEntryId === null;
+  }
+
+  /**
+   * List all custom skills for a user
+   */
+  async listCustomSkills(userId: string): Promise<InstalledSkillRecord[]> {
+    return (prisma as any).installedSkill.findMany({
+      where: {
+        userId,
+        hubEntryId: null, // No hub entry = custom skill
+      },
+      orderBy: { name: "asc" },
+    }) as Promise<InstalledSkillRecord[]>;
   }
 }
 
