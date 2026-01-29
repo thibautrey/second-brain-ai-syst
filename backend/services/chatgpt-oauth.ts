@@ -111,35 +111,36 @@ function decryptToken(encryptedJson: string): string {
 // ==================== PKCE Helpers ====================
 
 /**
- * Encode bytes as base64url string (matches pi-ai implementation)
+ * Encode bytes as base64url string (EXACTLY matches pi-ai implementation)
+ * Uses btoa() like pi-ai, not Buffer.toString()
  */
 function base64urlEncode(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
   }
-  return Buffer.from(binary, "binary")
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
+  // Use btoa() like pi-ai does, NOT Buffer.toString('base64')
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
 /**
  * Generate PKCE code verifier and challenge
- * Uses the same algorithm as pi-ai for compatibility
+ * EXACTLY matches pi-ai's pkce.js implementation using Web Crypto API patterns
  */
 export async function generatePKCE(): Promise<{
   verifier: string;
   challenge: string;
 }> {
-  // Generate 32 random bytes
-  const verifierBytes = crypto.randomBytes(32);
+  // Generate 32 random bytes (same as pi-ai)
+  const verifierBytes = new Uint8Array(32);
+  crypto.getRandomValues(verifierBytes);
   const verifier = base64urlEncode(verifierBytes);
 
-  // Compute SHA-256 challenge
-  const hashBuffer = crypto.createHash("sha256").update(verifier).digest();
-  const challenge = base64urlEncode(hashBuffer);
+  // Compute SHA-256 challenge using Web Crypto API like pi-ai
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const challenge = base64urlEncode(new Uint8Array(hashBuffer));
 
   return { verifier, challenge };
 }
@@ -170,37 +171,36 @@ export interface OAuthCredentials {
 
 /**
  * Build the authorization URL for the OAuth flow
- * Uses the same parameters as pi-ai for compatibility
+ * EXACTLY matches pi-ai's createAuthorizationFlow() function
  */
 export function buildAuthorizationUrl(
   challenge: string,
   state: string,
   originator: string = "pi",
 ): string {
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: OAUTH_CONFIG.clientId,
-    redirect_uri: OAUTH_CONFIG.redirectUri,
-    scope: OAUTH_CONFIG.scopes.join(" "),
-    code_challenge: challenge,
-    code_challenge_method: "S256",
-    state: state,
-    // Additional parameters required by OpenAI Codex OAuth (from pi-ai)
-    id_token_add_organizations: "true",
-    codex_cli_simplified_flow: "true",
-    originator: originator,
-  });
+  // Use URL object with searchParams.set() like pi-ai does
+  const url = new URL(OAUTH_CONFIG.authorizeEndpoint);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", OAUTH_CONFIG.clientId);
+  url.searchParams.set("redirect_uri", OAUTH_CONFIG.redirectUri);
+  url.searchParams.set("scope", OAUTH_CONFIG.scopes.join(" "));
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("state", state);
+  url.searchParams.set("id_token_add_organizations", "true");
+  url.searchParams.set("codex_cli_simplified_flow", "true");
+  url.searchParams.set("originator", originator);
 
-  const url = `${OAUTH_CONFIG.authorizeEndpoint}?${params.toString()}`;
+  const urlString = url.toString();
 
   // Debug logging
   console.log("🔐 OAuth Authorization URL generated:");
   console.log("  - client_id:", OAUTH_CONFIG.clientId);
   console.log("  - redirect_uri:", OAUTH_CONFIG.redirectUri);
   console.log("  - scope:", OAUTH_CONFIG.scopes.join(" "));
-  console.log("  - Full URL:", url);
+  console.log("  - Full URL:", urlString);
 
-  return url;
+  return urlString;
 }
 
 /**
@@ -240,6 +240,7 @@ function extractAccountId(accessToken: string): string | undefined {
 
 /**
  * Exchange authorization code for tokens
+ * EXACTLY matches pi-ai's exchangeAuthorizationCode() function
  */
 export async function exchangeCodeForTokens(
   code: string,
@@ -247,16 +248,15 @@ export async function exchangeCodeForTokens(
 ): Promise<OAuthCredentials> {
   const response = await fetch(OAUTH_CONFIG.tokenEndpoint, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
+    // Note: pi-ai only sets Content-Type, no Accept header
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
+      // Exact same parameter order as pi-ai
       grant_type: "authorization_code",
-      code: code,
-      redirect_uri: OAUTH_CONFIG.redirectUri,
       client_id: OAUTH_CONFIG.clientId,
+      code: code,
       code_verifier: verifier,
+      redirect_uri: OAUTH_CONFIG.redirectUri,
     }),
   });
 

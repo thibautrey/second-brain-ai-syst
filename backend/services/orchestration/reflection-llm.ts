@@ -121,6 +121,7 @@ When a tool fails with "Validation failed" or "unknown/additional properties":
 4. Check tool documentation if available
 
 Current attempt ${request.attemptNumber + 1} of ${request.maxAttempts}.`;
+  }
 
   private buildUserPrompt(request: ReflectionRequest): string {
     const successfulTools = request.toolResults.filter(
@@ -147,7 +148,10 @@ Current attempt ${request.attemptNumber + 1} of ${request.maxAttempts}.`;
             errorInfo += `\n  Params sent: ${JSON.stringify(t.params)}`;
           }
           // Add hint for validation errors
-          if (t.error?.includes("Validation failed") || t.error?.includes("unknown/additional properties")) {
+          if (
+            t.error?.includes("Validation failed") ||
+            t.error?.includes("unknown/additional properties")
+          ) {
             errorInfo += `\n  → HINT: Check the tool schema - use list_fields or get action to see valid parameters.`;
           }
           return errorInfo;
