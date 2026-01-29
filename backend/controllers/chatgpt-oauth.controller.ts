@@ -5,6 +5,15 @@
 
 import { chatGPTOAuthService } from "../services/chatgpt-oauth.js";
 
+// Store active OAuth flows for the local server approach
+const activeOAuthFlows = new Map<
+  string,
+  {
+    waitForCallback: () => Promise<{ success: boolean; error?: string }>;
+    state: string;
+  }
+>();
+
 // ==================== OAuth Flow Endpoints ====================
 
 /**
@@ -15,8 +24,67 @@ export async function initiateOAuthFlow(userId: string): Promise<{
   authUrl: string;
   state: string;
 }> {
-  const { state, authUrl } = await chatGPTOAuthService.createOAuthSession(userId);
+  const { state, authUrl } =
+    await chatGPTOAuthService.createOAuthSession(userId);
   return { authUrl, state };
+}
+
+/**
+ * Initiate OAuth flow with local callback server
+ * This starts a local server to capture the OAuth callback
+ * Returns the authorization URL and starts waiting for callback
+ */
+export async function initiateOAuthFlowWithLocalServer(
+  userId: string,
+): Promise<{
+  authUrl: string;
+  state: string;
+  callbackUrl: string;
+}> {
+  // Clean up any existing flow for this user
+  activeOAuthFlows.delete(userId);
+
+  const { authUrl, state, waitForCallback } =
+    await chatGPTOAuthService.startOAuthFlowWithLocalServer(userId);
+
+  // Store the callback waiter
+  activeOAuthFlows.set(userId, { waitForCallback, state });
+
+  // Start waiting for callback in background (don't await)
+  // The client will poll for completion
+  waitForCallback()
+    .then((result) => {
+      console.log(
+        `OAuth flow for user ${userId} completed:`,
+        result.success ? "success" : result.error,
+      );
+      // Clean up after completion
+      setTimeout(() => activeOAuthFlows.delete(userId), 5000);
+    })
+    .catch((err) => {
+      console.error(`OAuth flow error for user ${userId}:`, err);
+      activeOAuthFlows.delete(userId);
+    });
+
+  return {
+    authUrl,
+    state,
+    callbackUrl: chatGPTOAuthService.config.redirectUri,
+  };
+}
+
+/**
+ * Check if an OAuth flow is pending for a user
+ */
+export async function checkOAuthFlowStatus(userId: string): Promise<{
+  pending: boolean;
+  state?: string;
+}> {
+  const flow = activeOAuthFlows.get(userId);
+  return {
+    pending: !!flow,
+    state: flow?.state,
+  };
 }
 
 /**
@@ -32,7 +100,7 @@ export async function handleOAuthCallback(
 }> {
   // Validate the state and get the session
   const session = await chatGPTOAuthService.validateOAuthCallback(state);
-  
+
   if (!session) {
     return {
       success: false,
@@ -48,7 +116,10 @@ export async function handleOAuthCallback(
     );
 
     // Store the credentials
-    await chatGPTOAuthService.storeOAuthCredentials(session.userId, credentials);
+    await chatGPTOAuthService.storeOAuthCredentials(
+      session.userId,
+      credentials,
+    );
 
     return {
       success: true,
@@ -58,7 +129,10 @@ export async function handleOAuthCallback(
     console.error("OAuth callback error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to exchange code for tokens",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to exchange code for tokens",
     };
   }
 }
@@ -76,7 +150,7 @@ export async function getOAuthStatus(userId: string): Promise<{
   lastUsedAt?: string;
 }> {
   const status = await chatGPTOAuthService.getOAuthStatus(userId);
-  
+
   return {
     isConnected: status.isConnected,
     isEnabled: status.isEnabled,
@@ -124,7 +198,7 @@ export async function checkUsage(userId: string): Promise<{
   error?: string;
 }> {
   const usage = await chatGPTOAuthService.checkChatGPTUsage(userId);
-  
+
   if (!usage) {
     return {
       usageAvailable: false,
@@ -148,7 +222,7 @@ export async function testConnection(userId: string): Promise<{
   accountId?: string;
 }> {
   const status = await chatGPTOAuthService.getOAuthStatus(userId);
-  
+
   if (!status.isConnected) {
     return {
       success: false,
@@ -165,8 +239,9 @@ export async function testConnection(userId: string): Promise<{
 
   try {
     // Try to get valid credentials (this will refresh if needed)
-    const credentials = await chatGPTOAuthService.getValidOAuthCredentials(userId);
-    
+    const credentials =
+      await chatGPTOAuthService.getValidOAuthCredentials(userId);
+
     if (!credentials) {
       return {
         success: false,
@@ -182,20 +257,37 @@ export async function testConnection(userId: string): Promise<{
   } catch (error) {
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Connection test failed",
+      message:
+        error instanceof Error ? error.message : "Connection test failed",
     };
   }
+}
+
+/**
+ * Get OAuth configuration info (for debugging)
+ */
+export async function getOAuthConfig(): Promise<{
+  authorizeEndpoint: string;
+  tokenEndpoint: string;
+  redirectUri: string;
+  scopes: string[];
+  clientId: string;
+}> {
+  return chatGPTOAuthService.getOAuthConfig();
 }
 
 // Export controller functions
 export const chatGPTOAuthController = {
   initiateOAuthFlow,
+  initiateOAuthFlowWithLocalServer,
+  checkOAuthFlowStatus,
   handleOAuthCallback,
   getOAuthStatus,
   disconnectOAuth,
   setOAuthEnabled,
   checkUsage,
   testConnection,
+  getOAuthConfig,
 };
 
 export default chatGPTOAuthController;

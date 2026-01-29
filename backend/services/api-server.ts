@@ -58,6 +58,9 @@ import {
   setOAuthEnabled,
   checkUsage as checkChatGPTUsage,
   testConnection as testChatGPTConnection,
+  initiateOAuthFlowWithLocalServer,
+  checkOAuthFlowStatus,
+  getOAuthConfig as getChatGPTOAuthConfig,
 } from "../controllers/chatgpt-oauth.controller.js";
 import { audioUploadService } from "./audio-upload.js";
 import { speakerRecognitionService } from "./speaker-recognition.js";
@@ -1160,6 +1163,67 @@ app.post(
       }
       const result = await initiateOAuthFlow(req.userId);
       res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/auth/chatgpt/initiate-local
+ * Initiate ChatGPT OAuth flow with local callback server
+ * This starts a local server on port 1455 to capture the OAuth callback
+ */
+app.post(
+  "/api/auth/chatgpt/initiate-local",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await initiateOAuthFlowWithLocalServer(req.userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/auth/chatgpt/flow-status
+ * Check the status of a pending OAuth flow
+ */
+app.get(
+  "/api/auth/chatgpt/flow-status",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await checkOAuthFlowStatus(req.userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/auth/chatgpt/config
+ * Get OAuth configuration (for debugging)
+ */
+app.get(
+  "/api/auth/chatgpt/config",
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const config = await getChatGPTOAuthConfig();
+      res.json(config);
     } catch (error) {
       next(error);
     }

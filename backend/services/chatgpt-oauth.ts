@@ -9,27 +9,36 @@ import prisma from "./prisma.js";
 
 // ==================== Configuration ====================
 
-// Build redirect URI from FRONTEND_URL
+// Build redirect URI - uses localhost callback server for OAuth flow
 function getRedirectUri(): string {
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-  // Remove trailing slash if present
-  const baseUrl = frontendUrl.replace(/\/$/, "");
-  return `${baseUrl}/api/auth/chatgpt/callback`;
+  // OAuth flow requires a localhost callback server
+  // The callback server captures the authorization code
+  return (
+    process.env.CHATGPT_OAUTH_REDIRECT_URI ||
+    "http://127.0.0.1:1455/auth/callback"
+  );
 }
 
 const OAUTH_CONFIG = {
-  // OpenAI OAuth endpoints
-  authorizeEndpoint: "https://auth.openai.com/authorize",
-  tokenEndpoint: "https://auth.openai.com/api/auth/oauth/token",
-  // Client ID - users need to register their app with OpenAI
-  // For now, use the ChatGPT web client ID (may need adjustment)
-  clientId: process.env.CHATGPT_OAUTH_CLIENT_ID || "pdlLIX2Y72MIl2rhLhTE9VV9bN905kBh",
-  // Redirect URI - derived from FRONTEND_URL
+  // OpenAI OAuth endpoints - CORRECTED URLs
+  authorizeEndpoint: "https://auth.openai.com/oauth/authorize",
+  tokenEndpoint: "https://auth.openai.com/oauth/token",
+  // Client ID - official OpenAI Codex/ChatGPT client ID
+  clientId:
+    process.env.CHATGPT_OAUTH_CLIENT_ID || "pdlLIX2Y72MIl2rhLhTE9VV9bN905kBh",
+  // Redirect URI - localhost callback for OAuth flow
   get redirectUri() {
     return getRedirectUri();
   },
-  // Scopes for ChatGPT access
-  scopes: ["openid", "profile", "email", "offline_access"],
+  // Scopes for ChatGPT access - includes model access scopes
+  scopes: [
+    "openid",
+    "profile",
+    "email",
+    "offline_access",
+    "model.read",
+    "model.request",
+  ],
   // API base URL for authenticated requests
   apiBaseUrl: "https://chatgpt.com/backend-api",
 };
@@ -51,9 +60,7 @@ function getEncryptionKey(): Buffer {
   }
 
   if (key.length !== 64) {
-    throw new Error(
-      "ENCRYPTION_KEY must be 64 hex characters (32 bytes)",
-    );
+    throw new Error("ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
   }
 
   return Buffer.from(key, "hex");
@@ -162,8 +169,7 @@ export function buildAuthorizationUrl(
     state: state,
     code_challenge: challenge,
     code_challenge_method: "S256",
-    // Additional params that may be needed
-    audience: "https://api.openai.com/v1",
+    // Note: audience parameter removed - not needed for OpenAI OAuth
   });
 
   return `${OAUTH_CONFIG.authorizeEndpoint}?${params.toString()}`;
@@ -183,7 +189,12 @@ function extractAccountId(accessToken: string): string | undefined {
     );
 
     // OpenAI may store account ID in different fields
-    return payload.account_id || payload.sub || payload.user_id || payload["https://api.openai.com/profile"]?.account_id;
+    return (
+      payload.account_id ||
+      payload.sub ||
+      payload.user_id ||
+      payload["https://api.openai.com/profile"]?.account_id
+    );
   } catch (error) {
     console.error("Failed to extract account ID from token:", error);
     return undefined;
@@ -201,6 +212,7 @@ export async function exchangeCodeForTokens(
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
     },
     body: new URLSearchParams({
       grant_type: "authorization_code",
@@ -214,7 +226,20 @@ export async function exchangeCodeForTokens(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Token exchange failed:", response.status, errorText);
-    throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+
+    // Better error handling - parse JSON error if available
+    let errorMessage = `Token exchange failed: ${response.status}`;
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.error_description) {
+        errorMessage = errorJson.error_description;
+      } else if (errorJson.error) {
+        errorMessage = errorJson.error;
+      }
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
   }
 
   const data = (await response.json()) as OAuthTokenResponse;
@@ -238,6 +263,7 @@ export async function refreshAccessToken(
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
     },
     body: new URLSearchParams({
       grant_type: "refresh_token",
@@ -549,17 +575,17 @@ export async function checkChatGPTUsage(userId: string): Promise<{
   resetAt?: Date;
 } | null> {
   try {
-    const response = await makeAuthenticatedRequest(
-      userId,
-      "/wham/usage",
-    );
+    const response = await makeAuthenticatedRequest(userId, "/wham/usage");
 
     if (!response.ok) {
       console.error("Failed to check ChatGPT usage:", response.status);
       return null;
     }
 
-    const data = (await response.json()) as { remaining?: number; reset_at?: string };
+    const data = (await response.json()) as {
+      remaining?: number;
+      reset_at?: string;
+    };
     return {
       usageAvailable: true,
       remainingQuota: data.remaining,
@@ -569,6 +595,110 @@ export async function checkChatGPTUsage(userId: string): Promise<{
     console.error("Error checking ChatGPT usage:", error);
     return null;
   }
+}
+
+// ==================== Local Callback Server Integration ====================
+
+/**
+ * Start a complete OAuth flow with local callback server
+ * This function:
+ * 1. Creates an OAuth session
+ * 2. Starts a local callback server
+ * 3. Returns the auth URL for the user to open
+ * 4. Waits for the callback and exchanges the code for tokens
+ *
+ * @param userId The user ID to associate credentials with
+ * @returns Promise with the auth URL and a promise that resolves when auth completes
+ */
+export async function startOAuthFlowWithLocalServer(userId: string): Promise<{
+  authUrl: string;
+  state: string;
+  waitForCallback: () => Promise<{ success: boolean; error?: string }>;
+}> {
+  // Import callback server dynamically to avoid circular deps
+  const { startOAuthCallbackServer } =
+    await import("./oauth-callback-server.js");
+
+  // Generate PKCE values
+  const { verifier, challenge } = generatePKCE();
+  const state = generateState();
+
+  // Clean up any existing sessions for this user
+  await prisma.chatGPTOAuthSession.deleteMany({
+    where: { userId },
+  });
+
+  // Store session (expires in 10 minutes)
+  await prisma.chatGPTOAuthSession.create({
+    data: {
+      userId,
+      state,
+      codeVerifier: verifier,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+  });
+
+  // Build authorization URL
+  const authUrl = buildAuthorizationUrl(challenge, state);
+
+  // Create a function that starts the callback server and waits for result
+  const waitForCallback = async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    try {
+      // Start callback server on port 1455
+      const callbackResult = await startOAuthCallbackServer({
+        port: 1455,
+        timeoutMs: 5 * 60 * 1000, // 5 minutes
+      });
+
+      // Verify state matches
+      if (callbackResult.state !== state) {
+        return {
+          success: false,
+          error: "State mismatch - possible CSRF attack",
+        };
+      }
+
+      // Exchange code for tokens
+      const credentials = await exchangeCodeForTokens(
+        callbackResult.code,
+        verifier,
+      );
+
+      // Store credentials
+      await storeOAuthCredentials(userId, credentials);
+
+      // Clean up session
+      await prisma.chatGPTOAuthSession.deleteMany({
+        where: { state },
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("OAuth flow error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "OAuth flow failed",
+      };
+    }
+  };
+
+  return { authUrl, state, waitForCallback };
+}
+
+/**
+ * Get the OAuth configuration (for debugging/display purposes)
+ */
+export function getOAuthConfig() {
+  return {
+    authorizeEndpoint: OAUTH_CONFIG.authorizeEndpoint,
+    tokenEndpoint: OAUTH_CONFIG.tokenEndpoint,
+    redirectUri: OAUTH_CONFIG.redirectUri,
+    scopes: OAUTH_CONFIG.scopes,
+    clientId: OAUTH_CONFIG.clientId.substring(0, 8) + "...", // Partially mask
+  };
 }
 
 // Export service instance
@@ -589,6 +719,8 @@ export const chatGPTOAuthService = {
   setOAuthEnabled,
   makeAuthenticatedRequest,
   checkChatGPTUsage,
+  startOAuthFlowWithLocalServer,
+  getOAuthConfig,
   config: OAUTH_CONFIG,
 };
 
