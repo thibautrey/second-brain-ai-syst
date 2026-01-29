@@ -796,8 +796,19 @@ export class LLMRouterService {
       );
 
       const content = response.content;
-      if (!content) {
-        throw new Error("Empty response from LLM");
+      if (!content || (typeof content === "string" && content.trim() === "")) {
+        const errorDetails = {
+          hasContent: !!content,
+          contentType: typeof content,
+          contentLength: content?.length,
+          modelId,
+          baseUrl,
+          provider: providerConfig.provider,
+        };
+        console.error("[LLMRouter] Empty response from LLM", errorDetails);
+        throw new Error(
+          `Empty response from LLM (${modelId}): ${JSON.stringify(errorDetails)}`,
+        );
       }
 
       // Log cost tracking from pi-ai

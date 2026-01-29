@@ -67,7 +67,36 @@ Never repeat the same tool with identical parameters across reflections. Prefer 
         { temperature: 0.4, maxTokens: 800 },
       );
 
-      const parsed = JSON.parse(completion.content);
+      // Validate response content
+      if (!completion.content || typeof completion.content !== "string") {
+        console.error("[ExecutionPlanner] Invalid response from LLM", {
+          hasContent: !!completion.content,
+          contentType: typeof completion.content,
+          contentLength: completion.content?.length,
+        });
+        throw new Error(
+          `Invalid LLM response: expected string content, got ${typeof completion.content}`,
+        );
+      }
+
+      // Try parsing JSON with better error handling
+      let parsed: any;
+      try {
+        parsed = JSON.parse(completion.content);
+      } catch (parseError: any) {
+        console.error(
+          "[ExecutionPlanner] Failed to parse LLM response as JSON",
+          {
+            error: parseError.message,
+            content: completion.content.substring(0, 500),
+            contentLength: completion.content.length,
+          },
+        );
+        // Return a fallback plan if JSON parsing fails
+        throw new Error(
+          `Failed to parse execution plan JSON: ${parseError.message}`,
+        );
+      }
 
       const toolCalls: ToolCall[] = (parsed.toolCalls || []).map(
         (call: any) => ({
@@ -85,7 +114,10 @@ Never repeat the same tool with identical parameters across reflections. Prefer 
         confidence: parsed.confidence || 60,
       };
     } catch (error) {
-      console.error("[ExecutionPlanner] Failed to build plan, using fallback:", error);
+      console.error(
+        "[ExecutionPlanner] Failed to build plan, using fallback:",
+        error,
+      );
       return {
         toolCalls: [],
         priority: "medium",

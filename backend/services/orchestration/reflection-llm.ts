@@ -60,11 +60,33 @@ class ReflectionLLMService {
       },
     );
 
+    // Validate response content
+    if (!response.content || typeof response.content !== "string") {
+      console.error("[ReflectionLLM] Invalid response from LLM", {
+        hasContent: !!response.content,
+        contentType: typeof response.content,
+        contentLength: response.content?.length,
+      });
+      // Return default reflection on empty response
+      return {
+        decision: "give_up",
+        reasoning: "Model did not provide a valid response",
+        confidence: 0,
+      };
+    }
+
     // Try to parse JSON from model response, fallback to default structure
     let parsed: any;
     try {
       parsed = JSON.parse(response.content);
-    } catch {
+    } catch (parseError: any) {
+      console.warn(
+        "[ReflectionLLM] Failed to parse JSON, using response as reasoning",
+        {
+          parseError: parseError.message,
+          content: response.content.substring(0, 500),
+        },
+      );
       parsed = {
         decision: "answer",
         reasoning: response.content,
@@ -107,10 +129,7 @@ Current attempt ${request.attemptNumber + 1} of ${request.maxAttempts}.`;
       "",
       `Successful tools (${successfulTools.length}):`,
       successfulTools
-        .map(
-          (t) =>
-            `- ${t.toolName}: ${JSON.stringify(t.data).slice(0, 400)}`,
-        )
+        .map((t) => `- ${t.toolName}: ${JSON.stringify(t.data).slice(0, 400)}`)
         .join("\n"),
       "",
       `Failed/timeout tools (${failedTools.length}):`,
@@ -126,8 +145,23 @@ Current attempt ${request.attemptNumber + 1} of ${request.maxAttempts}.`;
   }
 
   private validateReflection(reflection: any): ReflectionResponse {
-    if (!reflection.decision || !reflection.reasoning) {
-      throw new Error("Invalid reflection response: missing required fields");
+    // Check for required fields
+    if (!reflection.decision) {
+      console.error("[ReflectionLLM] Missing decision field", {
+        hasDecision: !!reflection.decision,
+        hasReasoning: !!reflection.reasoning,
+        reflectionKeys: reflection ? Object.keys(reflection) : "null",
+      });
+      throw new Error("Invalid reflection response: missing decision field");
+    }
+
+    if (!reflection.reasoning) {
+      console.error("[ReflectionLLM] Missing reasoning field", {
+        hasDecision: !!reflection.decision,
+        hasReasoning: !!reflection.reasoning,
+        reflectionKeys: reflection ? Object.keys(reflection) : "null",
+      });
+      throw new Error("Invalid reflection response: missing reasoning field");
     }
 
     const validDecisions: ReflectionDecision[] = [

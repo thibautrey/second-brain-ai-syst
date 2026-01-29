@@ -759,38 +759,56 @@ function formatResponse(response: AssistantMessage): ChatCompletionResult {
   let content = "";
   const toolCalls: ChatCompletionResult["toolCalls"] = [];
 
-  for (const block of response.content) {
-    if (block.type === "text") {
-      content += block.text;
-    } else if (block.type === "toolCall") {
-      toolCalls.push({
-        id: block.id,
-        name: block.name,
-        arguments: block.arguments as Record<string, unknown>,
-      });
+  // Handle empty or undefined content
+  if (!response || !response.content) {
+    console.warn("[PiAiProvider] Empty response content received from model", {
+      hasResponse: !!response,
+      hasContent: !!response?.content,
+      contentLength: response?.content?.length,
+    });
+    content = "";
+  } else {
+    for (const block of response.content) {
+      if (block.type === "text" && block.text) {
+        content += block.text;
+      } else if (block.type === "toolCall") {
+        toolCalls.push({
+          id: block.id,
+          name: block.name,
+          arguments: block.arguments as Record<string, unknown>,
+        });
+      }
+      // Note: "thinking" blocks are available for reasoning models
+      // Can be exposed later for UI display
     }
-    // Note: "thinking" blocks are available for reasoning models
-    // Can be exposed later for UI display
+  }
+
+  // Validate we got at least some content or tool calls
+  if (!content && toolCalls.length === 0) {
+    console.warn(
+      "[PiAiProvider] Empty content and no tool calls in response - model may not have responded correctly",
+      { responseKeys: response ? Object.keys(response) : "null" },
+    );
   }
 
   return {
     content,
     toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
     usage: {
-      inputTokens: response.usage.input,
-      outputTokens: response.usage.output,
-      totalTokens: response.usage.totalTokens,
-      cacheReadTokens: response.usage.cacheRead,
-      cacheWriteTokens: response.usage.cacheWrite,
-      cost: response.usage.cost.total,
+      inputTokens: response?.usage?.input ?? 0,
+      outputTokens: response?.usage?.output ?? 0,
+      totalTokens: response?.usage?.totalTokens ?? 0,
+      cacheReadTokens: response?.usage?.cacheRead ?? 0,
+      cacheWriteTokens: response?.usage?.cacheWrite ?? 0,
+      cost: response?.usage?.cost?.total ?? 0,
       costBreakdown: {
-        input: response.usage.cost.input,
-        output: response.usage.cost.output,
-        cacheRead: response.usage.cost.cacheRead,
-        cacheWrite: response.usage.cost.cacheWrite,
+        input: response?.usage?.cost?.input ?? 0,
+        output: response?.usage?.cost?.output ?? 0,
+        cacheRead: response?.usage?.cost?.cacheRead ?? 0,
+        cacheWrite: response?.usage?.cost?.cacheWrite ?? 0,
       },
     },
-    stopReason: response.stopReason,
+    stopReason: response?.stopReason ?? "unknown",
     raw: response,
   };
 }
