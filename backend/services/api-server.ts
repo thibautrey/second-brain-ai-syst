@@ -98,6 +98,7 @@ import cors from "cors";
 import prisma from "./prisma.js";
 import multer from "multer";
 import debugController from "../controllers/debug.controller.js";
+import toolErrorLogsController from "../controllers/tool-error-logs.controller.js";
 import secretsController from "../controllers/secrets.controller.js";
 import generatedToolsController from "../controllers/generated-tools.controller.js";
 import {
@@ -1529,6 +1530,10 @@ if (process.env.NODE_ENV !== "production") {
   app.use("/api/debug", debugController);
   console.log("🐛 Debug routes enabled at /api/debug/input-flow");
 }
+
+// Tool Error Logs Routes (always enabled for debugging)
+app.use("/api", toolErrorLogsController);
+console.log("🔍 Tool error logs routes enabled at /api/debug/tool-errors");
 
 // ==================== Data Cleanup Routes ====================
 
