@@ -241,6 +241,7 @@ export class OrchestratorAgent {
             toolName: result.toolName,
             agentId: result.agentId,
             status: result.status,
+            ...(result.error && { error: result.error }),
           },
         });
       });
