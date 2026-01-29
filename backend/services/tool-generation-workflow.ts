@@ -24,6 +24,7 @@ import { secretsService } from "./secrets.js";
 import { llmRouterService } from "./llm-router.js";
 import { wsBroadcastService } from "./websocket-broadcast.js";
 import * as persistence from "./tool-workflow-persistence.js";
+import { detectSecretsInCode, validateSecretsDeclaration, mergeAndCompleteSecrets } from "./secret-detector.js";
 
 const prisma = new PrismaClient();
 
@@ -994,6 +995,16 @@ Error: ${error}`;
     const startTime = Date.now();
 
     try {
+      // Step 1: AUTOMATIC SECRET DETECTION
+      const detectedSecrets = detectSecretsInCode(code);
+      await this.log(
+        sessionId,
+        "validation",
+        "info",
+        `Auto-detected ${detectedSecrets.length} secret(s): ${detectedSecrets.join(", ") || "none"}`,
+      );
+
+      // Step 2: Generate schema with LLM
       const prompt = `Generate the tool schema for:
 
 **Specification:**
@@ -1002,7 +1013,12 @@ ${JSON.stringify(spec, null, 2)}
 **Code:**
 \`\`\`python
 ${code}
-\`\`\``;
+\`\`\`
+
+**Detected Secrets in Code:**
+${detectedSecrets.length > 0 ? detectedSecrets.join(", ") : "None"}
+
+IMPORTANT: Make sure all detected secrets are included in requiredSecrets.`;
 
       const response = await llmRouterService.executeTask(
         userId,
@@ -1014,12 +1030,36 @@ ${code}
 
       const schema = this.parseJsonResponse(response);
 
-      // Ensure required secrets match what's available
-      if (schema.requiredSecrets) {
-        schema.requiredSecrets = schema.requiredSecrets.filter((s: string) =>
-          availableSecrets.includes(s),
+      // Step 3: ENFORCE COMPLETE SECRET DECLARATIONS
+      // Merge LLM response with automatically detected secrets
+      const completeSecrets = mergeAndCompleteSecrets(
+        code,
+        schema.requiredSecrets || [],
+      );
+
+      // Step 4: Validate final completeness
+      const validation = validateSecretsDeclaration(code, completeSecrets);
+      
+      if (!validation.valid) {
+        await this.log(
+          sessionId,
+          "validation",
+          "warning",
+          `Missing secret declarations: ${validation.missingSecrets.join(", ")}. Auto-correcting...`,
         );
+        // FORCE add any remaining missing secrets
+        const finalSecrets = [...completeSecrets, ...validation.missingSecrets];
+        schema.requiredSecrets = finalSecrets;
+      } else {
+        schema.requiredSecrets = completeSecrets;
       }
+
+      await this.log(
+        sessionId,
+        "validation",
+        "info",
+        `Final required secrets: ${schema.requiredSecrets.join(", ") || "none"}`,
+      );
 
       // Update session with schema
       await persistence.updateSession(sessionId, {
@@ -1045,6 +1085,7 @@ ${code}
 
   /**
    * Save the tool to database
+   * INCLUDES STRICT SECRET VALIDATION
    */
   private async saveTool(
     userId: string,
@@ -1053,6 +1094,22 @@ ${code}
     schema: any,
     existingToolId?: string,
   ): Promise<GeneratedTool> {
+    // CRITICAL: Validate all secrets are properly declared
+    const schemaSecrets = schema?.requiredSecrets || [];
+    const validation = validateSecretsDeclaration(code, schemaSecrets);
+    
+    let finalSecrets = schemaSecrets;
+    if (!validation.valid) {
+      // Auto-correct: add missing secrets
+      finalSecrets = [...schemaSecrets, ...validation.missingSecrets];
+      await this.log(
+        sessionId,
+        "save",
+        "warning",
+        `Auto-corrected: Added missing secrets to requiredSecrets: ${validation.missingSecrets.join(", ")}`,
+      );
+    }
+    
     const toolName =
       schema?.name ||
       this.generateToolName(schema?.displayName || "custom_tool");
@@ -1073,7 +1130,7 @@ ${code}
             previousCode: existing.code,
             inputSchema: schema?.inputSchema || existing.inputSchema,
             outputSchema: schema?.outputSchema,
-            requiredSecrets: schema?.requiredSecrets || [],
+            requiredSecrets: finalSecrets,
             category: schema?.category || existing.category,
             tags: schema?.tags || [],
             version: existing.version + 1,
@@ -1099,7 +1156,7 @@ ${code}
           previousCode: existingByName.code,
           inputSchema: schema?.inputSchema || existingByName.inputSchema,
           outputSchema: schema?.outputSchema,
-          requiredSecrets: schema?.requiredSecrets || [],
+          requiredSecrets: finalSecrets,
           category: schema?.category || existingByName.category,
           tags: schema?.tags || [],
           version: existingByName.version + 1,
@@ -1119,7 +1176,7 @@ ${code}
         code,
         inputSchema: schema?.inputSchema || { type: "object", properties: {} },
         outputSchema: schema?.outputSchema,
-        requiredSecrets: schema?.requiredSecrets || [],
+        requiredSecrets: finalSecrets,
         category: schema?.category || "custom",
         tags: schema?.tags || [],
         isVerified: true,

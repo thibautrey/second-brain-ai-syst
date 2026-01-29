@@ -14,6 +14,7 @@ import { secretsService } from "./secrets.js";
 import { toolGenerationWorkflowService } from "./tool-generation-workflow.js";
 import { toolHealerService } from "./tool-healer.js";
 import { wsBroadcastService } from "./websocket-broadcast.js";
+import { detectSecretsInCode, validateSecretsDeclaration, mergeAndCompleteSecrets } from "./secret-detector.js";
 
 const prisma = new PrismaClient();
 
@@ -537,6 +538,7 @@ Generate Python code that accomplishes this objective.`;
 
   /**
    * Generate tool schema from code
+   * NOW WITH AUTOMATIC SECRET DETECTION AND VALIDATION
    */
   private async generateToolSchema(
     userId: string,
@@ -544,10 +546,24 @@ Generate Python code that accomplishes this objective.`;
     code: string,
     requiredSecrets: string[],
   ): Promise<GeneratedToolInput> {
+    // Step 1: Detect all secrets actually used in the code
+    const detectedSecrets = detectSecretsInCode(code);
+    
+    // Step 2: Validate completeness
+    const validation = validateSecretsDeclaration(code, requiredSecrets);
+    
+    // Step 3: Log any issues
+    if (validation.missingSecrets.length > 0) {
+      console.warn(
+        `⚠️  Missing secret declarations: ${validation.missingSecrets.join(", ")}`,
+      );
+    }
+    
+    // Step 4: Get LLM schema with detected secrets as context
     const response = await llmRouterService.executeTask(
       userId,
       "chat",
-      `Objective: ${objective}\n\nCode:\n${code}`,
+      `Objective: ${objective}\n\nCode:\n${code}\n\nSecretsDetectedInCode: ${detectedSecrets.join(", ") || "none"}`,
       TOOL_SCHEMA_PROMPT,
       { temperature: 0.1, responseFormat: "json" },
     );
@@ -561,6 +577,26 @@ Generate Python code that accomplishes this objective.`;
       }
 
       const schema = JSON.parse(jsonStr);
+      
+      // Step 5: ENFORCE complete secret declarations
+      // Merge LLM response with detected secrets
+      const completeSecrets = mergeAndCompleteSecrets(
+        code,
+        schema.requiredSecrets || requiredSecrets || [],
+      );
+
+      // Step 6: Final validation - ensure all detected secrets are declared
+      const finalValidation = validateSecretsDeclaration(code, completeSecrets);
+      if (!finalValidation.valid) {
+        console.error(
+          `❌ FATAL: Found secrets in code but not declared: ${finalValidation.missingSecrets.join(", ")}`,
+        );
+        // FORCE include missing secrets
+        const finalSecrets = [...completeSecrets, ...finalValidation.missingSecrets];
+        schema.requiredSecrets = finalSecrets;
+      } else {
+        schema.requiredSecrets = completeSecrets;
+      }
 
       return {
         name: schema.name || this.generateToolName(objective),
@@ -569,19 +605,20 @@ Generate Python code that accomplishes this objective.`;
         code,
         inputSchema: schema.inputSchema || { type: "object", properties: {} },
         outputSchema: schema.outputSchema,
-        requiredSecrets: schema.requiredSecrets || requiredSecrets,
+        requiredSecrets: schema.requiredSecrets || completeSecrets,
         category: schema.category || "custom",
         tags: schema.tags || [],
       };
     } catch {
-      // Fallback if JSON parsing fails
+      // Fallback if JSON parsing fails - still use detected secrets
+      const completeSecrets = mergeAndCompleteSecrets(code, requiredSecrets);
       return {
         name: this.generateToolName(objective),
         displayName: objective.slice(0, 50),
         description: objective,
         code,
         inputSchema: { type: "object", properties: {} },
-        requiredSecrets,
+        requiredSecrets: completeSecrets,
         category: "custom",
         tags: [],
       };
@@ -590,12 +627,26 @@ Generate Python code that accomplishes this objective.`;
 
   /**
    * Save tool to database
+   * INCLUDES STRICT SECRET VALIDATION
    */
   private async saveTool(
     userId: string,
     input: GeneratedToolInput,
     code: string,
   ): Promise<GeneratedTool> {
+    // CRITICAL VALIDATION: Ensure all secrets in code are declared
+    const validation = validateSecretsDeclaration(code, input.requiredSecrets || []);
+    
+    if (!validation.valid) {
+      // FORCE add missing secrets
+      const completedSecrets = [...(input.requiredSecrets || []), ...validation.missingSecrets];
+      input.requiredSecrets = completedSecrets;
+      
+      console.warn(
+        `🔧 Auto-corrected tool: Added missing secrets ${validation.missingSecrets.join(", ")} to requiredSecrets`,
+      );
+    }
+    
     // Check if tool with same name exists
     const existing = await prisma.generatedTool.findUnique({
       where: {
