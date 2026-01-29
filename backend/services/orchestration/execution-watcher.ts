@@ -149,6 +149,12 @@ export class ExecutionWatcher {
       }
 
       this.startMonitoring();
+
+      // Check immediately if agents are already completed
+      // Prevents race condition where agents finish before monitoring starts
+      this.checkAgents().catch((error) =>
+        console.error("[ExecutionWatcher] Immediate check error:", error),
+      );
     });
   }
 
