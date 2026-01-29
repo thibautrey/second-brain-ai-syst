@@ -38,7 +38,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     name: "Anthropic",
     displayName: "Anthropic",
-    baseUrl: "https://api.anthropic.com",
+    baseUrl: "https://api.anthropic.com/v1",
     docsUrl: "https://console.anthropic.com",
   },
   {

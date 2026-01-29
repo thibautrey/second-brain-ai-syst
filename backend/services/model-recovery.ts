@@ -78,8 +78,7 @@ export class ModelRecoveryService {
    */
   private async runRecoveryCheck(): Promise<void> {
     try {
-      const blacklistedModels =
-        await this.getBlacklistedModels();
+      const blacklistedModels = await this.getBlacklistedModels();
 
       if (blacklistedModels.length === 0) {
         console.log(
@@ -187,10 +186,7 @@ export class ModelRecoveryService {
       }
 
       // Attempt a simple health check via HTTP request to the provider's API
-      const isHealthy = await this.checkProviderHealth(
-        provider,
-        model.modelId,
-      );
+      const isHealthy = await this.checkProviderHealth(provider, model.modelId);
 
       if (isHealthy) {
         console.log(
@@ -233,7 +229,8 @@ export class ModelRecoveryService {
   ): Promise<boolean> {
     try {
       // Determine the API endpoint based on provider type
-      const baseUrl = provider.baseUrl || this.getProviderBaseUrl(provider.type);
+      const baseUrl =
+        provider.baseUrl || this.getProviderBaseUrl(provider.type);
 
       if (!baseUrl) {
         console.log(
@@ -283,15 +280,15 @@ export class ModelRecoveryService {
     const urls: Record<string, string> = {
       OPENAI: "https://api.openai.com/v1",
       OPENAI_COMPATIBLE: "http://localhost:8000/v1",
-      ANTHROPIC: "https://api.anthropic.com",
-      GOOGLE: "https://generativelanguage.googleapis.com",
+      ANTHROPIC: "https://api.anthropic.com/v1",
+      GOOGLE: "https://generativelanguage.googleapis.com/v1beta/openai/",
       OLLAMA: "http://localhost:11434/api",
       GPUSTACK: "http://localhost:8000/v1",
       // Legacy lowercase variants for backwards compatibility
       OpenAI: "https://api.openai.com/v1",
       GpuStack: "http://localhost:8000/v1",
-      Anthropic: "https://api.anthropic.com",
-      Google: "https://generativelanguage.googleapis.com",
+      Anthropic: "https://api.anthropic.com/v1",
+      Google: "https://generativelanguage.googleapis.com/v1beta/openai/",
       Ollama: "http://localhost:11434/api",
     };
 
