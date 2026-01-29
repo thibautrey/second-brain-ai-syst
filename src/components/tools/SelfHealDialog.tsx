@@ -1,0 +1,279 @@
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Card, CardContent } from "../ui/card";
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Zap,
+} from "lucide-react";
+import { apiPost } from "../../services/api";
+import { useTranslation } from "react-i18next";
+
+interface Task {
+  task: string;
+  status: "pending" | "in-progress" | "completed" | "failed";
+  result?: string;
+  error?: string;
+}
+
+interface SelfHealResponse {
+  success: boolean;
+  toolId: string;
+  toolName: string;
+  tasks: Task[];
+  completedAt: string;
+  hasErrors: boolean;
+}
+
+interface SelfHealDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  toolId: string;
+  toolName: string;
+}
+
+export function SelfHealDialog({
+  open,
+  onOpenChange,
+  toolId,
+  toolName,
+}: SelfHealDialogProps) {
+  const { t } = useTranslation();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [healed, setHealed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const startHealing = async () => {
+    setLoading(true);
+    setError(null);
+    setTasks([]);
+    setHealed(false);
+
+    try {
+      const data = await apiPost<SelfHealResponse>(
+        `/generated-tools/${toolId}/self-heal`,
+      );
+
+      setTasks(data.tasks);
+      setHealed(!data.hasErrors);
+    } catch (err: any) {
+      setError(err.message || t("toolsConfig.selfHeal.errors.fetchFailed"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "completed":
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case "failed":
+        return <AlertCircle className="w-4 h-4 text-red-600" />;
+      case "in-progress":
+        return <Clock className="w-4 h-4 text-blue-600 animate-spin" />;
+      case "pending":
+        return <Clock className="w-4 h-4 text-gray-400" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+        return (
+          <Badge variant="default" className="bg-green-600">
+            {t("toolsConfig.selfHeal.status.completed")}
+          </Badge>
+        );
+      case "failed":
+        return (
+          <Badge variant="destructive">
+            {t("toolsConfig.selfHeal.status.failed")}
+          </Badge>
+        );
+      case "in-progress":
+        return (
+          <Badge variant="secondary">
+            {t("toolsConfig.selfHeal.status.inProgress")}
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge variant="outline">
+            {t("toolsConfig.selfHeal.status.pending")}
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-yellow-600" />
+            {t("toolsConfig.selfHeal.title")}
+          </DialogTitle>
+          <DialogDescription>
+            {t("toolsConfig.selfHeal.description", { toolName })}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Error display */}
+          {error && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3 text-red-800">
+                  <AlertTriangle className="w-5 h-5" />
+                  <p>{error}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Status summary */}
+          {tasks.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {tasks.filter((t) => t.status === "completed").length}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-600">
+                    {t("toolsConfig.selfHeal.summary.completed")}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <div className="text-2xl font-bold text-gray-600">
+                    {tasks.filter((t) => t.status === "in-progress").length}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-600">
+                    {t("toolsConfig.selfHeal.summary.inProgress")}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {tasks.filter((t) => t.status === "failed").length}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-600">
+                    {t("toolsConfig.selfHeal.summary.failed")}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Tasks trace */}
+          {tasks.length > 0 && (
+            <div className="overflow-hidden border rounded-lg">
+              <div className="h-[400px] w-full overflow-y-auto">
+                <div className="p-4 space-y-3">
+                  {tasks.map((task, index) => (
+                    <div key={index} className="space-y-1">
+                      <div className="flex items-start justify-between gap-3 pb-2 border-b last:border-0">
+                        <div className="flex items-center flex-1 min-w-0 gap-3">
+                          {getStatusIcon(task.status)}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">
+                              {task.task}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="ml-2 whitespace-nowrap">
+                          {getStatusBadge(task.status)}
+                        </div>
+                      </div>
+
+                      {/* Task result or error */}
+                      {task.result && (
+                        <p className="p-2 text-xs text-gray-600 rounded ml-7 bg-green-50">
+                          ✓ {task.result}
+                        </p>
+                      )}
+                      {task.error && (
+                        <p className="p-2 text-xs text-red-700 rounded ml-7 bg-red-50">
+                          ✗ {task.error}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Success message */}
+          {healed && tasks.length > 0 && (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3 text-green-800">
+                  <CheckCircle className="w-5 h-5" />
+                  <p>{t("toolsConfig.selfHeal.success")}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No tasks yet */}
+          {tasks.length === 0 && !loading && (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <Zap className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-600">
+                  {t("toolsConfig.selfHeal.empty")}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Loading state */}
+          {loading && (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <div className="inline-flex items-center gap-2 text-gray-600">
+                  <div className="w-4 h-4 border-2 border-gray-300 rounded-full border-t-gray-600 animate-spin" />
+                  {t("toolsConfig.selfHeal.loading")}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t("common.close")}
+          </Button>
+          <Button
+            onClick={startHealing}
+            disabled={loading}
+            className="bg-yellow-600 hover:bg-yellow-700"
+          >
+            {loading
+              ? t("toolsConfig.selfHeal.inProgress")
+              : t("toolsConfig.selfHeal.start")}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

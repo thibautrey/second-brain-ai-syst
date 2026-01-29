@@ -1,0 +1,159 @@
+{
+  "landing": {
+    "brandName": "Second Brain",
+    "brandTagline": "Votre mémoire alimentée par l'IA",
+    "github": "GitHub",
+    "docs": "Docs",
+    "hero": {
+      "pill": "Open source • Auto-hébergé • Privé",
+      "titleLine1": "L'IA qui se souvient",
+      "titleLine2": "vraiment de tout.",
+      "subtitle": "Capturez vos pensées, conversations et décisions. Laissez l'IA organiser, résumer et présenter les bons souvenirs au bon moment—le tout en local sur votre machine.",
+      "viewSource": "Voir le code",
+      "highlights": {
+        "privacy": "100% Privé",
+        "local": "Fonctionne en local",
+        "proactive": "Coaching proactif"
+      }
+    },
+    "whatItDoes": {
+      "kicker": "Ce qu'il fait",
+      "title": "Votre système opérationnel cognitif personnel",
+      "features": {
+        "memory": {
+          "title": "Mémoire Continue",
+          "description": "Capture automatiquement les interactions et les structure avec compréhension sémantique."
+        },
+        "aiModels": {
+          "title": "N'importe quel Modèle IA",
+          "description": "Utilisez OpenAI, Anthropic, Gemini, ou lancez des modèles en local.",
+          "local": "Modèles Locaux"
+        },
+        "tools": {
+          "title": "Outils et Compétences",
+          "description": "Étendez votre IA avec des outils et compétences personnalisés.",
+          "examples": "Navigation web, exécution de code, appels API"
+        },
+        "search": {
+          "title": "Recherche Sémantique",
+          "description": "Trouvez les souvenirs par sens, pas seulement par mots-clés."
+        },
+        "voice": {
+          "title": "Reconnaissance du Locuteur",
+          "description": "Profils vocaux avec identification et filtrage du locuteur."
+        },
+        "proactive": {
+          "title": "Coach Proactif",
+          "description": "Coach IA qui aide avec la santé, la productivité et les objectifs."
+        },
+        "summaries": {
+          "title": "Résumés Multi-Échelle",
+          "description": "Les informations quotidiennes deviennent des réflexions annuelles."
+        },
+        "privacy": {
+          "title": "Confidentialité D'abord",
+          "description": "Auto-hébergé avec stockage chiffré et zéro télémétrie."
+        }
+      }
+    },
+    "howItWorks": {
+      "kicker": "Comment ça marche",
+      "title": "Du chaos à la clarté",
+      "subtitle": "Une boucle continue qui transforme les interactions brutes en connaissances exploitables.",
+      "steps": {
+        "capture": {
+          "title": "Capturer",
+          "description": "Enregistrez les pensées, conversations et décisions au fur et à mesure."
+        },
+        "understand": {
+          "title": "Comprendre",
+          "description": "L'IA classe l'intention, filtre le bruit et extrait le sens."
+        },
+        "remember": {
+          "title": "Retenir",
+          "description": "Vectorisé et indexé pour une récupération sémantique instantanée."
+        },
+        "assist": {
+          "title": "Assister",
+          "description": "Insights proactifs et réponses contextuelles quand vous en avez besoin."
+        }
+      }
+    },
+    "proactive": {
+      "badge": "Agent Proactif",
+      "title": "Un coach IA qui aide vraiment",
+      "description": "S'exécute deux fois par jour pour analyser les modèles et donner des suggestions.",
+      "features": {
+        "health": "Monitoring de la santé et du bien-être",
+        "goals": "Suivi des objectifs",
+        "habits": "Support de formation des habitudes",
+        "schedule": "Suggestions de planification intelligente"
+      },
+      "sample1": {
+        "title": "C'est l'heure de faire une pause",
+        "desc": "Vous travaillez depuis 4 heures. Pensez à une promenade de 15 minutes."
+      },
+      "sample2": {
+        "title": "Objectif atteint",
+        "desc": "Vous avez complété 80% de votre objectif de lecture Q1. Continuez!"
+      },
+      "sample3": {
+        "title": "Série de 7 jours",
+        "desc": "Votre routine matinale devient cohérente. Excellent progrès!"
+      }
+    },
+    "timeline": {
+      "kicker": "Résumés multi-échelle",
+      "title": "La connaissance qui s'accumule",
+      "subtitle": "Le contexte quotidien devient insight à long terme grâce aux résumés intelligents.",
+      "items": {
+        "daily": {
+          "label": "Quotidien",
+          "detail": "Moments clés & décisions"
+        },
+        "weekly": {
+          "label": "Hebdomadaire",
+          "detail": "Modèles & élan"
+        },
+        "monthly": {
+          "label": "Mensuel",
+          "detail": "Examen des projets & objectifs"
+        },
+        "quarterly": {
+          "label": "Trimestriel",
+          "detail": "Ajustements stratégiques"
+        },
+        "yearly": {
+          "label": "Annuel",
+          "detail": "Croissance à long terme"
+        }
+      }
+    },
+    "quickStart": {
+      "kicker": "Démarrage rapide",
+      "title": "Opérationnel en 60 secondes",
+      "subtitle": "Clonez, configurez et lancez. Docker gère le reste.",
+      "starRepo": "Star sur GitHub"
+    },
+    "features": {
+      "title": "Tout ce dont vous avez besoin pour un second cerveau",
+      "subtitle": "Construit pour les utilisateurs soucieux de la confidentialité qui veulent l'assistance IA sans compromettre leurs données.",
+      "list": {
+        "voiceProfiles": "Profils vocaux avec reconnaissance du locuteur",
+        "semanticSearch": "Recherche sémantique sur tous les souvenirs",
+        "multiScaleSummaries": "Résumés multi-échelle (quotidien à annuel)",
+        "proactiveCoaching": "Coaching proactif en santé et productivité",
+        "noiseFilter": "Filtrage intelligent du bruit",
+        "toolExecution": "Exécution d'outils en arrière-plan avec garde-fous",
+        "aiModelsFlexible": "OpenAI, Anthropic, Gemini, ou modèles locaux",
+        "customTools": "Système d'outils et compétences extensible",
+        "encryptedStorage": "Stockage crypté en local",
+        "localFirst": "Architecture auto-hébergée et d'abord locale"
+      }
+    },
+    "footer": {
+      "tagline": "Votre mémoire alimentée par l'IA",
+      "copyright": "Open source sous licence MIT. Construit pour les humains qui valorisent leur confidentialité."
+    }
+  }
+}

@@ -1,0 +1,185 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: secondbrain
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
+      POSTGRES_DB: second_brain
+    #    ports:
+    #      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secondbrain"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  weaviate:
+    image: semitechnologies/weaviate:latest
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      # Pas de module de vectorisation - embeddings fournis manuellement
+      DEFAULT_VECTORIZER_MODULE: none
+      # Configuration Raft pour mode single-node (requis depuis Weaviate v1.25+)
+      RAFT_BOOTSTRAP_EXPECT: 1
+      RAFT_JOIN: ""
+      CLUSTER_HOSTNAME: "weaviate"
+    #    ports:
+    #      - "8080:8080"
+    #      - "8300:8300"
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:8080/v1/.well-known/ready",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+
+  embedding-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.embedding
+    environment:
+      EMBEDDING_SERVICE_PORT: 5001
+      MODEL_CACHE_DIR: /app/models
+      HF_HOME: /app/models
+      HF_HUB_CACHE: /app/models/hub
+      HF_TOKEN: ${HF_TOKEN}
+      HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-0}
+    #    ports:
+    #      - "5001:5001"
+    volumes:
+      - embedding_models:/app/models
+      - audio_data:/app/data/audio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  code-executor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.code-executor
+    environment:
+      CODE_EXECUTOR_PORT: 5002
+      MAX_EXECUTION_TIME: 30
+      MAX_OUTPUT_SIZE: 10240
+      MAX_CODE_SIZE: 50000
+    #    ports:
+    #      - "5002:5002"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  browserless:
+    image: ghcr.io/browserless/chromium:latest
+    environment:
+      # Token for authentication (optional, leave empty for no auth)
+      TOKEN: ${BROWSERLESS_TOKEN:-}
+      # Maximum concurrent sessions
+      CONCURRENT: 5
+      # Queue length before rejecting
+      QUEUED: 10
+      # Timeout for page loads (ms)
+      TIMEOUT: 60000
+      # Enable /function, /scrape, /content endpoints
+      ENABLE_API_GET: "true"
+      # Health check endpoint
+      ENABLE_HEALTHCHECK: "true"
+      # Disable demo page in production
+      DEMO_MODE: "false"
+      # Chrome flags for better performance
+      CHROME_ARGS: "--disable-gpu --disable-dev-shm-usage --no-sandbox --disable-setuid-sandbox"
+    #    ports:
+    #      - "3001:3000"
+    healthcheck:
+      test:
+        ["CMD", "wget", "-q", "--spider", "http://localhost:3000/json/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://secondbrain:${DB_PASSWORD:-dev_password}@postgres:5432/second_brain
+      WEAVIATE_URL: http://weaviate:8080
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      PORT: 3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      EMBEDDING_SERVICE_HOST: embedding-service
+      EMBEDDING_SERVICE_PORT: 5001
+      CODE_EXECUTOR_HOST: code-executor
+      CODE_EXECUTOR_PORT: 5002
+      BROWSERLESS_URL: http://browserless:3000
+      BROWSERLESS_TOKEN: ${BROWSERLESS_TOKEN:-}
+      AUDIO_TMP_DIR: /app/data/audio/tmp
+    ports:
+      - "3000:3000"
+    volumes:
+      - audio_data:/app/data/audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+      code-executor:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+      browserless:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./src:/app/src
+      - ./index.html:/app/index.html
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:
+  weaviate_data:
+  embedding_models:
+  audio_data:

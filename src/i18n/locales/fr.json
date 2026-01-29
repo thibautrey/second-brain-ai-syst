@@ -1,0 +1,1482 @@
+{
+  "common": {
+    "add": "Ajouter",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "save": "Sauvegarder",
+    "saving": "Enregistrement...",
+    "create": "Créer",
+    "search": "Rechercher",
+    "error": "Erreur",
+    "success": "Succès",
+    "loading": "Chargement...",
+    "name": "Nom",
+    "email": "Email",
+    "password": "Mot de passe",
+    "none": "Aucun",
+    "clear": "Effacer",
+    "required": "Obligatoire",
+    "optional": "Optionnel",
+    "refresh": "Rafraîchir",
+    "errorSaving": "Erreur lors de la sauvegarde"
+  },
+  "timeAgo": {
+    "justNow": "À l'instant",
+    "minutesAgo": "il y a {{count}}m",
+    "hoursAgo": "il y a {{count}}h",
+    "daysAgo": "il y a {{count}}j",
+    "weeksAgo": "il y a {{count}}sem",
+    "monthsAgo": "il y a {{count}}mo"
+  },
+  "auth": {
+    "login": {
+      "title": "Bienvenue",
+      "subtitle": "Connectez-vous à votre Second Brain",
+      "emailLabel": "Adresse Email",
+      "passwordLabel": "Mot de passe",
+      "signIn": "Connexion",
+      "signingIn": "Connexion en cours...",
+      "error": "Connexion échouée",
+      "dontHaveAccount": "Vous n'avez pas de compte?",
+      "createOne": "En créer un",
+      "emailRequired": "Email et mot de passe requis"
+    },
+    "signup": {
+      "title": "Créer un compte",
+      "subtitle": "Rejoignez Second Brain AI System",
+      "nameLabel": "Nom complet (Optionnel)",
+      "emailLabel": "Adresse Email",
+      "passwordLabel": "Mot de passe",
+      "confirmPasswordLabel": "Confirmer le mot de passe",
+      "signUp": "S'inscrire",
+      "creatingAccount": "Création du compte...",
+      "error": "Inscription échouée",
+      "alreadyHaveAccount": "Vous avez déjà un compte?",
+      "signInInstead": "Se connecter",
+      "passwordMinLength": "Au moins 6 caractères",
+      "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+      "emailRequired": "Email et mot de passe requis",
+      "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères"
+    }
+  },
+  "dashboard": {
+    "welcome": "Bienvenue de retour",
+    "greeting": "Bienvenue de retour, {{name}} !",
+    "summary": "Voici un résumé de votre Second Brain",
+    "totalMemories": "Mémoires totales",
+    "totalInteractions": "Interactions totales",
+    "dailySummaries": "Résumés quotidiens",
+    "recentActivity": "Activité récente",
+    "noRecentActivity": "Aucune activité récente. Commencez par capturer vos pensées ou créer des tâches !",
+    "recordThought": "Enregistrer une pensée",
+    "viewMemories": "Voir les mémoires",
+    "todaysSummary": "Résumé du jour",
+    "quickActions": "Actions rapides",
+    "recordThoughtDescription": "Capturez vos idées maintenant",
+    "viewMemoriesDescription": "Parcourez vos connaissances",
+    "todaysSummaryDescription": "Découvrez vos temps forts",
+    "icons": {
+      "microphone": "Microphone",
+      "brain": "Cerveau",
+      "chart": "Graphique",
+      "activity": "Activité {{type}}"
+    }
+  },
+  "navigation": {
+    "appName": "Second Brain AI",
+    "dashboard": "Tableau de bord",
+    "memories": "Mémoires",
+    "interactions": "Interactions",
+    "goalsAchievements": "Objectifs & Accomplissements",
+    "voiceTraining": "Entraînement vocal",
+    "tools": "Outils",
+    "channels": "Canaux",
+    "settings": "Paramètres",
+    "logout": "Déconnexion",
+    "schedule": "Planification",
+    "tasksScheduling": "Tâches & Planifications",
+    "menuClose": "Fermer le menu de navigation",
+    "menuOpen": "Ouvrir le menu de navigation"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Configurez vos providers d'IA et assignez les modèles aux différentes tâches.",
+    "tabs": {
+      "providers": "Providers IA",
+      "appearance": "Apparence",
+      "models": "Configuration des Modèles",
+      "secrets": "Secrets & Clés API",
+      "listening": "Écoute Continue"
+    },
+    "providers": {
+      "title": "Providers IA",
+      "addProvider": "Ajouter un Provider",
+      "noProvidersConfigured": "Aucun provider configuré.",
+      "editProvider": "Modifier le Provider",
+      "newProvider": "Nouveau Provider",
+      "providerName": "Nom du Provider",
+      "description": "Configurez vos clés API et endpoints pour les différents services d'IA.",
+      "emptyState": {
+        "title": "Aucun provider configuré.",
+        "subtitle": "Ajoutez un provider pour commencer."
+      },
+      "editProviderDescription": "Modifiez les informations du provider",
+      "newProviderDescription": "Configurez un nouveau provider d'IA",
+      "providerNamePlaceholder": "ex: OpenAI Production",
+      "providerTypeLabel": "Type de Provider",
+      "providerType": {
+        "openai": "OpenAI",
+        "openaiCompatible": "OpenAI Compatible (URL personnalisée)",
+        "openaiCompatibleShort": "OpenAI Compatible"
+      },
+      "apiKeyLabel": "Clé API",
+      "apiKeyPlaceholder": "sk-...",
+      "baseUrlLabel": "URL de Base",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "baseUrlHelp": "L'URL de base de l'API compatible OpenAI (ex: https://api.together.xyz/v1)",
+      "activeLabel": "Provider actif",
+      "modelsLabel": "Modèles :",
+      "modelCount": "{{count}} modèle disponible",
+      "modelCount_plural": "{{count}} modèles disponibles",
+      "moreModels": "+{{count}} autres",
+      "syncModels": "Synchroniser les modèles",
+      "orUseApiKey": "Ou utiliser des clés API",
+      "validation": {
+        "nameRequired": "Le nom est requis",
+        "apiKeyRequired": "La clé API est requise",
+        "baseUrlRequired": "L'URL de base est requise pour les providers compatibles OpenAI"
+      }
+    },
+    "models": {
+      "primaryProvider": "Provider Primaire",
+      "fallbackModel": "Utilisé automatiquement en cas d'échec du provider primaire",
+      "noSuggestedProvider": "Aucun provider suggéré pour cette tâche, mais vous",
+      "noActiveProvider": "Aucun provider actif disponible",
+      "title": "Configuration des Modèles",
+      "description": "Choisissez un mode : rapide (un seul modèle LLM partagé) ou avancé (configuration par tâche).",
+      "mode": {
+        "simple": "Mode simple",
+        "advanced": "Mode avancé"
+      },
+      "noProviders": {
+        "title": "Vous devez d'abord configurer au moins un provider",
+        "subtitle": "dans l'onglet \"Providers IA\"."
+      },
+      "simpleCards": {
+        "llm": {
+          "title": "Modèle LLM global",
+          "description": "Utilisé pour Chat, Routage, Réflexion, Résumés et Analyse. Sélectionnez un seul modèle pour tout."
+        },
+        "embeddings": {
+          "title": "Embeddings (obligatoire)",
+          "description": "Vectorisation pour la recherche sémantique (Weaviate et résumés)."
+        },
+        "speech": {
+          "title": "Speech to Text",
+          "description": "Transcription audio vers texte (Whisper ou équivalent)."
+        },
+        "images": {
+          "title": "Génération d'Images",
+          "description": "Création d'images à partir de texte (DALL·E, etc.)."
+        }
+      },
+      "optionGroups": {
+        "suggested": "✓ Suggérés",
+        "suggestedCompatible": "✓ Suggérés (modèles compatibles)",
+        "suggestedForTask": "✓ Suggérés pour cette tâche",
+        "otherProviders": "Autres providers",
+        "availableModels": "Modèles disponibles",
+        "otherModels": "Autres modèles"
+      },
+      "status": {
+        "mixed": "Configurations différentes",
+        "configured": "Config. ok",
+        "needsConfig": "À configurer",
+        "optional": "Optionnel"
+      },
+      "coverage": "Couvre : {{coverage}}",
+      "warnings": {
+        "mixed": "Certaines tâches de ce groupe utilisent des modèles différents. Choisissez un provider pour harmoniser.",
+        "required": "Ce groupe est requis : sélectionnez au moins un provider et un modèle."
+      },
+      "providerLabel": "Provider",
+      "providerPlaceholder": "Sélectionner un provider",
+      "modelLabel": "Modèle",
+      "modelPlaceholder": "Sélectionner un modèle",
+      "noRecommendedProvider": "Aucun provider recommandé, mais vous pouvez en choisir un et sélectionner le modèle manuellement.",
+      "noSuggestedProviderForTask": "Aucun provider suggéré pour cette tâche, mais vous pouvez choisir n'importe lequel",
+      "noSuggestedModel": "Aucun modèle suggéré, mais vous pouvez utiliser n'importe quel modèle",
+      "noSuggestedModelForProvider": "Aucun modèle suggéré pour ce provider, choisissez n'importe quel modèle disponible.",
+      "selectProviderFirst": "Choisissez un provider avant de sélectionner un modèle.",
+      "configured": "Configuré",
+      "notConfigured": "Non configuré",
+      "primary": {
+        "title": "Configuration Primaire"
+      },
+      "fallback": {
+        "title": "⚡ Configuration de Secours",
+        "description": "Utilisé automatiquement en cas d'échec du provider primaire",
+        "providerLabel": "Provider de Secours",
+        "modelLabel": "Modèle de Secours",
+        "configured": "✓ Fallback configuré",
+        "optionalHint": "Optionnel : configurez un fallback pour plus de résilience"
+      }
+    },
+    "secrets": {
+      "addApiKey": "Ajoutez vos clés API pour utiliser les outils générés et",
+      "title": "Secrets & Clés API",
+      "subtitle": "Stockez vos clés API et secrets de manière sécurisée avec chiffrement AES-256-GCM.",
+      "addSecret": "Ajouter un Secret",
+      "emptyState": {
+        "title": "Aucun secret configuré.",
+        "subtitle": "Ajoutez vos clés API pour utiliser les outils générés et l'intégration MCP."
+      },
+      "newTitle": "Nouveau Secret",
+      "editTitle": "Modifier le Secret",
+      "newDescription": "Créez un nouveau secret sécurisé",
+      "editDescription": "Modifiez votre clé API ou secret",
+      "keyLabel": "Clé (identifiant unique)",
+      "keyPlaceholder": "openai_api_key",
+      "keyHelp": "Format : minuscules, chiffres, underscores uniquement",
+      "displayNameLabel": "Nom d'affichage",
+      "displayNamePlaceholder": "OpenAI API Key",
+      "valueLabel": "Valeur",
+      "valuePlaceholder": "sk-... ou votre valeur secrète",
+      "categoryLabel": "Catégorie",
+      "categories": {
+        "general": "Général",
+        "aiProvider": "Provider IA",
+        "mcp": "MCP Server",
+        "integration": "Intégration",
+        "generatedTool": "Outil Généré"
+      },
+      "expiresAtLabel": "Expiration (optionnel)",
+      "expiresAtHelp": "Laissez vide pour pas d'expiration",
+      "descriptionLabel": "Description (optionnel)",
+      "descriptionPlaceholder": "Ex : Clé pour accéder à l'API GPT-4",
+      "copyKey": "Copier la clé",
+      "expiresOn": "Expire le",
+      "lastUsed": "Utilisé le",
+      "toggleValue": "Afficher/Masquer la valeur",
+      "valueWarning": "⚠️ Ne partagez pas cette valeur. Elle est chiffrée en base de données.",
+      "validation": {
+        "keyRequired": "La clé est requise",
+        "keyFormat": "La clé doit commencer par une lettre minuscule et contenir uniquement des lettres minuscules, chiffres et underscores",
+        "valueRequired": "La valeur est requise",
+        "displayNameRequired": "Le nom d'affichage est requis"
+      }
+    },
+    "listening": {
+      "title": "Paramètres de détection de voix et de silence",
+      "voiceRecognition": "Paramètres pour reconnaître votre voix parmi d'autres",
+      "confidenceThreshold": "Niveau de certitude requis pour confirmer que c'est bien vous qui",
+      "passiveMemory": "Contrôle ce qui est enregistré en mémoire passive",
+      "notifications": {
+        "title": "Notifications",
+        "description": "Paramètres des alertes visuelles et sonores",
+        "memoryStored": "Mémoire enregistrée",
+        "memoryStoredHint": "Notifier quand une parole est sauvegardée en mémoire",
+        "commandDetected": "Commande détectée",
+        "commandDetectedHint": "Notifier quand le wake word est reconnu"
+      },
+      "memoryRecorded": "Mémoire enregistrée",
+      "notifyWhenSaved": "Notifier quand une parole est sauvegardée en mémoire",
+      "headerTitle": "Écoute Continue",
+      "headerDescription": "Configurez le mode d'écoute en continu pour capturer automatiquement vos pensées et commandes.",
+      "wakeWord": {
+        "title": "Mot d'Activation",
+        "description": "Le mot ou la phrase qui déclenche le mode commande",
+        "label": "Mot d'activation",
+        "placeholder": "Hey Brain",
+        "help": "Dites ce mot avant une commande pour que le système réponde activement",
+        "sensitivity": "Sensibilité ({{percent}}%)",
+        "sensitivityHint": "Augmentez pour détecter plus de variations du mot d'activation",
+        "testTitle": "Tester le mot d'activation",
+        "testPlaceholder": "Ex : {{word}} quelle heure est-il ?",
+        "testAction": "Tester",
+        "detected": "Wake word détecté !",
+        "notDetected": "Wake word non détecté",
+        "commandExtracted": "Commande extraite : \"{{command}}\"",
+        "emptyCommand": "(vide)",
+        "passiveNote": "Ce texte sera traité comme observation passive"
+      },
+      "audioProcessing": {
+        "title": "Traitement Audio",
+        "description": "Paramètres de détection de voix et de silence",
+        "vadSensitivity": "Sensibilité VAD ({{percent}}%)",
+        "vadHint": "Détection d'activité vocale : plus sensible = détecte les voix faibles",
+        "silenceDelay": "Délai de silence ({{ms}}ms)",
+        "silenceHint": "Durée de silence avant de considérer la phrase terminée"
+      },
+      "speaker": {
+        "title": "Identification du Locuteur",
+        "description": "Paramètres pour reconnaître votre voix parmi d'autres",
+        "confidenceThreshold": "Seuil de confiance ({{percent}}%)",
+        "confidenceHint": "Niveau de certitude requis pour confirmer que c'est bien vous qui parlez. Un seuil plus bas accepte plus de variantes de votre voix."
+      },
+      "memory": {
+        "title": "Seuil de Pertinence",
+        "description": "Contrôle ce qui est enregistré en mémoire passive",
+        "minImportance": "Importance minimum ({{percent}}%)",
+        "minImportanceHint": "Seules les paroles jugées pertinentes au-dessus de ce seuil seront mémorisées. Un seuil bas capture plus d'informations, un seuil haut est plus sélectif."
+      }
+    },
+    "appearance": {
+      "title": "Apparence",
+      "subtitle": "Choisissez un thème ou suivez la préférence de votre appareil.",
+      "description": "Choisissez un jeu de couleurs qui s'adapte à votre flux. Ce choix est enregistré dans vos préférences.",
+      "sectionTitle": "Thème",
+      "options": {
+        "system": "Suivre le système",
+        "light": "Mode clair",
+        "dark": "Mode sombre"
+      },
+      "descriptions": {
+        "system": "Synchronise automatiquement avec macOS, Windows ou Linux.",
+        "light": "Interface lumineuse avec un bon contraste.",
+        "dark": "Mode sombre pour travailler en basse lumière."
+      },
+      "current": "Thème actif : {{theme}}",
+      "saving": "Enregistrement...",
+      "loading": "Chargement de la préférence..."
+    },
+    "chatgptOAuth": {
+      "title": "Compte ChatGPT",
+      "description": "Utilisez votre quota d'abonnement ChatGPT pour l'accès API",
+      "notConnected": {
+        "title": "Non connecté",
+        "description": "Connectez votre compte ChatGPT pour utiliser votre quota d'abonnement au lieu de fournir une clé API. C'est utile si vous avez un abonnement ChatGPT Plus ou Team."
+      },
+      "benefits": {
+        "useSubscription": "Utilisez votre abonnement ChatGPT existant",
+        "noApiKey": "Pas besoin de gérer des clés API séparées",
+        "secure": "Authentification OAuth 2.0 sécurisée"
+      },
+      "connecting": "Connexion...",
+      "connect": "Connecter le compte ChatGPT",
+      "connected": "Connecté",
+      "accountId": "Compte",
+      "useOAuth": "Utiliser l'OAuth ChatGPT",
+      "useOAuthDescription": "Lorsque activé, utilise votre compte ChatGPT pour les requêtes API",
+      "testConnection": "Tester la connexion",
+      "disconnect": "Déconnecter",
+      "note": "Note",
+      "noteDescription": "ChatGPT OAuth offre une alternative aux clés API. Vous pouvez toujours configurer des providers API classiques ci-dessus et choisir la méthode par tâche."
+    }
+  },
+  "memory": {
+    "title": "Mémoires",
+    "memories": "Mémoires",
+    "subtitle": "Explorez et gérez vos souvenirs",
+    "semanticSearchActive": "Recherche sémantique active",
+    "noMemoriesFound": "Aucun souvenir trouvé",
+    "searchPlaceholder": "Rechercher dans vos souvenirs...",
+    "memoryType": "Type de mémoire",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce souvenir?",
+    "noRecentActivity": "Aucune activité récente"
+  },
+  "todos": {
+    "createTodo": "Créer une tâche",
+    "noTodosFound": "Aucune tâche trouvée",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette tâche?",
+    "title": "Tâches",
+    "subtitle": "Gérez vos tâches et suivez votre progression",
+    "newTodo": "Nouvelle tâche",
+    "filters": {
+      "all": "Toutes",
+      "pending": "À faire",
+      "inProgress": "En cours",
+      "completed": "Terminées",
+      "overdue": "En retard"
+    },
+    "stats": {
+      "pending": "À faire",
+      "inProgress": "En cours",
+      "completed": "Terminées",
+      "overdue": "En retard"
+    },
+    "form": {
+      "newTitle": "Nouvelle tâche",
+      "editTitle": "Modifier la tâche",
+      "titleLabel": "Titre *",
+      "titlePlaceholder": "Que devez-vous faire ?",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Détails supplémentaires...",
+      "priorityLabel": "Priorité",
+      "priorities": {
+        "low": "Basse",
+        "medium": "Moyenne",
+        "high": "Haute",
+        "urgent": "Urgente"
+      },
+      "categoryLabel": "Catégorie",
+      "categoryPlaceholder": "ex: Travail",
+      "tagsLabel": "Tags (séparés par des virgules)",
+      "tagsPlaceholder": "ex: urgent, projet-x, réunion",
+      "dueDateLabel": "Date d'échéance",
+      "reminderLabel": "Rappel",
+      "update": "Mettre à jour"
+    }
+  },
+  "schedule": {
+    "createSchedule": "Créer une planification",
+    "noTasksScheduled": "Aucune tâche planifiée",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette tâche planifiée?",
+    "editTask": "Modifier la tâche planifiée",
+    "taskName": "Nom *",
+    "maxRuns": "Nombre max d'exécutions",
+    "createAction": "Créer tâche",
+    "generateSummary": "Génère un résumé des mémoires",
+    "launchAgent": "Lance un agent autonome",
+    "filters": {
+      "all": "Toutes",
+      "enabled": "Actives",
+      "disabled": "Désactivées",
+      "oneTime": "Une fois",
+      "cron": "Récurrentes",
+      "interval": "Intervalles"
+    },
+    "stats": {
+      "total": "Total",
+      "enabled": "Actives",
+      "disabled": "Désactivées",
+      "cron": "Récurrentes"
+    },
+    "item": {
+      "actionType": {
+        "runAgent": "Exécuter Agent"
+      },
+      "scheduleType": {
+        "interval": "Intervalle"
+      },
+      "nextRun": {
+        "label": "Prochain exécution :",
+        "inHours": "dans {{count}} heure",
+        "inHours_plural": "dans {{count}} heures"
+      },
+      "runCount": "{{count}} exécution",
+      "runCount_plural": "{{count}} exécutions",
+      "lastRun": "Dernière exécution : {{date}}"
+    }
+  },
+  "tools": {
+    "title": "Configuration des Outils",
+    "subtitle": "Gérez les outils intégrés, serveurs MCP et outils du marketplace",
+    "integratedTools": "Outils Intégrés",
+    "generatedTools": "Outils Générés",
+    "installedTools": "Outils installés",
+    "availableTools": "Outils disponibles",
+    "configureRequired": "Configurez les paramètres requis pour installer",
+    "endpointNotAvailable": "Les endpoints de configuration des outils ne sont pas encore",
+    "apiTip": "💡 Conseil: Les endpoints API pour les outils ne"
+  },
+  "skills": {
+    "tabs": {
+      "skills": "Skills"
+    },
+    "installed": {
+      "title": "Skills installés",
+      "empty": "Aucun skill installé",
+      "emptyHint": "Parcourez le Skill Hub ci-dessous pour en ajouter",
+      "badge": "Installé"
+    },
+    "hub": {
+      "title": "Skill Hub",
+      "searchPlaceholder": "Rechercher des skills...",
+      "allCategories": "Toutes les catégories",
+      "noResults": "Aucun skill trouvé"
+    },
+    "confirm": {
+      "uninstall": "Voulez-vous vraiment désinstaller ce skill ?"
+    },
+    "usageCount": "{{count}} utilisation",
+    "usageCount_plural": "{{count}} utilisations",
+    "lastUsed": "Dernière utilisation : {{date}}",
+    "uninstall": "Désinstaller",
+    "install": "Installer",
+    "installing": "Installation...",
+    "builtin": "Intégré",
+    "byAuthor": "par {{author}}",
+    "requiresEnv": "Nécessite"
+  },
+  "chat": {
+    "accessMemories": "Je peux accéder à vos mémoires pour des réponses personnalisées",
+    "connecting": "Connexion...",
+    "connected": "Connecté",
+    "panelTitle": "Chat avec Second Brain",
+    "emptyTitle": "Commencez une conversation...",
+    "inputPlaceholder": "Écrivez votre message...",
+    "widgetTitle": "Second Brain",
+    "thinking": "Réflexion en cours...",
+    "dismissNotification": "Fermer la notification"
+  },
+  "floatingChat": {
+    "title": "Discussion",
+    "thinking": "Réflexion en cours...",
+    "emptyTitle": "Aucun message",
+    "emptySubtitle": "Commencez une conversation pour voir les messages ici",
+    "inputPlaceholder": "Tapez un message...",
+    "mic": {
+      "startTitle": "Enregistrer un message",
+      "stopTitle": "Arrêter l'enregistrement",
+      "startAria": "Cliquez pour enregistrer un message vocal",
+      "stopAria": "Cliquez pour arrêter l'enregistrement"
+    }
+  },
+  "training": {
+    "passphrase": "Ma voix est mon mot de passe",
+    "recordSamples": {
+      "title": "Enregistrer des échantillons vocaux",
+      "subtitle": "Enregistrez des lectures naturelles des phrases ci-dessous. Entraînez-vous avec plusieurs langues pour une meilleure précision.",
+      "languageTitle": "Langue d'entraînement",
+      "recordedLabel": "Enregistré :",
+      "samplesCount": "{{count}} échantillon",
+      "samplesCount_plural": "{{count}} échantillons",
+      "languageTip": "💡 Astuce : enregistrer des échantillons dans plusieurs langues améliore la reconnaissance lorsque vous changez de langue",
+      "stats": {
+        "totalSamples": "Échantillons totaux",
+        "uniquePhrases": "Phrases uniques",
+        "ready": "Prêt",
+        "keepRecording": "Continuer à enregistrer"
+      },
+      "minimumSamples": "Enregistrez au moins 1 échantillon pour continuer.",
+      "errors": {
+        "recordingFailed": "Échec de l'enregistrement"
+      },
+      "selectPhrase": "Sélectionner une phrase",
+      "yourSamples": "Vos échantillons",
+      "playRecording": "Lire l'enregistrement",
+      "deleteRecording": "Supprimer l'enregistrement",
+      "processing": "Traitement...",
+      "continueToParagraphs": "Continuer vers la lecture de paragraphes",
+      "tipsTitle": "Conseils d'enregistrement",
+      "tips": [
+        "Enregistrez dans un environnement calme pour de meilleurs résultats",
+        "Parlez naturellement sans sur-articuler",
+        "Entraînez-vous avec plusieurs langues pour une meilleure reconnaissance multilingue",
+        "Plusieurs enregistrements de la même phrase renforcent le modèle",
+        "Ensuite : vous lirez des paragraphes plus longs pour un meilleur modèle vocal"
+      ],
+      "categories": {
+        "passphrase": "Phrase secrète",
+        "sentence": "Phrase",
+        "numeric": "Numérique"
+      }
+    },
+    "recordingControl": {
+      "readPhrase": "Lisez cette phrase :",
+      "categoryLabel": "Catégorie :",
+      "audioLevel": "Niveau audio",
+      "lowVolumeWarning": "⚠️ Le volume est faible — parlez plus fort ou rapprochez-vous du micro",
+      "recordingTime": "Temps d'enregistrement",
+      "recordingInProgress": "Enregistrement en cours...",
+      "startRecording": "Démarrer l'enregistrement",
+      "stopRecording": "Arrêter l'enregistrement",
+      "tipsTitle": "Conseils d'enregistrement :",
+      "tips": [
+        "Parlez naturellement et clairement",
+        "Maintenez un volume constant",
+        "Évitez les bruits de fond si possible",
+        "Enregistrez 3 à 5 échantillons par phrase"
+      ],
+      "errors": {
+        "microphoneAccess": "Impossible d'accéder au microphone. Veuillez vérifier les permissions."
+      }
+    },
+    "profileSelection": {
+      "loading": "Chargement de vos profils...",
+      "title": "Sélectionnez ou créez un profil vocal",
+      "subtitle": "Vous pouvez créer plusieurs profils pour différentes voix et les entraîner indépendamment. Vous pouvez toujours ajouter plus d'échantillons pour améliorer la précision.",
+      "yourProfiles": "Vos profils",
+      "sampleCount": "{{count}} échantillon",
+      "sampleCount_plural": "{{count}} échantillons",
+      "createdOn": "Créé le {{date}}",
+      "enrolled": "✓ Enregistré",
+      "recording": "Enregistrement...",
+      "stop": "Arrêter",
+      "verifying": "Vérification de la voix...",
+      "voiceRecognized": "Voix reconnue !",
+      "voiceNotRecognized": "Voix non reconnue",
+      "confidence": "Confiance : {{percent}}%",
+      "tryAgain": "Réessayer",
+      "close": "Fermer",
+      "startRecording": "Démarrer l'enregistrement",
+      "verifyVoice": "Vérifier la voix",
+      "createTitle": "Créer un nouveau profil",
+      "profileNameLabel": "Nom du profil",
+      "profileNamePlaceholder": "ex. Voix travail, Personnel, Deuxième langue",
+      "creating": "Création...",
+      "createAction": "Créer un nouveau profil",
+      "continue": "Continuer avec le profil sélectionné",
+      "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce profil ? Tous les échantillons vocaux et données d'entraînement seront définitivement supprimés.",
+      "deleting": "Suppression...",
+      "tipsTitle": "💡 Astuces",
+      "tips": [
+        "Vous pouvez ajouter des échantillons à un profil à tout moment pour améliorer la précision",
+        "Réentraîner avec plus d'échantillons affine le modèle vocal",
+        "Gardez les profils organisés en leur donnant des noms descriptifs"
+      ],
+      "errors": {
+        "loadProfiles": "Échec du chargement des profils",
+        "profileNameRequired": "Le nom du profil est requis",
+        "createProfile": "Échec de la création du profil",
+        "deleteProfile": "Échec de la suppression du profil",
+        "microphoneAccess": "Impossible d'accéder au microphone. Veuillez autoriser l'accès.",
+        "verificationFailed": "Échec de la vérification"
+      }
+    },
+    "profileSetup": {
+      "title": "Créez votre profil vocal",
+      "subtitle": "Configurez votre profil pour commencer. Ce sera votre identité vocale unique dans le système.",
+      "profileNameLabel": "Nom du profil",
+      "profileNamePlaceholder": "ex. Voix travail, Personnel",
+      "profileNameHint": "Donnez un nom mémorable à votre profil",
+      "emailLabel": "Adresse email",
+      "emailHint": "Votre email de compte (lié à votre profil vocal)",
+      "creating": "Création du profil...",
+      "continueToRecording": "Continuer vers l'enregistrement",
+      "nextStepsTitle": "Et ensuite ?",
+      "nextSteps": [
+        "Enregistrer 5 à 10 échantillons vocaux",
+        "Lire naturellement les phrases fournies",
+        "Entraîner le modèle IA",
+        "Vérifier votre profil vocal"
+      ],
+      "timeEstimateTitle": "Estimation du temps",
+      "timeEstimates": [
+        "Configuration : 2 minutes",
+        "Enregistrement : 5-10 minutes",
+        "Entraînement : 2-5 minutes",
+        "Total : ~15 minutes"
+      ],
+      "errors": {
+        "profileNameRequired": "Le nom du profil est requis",
+        "generic": "Une erreur est survenue"
+      }
+    },
+    "recentRecordings": {
+      "title": "Classifications audio récentes",
+      "subtitle": "Passez en revue et corrigez les classifications de locuteur issues de l'écoute continue",
+      "stats": {
+        "yourVoice": "Votre voix",
+        "others": "Autres"
+      },
+      "whyReviewTitle": "Pourquoi les revoir ?",
+      "whyReviewDescription": "Si le système a classé votre voix comme \"quelqu'un d'autre\", il évitera de faire correspondre des audios similaires à l'avenir. Corriger ces erreurs améliore la précision.",
+      "clearAllOthers": "Tout effacer (autres)",
+      "confirmClearAll": "Êtes-vous sûr de vouloir effacer tous les exemples négatifs ? Cela réinitialisera l'apprentissage du système sur les autres locuteurs.",
+      "emptyTitle": "Aucune classification audio récente",
+      "emptyDescription": "Les enregistrements de l'écoute continue apparaîtront ici",
+      "retrainingTriggered": "✓ Échantillon vocal ajouté et ré-entraînement démarré automatiquement !",
+      "sampleAdded": "✓ Échantillon vocal ajouté à votre profil",
+      "badge": {
+        "other": "Classé comme autre",
+        "yourVoice": "Votre voix"
+      },
+      "confidenceLabel": "Confiance : {{percent}}%",
+      "confidenceHint": "Le système est confiant à {{percent}}% que cette classification est correcte",
+      "actions": {
+        "thatsMe": "C'est moi",
+        "notMe": "Pas moi",
+        "markAsUser": "Marquer comme votre voix",
+        "markAsOther": "Marquer comme la voix d'une autre personne"
+      },
+      "audio": {
+        "play": "Lire",
+        "stop": "Arrêter",
+        "noAudio": "Pas d'audio",
+        "playAudio": "Lire l'audio",
+        "stopPlayback": "Arrêter la lecture",
+        "sourceUnavailable": "Source audio indisponible pour ce type d'enregistrement.",
+        "loadFailed": "Échec du chargement audio",
+        "loadFailedWithStatus": "Échec du chargement audio : {{status}} {{statusText}}",
+        "invalidFormat": "Les données reçues ne sont pas un format audio. Le fichier peut avoir été supprimé ou corrompu.",
+        "playFailed": "Impossible de lire l'audio. Le fichier peut être corrompu."
+      },
+      "errors": {
+        "load": "Échec du chargement des enregistrements",
+        "reclassify": "Échec de la reclassification",
+        "clearAll": "Échec de l'effacement des exemples négatifs"
+      }
+    }
+  },
+  "notifications": {
+    "errorSaving": "Erreur lors de la sauvegarde"
+  },
+  "notificationSettings": {
+    "loading": "Chargement des paramètres...",
+    "statusLabel": "Statut",
+    "status": {
+      "enabled": "✓ Activé",
+      "disabled": "○ Désactivé"
+    },
+    "botToken": "Jeton du bot",
+    "showToken": "Afficher le jeton",
+    "connectBot": "Connecter le bot",
+    "validating": "Validation...",
+    "sendTest": "Envoyer un test",
+    "sending": "Envoi...",
+    "disconnect": "Déconnecter",
+    "disconnecting": "Déconnexion...",
+    "setupTitle": "Comment configurer Telegram",
+    "setupStep1Title": "Étape 1 : Créez votre bot",
+    "setupStep1": [
+      "Ouvrez Telegram et recherchez @BotFather",
+      "Envoyez /newbot pour créer un nouveau bot",
+      "Choisissez un nom pour votre bot (par exemple, \"Mon Second Brain\")",
+      "Choisissez un nom d'utilisateur qui se termine par \"bot\" (par exemple, \"mon_brain_bot\")",
+      "Copiez le jeton fourni par BotFather"
+    ],
+    "setupStep2Title": "Étape 2 : Connectez le bot",
+    "setupStep2": [
+      "Collez votre jeton de bot ci-dessus et cliquez sur Connecter le bot",
+      "Ouvrez votre bot dans Telegram (cliquez sur le lien fourni par BotFather)",
+      "Envoyez /start à votre bot",
+      "Votre conversation sera automatiquement connectée !"
+    ],
+    "openBotFather": "Ouvrir BotFather",
+    "waitingTitle": "En attente de connexion",
+    "waitingBody": "Ouvrez votre bot dans Telegram et envoyez /start pour terminer la configuration.",
+    "confirmDisconnect": "Êtes-vous sûr de vouloir déconnecter Telegram ? Vous ne recevrez plus de notifications.",
+    "alertError": "Erreur : {{message}}",
+    "connection": {
+      "connected": "Connecté",
+      "offline": "Hors ligne"
+    },
+    "browser": {
+      "unsupported": "Les notifications du navigateur ne sont pas prises en charge par votre navigateur",
+      "title": "Notifications du navigateur",
+      "description": "Recevez des notifications directement dans votre navigateur",
+      "permission": {
+        "enabled": "Activé",
+        "enabledDescription": "Vous recevrez des notifications du navigateur",
+        "blocked": "Bloqué",
+        "blockedDescription": "Veuillez activer les notifications dans les paramètres du navigateur",
+        "notConfigured": "Non configuré",
+        "notConfiguredDescription": "Cliquez ci-dessous pour activer",
+        "requesting": "Demande en cours...",
+        "enable": "Activer"
+      }
+    },
+    "pushover": {
+      "title": "Pushover",
+      "description": "Recevez des notifications push sur votre mobile",
+      "configured": "Configuré",
+      "userKeyLabel": "Clé utilisateur",
+      "userKeyPlaceholder": "Votre clé utilisateur Pushover (30 caractères)",
+      "userKeyHelp": "Récupérez votre clé utilisateur sur",
+      "apiTokenLabel": "Jeton API (optionnel)",
+      "apiTokenPlaceholder": "Jeton API personnalisé (laisser vide pour défaut)",
+      "apiTokenHelp": "Optionnel : utilisez un jeton d'application personnalisé pour des notifications de marque",
+      "setupTitle": "Comment configurer Pushover",
+      "setupSteps": [
+        "Créez un compte gratuit sur pushover.net",
+        "Installez l'application Pushover sur votre téléphone",
+        "Copiez votre clé utilisateur depuis votre tableau de bord Pushover",
+        "Collez-la ci-dessus et cliquez sur Sauvegarder",
+        "Cliquez sur Tester pour vérifier que tout fonctionne"
+      ],
+      "testSuccess": "Notification de test envoyée !",
+      "testFailure": "Échec de l'envoi de la notification de test"
+    },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Recevez des notifications et discutez avec l'IA via Telegram",
+      "configured": "✓ Configuré",
+      "chatId": "ID de chat",
+      "waitingForStart": "⚠ En attente de /start",
+      "botTokenPlaceholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+      "testSuccess": "Notification de test envoyée !",
+      "testFailure": "Échec de l'envoi de la notification de test"
+    }
+  },
+  "analytics": {
+    "title": "Vos Insights",
+    "subtitle": "Découvrez les tendances et patterns de votre pensée",
+    "today": "Aujourd'hui",
+    "thisWeek": "Cette semaine",
+    "thisMonth": "Ce mois",
+    "thisYear": "Cette année",
+    "memories": "Mémoires",
+    "interactions": "Interactions",
+    "goalsTracked": "Objectifs suivis",
+    "achievements": "Accomplissements",
+    "aiSummary": "Résumé généré par IA",
+    "yourRecentActivity": "Votre activité récente",
+    "activityPattern": "Vos habitudes d'activité",
+    "whatsOnYourMind": "Ce qui vous occupe",
+    "moodOverview": "Aperçu de votre humeur",
+    "keyInsights": "Points clés",
+    "streak": "Jours consécutifs",
+    "keepCapturing": "Continuez à capturer vos pensées !",
+    "bestStreak": "Record",
+    "days": "jours",
+    "weekAtGlance": "Votre semaine en un coup d'œil",
+    "mostActive": "Vous êtes le plus actif vers",
+    "positive": "Positif",
+    "neutral": "Neutre",
+    "negative": "Négatif",
+    "emptyState": {
+      "title": "Votre Second Brain est prêt !",
+      "description": "Commencez à capturer vos pensées, idées et souvenirs. Au fur et à mesure de votre utilisation, nous vous montrerons de belles insights sur vos schémas de pensée.",
+      "aiSummaries": "Résumés par IA",
+      "moodTracking": "Suivi de l'humeur",
+      "activityTrends": "Tendances d'activité"
+    },
+    "noDataYet": "Pas encore de données",
+    "startCapturing": "Commencez à capturer des mémoires pour voir vos sujets favoris !",
+    "analyzing": "Analyse de vos mémoires...",
+    "errorTitle": "Impossible de charger vos insights",
+    "errorDescription": "Nous n'avons pas pu récupérer vos analytics pour le moment. Veuillez réessayer.",
+    "tryAgain": "Réessayer",
+    "aiSummaryLabel": "Résumé généré par IA",
+    "activityNoData": "Aucune activité enregistrée pour le moment",
+    "topicNoData": "Commencez à capturer des mémoires pour découvrir vos sujets favoris !",
+    "moodNoData": "Pas encore de données d'humeur",
+    "moodPatternHint": "Capturez vos souvenirs pour observer vos tendances d'humeur",
+    "dailyMotivationTitle": "Motivation quotidienne",
+    "dailyMotivationLabel": "Vous avez {{count}} objectif actif en cours. Continuez à avancer, chaque petit pas compte ! 🚀",
+    "dailyMotivationLabel_plural": "Vous avez {{count}} objectifs actifs en cours. Continuez à avancer, chaque petit pas compte ! 🚀",
+    "achievementProgress": "Progression des accomplissements",
+    "achievementsUnlocked": "{{count}} / {{total}} accomplissements débloqués",
+    "memoryTooltip": "{{hour}}:00 - {{count}} {{memoryLabel}}",
+    "memory": "mémoire",
+    "memory_plural": "mémoires",
+    "mentions": "{{count}} mentions",
+    "mostActiveSentence": "Vous êtes le plus actif vers {{time}} dans la {{period}}. C'est un excellent moment pour réfléchir ! ✨",
+    "clickToExpand": "Cliquer pour développer",
+    "clickToCollapse": "Cliquer pour réduire"
+  },
+  "goals": {
+    "pageTitle": "Objectifs & Accomplissements",
+    "pageDescription": "Suivez vos progrès et célébrez vos réalisations",
+    "tabs": {
+      "goals": "Objectifs",
+      "achievements": "Accomplissements"
+    },
+    "filters": {
+      "all": "Tous les objectifs",
+      "active": "Actifs",
+      "completed": "Terminés",
+      "paused": "En pause",
+      "allAchievements": "Tout",
+      "unlocked": "Débloqués",
+      "locked": "Verrouillés"
+    },
+    "stats": {
+      "totalGoals": "Objectifs totaux",
+      "active": "Actifs",
+      "completed": "Terminés",
+      "successRate": "Taux de réussite"
+    },
+    "emptyState": {
+      "title": "Définissez votre premier objectif !",
+      "description": "Les objectifs vous aident à rester concentré et suivre vos progrès. Créez votre premier objectif pour commencer.",
+      "callToAction": "Créer un objectif"
+    },
+    "newGoal": "Nouvel objectif",
+    "createGoal": "Créer un objectif",
+    "filtersLabel": "Filtres",
+    "clearFilter": "Effacer le filtre : {{category}}",
+    "actions": {
+      "complete": "Compléter",
+      "pause": "Mettre en pause",
+      "resume": "Reprendre",
+      "delete": "Supprimer"
+    },
+    "dialog": {
+      "createTitle": "Créer un nouvel objectif",
+      "createDescription": "Définissez un objectif pour suivre vos progrès et rester motivé.",
+      "goalTitle": "Titre de l'objectif *",
+      "description": "Description",
+      "category": "Catégorie",
+      "targetDate": "Date cible",
+      "tags": "Étiquettes",
+      "addTag": "Ajouter",
+      "cancel": "Annuler",
+      "save": "Créer l'objectif"
+    },
+    "milestones": "Étapes",
+    "progress": "Progression",
+    "motivation": {
+      "dailyTitle": "Motivation quotidienne",
+      "label": "Vous avez {{count}} objectif actif en cours. Continuez à avancer, chaque petit pas compte ! 🚀",
+      "label_plural": "Vous avez {{count}} objectifs actifs en cours. Continuez à avancer, chaque petit pas compte ! 🚀"
+    },
+    "achievement": {
+      "progress": "Progression des accomplissements",
+      "achievementsUnlocked": "{{count}} / {{total}} accomplissements débloqués",
+      "keepGoing": "Continuez !",
+      "locked": "Il vous reste {{count}} accomplissement à débloquer. Chaque interaction avec votre Second Brain vous rapproche ! 🌟",
+      "locked_plural": "Il vous reste {{count}} accomplissements à débloquer. Chaque interaction avec votre Second Brain vous rapproche ! 🌟"
+    },
+    "emptyAchievement": {
+      "title": "Commencez votre aventure !",
+      "description": "En utilisant votre Second Brain, vous débloquerez des accomplissements pour la cohérence, les étapes et la croissance personnelle. Continuez !",
+      "rewards": {
+        "consistency": "Récompenses de cohérence",
+        "milestones": "Badges d'étape",
+        "growth": "Reconnaissance de croissance"
+      }
+    },
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet objectif ?"
+  },
+  "onboarding": {
+    "progress": "Étape {{current}} sur {{total}}",
+    "buttons": {
+      "back": "Retour",
+      "skip": "Passer pour l'instant",
+      "continue": "Continuer",
+      "complete": "Terminer la configuration",
+      "completing": "Finalisation...",
+      "skipChannel": "Passer ce canal",
+      "continueWithoutNotifications": "Continuer sans notifications",
+      "setUpLater": "Configurer plus tard"
+    },
+    "steps": {
+      "welcome": {
+        "title": "Bienvenue",
+        "description": "Découvrez votre système Second Brain AI"
+      },
+      "aiConfig": {
+        "title": "Configuration IA",
+        "description": "Configurez vos modèles et providers"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Choisissez comment recevoir les notifications"
+      },
+      "completion": {
+        "title": "Tout est prêt !",
+        "description": "Votre système est prêt à l'emploi"
+      }
+    },
+    "welcomeStep": {
+      "title": "Votre système d'exploitation IA personnel",
+      "subtitle": "Second Brain AI est conçu pour être votre compagnon cognitif — capturant, organisant et vous aidant à agir sur l'information tout au long de votre vie.",
+      "features": {
+        "memorySystem": {
+          "title": "Système de mémoire",
+          "description": "Capture et organise automatiquement vos interactions, créant une base de connaissances personnelle consultable."
+        },
+        "aiConversations": {
+          "title": "Conversations IA",
+          "description": "Discutez avec des modèles IA ayant accès à votre contexte et vos mémoires."
+        },
+        "proactiveInsights": {
+          "title": "Insights proactifs",
+          "description": "Recevez des suggestions et rappels utiles basés sur vos habitudes et objectifs."
+        },
+        "smartAutomation": {
+          "title": "Automatisation intelligente",
+          "description": "Exécutez des tâches et workflows avec des agents IA qui comprennent vos préférences."
+        },
+        "privacyFirst": {
+          "title": "Confidentialité d'abord",
+          "description": "Toutes vos données restent locales et privées. Vous contrôlez ce qui est stocké et traité."
+        },
+        "timeSummaries": {
+          "title": "Résumés temporels",
+          "description": "Des résumés quotidiens, hebdomadaires et mensuels automatiques vous aident à suivre vos progrès."
+        }
+      },
+      "gettingStartedTitle": "Premiers pas",
+      "gettingStartedCopy": "Nous allons vous aider à configurer les paramètres essentiels pour que votre Second Brain AI soit opérationnel : providers IA, notifications, et une présentation rapide des fonctionnalités."
+    },
+    "aiConfigStep": {
+      "title": "Configurer les modèles IA",
+      "subtitle": "Ajoutez au moins un provider IA pour alimenter votre Second Brain. Nous recommandons OpenAI pour une expérience optimale.",
+      "existingProvidersTitle": "Providers existants",
+      "providerStatus": {
+        "active": "Actif",
+        "inactive": "Inactif"
+      },
+      "addProvider": "Ajouter un provider IA",
+      "form": {
+        "providerName": "Nom du provider",
+        "placeholderProvider": "OpenAI",
+        "baseUrl": "URL de base",
+        "placeholderBaseUrl": "https://api.openai.com/v1",
+        "apiKey": "Clé API",
+        "apiPlaceholder": "sk-..."
+      },
+      "securityCopy": "Votre clé API est stockée de manière sécurisée et utilisée uniquement pour interroger le provider.",
+      "testConnection": "Tester la connexion",
+      "testResultSuccess": "Connexion à l'API réussie !",
+      "testResultFailure": "Connexion échouée",
+      "addProviderButton": "Ajouter le provider",
+      "helpTitle": "Besoin d'une clé API ?",
+      "helpCopy": "Vous aurez besoin d'une clé API d'un provider IA. Voici quelques options populaires :",
+      "apiLinks": {
+        "openai": "Clés API OpenAI",
+        "anthropic": "Console Anthropic"
+      },
+      "continueButton": "Continuer vers Notifications",
+      "loading": "Chargement des paramètres IA..."
+    },
+    "notificationsStep": {
+      "title": "Configurer les notifications",
+      "subtitle": "Choisissez comment recevoir vos notifications de Second Brain AI. Vous pouvez configurer plusieurs canaux ou passer cette étape.",
+      "channels": {
+        "browser": {
+          "title": "Notifications navigateur",
+          "description": "Recevez des notifications directement dans votre navigateur pendant l'utilisation",
+          "recommendedTag": "Recommandé"
+        },
+        "pushover": {
+          "title": "Pushover (mobile)",
+          "description": "Recevez des notifications sur votre téléphone via l'app Pushover"
+        },
+        "telegram": {
+          "title": "Bot Telegram",
+          "description": "Recevez des notifications via un bot Telegram privé"
+        }
+      },
+      "backToSelection": "← Retour à la sélection de canal",
+      "setupCopy": "Configuration {{channel}}",
+      "configuredNoticeTitle": "Vous pouvez configurer les notifications plus tard",
+      "configuredNoticeBody": "Tous les paramètres de notifications peuvent être modifiés depuis la page Paramètres après la configuration."
+    },
+    "completionStep": {
+      "title": "🎉 Configuration terminée !",
+      "subtitle": "Votre Second Brain AI est maintenant configuré et prêt à vous aider à capturer, organiser et agir sur l'information de votre journée.",
+      "nextSectionTitle": "Et ensuite ?",
+      "nextSteps": {
+        "conversation": {
+          "title": "Lancer une conversation",
+          "description": "Ouvrez l'onglet Chat et échangez avec votre assistant IA",
+          "action": "Essayez maintenant"
+        },
+        "memory": {
+          "title": "Explorer la mémoire",
+          "description": "Découvrez comment vos interactions sont stockées et organisées",
+          "action": "Parcourir les mémoires"
+        },
+        "settings": {
+          "title": "Personnaliser les paramètres",
+          "description": "Affinez les modèles IA, les notifications et vos préférences",
+          "action": "Ouvrir les paramètres"
+        },
+        "docs": {
+          "title": "Lire la documentation",
+          "description": "Approfondissez les fonctionnalités avancées",
+          "action": "Consulter les docs"
+        }
+      },
+      "proTipsTitle": "💡 Astuces pro",
+      "proTips": [
+        "Utilisez un langage naturel : l'IA comprend le contexte et l'intention",
+        "Consultez le Memory Browser pour voir l'organisation de vos données",
+        "Explorez les Paramètres pour personnaliser votre expérience",
+        "Toutes vos données sont stockées localement et de manière privée"
+      ],
+      "enterButton": "Entrer dans Second Brain AI",
+      "suggestedTitle": "Prochaines étapes suggérées",
+      "summaryBullets": [
+        "Vos conversations et interactions seront automatiquement capturées",
+        "L'IA générera des résumés quotidiens et hebdomadaires de votre activité",
+        "Les insights proactifs vous aideront à rester sur la bonne voie avec vos objectifs et habitudes",
+        "Vous pouvez rechercher dans tout votre historique de mémoire à tout moment"
+      ]
+    }
+  },
+  "errorFallback": {
+    "title": "Cette étincelle a rencontré une erreur d'exécution",
+    "description": "Un problème inattendu est survenu lors de l'exécution de l'application. Les détails de l'erreur sont affichés ci-dessous. Contactez l'auteur de l'étincelle pour lui signaler ce problème.",
+    "detailsTitle": "Détails de l'erreur :",
+    "tryAgain": "Réessayer"
+  },
+  "continuousListening": {
+    "panel": {
+      "title": "Écoute Continue",
+      "connectedDescription": "Le système écoute votre environnement",
+      "disconnectedDescription": "Activez l'écoute pour capturer vos pensées"
+    },
+    "state": {
+      "connecting": "Connexion...",
+      "listening": "En écoute",
+      "processing": "Traitement...",
+      "idle": "Inactif",
+      "error": "Erreur"
+    },
+    "wakeWordLabel": "Mot d'activation : \"{{word}}\"",
+    "clickToActivate": "Cliquez pour activer",
+    "audio": {
+      "speechDetected": "Parole détectée",
+      "silence": "Silence"
+    },
+    "transcriptTitle": "Transcription en cours",
+    "speaker": {
+      "user": "Vous êtes identifié ({{percent}}%)",
+      "other": "Autre personne détectée"
+    },
+    "recentActivity": {
+      "title": "Activité récente",
+      "hide": "Masquer",
+      "showMore": "Voir plus",
+      "commandDetected": "Commande détectée",
+      "memoryRecorded": "Mémoire enregistrée",
+      "none": "Aucune activité récente"
+    },
+    "stats": {
+      "sessions": "Sessions",
+      "memories": "Mémoires",
+      "commands": "Commandes"
+    },
+    "toggle": {
+      "active": "Écoute active",
+      "inactive": "Écoute inactive"
+    },
+    "aria": {
+      "startListening": "Démarrer l'écoute continue",
+      "stopListening": "Arrêter l'écoute continue",
+      "startListeningShort": "Démarrer l'écoute",
+      "stopListeningShort": "Arrêter l'écoute"
+    }
+  },
+  "notificationTest": {
+    "title": "Notifications",
+    "subtitle": "Configurez vos canaux et préférences de notification. Le système peut vous joindre sur plusieurs plateformes.",
+    "defaultTitle": "Notification de test",
+    "defaultMessage": "Ceci est une notification de test",
+    "channels": {
+      "inApp": {
+        "title": "Dans l'app",
+        "description": "Notifications à l'intérieur de l'application"
+      },
+      "browser": {
+        "title": "Navigateur",
+        "description": "Notifications web de votre navigateur"
+      },
+      "pushover": {
+        "title": "Pushover",
+        "description": "Notifications push sur mobile"
+      },
+      "telegram": {
+        "title": "Telegram",
+        "description": "Chat et notifications via Telegram"
+      }
+    },
+    "testForm": {
+      "title": "Envoyer une notification de test",
+      "selectChannel": "Sélectionnez un canal ci-dessus pour envoyer une notification de test",
+      "selectedChannel": "Envoyer un message de test via {{channel}}"
+    },
+    "form": {
+      "title": "Titre",
+      "titlePlaceholder": "Titre de la notification",
+      "type": "Type",
+      "types": {
+        "info": "Info",
+        "success": "Succès",
+        "warning": "Avertissement",
+        "error": "Erreur",
+        "reminder": "Rappel"
+      },
+      "message": "Message",
+      "messagePlaceholder": "Contenu de la notification",
+      "sending": "Envoi...",
+      "send": "Envoyer la notification de test"
+    }
+  },
+  "channels": {
+    "title": "Canaux",
+    "subtitle": "Connectez vos plateformes de messagerie préférées pour recevoir des alertes et notifications",
+    "selectChannel": "Choisissez un canal",
+    "configureChannel": "Configurer {{channel}}",
+    "defaultTitle": "Notification de test",
+    "defaultMessage": "Ceci est une notification de test",
+    "browser": {
+      "title": "Navigateur",
+      "description": "Notifications bureau"
+    },
+    "pushover": {
+      "title": "Pushover",
+      "description": "Notifications push mobiles"
+    },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Chat & notifications"
+    },
+    "testForm": {
+      "title": "Envoyer un test",
+      "description": "Vérifiez que votre connexion {{channel}} fonctionne correctement"
+    },
+    "form": {
+      "title": "Titre",
+      "titlePlaceholder": "Titre de la notification",
+      "type": "Type",
+      "types": {
+        "info": "Info",
+        "success": "Succès",
+        "warning": "Avertissement",
+        "error": "Erreur",
+        "reminder": "Rappel"
+      },
+      "message": "Message",
+      "messagePlaceholder": "Votre message ici...",
+      "sending": "Envoi...",
+      "send": "Envoyer le test"
+    },
+    "emptyState": {
+      "title": "Sélectionnez un canal pour commencer",
+      "description": "Cliquez sur un des canaux ci-dessus pour le configurer et commencer à recevoir des notifications"
+    }
+  },
+  "tasksScheduling": {
+    "title": "Tâches & Planifications",
+    "subtitle": "Gérez vos tâches manuelles et automatisées dans un seul endroit",
+    "tabs": {
+      "todos": "Tâches manuelles",
+      "schedule": "Planifications automatiques"
+    },
+    "actions": {
+      "newTodo": "Nouvelle tâche",
+      "newSchedule": "Nouvelle planification"
+    },
+    "errors": {
+      "todoLoad": "Erreur lors du chargement des tâches : {{error}}",
+      "scheduleLoad": "Erreur lors du chargement des planifications : {{error}}"
+    }
+  },
+  "landing": {
+    "brandName": "Second Brain",
+    "brandTagline": "Votre mémoire augmentée par l'IA",
+    "github": "GitHub",
+    "docs": "Docs",
+    "cta": {
+      "openDashboard": "Ouvrir le tableau de bord",
+      "continueOnboarding": "Continuer la configuration",
+      "getStarted": "Commencer"
+    },
+    "hero": {
+      "pill": "Open source • Auto-hébergé • Privé",
+      "titleLine1": "L'IA qui se souvient",
+      "titleLine2": "vraiment de tout.",
+      "subtitle": "Capturez vos pensées, conversations et décisions. Laissez l'IA organiser, résumer et faire ressurgir les bons souvenirs au bon moment—le tout en local sur votre machine.",
+      "viewSource": "Voir le code source",
+      "highlights": {
+        "privacy": "100% Privé",
+        "local": "Fonctionne en local",
+        "proactive": "Coaching proactif"
+      }
+    },
+    "whatItDoes": {
+      "kicker": "Ce qu'il fait",
+      "title": "Votre système d'exploitation cognitif personnel",
+      "features": {
+        "memory": {
+          "title": "Mémoire Continue",
+          "description": "Capture automatiquement vos interactions et les structure avec compréhension sémantique. Tout est recherchable par sens, pas seulement par mots-clés."
+        },
+        "voice": {
+          "title": "Reconnaissance Vocale",
+          "description": "Entraînez des profils vocaux avec des réseaux neuronaux ECAPA-TDNN. Identifiez qui parle et filtrez automatiquement le bruit de fond."
+        },
+        "search": {
+          "title": "Recherche Sémantique",
+          "description": "Posez des questions naturellement. Trouvez des souvenirs par leur sens grâce aux embeddings vectoriels. \"Qu'ai-je décidé concernant la roadmap la semaine dernière ?\""
+        },
+        "proactive": {
+          "title": "Coach Proactif",
+          "description": "Votre coach IA personnel analyse vos patterns pour vous aider avec la santé, la productivité et vos objectifs. Des suggestions douces, jamais intrusives."
+        },
+        "summaries": {
+          "title": "Résumés Multi-Échelles",
+          "description": "Les insights quotidiens deviennent des patterns hebdomadaires, des bilans mensuels et des réflexions annuelles. La connaissance se compose avec le temps."
+        },
+        "privacy": {
+          "title": "Vie Privée d'Abord",
+          "description": "Auto-hébergé avec stockage chiffré. Zéro télémétrie. Vos données ne quittent jamais votre infrastructure."
+        },
+        "aiModels": {
+          "title": "N'importe quel Modèle IA",
+          "description": "Utilisez les meilleurs fournisseurs IA comme OpenAI, Anthropic ou Google Gemini. Ou exécutez des modèles localement avec Ollama, LM Studio ou tout endpoint compatible OpenAI pour une confidentialité totale.",
+          "local": "Modèles Locaux"
+        },
+        "tools": {
+          "title": "Outils & Compétences",
+          "description": "Étendez votre IA avec des outils et compétences personnalisés. Naviguez sur le web, exécutez du code, appelez des APIs, automatisez des tâches—le tout avec des garde-fous de sécurité intégrés.",
+          "examples": "Navigation web, exécution de code, appels API, et plus"
+        }
+      }
+    },
+    "howItWorks": {
+      "kicker": "Comment ça marche",
+      "title": "Du chaos à la clarté",
+      "subtitle": "Une boucle continue qui transforme les interactions brutes en connaissances actionnables.",
+      "steps": {
+        "capture": {
+          "title": "Capturer",
+          "description": "Voix, texte ou API. Enregistrez pensées, conversations et décisions en temps réel."
+        },
+        "understand": {
+          "title": "Comprendre",
+          "description": "L'IA classifie l'intention, filtre le bruit et extrait le sens de chaque input."
+        },
+        "remember": {
+          "title": "Mémoriser",
+          "description": "Vectorisé et indexé pour une recherche sémantique instantanée sur toutes les périodes."
+        },
+        "assist": {
+          "title": "Assister",
+          "description": "Insights proactifs, réponses contextuelles et tâches automatisées quand vous en avez besoin."
+        }
+      }
+    },
+    "proactive": {
+      "badge": "Agent Proactif",
+      "title": "Un coach IA qui aide vraiment",
+      "description": "S'exécute deux fois par jour pour analyser vos patterns et fournir des suggestions actionnables. Surveille votre bien-être, suit vos objectifs et aide à construire de meilleures habitudes—le tout sans être intrusif.",
+      "features": {
+        "health": "Suivi santé & bien-être",
+        "goals": "Suivi de progression des objectifs",
+        "habits": "Support formation d'habitudes",
+        "schedule": "Suggestions de planning intelligentes"
+      },
+      "sample1": {
+        "title": "Temps pour une pause",
+        "desc": "Vous travaillez depuis 4 heures. Pensez à une marche de 15 minutes."
+      },
+      "sample2": {
+        "title": "Objectif atteint",
+        "desc": "Vous avez complété 80% de votre objectif lecture Q1. Continuez !"
+      },
+      "sample3": {
+        "title": "Série d'habitude : 7 jours",
+        "desc": "Votre routine matinale devient régulière. Super progrès !"
+      }
+    },
+    "timeline": {
+      "kicker": "Résumés multi-échelles",
+      "title": "Une connaissance qui se compose",
+      "subtitle": "Le contexte quotidien devient insight long-terme grâce à une cascade de résumés intelligents.",
+      "items": {
+        "daily": {
+          "label": "Quotidien",
+          "detail": "Moments clés & décisions"
+        },
+        "weekly": {
+          "label": "Hebdomadaire",
+          "detail": "Patterns & momentum"
+        },
+        "monthly": {
+          "label": "Mensuel",
+          "detail": "Revue projets & objectifs"
+        },
+        "quarterly": {
+          "label": "Trimestriel",
+          "detail": "Ajustements stratégiques"
+        },
+        "yearly": {
+          "label": "Annuel",
+          "detail": "Croissance long-terme"
+        }
+      }
+    },
+    "quickStart": {
+      "kicker": "Démarrage rapide",
+      "title": "Opérationnel en 60 secondes",
+      "subtitle": "Clonez, configurez et lancez. Docker s'occupe du reste.",
+      "starRepo": "Star sur GitHub"
+    },
+    "features": {
+      "title": "Tout ce qu'il faut pour un second cerveau",
+      "subtitle": "Conçu pour les utilisateurs soucieux de leur vie privée qui veulent une assistance IA sans compromettre leurs données.",
+      "list": {
+        "voiceProfiles": "Profils vocaux avec reconnaissance du locuteur",
+        "semanticSearch": "Recherche sémantique sur tous les souvenirs",
+        "multiScaleSummaries": "Résumés multi-échelles (quotidien à annuel)",
+        "proactiveCoaching": "Coaching proactif santé & productivité",
+        "noiseFilter": "Filtrage intelligent du bruit",
+        "toolExecution": "Exécution d'outils en arrière-plan avec garde-fous",
+        "aiModelsFlexible": "OpenAI, Anthropic, Gemini ou modèles locaux",
+        "customTools": "Système d'outils & compétences extensible",
+        "encryptedStorage": "Stockage local chiffré",
+        "localFirst": "Architecture local-first, auto-hébergée"
+      }
+    },
+    "footer": {
+      "tagline": "Votre mémoire augmentée par l'IA",
+      "copyright": "Open source sous licence MIT. Conçu pour les humains qui valorisent leur vie privée."
+    }
+  },
+  "toolsConfig": {
+    "title": "Configuration des outils",
+    "subtitle": "Gérez et configurez vos outils, intégrations et serveurs MCP",
+    "placeholder": {
+      "title": "Aucun outil disponible",
+      "subtitle": "Commencez par ajouter votre premier outil ou serveur MCP"
+    },
+    "errors": {
+      "bannerTitle": "Erreur de configuration",
+      "nonJsonHint": "La réponse du serveur n'était pas un JSON valide. Veuillez vérifier la configuration du serveur.",
+      "authRequired": "Authentification requise. Veuillez vérifier vos identifiants.",
+      "requestFailed": "Impossible de traiter votre demande. Veuillez réessayer.",
+      "nonJsonResponse": "Format de réponse invalide. JSON attendu."
+    },
+    "tabs": {
+      "builtin": "Outils intégrés",
+      "generated": "Outils générés"
+    },
+    "generated": {
+      "emptyTitle": "Aucun outil généré pour le moment",
+      "emptySubtitle": "Créez votre premier outil personnalisé pour commencer",
+      "actionsLabel": "Actions",
+      "versionLabel": "Version",
+      "usageLabel": "Utilisé",
+      "createdAtLabel": "Créé",
+      "lastUsedLabel": "Dernière utilisation",
+      "requiredSecretsLabel": "Secrets requis",
+      "copyId": "Copier l'ID",
+      "selfHeal": "Auto-réparation"
+    },
+    "confirm": {
+      "deleteMcpServer": "Êtes-vous sûr de vouloir supprimer ce serveur MCP ? Cette action ne peut pas être annulée.",
+      "uninstallTool": "Êtes-vous sûr de vouloir désinstaller cet outil ? Cette action ne peut pas être annulée.",
+      "deleteGeneratedTool": "Êtes-vous sûr de vouloir supprimer cet outil généré ? Cette action ne peut pas être annulée."
+    },
+    "mcp": {
+      "editTitle": "Modifier le serveur MCP",
+      "addTitle": "Ajouter un serveur MCP",
+      "description": "Configurez vos serveurs Model Context Protocol (MCP)",
+      "fields": {
+        "name": "Nom",
+        "namePlaceholder": "Entrez le nom du serveur",
+        "description": "Description",
+        "descriptionPlaceholder": "Décrivez ce que fait ce serveur",
+        "transportType": "Type de transport",
+        "command": "Commande",
+        "commandPlaceholder": "ex. : python -m mcp_server",
+        "args": "Arguments",
+        "argsPlaceholder": "Entrez les arguments de la commande",
+        "url": "URL",
+        "urlPlaceholder": "ex. : http://localhost:3000",
+        "env": "Variables d'environnement",
+        "envPlaceholder": "CLÉ=valeur (une par ligne)",
+        "envHint": "Entrez les variables d'environnement au format CLÉ=valeur, une par ligne"
+      }
+    },
+    "selfHeal": {
+      "title": "Outil d'auto-réparation",
+      "description": "Détectez et corrigez automatiquement les problèmes avec vos outils",
+      "status": {
+        "completed": "Terminé",
+        "failed": "Échoué",
+        "inProgress": "En cours",
+        "pending": "En attente"
+      },
+      "summary": {
+        "completed": "Terminé : {{count}} vérifications",
+        "inProgress": "En cours : {{count}} vérifications",
+        "failed": "Échoué : {{count}} vérifications"
+      },
+      "success": "Tous les tests sont passés avec succès !",
+      "empty": "Aucune opération d'auto-réparation disponible",
+      "loading": "Chargement des données d'auto-réparation...",
+      "inProgress": "Exécution des vérifications d'auto-réparation...",
+      "start": "Démarrer l'auto-réparation"
+    }
+  }
+}
