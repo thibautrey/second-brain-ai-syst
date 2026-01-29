@@ -1,51 +1,74 @@
-import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Progress } from '../ui/progress';
-import { CheckCircle, Circle, ArrowRight, ArrowLeft } from 'lucide-react';
-import { WelcomeStep } from './WelcomeStep';
-import { AIConfigStep } from './AIConfigStep';
-import { NotificationsStep } from './NotificationsStep';
-import { CompletionStep } from './CompletionStep';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { apiPost } from '../../services/api';
+import { ArrowLeft, ArrowRight, CheckCircle, Circle } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import React, { useState } from "react";
+
+import { AIConfigStep } from "./AIConfigStep";
+import { Button } from "../ui/button";
+import { CompletionStep } from "./CompletionStep";
+import { EmbeddingSelectionStep } from "./EmbeddingSelectionStep";
+import { ModelSelectionStep } from "./ModelSelectionStep";
+import { NotificationsStep } from "./NotificationsStep";
+import { Progress } from "../ui/progress";
+import { WelcomeStep } from "./WelcomeStep";
+import { apiPost } from "../../services/api";
+import { useAuth } from "../../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface OnboardingStep {
   id: string;
   titleKey: string;
   descriptionKey: string;
-  component: React.ComponentType<{ onNext: () => void; onSkip: () => void }>;
+  component: React.ComponentType<any>;
   skippable: boolean;
 }
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
   {
-    id: 'welcome',
-    titleKey: 'onboarding.steps.welcome.title',
-    descriptionKey: 'onboarding.steps.welcome.description',
+    id: "welcome",
+    titleKey: "onboarding.steps.welcome.title",
+    descriptionKey: "onboarding.steps.welcome.description",
     component: WelcomeStep,
     skippable: false,
   },
   {
-    id: 'ai-config',
-    titleKey: 'onboarding.steps.aiConfig.title',
-    descriptionKey: 'onboarding.steps.aiConfig.description',
+    id: "ai-config",
+    titleKey: "onboarding.steps.aiConfig.title",
+    descriptionKey: "onboarding.steps.aiConfig.description",
     component: AIConfigStep,
     skippable: false,
   },
   {
-    id: 'notifications',
-    titleKey: 'onboarding.steps.notifications.title',
-    descriptionKey: 'onboarding.steps.notifications.description',
+    id: "model-selection",
+    titleKey: "onboarding.steps.modelSelection.title",
+    descriptionKey: "onboarding.steps.modelSelection.description",
+    component: ModelSelectionStep,
+    skippable: true,
+  },
+  {
+    id: "embedding-selection",
+    titleKey: "onboarding.steps.embeddingSelection.title",
+    descriptionKey: "onboarding.steps.embeddingSelection.description",
+    component: EmbeddingSelectionStep,
+    skippable: false,
+  },
+  {
+    id: "channels",
+    titleKey: "onboarding.steps.channels.title",
+    descriptionKey: "onboarding.steps.channels.description",
     component: NotificationsStep,
     skippable: true,
   },
   {
-    id: 'completion',
-    titleKey: 'onboarding.steps.completion.title',
-    descriptionKey: 'onboarding.steps.completion.description',
+    id: "completion",
+    titleKey: "onboarding.steps.completion.title",
+    descriptionKey: "onboarding.steps.completion.description",
     component: CompletionStep,
     skippable: false,
   },
@@ -55,6 +78,9 @@ export function OnboardingWizard() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [discoveredModels, setDiscoveredModels] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const { completeOnboarding } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -62,18 +88,24 @@ export function OnboardingWizard() {
   const currentStep = ONBOARDING_STEPS[currentStepIndex];
   const progress = ((currentStepIndex + 1) / ONBOARDING_STEPS.length) * 100;
 
+  const handleModelsDiscovered = (
+    models: Array<{ id: string; name: string }>,
+  ) => {
+    setDiscoveredModels(models);
+  };
+
   const handleNext = async () => {
     const stepId = currentStep.id;
-    
+
     // Mark current step as completed
     if (!completedSteps.includes(stepId)) {
       const newCompleted = [...completedSteps, stepId];
       setCompletedSteps(newCompleted);
-      
+
       try {
-        await apiPost('/onboarding/complete-step', { stepId });
+        await apiPost("/onboarding/complete-step", { stepId });
       } catch (error) {
-        console.error('Failed to save step completion:', error);
+        console.error("Failed to save step completion:", error);
       }
     }
 
@@ -100,11 +132,11 @@ export function OnboardingWizard() {
   const handleComplete = async () => {
     setIsCompleting(true);
     try {
-      await apiPost('/onboarding/finish', {});
+      await apiPost("/onboarding/finish", {});
       await completeOnboarding();
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (error) {
-      console.error('Failed to complete onboarding:', error);
+      console.error("Failed to complete onboarding:", error);
       setIsCompleting(false);
     }
   };
@@ -133,26 +165,32 @@ export function OnboardingWizard() {
           {ONBOARDING_STEPS.map((step, index) => {
             const isCompleted = completedSteps.includes(step.id);
             const isCurrent = index === currentStepIndex;
-            
+
             return (
               <div key={step.id} className="flex items-center">
                 <div className="flex flex-col items-center">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                    isCompleted
-                      ? 'bg-primary border-primary text-primary-foreground'
-                      : isCurrent
-                      ? 'border-primary text-primary'
-                      : 'border-muted-foreground text-muted-foreground'
-                  }`}>
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+                      isCompleted
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : isCurrent
+                          ? "border-primary text-primary"
+                          : "border-muted-foreground text-muted-foreground"
+                    }`}
+                  >
                     {isCompleted ? (
                       <CheckCircle className="w-4 h-4" />
                     ) : (
                       <Circle className="w-4 h-4" />
                     )}
                   </div>
-                  <span className={`text-xs mt-1 text-center max-w-[80px] ${
-                    isCurrent ? 'text-primary font-medium' : 'text-muted-foreground'
-                  }`}>
+                  <span
+                    className={`text-xs mt-1 text-center max-w-[80px] ${
+                      isCurrent
+                        ? "text-primary font-medium"
+                        : "text-muted-foreground"
+                    }`}
+                  >
                     {step.title}
                   </span>
                 </div>
@@ -171,39 +209,62 @@ export function OnboardingWizard() {
             <CardDescription>{t(currentStep.descriptionKey)}</CardDescription>
           </CardHeader>
           <CardContent>
-            <currentStep.component onNext={handleNext} onSkip={handleSkip} />
-            
+            {currentStep.id === "ai-config" && (
+              <currentStep.component
+                onNext={handleNext}
+                onSkip={handleSkip}
+                onModelsDiscovered={handleModelsDiscovered}
+              />
+            )}
+            {currentStep.id === "model-selection" && (
+              <currentStep.component
+                onNext={handleNext}
+                onSkip={handleSkip}
+                discoveredModels={discoveredModels}
+              />
+            )}
+            {currentStep.id === "embedding-selection" && (
+              <currentStep.component
+                onNext={handleNext}
+                onSkip={handleSkip}
+                discoveredModels={discoveredModels}
+              />
+            )}
+            {currentStep.id !== "ai-config" &&
+              currentStep.id !== "model-selection" &&
+              currentStep.id !== "embedding-selection" && (
+                <currentStep.component
+                  onNext={handleNext}
+                  onSkip={handleSkip}
+                />
+              )}
+
             {/* Navigation */}
             <div className="flex items-center justify-between mt-8 pt-6 border-t">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStepIndex === 0}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-                {t("onboarding.buttons.back")}
-            </Button>
-            
-            <div className="flex items-center space-x-2">
-              {currentStep.skippable && (
-                <Button variant="ghost" onClick={handleSkip}>
-                  {t("onboarding.buttons.skip")}
-                </Button>
-              )}
               <Button
-                onClick={handleNext}
-                disabled={isCompleting}
+                variant="outline"
+                onClick={handleBack}
+                disabled={currentStepIndex === 0}
               >
-                  {currentStepIndex === ONBOARDING_STEPS.length - 1 ? (
-                    isCompleting
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {t("onboarding.buttons.back")}
+              </Button>
+
+              <div className="flex items-center space-x-2">
+                {currentStep.skippable && (
+                  <Button variant="ghost" onClick={handleSkip}>
+                    {t("onboarding.buttons.skip")}
+                  </Button>
+                )}
+                <Button onClick={handleNext} disabled={isCompleting}>
+                  {currentStepIndex === ONBOARDING_STEPS.length - 1
+                    ? isCompleting
                       ? t("onboarding.buttons.completing")
                       : t("onboarding.buttons.complete")
-                  ) : (
-                    t("onboarding.buttons.continue")
-                  )}
+                    : t("onboarding.buttons.continue")}
                   <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

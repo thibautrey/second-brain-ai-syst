@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
 import {
-  AISettings,
   AIProvider,
+  AISettings,
   AITaskConfig,
   DEFAULT_AI_SETTINGS,
   ModelCapability,
 } from "../types/ai-settings";
+import { useCallback, useEffect, useState } from "react";
 
 const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
 
@@ -404,15 +404,20 @@ export function useAISettings() {
     async (
       apiKey: string,
       baseUrl?: string,
-    ): Promise<{ valid: boolean; error?: string }> => {
+    ): Promise<{
+      valid: boolean;
+      error?: string;
+      models?: Array<{ id: string; name: string }>;
+    }> => {
       try {
-        const result = await apiRequest<{ valid: boolean; error?: string }>(
-          "/ai-settings/test-api-key",
-          {
-            method: "POST",
-            body: JSON.stringify({ apiKey, baseUrl }),
-          },
-        );
+        const result = await apiRequest<{
+          valid: boolean;
+          error?: string;
+          models?: Array<{ id: string; name: string }>;
+        }>("/ai-settings/test-api-key", {
+          method: "POST",
+          body: JSON.stringify({ apiKey, baseUrl }),
+        });
         return result;
       } catch (err) {
         return {

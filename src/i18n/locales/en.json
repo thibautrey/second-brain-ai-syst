@@ -1054,8 +1054,16 @@
         "title": "AI Configuration",
         "description": "Set up your AI models and providers"
       },
-      "notifications": {
-        "title": "Notifications",
+      "modelSelection": {
+        "title": "Select LLM Model",
+        "description": "Choose which model to use for your tasks"
+      },
+      "embeddingSelection": {
+        "title": "Select Embedding Model",
+        "description": "Choose your embedding model (required)"
+      },
+      "channels": {
+        "title": "Notification Channels",
         "description": "Configure how you want to be notified"
       },
       "completion": {
@@ -1123,11 +1131,34 @@
         "openai": "OpenAI API Keys",
         "anthropic": "Anthropic Console"
       },
-      "continueButton": "Continue to Notifications",
+      "continueButton": "Continue to Channels",
       "loading": "Loading AI settings..."
     },
-    "notificationsStep": {
-      "title": "Set Up Notifications",
+    "modelSelectionStep": {
+      "title": "Select Your LLM",
+      "subtitle": "Choose which language model you'd like to use for your Second Brain. You can change this later in settings.",
+      "providerTitle": "Available Models from {{provider}}",
+      "selectModel": "Select Model",
+      "chooseModel": "Choose a model...",
+      "modelDescription": "This model will be used for conversations, analysis, and reasoning tasks.",
+      "noModelsFound": "No models found. Please go back and verify your API key.",
+      "tipTitle": "Model Selection",
+      "tipDescription": "Different models have different capabilities and speeds. For beginners, we recommend GPT-3.5 or similar. For advanced use cases, try GPT-4."
+    },
+    "embeddingSelectionStep": {
+      "title": "Select Embedding Model",
+      "subtitle": "Choose an embedding model for semantic search and memory organization. This is required for the system to work properly.",
+      "providerTitle": "Available Embedding Models from {{provider}}",
+      "selectModel": "Select Embedding Model",
+      "chooseModel": "Choose an embedding model...",
+      "modelDescription": "This model will be used to vectorize text for semantic search and memory retrieval.",
+      "noModelsFound": "No embedding models found. Please go back and verify your API key.",
+      "tipTitle": "Embedding Models",
+      "tipDescription": "Embedding models convert text into vectors for semantic search. text-embedding-3-small is recommended for most use cases.",
+      "tipSecondary": "The embedding model is essential for the system to work - it powers semantic search across your memories."
+    },
+    "channelsStep": {
+      "title": "Set Up Notification Channels",
       "subtitle": "Choose how you'd like to receive notifications from your Second Brain AI. You can configure multiple channels or skip this step for now.",
       "channels": {
         "browser": {

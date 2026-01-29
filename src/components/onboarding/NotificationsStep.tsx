@@ -1,38 +1,46 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Bell, Smartphone, MessageSquare, Monitor, CheckCircle } from 'lucide-react';
-import { NotificationSettings } from '../NotificationSettings';
-import { useTranslation } from 'react-i18next';
+import {
+  Bell,
+  CheckCircle,
+  MessageSquare,
+  Monitor,
+  Smartphone,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import React, { useState } from "react";
+
+import { Button } from "../ui/button";
+import { NotificationSettings } from "../NotificationSettings";
+import { useTranslation } from "react-i18next";
 
 interface NotificationsStepProps {
   onNext: () => void;
   onSkip: () => void;
 }
 
-type ChannelType = 'browser' | 'pushover' | 'telegram' | null;
+type ChannelType = "browser" | "pushover" | "telegram" | null;
 
 const notificationChannels = [
   {
-    id: 'browser' as const,
+    id: "browser" as const,
     icon: Monitor,
-    titleKey: 'onboarding.notificationsStep.channels.browser.title',
-    descriptionKey: 'onboarding.notificationsStep.channels.browser.description',
-    recommendedTagKey: 'onboarding.notificationsStep.channels.browser.recommendedTag',
+    titleKey: "onboarding.channelsStep.channels.browser.title",
+    descriptionKey: "onboarding.channelsStep.channels.browser.description",
+    recommendedTagKey:
+      "onboarding.channelsStep.channels.browser.recommendedTag",
     recommended: true,
   },
   {
-    id: 'pushover' as const,
+    id: "pushover" as const,
     icon: Smartphone,
-    titleKey: 'onboarding.notificationsStep.channels.pushover.title',
-    descriptionKey: 'onboarding.notificationsStep.channels.pushover.description',
+    titleKey: "onboarding.channelsStep.channels.pushover.title",
+    descriptionKey: "onboarding.channelsStep.channels.pushover.description",
     recommended: false,
   },
   {
-    id: 'telegram' as const,
+    id: "telegram" as const,
     icon: MessageSquare,
-    titleKey: 'onboarding.notificationsStep.channels.telegram.title',
-    descriptionKey: 'onboarding.notificationsStep.channels.telegram.description',
+    titleKey: "onboarding.channelsStep.channels.telegram.title",
+    descriptionKey: "onboarding.channelsStep.channels.telegram.description",
     recommended: false,
   },
 ];
@@ -55,10 +63,10 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
       <div className="text-center">
         <Bell className="mx-auto w-12 h-12 text-primary mb-4" />
         <h2 className="text-xl font-semibold mb-2">
-          {t("onboarding.notificationsStep.title")}
+          {t("onboarding.channelsStep.title")}
         </h2>
         <p className="text-muted-foreground">
-          {t("onboarding.notificationsStep.subtitle")}
+          {t("onboarding.channelsStep.subtitle")}
         </p>
       </div>
 
@@ -67,29 +75,29 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
           {notificationChannels.map((channel) => {
             const Icon = channel.icon;
             return (
-              <Card 
-                key={channel.id} 
+              <Card
+                key={channel.id}
                 className="cursor-pointer border-2 hover:border-primary/50 transition-colors"
                 onClick={() => handleChannelSelect(channel.id)}
               >
-              <CardHeader className="text-center">
-                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
-                  <Icon className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle className="text-base">
+                <CardHeader className="text-center">
+                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
+                    <Icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-base">
                     {t(channel.titleKey)}
                     {channel.recommended && channel.recommendedTagKey && (
                       <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
                         {t(channel.recommendedTagKey)}
                       </span>
                     )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center">
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground text-center">
                     {t(channel.descriptionKey)}
-                </p>
-              </CardContent>
+                  </p>
+                </CardContent>
               </Card>
             );
           })}
@@ -97,21 +105,25 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
       ) : (
         <div className="space-y-4">
           <div className="flex items-center space-x-2 mb-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setSelectedChannel(null)}
             >
-              ← {t("onboarding.notificationsStep.backToSelection")}
+              ← {t("onboarding.channelsStep.backToSelection")}
             </Button>
           </div>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                {React.createElement(notificationChannels.find(c => c.id === selectedChannel)?.icon!, { className: "w-5 h-5" })}
+                {React.createElement(
+                  notificationChannels.find((c) => c.id === selectedChannel)
+                    ?.icon!,
+                  { className: "w-5 h-5" },
+                )}
                 <span>
-                  {t("onboarding.notificationsStep.setupCopy", {
+                  {t("onboarding.channelsStep.setupCopy", {
                     channel: t(
                       notificationChannels.find((c) => c.id === selectedChannel)
                         ?.titleKey || "",
@@ -139,7 +151,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
             </Button>
           </>
         )}
-        
+
         {selectedChannel && (
           <>
             <Button variant="outline" onClick={onSkip}>
@@ -157,17 +169,17 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
       {/* Info Card */}
       <Card className="bg-muted/50">
         <CardContent className="pt-4">
-              <div className="flex items-start space-x-2">
-                <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">
-                    {t("onboarding.notificationsStep.configuredNoticeTitle")}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {t("onboarding.notificationsStep.configuredNoticeBody")}
-                  </p>
-                </div>
-              </div>
+          <div className="flex items-start space-x-2">
+            <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium">
+                {t("onboarding.channelsStep.configuredNoticeTitle")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t("onboarding.channelsStep.configuredNoticeBody")}
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

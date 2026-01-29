@@ -943,9 +943,17 @@
         "title": "Configuration IA",
         "description": "Configurez vos modèles et providers"
       },
-      "notifications": {
-        "title": "Notifications",
-        "description": "Choisissez comment recevoir les notifications"
+      "modelSelection": {
+        "title": "Sélectionner le modèle LLM",
+        "description": "Choisissez quel modèle utiliser pour vos tâches"
+      },
+      "embeddingSelection": {
+        "title": "Sélectionner le modèle d'intégration",
+        "description": "Choisissez votre modèle d'intégration (obligatoire)"
+      },
+      "channels": {
+        "title": "Canaux de notification",
+        "description": "Configurez la façon dont vous souhaitez être notifié"
       },
       "completion": {
         "title": "Tout est prêt !",
@@ -1012,11 +1020,34 @@
         "openai": "Clés API OpenAI",
         "anthropic": "Console Anthropic"
       },
-      "continueButton": "Continuer vers Notifications",
+      "continueButton": "Continuer vers Canaux",
       "loading": "Chargement des paramètres IA..."
     },
-    "notificationsStep": {
-      "title": "Configurer les notifications",
+    "modelSelectionStep": {
+      "title": "Sélectionnez votre LLM",
+      "subtitle": "Choisissez quel modèle de langage vous souhaitez utiliser pour votre Second Brain. Vous pouvez changer ce choix ultérieurement dans les paramètres.",
+      "providerTitle": "Modèles disponibles de {{provider}}",
+      "selectModel": "Sélectionner un modèle",
+      "chooseModel": "Choisir un modèle...",
+      "modelDescription": "Ce modèle sera utilisé pour les conversations, l'analyse et les tâches de raisonnement.",
+      "noModelsFound": "Aucun modèle trouvé. Veuillez revenir en arrière et vérifier votre clé API.",
+      "tipTitle": "Sélection du modèle",
+      "tipDescription": "Différents modèles ont des capacités et des vitesses différentes. Pour les débutants, nous recommandons GPT-3.5 ou équivalent. Pour les cas d'usage avancés, essayez GPT-4."
+    },
+    "embeddingSelectionStep": {
+      "title": "Sélectionnez le modèle d'intégration",
+      "subtitle": "Choisissez un modèle d'intégration pour la recherche sémantique et l'organisation des mémoires. Ceci est obligatoire pour que le système fonctionne correctement.",
+      "providerTitle": "Modèles d'intégration disponibles de {{provider}}",
+      "selectModel": "Sélectionner le modèle d'intégration",
+      "chooseModel": "Choisir un modèle d'intégration...",
+      "modelDescription": "Ce modèle sera utilisé pour vectoriser le texte en vue de la recherche sémantique et de la récupération des mémoires.",
+      "noModelsFound": "Aucun modèle d'intégration trouvé. Veuillez revenir en arrière et vérifier votre clé API.",
+      "tipTitle": "Modèles d'intégration",
+      "tipDescription": "Les modèles d'intégration convertissent du texte en vecteurs pour la recherche sémantique. text-embedding-3-small est recommandé pour la plupart des cas d'usage.",
+      "tipSecondary": "Le modèle d'intégration est essentiel au fonctionnement du système - il permet la recherche sémantique dans vos mémoires."
+    },
+    "channelsStep": {
+      "title": "Configurer les canaux de notification",
       "subtitle": "Choisissez comment recevoir vos notifications de Second Brain AI. Vous pouvez configurer plusieurs canaux ou passer cette étape.",
       "channels": {
         "browser": {

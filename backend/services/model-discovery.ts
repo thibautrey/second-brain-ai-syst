@@ -3,9 +3,9 @@
  * Fetches available models from AI providers via their APIs
  */
 
+import { ModelCapability } from "@prisma/client";
 import OpenAI from "openai";
 import prisma from "./prisma.js";
-import { ModelCapability } from "@prisma/client";
 
 export interface DiscoveredModel {
   modelId: string;
@@ -495,7 +495,7 @@ export class ModelDiscoveryService {
         // GPUStack returns `id` as a numeric database ID and `name` as the actual model identifier
         // Detect numeric IDs and prefer model.name in that case
         let modelId = model.id || model.name;
-        
+
         // If modelId looks like a numeric database ID (e.g., "1", "2", "123"),
         // prefer model.name which should have the actual model identifier
         if (/^\d+$/.test(String(modelId)) && model.name) {
@@ -597,7 +597,13 @@ export class ModelDiscoveryService {
   async syncProviderModels(
     userId: string,
     providerId: string,
-  ): Promise<{ added: number; updated: number; removed: number; configsCleared: number; total: number }> {
+  ): Promise<{
+    added: number;
+    updated: number;
+    removed: number;
+    configsCleared: number;
+    total: number;
+  }> {
     // Get the provider
     console.log(`[ModelDiscovery] Looking up provider: ${providerId}`);
 
@@ -739,12 +745,12 @@ export class ModelDiscoveryService {
     // Only remove non-custom models (user-added models should be preserved)
     const discoveredModelIds = new Set(discoveredModels.map((m) => m.modelId));
     const modelsToRemove = provider.models.filter(
-      (m) => !m.isCustom && !discoveredModelIds.has(m.modelId)
+      (m) => !m.isCustom && !discoveredModelIds.has(m.modelId),
     );
 
     let removed = 0;
     let configsCleared = 0;
-    
+
     if (modelsToRemove.length > 0) {
       console.log(
         `[ModelDiscovery] Removing ${modelsToRemove.length} models no longer available: ${modelsToRemove.map((m) => m.modelId).join(", ")}`,
@@ -763,7 +769,7 @@ export class ModelDiscoveryService {
           modelId: null,
         },
       });
-      
+
       // Clear fallback model references
       const clearedFallback = await prisma.aITaskConfig.updateMany({
         where: {
@@ -775,7 +781,7 @@ export class ModelDiscoveryService {
       });
 
       configsCleared = clearedPrimary.count + clearedFallback.count;
-      
+
       if (configsCleared > 0) {
         console.log(
           `[ModelDiscovery] Cleared ${configsCleared} task config references to removed models`,
@@ -818,7 +824,11 @@ export class ModelDiscoveryService {
   async testApiKey(
     apiKey: string,
     baseUrl?: string | null,
-  ): Promise<{ valid: boolean; error?: string }> {
+  ): Promise<{
+    valid: boolean;
+    error?: string;
+    models?: Array<{ id: string; name: string }>;
+  }> {
     try {
       console.log(`[ModelDiscovery] Testing API key...`);
       console.log(`[ModelDiscovery] Base URL: ${baseUrl || "OpenAI API"}`);
@@ -836,7 +846,16 @@ export class ModelDiscoveryService {
         `[ModelDiscovery] API call successful! Got ${result.data?.length || 0} models`,
       );
 
-      return { valid: true };
+      // Extract and return model list
+      const models =
+        result.data
+          ?.map((model) => ({
+            id: model.id,
+            name: model.id, // Use model ID as name since OpenAI doesn't provide friendly names in the list
+          }))
+          .sort((a, b) => a.id.localeCompare(b.id)) || [];
+
+      return { valid: true, models };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       console.error(`[ModelDiscovery] API key test failed: ${message}`);
