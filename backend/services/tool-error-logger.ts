@@ -214,7 +214,7 @@ export class ToolErrorLogger {
   /**
    * Log a tool execution error with full context
    */
-  static async logError(entry: ToolErrorLogEntry): Promise<string> {
+  async logError(entry: ToolErrorLogEntry): Promise<string> {
     const startTime = Date.now();
 
     try {
@@ -286,7 +286,7 @@ export class ToolErrorLogger {
   /**
    * Categorize error and detect patterns
    */
-  static categorizeError(errorMessage: string): {
+  categorizeError(errorMessage: string): {
     type: string;
     category: ToolErrorLogEntry["category"];
     severity: ToolErrorLogEntry["severity"];
@@ -316,7 +316,7 @@ export class ToolErrorLogger {
   /**
    * Print detailed error log to console
    */
-  static printErrorLog(entry: ToolErrorLogEntry): void {
+  printErrorLog(entry: ToolErrorLogEntry): void {
     const separator = "═".repeat(80);
     const timestamp = new Date().toISOString();
 
@@ -403,7 +403,7 @@ export class ToolErrorLogger {
   /**
    * Get emoji for severity level
    */
-  static getSeverityEmoji(severity?: string): string {
+  getSeverityEmoji(severity?: string): string {
     switch (severity) {
       case "critical":
         return "🔴";
@@ -421,7 +421,7 @@ export class ToolErrorLogger {
   /**
    * Query error logs with filters
    */
-  static async queryErrorLogs(filters: {
+  async queryErrorLogs(filters: {
     toolId?: string;
     userId?: string;
     category?: string;
