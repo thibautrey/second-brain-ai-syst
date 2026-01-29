@@ -53,3 +53,17 @@ export type {
   TaskEvent,
   TaskEventType,
 } from "./long-running-task.service.js";
+
+export type {
+  BrowserNavigateOptions,
+  BrowserContentOptions,
+  BrowserScreenshotOptions,
+  BrowserPdfOptions,
+  BrowserScrapingOptions,
+  BrowserInteractionOptions,
+  BrowserAction,
+  BrowserResponse,
+  BrowserContentResponse,
+  BrowserScreenshotResponse,
+  BrowserScrapingResponse,
+} from "./browser.service.js";

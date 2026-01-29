@@ -5,8 +5,8 @@ services:
       POSTGRES_USER: secondbrain
       POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
       POSTGRES_DB: second_brain
-    ports:
-      - "5432:5432"
+    #    ports:
+    #      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
@@ -28,9 +28,9 @@ services:
       RAFT_BOOTSTRAP_EXPECT: 1
       RAFT_JOIN: ""
       CLUSTER_HOSTNAME: "weaviate"
-    ports:
-      - "8080:8080"
-      - "8300:8300"
+    #    ports:
+    #      - "8080:8080"
+    #      - "8300:8300"
     volumes:
       - weaviate_data:/var/lib/weaviate
     healthcheck:
@@ -58,8 +58,8 @@ services:
       HF_HUB_CACHE: /app/models/hub
       HF_TOKEN: ${HF_TOKEN}
       HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-0}
-    ports:
-      - "5001:5001"
+    #    ports:
+    #      - "5001:5001"
     volumes:
       - embedding_models:/app/models
       - audio_data:/app/data/audio
@@ -78,8 +78,8 @@ services:
       MAX_EXECUTION_TIME: 30
       MAX_OUTPUT_SIZE: 10240
       MAX_CODE_SIZE: 50000
-    ports:
-      - "5002:5002"
+    #    ports:
+    #      - "5002:5002"
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -89,6 +89,40 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  browserless:
+    image: ghcr.io/browserless/chromium:latest
+    environment:
+      # Token for authentication (optional, leave empty for no auth)
+      TOKEN: ${BROWSERLESS_TOKEN:-}
+      # Maximum concurrent sessions
+      CONCURRENT: 5
+      # Queue length before rejecting
+      QUEUED: 10
+      # Timeout for page loads (ms)
+      TIMEOUT: 60000
+      # Enable /function, /scrape, /content endpoints
+      ENABLE_API_GET: "true"
+      # Health check endpoint
+      ENABLE_HEALTHCHECK: "true"
+      # Disable demo page in production
+      DEMO_MODE: "false"
+      # Chrome flags for better performance
+      CHROME_ARGS: "--disable-gpu --disable-dev-shm-usage --no-sandbox --disable-setuid-sandbox"
+    #    ports:
+    #      - "3001:3000"
+    healthcheck:
+      test:
+        ["CMD", "wget", "-q", "--spider", "http://localhost:3000/json/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
 
   backend:
     build:
@@ -107,6 +141,8 @@ services:
       EMBEDDING_SERVICE_PORT: 5001
       CODE_EXECUTOR_HOST: code-executor
       CODE_EXECUTOR_PORT: 5002
+      BROWSERLESS_URL: http://browserless:3000
+      BROWSERLESS_TOKEN: ${BROWSERLESS_TOKEN:-}
       AUDIO_TMP_DIR: /app/data/audio/tmp
     ports:
       - "3000:3000"
@@ -120,6 +156,8 @@ services:
       code-executor:
         condition: service_healthy
       weaviate:
+        condition: service_healthy
+      browserless:
         condition: service_healthy
 
   frontend:
