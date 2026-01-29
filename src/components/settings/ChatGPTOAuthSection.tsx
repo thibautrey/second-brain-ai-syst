@@ -3,17 +3,16 @@
  * Allows users to connect their ChatGPT account for API access
  */
 
-import { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import {
+  AlertCircle,
+  CheckCircle,
+  ClipboardPaste,
+  ExternalLink,
   Link2,
   Link2Off,
-  ExternalLink,
-  CheckCircle,
-  XCircle,
   Loader2,
-  AlertCircle,
   RefreshCw,
+  XCircle,
 } from "lucide-react";
 import {
   Card,
@@ -22,10 +21,14 @@ import {
   CardHeader,
   CardTitle,
 } from "../ui/card";
+import { useEffect, useState } from "react";
+
 import { Button } from "../ui/button";
-import { Switch } from "../ui/switch";
+import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
 import { useChatGPTOAuth } from "../../hooks/useChatGPTOAuth";
+import { useTranslation } from "react-i18next";
 
 interface ChatGPTOAuthSectionProps {
   className?: string;
@@ -41,12 +44,16 @@ export function ChatGPTOAuthSection({ className }: ChatGPTOAuthSectionProps) {
     disconnect,
     toggleEnabled,
     testConnection,
+    submitCodeManually,
     refreshStatus,
   } = useChatGPTOAuth();
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualCode, setManualCode] = useState("");
   const [testResult, setTestResult] = useState<{
     success: boolean;
     message: string;
