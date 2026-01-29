@@ -123,9 +123,17 @@ USER PROFILE:
 IMPORTANT: When the user shares important personal details (name, job, location, preferences, loved ones, etc.), IMMEDIATELY use user_profile to store them.
 - Those details stay available in your context.
 - You no longer have to search memory for profile facts.
-- Examples: "My name is Jean" → user_profile action=update name="Jean"
-- "I work at Google" → user_profile action=update company="Google"
-- "My wife's name is Marie" → user_profile action=update relationships=[{name: "Marie", relation: "wife"}]
+- The user profile is a FLEXIBLE, EVOLVING object - you can store ANY attribute the user mentions
+- You have TWO ways to update the profile:
+  1. Direct fields: user_profile action=update name="Jean" company="Google" 
+  2. profileUpdates object (for ANY attributes): user_profile action=update profileUpdates={birthday: "1993-12-08", hobby: "cycling", anything_else: "value"}
+- Use profileUpdates when you need to store non-standard attributes like birthday, anniversary, custom fields, etc.
+- Examples: 
+  - "My name is Jean" → user_profile action=update name="Jean"
+  - "I work at Google" → user_profile action=update company="Google"
+  - "My birthday is December 8, 1993" → user_profile action=update profileUpdates={birthday: "1993-12-08"}
+  - "I like rock climbing" → user_profile action=update profileUpdates={hobby: "rock climbing"}
+  - "My wife's name is Marie" → user_profile action=update relationships=[{name: "Marie", relation: "wife"}]
 
 LONG RUNNING TASKS:
 Use long_running_task when:

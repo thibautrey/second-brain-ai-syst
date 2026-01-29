@@ -846,11 +846,19 @@ model AITaskConfig {
   modelId    String?
   model      AIModel?    @relation(fields: [modelId], references: [id], onDelete: SetNull, name: "primaryModel")
 
+  // ChatGPT OAuth as primary (virtual provider)
+  useChatGPTOAuth     Boolean @default(false) // Use ChatGPT OAuth instead of regular provider
+  chatGPTOAuthModelId String? // Model ID when using ChatGPT OAuth (e.g., 'gpt-4o')
+
   // Fallback provider and model
   fallbackProviderId String?
   fallbackProvider   AIProvider? @relation(fields: [fallbackProviderId], references: [id], onDelete: SetNull, name: "fallbackProvider")
   fallbackModelId    String?
   fallbackModel      AIModel?    @relation(fields: [fallbackModelId], references: [id], onDelete: SetNull, name: "fallbackModel")
+
+  // ChatGPT OAuth as fallback (virtual provider)
+  useChatGPTOAuthFallback     Boolean @default(false) // Use ChatGPT OAuth as fallback
+  chatGPTOAuthFallbackModelId String? // Model ID when using ChatGPT OAuth as fallback
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

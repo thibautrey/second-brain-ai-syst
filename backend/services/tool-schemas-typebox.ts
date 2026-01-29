@@ -545,6 +545,11 @@ export const UserProfileParamsSchema = Type.Object(
       Type.String({ description: "How the user wants to be addressed" }),
     ),
     age: Type.Optional(Type.Number({ description: "User's age" })),
+    birthday: Type.Optional(
+      Type.String({
+        description: "User's birthday (ISO format, e.g., '1993-12-08')",
+      }),
+    ),
     birthdate: Type.Optional(
       Type.String({
         description: "User's birthdate (ISO format, e.g., '1990-05-15')",
@@ -589,6 +594,12 @@ export const UserProfileParamsSchema = Type.Object(
     values: Type.Optional(
       Type.Array(Type.String(), { description: "User's core values" }),
     ),
+    profileUpdates: Type.Optional(
+      Type.Record(Type.String(), Type.Any(), {
+        description:
+          "Flexible object with any user profile attributes (birthday, custom fields, etc.). For 'update' action, all properties will be merged into the user profile.",
+      }),
+    ),
     customFields: Type.Optional(
       Type.Object(
         {},
@@ -604,7 +615,7 @@ export const UserProfileParamsSchema = Type.Object(
       }),
     ),
   },
-  { additionalProperties: false },
+  { additionalProperties: true },
 );
 
 export type UserProfileParams = Static<typeof UserProfileParamsSchema>;

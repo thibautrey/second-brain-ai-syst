@@ -143,10 +143,63 @@ function mapCapabilityToFrontend(cap: ModelCapability): string {
 
 // ==================== Provider Operations ====================
 
+// ChatGPT OAuth virtual provider ID (constant for reference)
+export const CHATGPT_OAUTH_PROVIDER_ID = "chatgpt-oauth";
+
+// Default models available via ChatGPT OAuth (ChatGPT Plus/Pro subscription)
+const CHATGPT_OAUTH_MODELS = [
+  {
+    modelId: "gpt-4o",
+    name: "GPT-4o (ChatGPT)",
+    capabilities: [
+      "ROUTING" as ModelCapability,
+      "REFLECTION" as ModelCapability,
+      "CHAT" as ModelCapability,
+      "SUMMARIZATION" as ModelCapability,
+      "ANALYSIS" as ModelCapability,
+    ],
+  },
+  {
+    modelId: "gpt-4o-mini",
+    name: "GPT-4o Mini (ChatGPT)",
+    capabilities: [
+      "ROUTING" as ModelCapability,
+      "REFLECTION" as ModelCapability,
+      "CHAT" as ModelCapability,
+      "SUMMARIZATION" as ModelCapability,
+      "ANALYSIS" as ModelCapability,
+    ],
+  },
+  {
+    modelId: "gpt-4",
+    name: "GPT-4 (ChatGPT)",
+    capabilities: [
+      "ROUTING" as ModelCapability,
+      "REFLECTION" as ModelCapability,
+      "CHAT" as ModelCapability,
+      "SUMMARIZATION" as ModelCapability,
+      "ANALYSIS" as ModelCapability,
+    ],
+  },
+  {
+    modelId: "gpt-4-turbo",
+    name: "GPT-4 Turbo (ChatGPT)",
+    capabilities: [
+      "ROUTING" as ModelCapability,
+      "REFLECTION" as ModelCapability,
+      "CHAT" as ModelCapability,
+      "SUMMARIZATION" as ModelCapability,
+      "ANALYSIS" as ModelCapability,
+    ],
+  },
+];
+
 /**
  * Get all AI providers for a user
+ * Includes ChatGPT OAuth as a virtual provider if connected and enabled
  */
 export async function getProviders(userId: string) {
+  // Get regular providers from database
   const providers = await prisma.aIProvider.findMany({
     where: { userId },
     include: {
@@ -155,7 +208,7 @@ export async function getProviders(userId: string) {
     orderBy: { createdAt: "asc" },
   });
 
-  return providers.map((p) => ({
+  const result = providers.map((p) => ({
     id: p.id,
     name: p.name,
     type: mapProviderTypeToFrontend(p.type),
@@ -172,6 +225,32 @@ export async function getProviders(userId: string) {
       isCustom: m.isCustom,
     })),
   }));
+
+  // Check if user has ChatGPT OAuth connected and enabled
+  const oauthStatus = await chatGPTOAuthService.getOAuthStatus(userId);
+
+  if (oauthStatus.isConnected && oauthStatus.isEnabled) {
+    // Add ChatGPT OAuth as a virtual provider
+    result.unshift({
+      id: CHATGPT_OAUTH_PROVIDER_ID,
+      name: "ChatGPT (OAuth)",
+      type: "openai" as const,
+      apiKey: "****oauth****", // Masked indicator
+      baseUrl: null,
+      isEnabled: true,
+      createdAt: oauthStatus.connectedAt || new Date().toISOString(),
+      updatedAt: oauthStatus.lastUsedAt || new Date().toISOString(),
+      models: CHATGPT_OAUTH_MODELS.map((m) => ({
+        id: m.modelId,
+        name: m.name,
+        providerId: CHATGPT_OAUTH_PROVIDER_ID,
+        capabilities: m.capabilities.map(mapCapabilityToFrontend),
+        isCustom: false,
+      })),
+    });
+  }
+
+  return result;
 }
 
 /**
@@ -465,6 +544,42 @@ export async function removeModelFromProvider(
 
 // ==================== Task Config Operations ====================
 
+// Helper function to map task config to response format
+function mapTaskConfigToResponse(c: any) {
+  // Check if using ChatGPT OAuth
+  const useChatGPTOAuth = c.useChatGPTOAuth ?? false;
+  const useChatGPTOAuthFallback = c.useChatGPTOAuthFallback ?? false;
+
+  return {
+    taskType: mapCapabilityToFrontend(c.taskType),
+    // Primary provider
+    providerId: useChatGPTOAuth ? CHATGPT_OAUTH_PROVIDER_ID : c.providerId,
+    providerName: useChatGPTOAuth
+      ? "ChatGPT (OAuth)"
+      : c.provider?.name || null,
+    modelId: useChatGPTOAuth ? c.chatGPTOAuthModelId : c.model?.modelId || null,
+    modelName: useChatGPTOAuth
+      ? CHATGPT_OAUTH_MODELS.find((m) => m.modelId === c.chatGPTOAuthModelId)
+          ?.name || c.chatGPTOAuthModelId
+      : c.model?.name || null,
+    // Fallback provider
+    fallbackProviderId: useChatGPTOAuthFallback
+      ? CHATGPT_OAUTH_PROVIDER_ID
+      : c.fallbackProviderId,
+    fallbackProviderName: useChatGPTOAuthFallback
+      ? "ChatGPT (OAuth)"
+      : c.fallbackProvider?.name || null,
+    fallbackModelId: useChatGPTOAuthFallback
+      ? c.chatGPTOAuthFallbackModelId
+      : c.fallbackModel?.modelId || null,
+    fallbackModelName: useChatGPTOAuthFallback
+      ? CHATGPT_OAUTH_MODELS.find(
+          (m) => m.modelId === c.chatGPTOAuthFallbackModelId,
+        )?.name || c.chatGPTOAuthFallbackModelId
+      : c.fallbackModel?.name || null,
+  };
+}
+
 /**
  * Get all task configurations for a user
  */
@@ -507,34 +622,15 @@ export async function getTaskConfigs(userId: string) {
       },
     });
 
-    return updatedConfigs.map((c) => ({
-      taskType: mapCapabilityToFrontend(c.taskType),
-      providerId: c.providerId,
-      providerName: c.provider?.name || null,
-      modelId: c.model?.modelId || null,
-      modelName: c.model?.name || null,
-      fallbackProviderId: c.fallbackProviderId,
-      fallbackProviderName: c.fallbackProvider?.name || null,
-      fallbackModelId: c.fallbackModel?.modelId || null,
-      fallbackModelName: c.fallbackModel?.name || null,
-    }));
+    return updatedConfigs.map(mapTaskConfigToResponse);
   }
 
-  return configs.map((c) => ({
-    taskType: mapCapabilityToFrontend(c.taskType),
-    providerId: c.providerId,
-    providerName: c.provider?.name || null,
-    modelId: c.model?.modelId || null,
-    modelName: c.model?.name || null,
-    fallbackProviderId: c.fallbackProviderId,
-    fallbackProviderName: c.fallbackProvider?.name || null,
-    fallbackModelId: c.fallbackModel?.modelId || null,
-    fallbackModelName: c.fallbackModel?.name || null,
-  }));
+  return configs.map(mapTaskConfigToResponse);
 }
 
 /**
  * Update a task configuration
+ * Supports both regular providers and ChatGPT OAuth virtual provider
  */
 export async function updateTaskConfig(
   userId: string,
@@ -543,8 +639,13 @@ export async function updateTaskConfig(
 ) {
   const prismaTaskType = mapCapability(taskType);
 
-  // Validate primary provider and model if provided
-  if (input.providerId) {
+  // Check if using ChatGPT OAuth virtual provider
+  const isUsingChatGPTOAuth = input.providerId === CHATGPT_OAUTH_PROVIDER_ID;
+  const isUsingChatGPTOAuthFallback =
+    input.fallbackProviderId === CHATGPT_OAUTH_PROVIDER_ID;
+
+  // Validate primary provider and model if provided (skip for ChatGPT OAuth)
+  if (input.providerId && !isUsingChatGPTOAuth) {
     const provider = await prisma.aIProvider.findFirst({
       where: { id: input.providerId, userId },
     });
@@ -564,8 +665,16 @@ export async function updateTaskConfig(
     }
   }
 
-  // Validate fallback provider and model if provided
-  if (input.fallbackProviderId) {
+  // If using ChatGPT OAuth, validate that it's connected and enabled
+  if (isUsingChatGPTOAuth) {
+    const oauthStatus = await chatGPTOAuthService.getOAuthStatus(userId);
+    if (!oauthStatus.isConnected || !oauthStatus.isEnabled) {
+      throw new Error("ChatGPT OAuth is not connected or not enabled");
+    }
+  }
+
+  // Validate fallback provider and model if provided (skip for ChatGPT OAuth)
+  if (input.fallbackProviderId && !isUsingChatGPTOAuthFallback) {
     const fallbackProvider = await prisma.aIProvider.findFirst({
       where: { id: input.fallbackProviderId, userId },
     });
@@ -586,31 +695,69 @@ export async function updateTaskConfig(
     }
   }
 
+  // If using ChatGPT OAuth as fallback, validate that it's connected
+  if (isUsingChatGPTOAuthFallback) {
+    const oauthStatus = await chatGPTOAuthService.getOAuthStatus(userId);
+    if (!oauthStatus.isConnected || !oauthStatus.isEnabled) {
+      throw new Error("ChatGPT OAuth is not connected or not enabled");
+    }
+  }
+
+  // For ChatGPT OAuth, we store special marker values in the database
+  // The actual provider/model IDs are set to null, and we use a separate field or convention
+  // For now, we'll store the ChatGPT OAuth provider ID directly and handle it specially in getConfiguredModelForTask
+
   // Upsert the task config
   const config = await prisma.aITaskConfig.upsert({
     where: {
       userId_taskType: { userId, taskType: prismaTaskType },
     },
     update: {
-      providerId: input.providerId,
-      modelId: input.modelId
-        ? await getModelDbId(input.providerId!, input.modelId)
-        : null,
-      fallbackProviderId: input.fallbackProviderId,
-      fallbackModelId: input.fallbackModelId
-        ? await getModelDbId(input.fallbackProviderId!, input.fallbackModelId)
+      // For ChatGPT OAuth, store null for providerId but we'll track it via useChatGPTOAuth field
+      providerId: isUsingChatGPTOAuth ? null : input.providerId,
+      modelId: isUsingChatGPTOAuth
+        ? null
+        : input.modelId
+          ? await getModelDbId(input.providerId!, input.modelId)
+          : null,
+      fallbackProviderId: isUsingChatGPTOAuthFallback
+        ? null
+        : input.fallbackProviderId,
+      fallbackModelId: isUsingChatGPTOAuthFallback
+        ? null
+        : input.fallbackModelId
+          ? await getModelDbId(input.fallbackProviderId!, input.fallbackModelId)
+          : null,
+      // Store ChatGPT OAuth selection in metadata
+      useChatGPTOAuth: isUsingChatGPTOAuth,
+      chatGPTOAuthModelId: isUsingChatGPTOAuth ? input.modelId : null,
+      useChatGPTOAuthFallback: isUsingChatGPTOAuthFallback,
+      chatGPTOAuthFallbackModelId: isUsingChatGPTOAuthFallback
+        ? input.fallbackModelId
         : null,
     },
     create: {
       userId,
       taskType: prismaTaskType,
-      providerId: input.providerId,
-      modelId: input.modelId
-        ? await getModelDbId(input.providerId!, input.modelId)
-        : null,
-      fallbackProviderId: input.fallbackProviderId,
-      fallbackModelId: input.fallbackModelId
-        ? await getModelDbId(input.fallbackProviderId!, input.fallbackModelId)
+      providerId: isUsingChatGPTOAuth ? null : input.providerId,
+      modelId: isUsingChatGPTOAuth
+        ? null
+        : input.modelId
+          ? await getModelDbId(input.providerId!, input.modelId)
+          : null,
+      fallbackProviderId: isUsingChatGPTOAuthFallback
+        ? null
+        : input.fallbackProviderId,
+      fallbackModelId: isUsingChatGPTOAuthFallback
+        ? null
+        : input.fallbackModelId
+          ? await getModelDbId(input.fallbackProviderId!, input.fallbackModelId)
+          : null,
+      useChatGPTOAuth: isUsingChatGPTOAuth,
+      chatGPTOAuthModelId: isUsingChatGPTOAuth ? input.modelId : null,
+      useChatGPTOAuthFallback: isUsingChatGPTOAuthFallback,
+      chatGPTOAuthFallbackModelId: isUsingChatGPTOAuthFallback
+        ? input.fallbackModelId
         : null,
     },
     include: {
@@ -623,12 +770,26 @@ export async function updateTaskConfig(
 
   return {
     taskType: mapCapabilityToFrontend(config.taskType),
-    providerId: config.providerId,
-    providerName: config.provider?.name || null,
-    modelId: config.model?.modelId || null,
-    modelName: config.model?.name || null,
-    fallbackProviderId: config.fallbackProviderId,
-    fallbackProviderName: config.fallbackProvider?.name || null,
+    providerId: isUsingChatGPTOAuth
+      ? CHATGPT_OAUTH_PROVIDER_ID
+      : config.providerId,
+    providerName: isUsingChatGPTOAuth
+      ? "ChatGPT (OAuth)"
+      : config.provider?.name || null,
+    modelId: isUsingChatGPTOAuth
+      ? config.chatGPTOAuthModelId
+      : config.model?.modelId || null,
+    modelName: isUsingChatGPTOAuth
+      ? CHATGPT_OAUTH_MODELS.find(
+          (m) => m.modelId === config.chatGPTOAuthModelId,
+        )?.name || config.chatGPTOAuthModelId
+      : config.model?.name || null,
+    fallbackProviderId: isUsingChatGPTOAuthFallback
+      ? CHATGPT_OAUTH_PROVIDER_ID
+      : config.fallbackProviderId,
+    fallbackProviderName: isUsingChatGPTOAuthFallback
+      ? "ChatGPT (OAuth)"
+      : config.fallbackProvider?.name || null,
     fallbackModelId: config.fallbackModel?.modelId || null,
     fallbackModelName: config.fallbackModel?.name || null,
   };
@@ -699,6 +860,7 @@ export async function getProviderApiKey(
 /**
  * Get the configured provider and model for a specific task
  * Returns null if not configured
+ * Supports both regular providers and ChatGPT OAuth virtual provider
  */
 export async function getConfiguredModelForTask(
   userId: string,
@@ -718,6 +880,74 @@ export async function getConfiguredModelForTask(
     },
   });
 
+  if (!config) {
+    return null;
+  }
+
+  // Check if using ChatGPT OAuth
+  const useChatGPTOAuth = config.useChatGPTOAuth ?? false;
+  const useChatGPTOAuthFallback = config.useChatGPTOAuthFallback ?? false;
+
+  // If using ChatGPT OAuth but not a regular provider
+  if (useChatGPTOAuth && config.chatGPTOAuthModelId) {
+    // Get the OAuth credentials to use as "apiKey"
+    const oauthCredentials =
+      await chatGPTOAuthService.getValidOAuthCredentials(userId);
+
+    return {
+      provider: {
+        id: CHATGPT_OAUTH_PROVIDER_ID,
+        name: "ChatGPT (OAuth)",
+        type: "openai" as const,
+        apiKey: oauthCredentials?.accessToken || null, // OAuth access token as API key
+        baseUrl: null,
+        isChatGPTOAuth: true, // Flag to indicate special handling needed
+      },
+      model: {
+        id: config.chatGPTOAuthModelId,
+        name:
+          CHATGPT_OAUTH_MODELS.find(
+            (m) => m.modelId === config.chatGPTOAuthModelId,
+          )?.name || config.chatGPTOAuthModelId,
+      },
+      fallbackProvider:
+        useChatGPTOAuthFallback && config.chatGPTOAuthFallbackModelId
+          ? {
+              id: CHATGPT_OAUTH_PROVIDER_ID,
+              name: "ChatGPT (OAuth)",
+              type: "openai" as const,
+              apiKey: oauthCredentials?.accessToken || null,
+              baseUrl: null,
+              isChatGPTOAuth: true,
+            }
+          : config.fallbackProvider
+            ? {
+                id: config.fallbackProvider.id,
+                name: config.fallbackProvider.name,
+                type: mapProviderTypeToFrontend(config.fallbackProvider.type),
+                apiKey: config.fallbackProvider.apiKey,
+                baseUrl: config.fallbackProvider.baseUrl,
+              }
+            : null,
+      fallbackModel:
+        useChatGPTOAuthFallback && config.chatGPTOAuthFallbackModelId
+          ? {
+              id: config.chatGPTOAuthFallbackModelId,
+              name:
+                CHATGPT_OAUTH_MODELS.find(
+                  (m) => m.modelId === config.chatGPTOAuthFallbackModelId,
+                )?.name || config.chatGPTOAuthFallbackModelId,
+            }
+          : config.fallbackModel
+            ? {
+                id: config.fallbackModel.modelId,
+                name: config.fallbackModel.name,
+              }
+            : null,
+    };
+  }
+
+  // Regular provider logic
   if (!config?.provider || !config?.model) {
     return null;
   }
@@ -734,21 +964,42 @@ export async function getConfiguredModelForTask(
       id: config.model.modelId,
       name: config.model.name,
     },
-    fallbackProvider: config.fallbackProvider
-      ? {
-          id: config.fallbackProvider.id,
-          name: config.fallbackProvider.name,
-          type: mapProviderTypeToFrontend(config.fallbackProvider.type),
-          apiKey: config.fallbackProvider.apiKey,
-          baseUrl: config.fallbackProvider.baseUrl,
-        }
-      : null,
-    fallbackModel: config.fallbackModel
-      ? {
-          id: config.fallbackModel.modelId,
-          name: config.fallbackModel.name,
-        }
-      : null,
+    fallbackProvider:
+      useChatGPTOAuthFallback && config.chatGPTOAuthFallbackModelId
+        ? {
+            id: CHATGPT_OAUTH_PROVIDER_ID,
+            name: "ChatGPT (OAuth)",
+            type: "openai" as const,
+            apiKey:
+              (await chatGPTOAuthService.getValidOAuthCredentials(userId))
+                ?.accessToken || null,
+            baseUrl: null,
+            isChatGPTOAuth: true,
+          }
+        : config.fallbackProvider
+          ? {
+              id: config.fallbackProvider.id,
+              name: config.fallbackProvider.name,
+              type: mapProviderTypeToFrontend(config.fallbackProvider.type),
+              apiKey: config.fallbackProvider.apiKey,
+              baseUrl: config.fallbackProvider.baseUrl,
+            }
+          : null,
+    fallbackModel:
+      useChatGPTOAuthFallback && config.chatGPTOAuthFallbackModelId
+        ? {
+            id: config.chatGPTOAuthFallbackModelId,
+            name:
+              CHATGPT_OAUTH_MODELS.find(
+                (m) => m.modelId === config.chatGPTOAuthFallbackModelId,
+              )?.name || config.chatGPTOAuthFallbackModelId,
+          }
+        : config.fallbackModel
+          ? {
+              id: config.fallbackModel.modelId,
+              name: config.fallbackModel.name,
+            }
+          : null,
   };
 }
 

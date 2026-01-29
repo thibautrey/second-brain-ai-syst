@@ -34,54 +34,44 @@ export async function executeUserProfileAction(
           `[ToolExecutor] [executeUserProfileAction] Executing UPDATE action`,
         );
         const updates: Partial<UserProfile> = {};
-        const allowedFields = [
-          "name",
-          "firstName",
-          "lastName",
-          "nickname",
-          "age",
-          "birthdate",
-          "location",
-          "timezone",
-          "language",
-          "occupation",
-          "company",
-          "industry",
-          "skills",
-          "workStyle",
-          "communicationStyle",
-          "preferredName",
-          "interests",
-          "hobbies",
-          "currentGoals",
-          "longTermGoals",
-          "relationships",
-          "dietaryPreferences",
-          "exerciseHabits",
-          "sleepSchedule",
-          "custom",
+
+        // Build updates from params - support both direct fields and profileUpdates object
+        const fieldsToProcess: Record<string, any> = {};
+
+        // If profileUpdates object is provided, merge all its properties
+        if (
+          params.profileUpdates &&
+          typeof params.profileUpdates === "object"
+        ) {
+          console.log(
+            `[ToolExecutor] [executeUserProfileAction] Found profileUpdates object with keys: ${Object.keys(params.profileUpdates).join(", ")}`,
+          );
+          Object.assign(fieldsToProcess, params.profileUpdates);
+        }
+
+        // Also process top-level fields (for backward compatibility)
+        const allowedTopLevelFields = [
+          "action",
+          "field", // Used for get_field action
         ];
-        console.log(
-          `[ToolExecutor] [executeUserProfileAction] Allowed fields: ${allowedFields.join(", ")}`,
-        );
-        console.log(
-          `[ToolExecutor] [executeUserProfileAction] Param keys received: ${Object.keys(params).join(", ")}`,
-        );
-        for (const field of allowedFields) {
-          if (params[field] !== undefined) {
-            console.log(
-              `[ToolExecutor] [executeUserProfileAction] Mapping param '${field}' = ${JSON.stringify(params[field])}`,
-            );
-            (updates as any)[field] = params[field];
+        for (const key in params) {
+          if (
+            !allowedTopLevelFields.includes(key) &&
+            key !== "profileUpdates" &&
+            params[key] !== undefined
+          ) {
+            fieldsToProcess[key] = params[key];
           }
         }
+
         console.log(
-          `[ToolExecutor] [executeUserProfileAction] Total fields to update: ${Object.keys(updates).length}`,
+          `[ToolExecutor] [executeUserProfileAction] Total fields to update: ${Object.keys(fieldsToProcess).length}`,
         );
         console.log(
-          `[ToolExecutor] [executeUserProfileAction] Update object keys: ${Object.keys(updates).join(", ") || "empty"}`,
+          `[ToolExecutor] [executeUserProfileAction] Fields to update keys: ${Object.keys(fieldsToProcess).join(", ") || "empty"}`,
         );
-        if (Object.keys(updates).length === 0) {
+
+        if (Object.keys(fieldsToProcess).length === 0) {
           console.error(
             `[ToolExecutor] [executeUserProfileAction] ERROR: No valid profile fields in params`,
           );
@@ -89,6 +79,10 @@ export async function executeUserProfileAction(
             "At least one profile field must be provided for update",
           );
         }
+
+        // Merge all fields into updates (no restrictions - user profile is flexible)
+        Object.assign(updates, fieldsToProcess);
+
         console.log(
           `[ToolExecutor] [executeUserProfileAction] Calling userProfileService.mergeUserProfile with userId=${userId}`,
         );
