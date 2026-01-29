@@ -8,9 +8,10 @@
 
 import axios, { AxiosError } from "axios";
 
-// Browserless configuration
+// Browserless v2 configuration
+// See: https://docs.browserless.io/rest-apis
 const BROWSERLESS_URL =
-  process.env.BROWSERLESS_URL || "http://browserless:3001";
+  process.env.BROWSERLESS_URL || "http://browserless:3000";
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN || "";
 
 export interface BrowserNavigateOptions {
@@ -202,17 +203,20 @@ export class BrowserService {
 
   /**
    * Navigate to a URL and get basic page info
+   * Uses Browserless v2 /chromium/function endpoint with ESM format
    */
   async navigate(options: BrowserNavigateOptions): Promise<BrowserResponse> {
     try {
+      const code = this.buildNavigationScript(options);
+      const tokenParam = this.token ? `?token=${this.token}` : "";
+
       const response = await axios.post(
-        `${this.baseUrl}/function`,
+        `${this.baseUrl}/chromium/function${tokenParam}`,
+        code,
         {
-          code: this.buildNavigationScript(options),
-          context: { url: options.url },
-        },
-        {
-          headers: this.getHeaders(),
+          headers: {
+            "Content-Type": "application/javascript",
+          },
           timeout: options.timeout || 30000,
         },
       );
@@ -228,24 +232,29 @@ export class BrowserService {
 
   /**
    * Get page content (text, HTML, links, metadata)
+   * Uses Browserless v2 /chromium/content endpoint
    */
   async getContent(
     options: BrowserContentOptions,
   ): Promise<BrowserContentResponse> {
     try {
+      const tokenParam = this.token ? `?token=${this.token}` : "";
       const response = await axios.post(
-        `${this.baseUrl}/content`,
+        `${this.baseUrl}/chromium/content${tokenParam}`,
         {
           url: options.url,
-          waitForSelector: options.waitForSelector,
-          waitForTimeout: options.timeout || 30000,
+          waitForSelector: options.waitForSelector
+            ? { selector: options.waitForSelector }
+            : undefined,
           gotoOptions: {
             waitUntil: "networkidle2",
             timeout: options.timeout || 30000,
           },
         },
         {
-          headers: this.getHeaders(),
+          headers: {
+            "Content-Type": "application/json",
+          },
           timeout: (options.timeout || 30000) + 5000,
         },
       );
@@ -276,6 +285,7 @@ export class BrowserService {
 
   /**
    * Take a screenshot of a webpage
+   * Uses Browserless v2 /chromium/screenshot endpoint
    */
   async screenshot(
     options: BrowserScreenshotOptions,
@@ -294,8 +304,9 @@ export class BrowserService {
         screenshotOptions.selector = options.selector;
       }
 
+      const tokenParam = this.token ? `?token=${this.token}` : "";
       const response = await axios.post(
-        `${this.baseUrl}/screenshot`,
+        `${this.baseUrl}/chromium/screenshot${tokenParam}`,
         {
           url: options.url,
           options: screenshotOptions,
@@ -303,14 +314,18 @@ export class BrowserService {
             width: options.width || 1920,
             height: options.height || 1080,
           },
-          waitForSelector: options.waitForSelector,
+          waitForSelector: options.waitForSelector
+            ? { selector: options.waitForSelector }
+            : undefined,
           gotoOptions: {
             waitUntil: "networkidle2",
             timeout: options.timeout || 30000,
           },
         },
         {
-          headers: this.getHeaders(),
+          headers: {
+            "Content-Type": "application/json",
+          },
           timeout: (options.timeout || 30000) + 5000,
           responseType: "arraybuffer",
         },
@@ -348,19 +363,24 @@ export class BrowserService {
         pdfOptions.margin = options.margin;
       }
 
+      const tokenParam = this.token ? `?token=${this.token}` : "";
       const response = await axios.post(
-        `${this.baseUrl}/pdf`,
+        `${this.baseUrl}/chromium/pdf${tokenParam}`,
         {
           url: options.url,
           options: pdfOptions,
-          waitForSelector: options.waitForSelector,
+          waitForSelector: options.waitForSelector
+            ? { selector: options.waitForSelector }
+            : undefined,
           gotoOptions: {
             waitUntil: "networkidle2",
             timeout: options.timeout || 30000,
           },
         },
         {
-          headers: this.getHeaders(),
+          headers: {
+            "Content-Type": "application/json",
+          },
           timeout: (options.timeout || 30000) + 5000,
           responseType: "arraybuffer",
         },
@@ -380,25 +400,22 @@ export class BrowserService {
 
   /**
    * Scrape structured data from a webpage using selectors
+   * Uses Browserless v2 /chromium/function endpoint
    */
   async scrape(
     options: BrowserScrapingOptions,
   ): Promise<BrowserScrapingResponse> {
     try {
-      const script = this.buildScrapingScript(options.selectors);
+      const script = this.buildScrapingScript(options);
+      const tokenParam = this.token ? `?token=${this.token}` : "";
 
       const response = await axios.post(
-        `${this.baseUrl}/function`,
+        `${this.baseUrl}/chromium/function${tokenParam}`,
+        script,
         {
-          code: script,
-          context: {
-            url: options.url,
-            selectors: options.selectors,
-            waitForSelector: options.waitForSelector,
+          headers: {
+            "Content-Type": "application/javascript",
           },
-        },
-        {
-          headers: this.getHeaders(),
           timeout: options.timeout || 30000,
         },
       );
@@ -406,7 +423,7 @@ export class BrowserService {
       return {
         success: true,
         url: options.url,
-        data: response.data,
+        data: response.data?.data || response.data,
       };
     } catch (error: any) {
       return this.handleError(error, "scrape");
@@ -415,27 +432,22 @@ export class BrowserService {
 
   /**
    * Perform complex interactions on a webpage
+   * Uses Browserless v2 /chromium/function endpoint
    */
   async interact(
     options: BrowserInteractionOptions,
   ): Promise<BrowserResponse & { screenshot?: string; content?: string }> {
     try {
       const script = this.buildInteractionScript(options);
+      const tokenParam = this.token ? `?token=${this.token}` : "";
 
       const response = await axios.post(
-        `${this.baseUrl}/function`,
+        `${this.baseUrl}/chromium/function${tokenParam}`,
+        script,
         {
-          code: script,
-          context: {
-            url: options.url,
-            actions: options.actions,
-            waitForSelector: options.waitForSelector,
-            returnContent: options.returnContent,
-            takeScreenshot: options.takeScreenshot,
+          headers: {
+            "Content-Type": "application/javascript",
           },
-        },
-        {
-          headers: this.getHeaders(),
           timeout: options.timeout || 60000,
         },
       );
@@ -443,7 +455,7 @@ export class BrowserService {
       return {
         success: true,
         url: options.url,
-        ...response.data,
+        ...(response.data?.data || response.data),
       };
     } catch (error: any) {
       return this.handleError(error, "interact");
@@ -452,6 +464,7 @@ export class BrowserService {
 
   /**
    * Execute custom JavaScript on a page
+   * Uses Browserless v2 /chromium/function endpoint with ESM format
    */
   async evaluate(
     url: string,
@@ -459,22 +472,26 @@ export class BrowserService {
     timeout: number = 30000,
   ): Promise<BrowserResponse> {
     try {
+      const tokenParam = this.token ? `?token=${this.token}` : "";
+      const code = `
+export default async function ({ page }) {
+  await page.goto("${url}", { waitUntil: 'networkidle2' });
+  const result = await page.evaluate(() => {
+    ${script}
+  });
+  return {
+    data: result,
+    type: "application/json"
+  };
+}`;
+
       const response = await axios.post(
-        `${this.baseUrl}/function`,
+        `${this.baseUrl}/chromium/function${tokenParam}`,
+        code,
         {
-          code: `
-            module.exports = async ({ page, context }) => {
-              await page.goto(context.url, { waitUntil: 'networkidle2' });
-              const result = await page.evaluate(() => {
-                ${script}
-              });
-              return result;
-            };
-          `,
-          context: { url },
-        },
-        {
-          headers: this.getHeaders(),
+          headers: {
+            "Content-Type": "application/javascript",
+          },
           timeout: timeout + 5000,
         },
       );
@@ -482,7 +499,7 @@ export class BrowserService {
       return {
         success: true,
         url,
-        data: response.data,
+        data: response.data?.data || response.data,
       };
     } catch (error: any) {
       return this.handleError(error, "evaluate");
@@ -490,155 +507,171 @@ export class BrowserService {
   }
 
   /**
-   * Build navigation script for browserless function endpoint
+   * Build navigation script for browserless v2 function endpoint (ESM format)
    */
   private buildNavigationScript(options: BrowserNavigateOptions): string {
-    return `
-      module.exports = async ({ page, context }) => {
-        ${options.blockResources ? this.getResourceBlockingScript() : ""}
-        ${options.userAgent ? `await page.setUserAgent('${options.userAgent}');` : ""}
+    const blockResources = options.blockResources
+      ? this.getResourceBlockingScript()
+      : "";
+    const setUserAgent = options.userAgent
+      ? `await page.setUserAgent('${options.userAgent}');`
+      : "";
+    const waitForSelector = options.waitForSelector
+      ? `await page.waitForSelector('${options.waitForSelector}', { timeout: ${options.timeout || 30000} });`
+      : "";
 
-        const response = await page.goto(context.url, {
-          waitUntil: '${options.waitForNavigation ? "networkidle2" : "domcontentloaded"}',
-          timeout: ${options.timeout || 30000}
-        });
+    return `export default async function ({ page }) {
+  ${blockResources}
+  ${setUserAgent}
 
-        ${options.waitForSelector ? `await page.waitForSelector('${options.waitForSelector}', { timeout: ${options.timeout || 30000} });` : ""}
+  const response = await page.goto("${options.url}", {
+    waitUntil: '${options.waitForNavigation ? "networkidle2" : "domcontentloaded"}',
+    timeout: ${options.timeout || 30000}
+  });
 
-        const title = await page.title();
-        const url = page.url();
+  ${waitForSelector}
 
-        return {
-          url,
-          title,
-          statusCode: response ? response.status() : null,
-        };
-      };
-    `;
+  const title = await page.title();
+  const url = page.url();
+
+  return {
+    data: {
+      url,
+      title,
+      statusCode: response ? response.status() : null,
+    },
+    type: "application/json"
+  };
+}`;
   }
 
   /**
-   * Build scraping script for browserless function endpoint
+   * Build scraping script for browserless v2 function endpoint (ESM format)
    */
-  private buildScrapingScript(
-    selectors: BrowserScrapingOptions["selectors"],
-  ): string {
-    return `
-      module.exports = async ({ page, context }) => {
-        await page.goto(context.url, { waitUntil: 'networkidle2' });
+  private buildScrapingScript(options: BrowserScrapingOptions): string {
+    // Serialize selectors to JSON for embedding in the script
+    const selectorsJson = JSON.stringify(options.selectors);
+    const waitForSelector = options.waitForSelector
+      ? `await page.waitForSelector('${options.waitForSelector}', { timeout: 30000 });`
+      : "";
 
-        if (context.waitForSelector) {
-          await page.waitForSelector(context.waitForSelector, { timeout: 30000 });
-        }
+    return `export default async function ({ page }) {
+  await page.goto("${options.url}", { waitUntil: 'networkidle2' });
 
-        const data = await page.evaluate((selectors) => {
-          const result = {};
+  ${waitForSelector}
 
-          for (const [key, config] of Object.entries(selectors)) {
-            try {
-              if (config.multiple) {
-                const elements = document.querySelectorAll(config.selector);
-                result[key] = Array.from(elements).map(el =>
-                  config.attribute ? el.getAttribute(config.attribute) : el.textContent?.trim()
-                ).filter(Boolean);
-              } else {
-                const element = document.querySelector(config.selector);
-                if (element) {
-                  result[key] = config.attribute
-                    ? element.getAttribute(config.attribute)
-                    : element.textContent?.trim();
-                }
-              }
-            } catch (e) {
-              result[key] = null;
-            }
+  const selectors = ${selectorsJson};
+
+  const data = await page.evaluate((selectors) => {
+    const result = {};
+
+    for (const [key, config] of Object.entries(selectors)) {
+      try {
+        if (config.multiple) {
+          const elements = document.querySelectorAll(config.selector);
+          result[key] = Array.from(elements).map(el =>
+            config.attribute ? el.getAttribute(config.attribute) : el.textContent?.trim()
+          ).filter(Boolean);
+        } else {
+          const element = document.querySelector(config.selector);
+          if (element) {
+            result[key] = config.attribute
+              ? element.getAttribute(config.attribute)
+              : element.textContent?.trim();
           }
+        }
+      } catch (e) {
+        result[key] = null;
+      }
+    }
 
-          return result;
-        }, context.selectors);
+    return result;
+  }, selectors);
 
-        return data;
-      };
-    `;
+  return {
+    data,
+    type: "application/json"
+  };
+}`;
   }
 
   /**
-   * Build interaction script for browserless function endpoint
+   * Build interaction script for browserless v2 function endpoint (ESM format)
    */
   private buildInteractionScript(options: BrowserInteractionOptions): string {
-    return `
-      module.exports = async ({ page, context }) => {
-        await page.goto(context.url, { waitUntil: 'networkidle2' });
+    const actionsJson = JSON.stringify(options.actions);
+    const waitForSelector = options.waitForSelector
+      ? `await page.waitForSelector('${options.waitForSelector}', { timeout: 30000 });`
+      : "";
 
-        if (context.waitForSelector) {
-          await page.waitForSelector(context.waitForSelector, { timeout: 30000 });
-        }
+    return `export default async function ({ page }) {
+  await page.goto("${options.url}", { waitUntil: 'networkidle2' });
 
-        const results = [];
+  ${waitForSelector}
 
-        for (const action of context.actions) {
-          try {
-            if (action.delay) {
-              await new Promise(resolve => setTimeout(resolve, action.delay));
-            }
+  const actions = ${actionsJson};
+  const results = [];
 
-            switch (action.type) {
-              case 'click':
-                await page.click(action.selector);
-                results.push({ action: 'click', selector: action.selector, success: true });
-                break;
+  for (const action of actions) {
+    try {
+      if (action.delay) {
+        await new Promise(resolve => setTimeout(resolve, action.delay));
+      }
 
-              case 'type':
-                await page.type(action.selector, action.value);
-                results.push({ action: 'type', selector: action.selector, success: true });
-                break;
+      switch (action.type) {
+        case 'click':
+          await page.click(action.selector);
+          results.push({ action: 'click', selector: action.selector, success: true });
+          break;
 
-              case 'select':
-                await page.select(action.selector, action.value);
-                results.push({ action: 'select', selector: action.selector, success: true });
-                break;
+        case 'type':
+          await page.type(action.selector, action.value);
+          results.push({ action: 'type', selector: action.selector, success: true });
+          break;
 
-              case 'scroll':
-                if (action.direction === 'top') {
-                  await page.evaluate(() => window.scrollTo(0, 0));
-                } else if (action.direction === 'bottom') {
-                  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-                } else {
-                  const amount = action.amount || 300;
-                  const delta = action.direction === 'up' ? -amount : amount;
-                  await page.evaluate((delta) => window.scrollBy(0, delta), delta);
-                }
-                results.push({ action: 'scroll', direction: action.direction, success: true });
-                break;
+        case 'select':
+          await page.select(action.selector, action.value);
+          results.push({ action: 'select', selector: action.selector, success: true });
+          break;
 
-              case 'wait':
-                await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
-                results.push({ action: 'wait', duration: action.duration, success: true });
-                break;
-
-              case 'evaluate':
-                const evalResult = await page.evaluate(action.script);
-                results.push({ action: 'evaluate', result: evalResult, success: true });
-                break;
-            }
-          } catch (error) {
-            results.push({ action: action.type, selector: action.selector, success: false, error: error.message });
+        case 'scroll':
+          if (action.direction === 'top') {
+            await page.evaluate(() => window.scrollTo(0, 0));
+          } else if (action.direction === 'bottom') {
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          } else {
+            const amount = action.amount || 300;
+            const delta = action.direction === 'up' ? -amount : amount;
+            await page.evaluate((delta) => window.scrollBy(0, delta), delta);
           }
-        }
+          results.push({ action: 'scroll', direction: action.direction, success: true });
+          break;
 
-        const response = { actions: results };
+        case 'wait':
+          await new Promise(resolve => setTimeout(resolve, action.duration || 1000));
+          results.push({ action: 'wait', duration: action.duration, success: true });
+          break;
 
-        if (context.returnContent) {
-          response.content = await page.evaluate(() => document.body.innerText);
-        }
+        case 'evaluate':
+          const evalResult = await page.evaluate(action.script);
+          results.push({ action: 'evaluate', result: evalResult, success: true });
+          break;
+      }
+    } catch (error) {
+      results.push({ action: action.type, selector: action.selector, success: false, error: error.message });
+    }
+  }
 
-        if (context.takeScreenshot) {
-          response.screenshot = await page.screenshot({ encoding: 'base64' });
-        }
+  const response = { actions: results };
 
-        return response;
-      };
-    `;
+  ${options.returnContent ? `response.content = await page.evaluate(() => document.body.innerText);` : ""}
+  ${options.takeScreenshot ? `response.screenshot = await page.screenshot({ encoding: 'base64' });` : ""}
+
+  return {
+    data: response,
+    type: "application/json"
+  };
+}`;
   }
 
   /**
@@ -746,7 +779,12 @@ export class BrowserService {
         errorMessage += `: ${axiosError.response.status} - ${axiosError.response.statusText}`;
         if (axiosError.response.data) {
           const data = axiosError.response.data as any;
-          if (data.message) errorMessage += ` - ${data.message}`;
+          // Handle both object and string error responses
+          if (typeof data === "string") {
+            errorMessage += ` - ${data}`;
+          } else if (data.message) {
+            errorMessage += ` - ${data.message}`;
+          }
         }
       } else if (axiosError.code === "ECONNREFUSED") {
         errorMessage =
