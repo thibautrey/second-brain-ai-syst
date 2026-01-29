@@ -568,6 +568,27 @@
   },
   "training": {
     "passphrase": "Ma voix est mon mot de passe",
+    "page": {
+      "title": "Entraînement Vocal",
+      "subtitle": "Créez et entraînez votre profil vocal pour une meilleure reconnaissance",
+      "tabs": {
+        "train": "Entraîner",
+        "review": "Examiner"
+      },
+      "steps": {
+        "profile": "Profil",
+        "phrases": "Phrases",
+        "paragraphs": "Paragraphes",
+        "train": "Entraîner",
+        "verify": "Vérifier"
+      },
+      "gettingStarted": {
+        "title": "Démarrage",
+        "tip1": "Créez un profil vocal pour commencer l'entraînement.",
+        "tip2": "Enregistrez quelques phrases courtes pour construire votre modèle.",
+        "tip3": "Lisez des paragraphes plus longs pour une meilleure précision."
+      }
+    },
     "recordSamples": {
       "title": "Enregistrer des échantillons vocaux",
       "subtitle": "Enregistrez des lectures naturelles des phrases ci-dessous. Entraînez-vous avec plusieurs langues pour une meilleure précision.",
@@ -1083,8 +1104,8 @@
     "embeddingSelectionStep": {
       "title": "Sélectionnez le modèle d'intégration",
       "subtitle": "Choisissez un modèle d'intégration pour la recherche sémantique et l'organisation des mémoires. Ceci est obligatoire pour que le système fonctionne correctement.",
-      "providProvider": "Sélectionner un provider",
-      "selecterTitle": "Modèles d'intégration disponibles de {{provider}}",
+      "providerTitle": "Modèles d'intégration disponibles de {{provider}}",
+      "selectProvider": "Sélectionner un provider",
       "selectModel": "Sélectionner le modèle d'intégration",
       "chooseModel": "Choisir un modèle d'intégration...",
       "modelDescription": "Ce modèle sera utilisé pour vectoriser le texte en vue de la recherche sémantique et de la récupération des mémoires.",

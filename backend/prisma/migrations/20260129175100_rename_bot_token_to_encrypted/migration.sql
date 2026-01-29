@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "telegram_verifications" RENAME COLUMN "botToken" TO "encryptedBotToken";
+ALTER TABLE "TelegramVerification" RENAME COLUMN "botToken" TO "encryptedBotToken";
