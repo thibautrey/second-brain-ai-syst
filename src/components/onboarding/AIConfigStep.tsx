@@ -277,32 +277,31 @@ export function AIConfigStep({
           </div>
 
           {/* Custom Provider Form */}
-            <div>
-              <Label htmlFor="provider-name">
-                {t("onboarding.aiConfigStep.form.providerName")}
-              </Label>
-              <Input
-                id="provider-name"
-                value={newProvider.name}
-                onChange={(e) =>
-                  setNewProvider({ ...newProvider, name: e.target.value })
-                }
-                placeholder="OpenAI"
-              />
-            </div>
-            <div>
-              <Label htmlFor="base-url">
-                {t("onboarding.aiConfigStep.form.baseUrl")}
-              </Label>
-              <Input
-                id="base-url"
-                value={newProvider.baseUrl}
-                onChange={(e) =>
-                  setNewProvider({ ...newProvider, baseUrl: e.target.value })
-                }
-                placeholder="https://api.openai.com/v1"
-              />
-            </div>
+          <div>
+            <Label htmlFor="provider-name">
+              {t("onboarding.aiConfigStep.form.providerName")}
+            </Label>
+            <Input
+              id="provider-name"
+              value={newProvider.name}
+              onChange={(e) =>
+                setNewProvider({ ...newProvider, name: e.target.value })
+              }
+              placeholder="OpenAI"
+            />
+          </div>
+          <div>
+            <Label htmlFor="base-url">
+              {t("onboarding.aiConfigStep.form.baseUrl")}
+            </Label>
+            <Input
+              id="base-url"
+              value={newProvider.baseUrl}
+              onChange={(e) =>
+                setNewProvider({ ...newProvider, baseUrl: e.target.value })
+              }
+              placeholder="https://api.openai.com/v1"
+            />
           </div>
 
           <div>
