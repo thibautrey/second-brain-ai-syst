@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import { ChevronDown, Search, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+
 import { cn } from "../../lib/utils";
-import { X, Search, ChevronDown } from "lucide-react";
 
 export interface SearchSelectOption {
   value: string;
@@ -18,10 +19,7 @@ export interface SearchSelectProps {
   maxHeight?: string;
 }
 
-export const SearchSelect = React.forwardRef<
-  HTMLDivElement,
-  SearchSelectProps
->(
+export const SearchSelect = React.forwardRef<HTMLDivElement, SearchSelectProps>(
   (
     {
       options,
@@ -42,9 +40,10 @@ export const SearchSelect = React.forwardRef<
 
     // Filter options based on search
     useEffect(() => {
-      const filtered = options.filter((option) =>
-        option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
-        option.value.toLowerCase().includes(searchValue.toLowerCase()),
+      const filtered = options.filter(
+        (option) =>
+          option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
+          option.value.toLowerCase().includes(searchValue.toLowerCase()),
       );
       setFilteredOptions(filtered);
     }, [searchValue, options]);
@@ -88,10 +87,7 @@ export const SearchSelect = React.forwardRef<
     };
 
     return (
-      <div
-        ref={ref}
-        className={cn("relative w-full", className)}
-      >
+      <div ref={ref} className={cn("relative w-full", className)}>
         {/* Main Input/Display */}
         <div
           onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -105,7 +101,9 @@ export const SearchSelect = React.forwardRef<
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
             {selectedOption ? (
-              <span className="text-slate-900 truncate">{selectedOption.label}</span>
+              <span className="text-slate-900 truncate">
+                {selectedOption.label}
+              </span>
             ) : (
               <span className="text-slate-500">{placeholder}</span>
             )}
@@ -151,7 +149,10 @@ export const SearchSelect = React.forwardRef<
             </div>
 
             {/* Options List */}
-            <div className="overflow-y-auto" style={{ maxHeight: `calc(${maxHeight} - 50px)` }}>
+            <div
+              className="overflow-y-auto"
+              style={{ maxHeight: `calc(${maxHeight} - 50px)` }}
+            >
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((option) => (
                   <button
@@ -161,8 +162,10 @@ export const SearchSelect = React.forwardRef<
                     className={cn(
                       "w-full text-left px-3 py-2 text-sm hover:bg-blue-50",
                       "transition-colors",
-                      value === option.value && "bg-blue-50 text-blue-900 font-medium",
-                      option.disabled && "cursor-not-allowed opacity-50 hover:bg-white",
+                      value === option.value &&
+                        "bg-blue-50 text-blue-900 font-medium",
+                      option.disabled &&
+                        "cursor-not-allowed opacity-50 hover:bg-white",
                     )}
                   >
                     {option.label}

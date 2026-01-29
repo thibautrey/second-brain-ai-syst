@@ -86,7 +86,8 @@ export function ModelSelectionStep({
         setSelectedModel(createModelKey(providerId, selectedWellKnown.id));
         setSelectedProviderId(providerId);
       } else if (availableModels[0]) {
-        const providerId = availableModels[0].providerId || lastProvider?.id || "";
+        const providerId =
+          availableModels[0].providerId || lastProvider?.id || "";
         setSelectedModel(createModelKey(providerId, availableModels[0].id));
         setSelectedProviderId(providerId);
       }
